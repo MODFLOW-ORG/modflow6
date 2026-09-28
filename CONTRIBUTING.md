@@ -10,6 +10,8 @@ Contributions to MODFLOW 6 are welcome. We ask that contributors follow some gui
   - [Bugs](#bugs)
   - [Questions](#questions)
   - [Requests](#requests)
+  - [Pull requests](#pull-requests)
+  - [AI and large language model use](#ai-and-large-language-model-use)
 - [Source code](#source-code)
   - [Format](#format)
   - [Style guide](#style-guide)
@@ -76,7 +78,7 @@ To submit a pull request (PR):
 4. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
 5. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
 6. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
-7. Push your branch to GitHub and create a pull request to the `develop` branch.
+7. Push your branch to GitHub and create a pull request to the `develop` branch, filling in the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md).
 8. If we suggest changes:
   a. make the required updates
   b. make sure tests still pass
@@ -90,6 +92,24 @@ If you have installed the pixi environment you can complete steps 3 and 4 using:
 ```shell
 pixi run prepare-pull-request
 ```
+
+### Pull requests
+
+Pull requests are checked automatically when they are opened or edited.
+
+- **Follow the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md).** Replace the placeholder paragraph with a description of the change, check the items you completed, and delete the rest. The "Removed checklist items not relevant to this pull request" item stays and is checked. A description that does not follow the template fails the check and a comment lists what to fix; the check runs again when the description is edited.
+- **Have one pull request open at a time.** Contributors without write access to the repository may have one open pull request. A second pull request is closed with a comment linking the open one; reopen it once the open one is merged or closed.
+- **Open an issue or a pull request for a change, not both.** A pull request for a bug fix or small feature should describe the problem as well as the change.
+- **Support performance claims with timings.** A pull request that claims a change is faster must report run times before and after the change for a model in the pull request or the test suite.
+
+### AI and large language model use
+
+AI and large language model (LLM) tools may be used to prepare issues and pull requests if:
+
+- for contributors without write access to the repository, the issue or pull request description says that AI was used and names the tool;
+- you have reviewed all generated code, documentation, and tests before asking anyone to review them &mdash; you are responsible for the contribution however it was written;
+- no commit credits an AI tool as an author, co-author, or committer, including through a `Co-Authored-By`, `Assisted-by`, or similar trailer; and
+- you answer review comments yourself.
 
 ## Source code
 
