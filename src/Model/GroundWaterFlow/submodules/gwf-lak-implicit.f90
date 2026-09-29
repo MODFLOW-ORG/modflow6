@@ -107,6 +107,10 @@ contains
       if (this%iboundpak(n) > 0) this%ifallback(n) = 1
     end do
   end if
+  n = this%iforcefblak
+  if (n > 0) then
+    if (this%iboundpak(n) > 0) this%ifallback(n) = 1
+  end if
   !
   ! -- solve the stage of any lake assigned to the substitution fallback
   !    against the current groundwater heads. A fallback lake is then

@@ -40,16 +40,13 @@ from framework import TestFramework
 cases = ["drylake", "drain", "fill"]
 
 
-def _write_implicit(test, builder, force_fallback=False):
+def _write_implicit(test, builder):
     # build and write the implicit simulation in the test workspace, enabling
-    # the IMPLICIT option (and optionally the forced substitution fallback)
+    # the IMPLICIT option
     sim, name = builder(str(test.workspace), test.targets["mf6"])
     _set_implicit(sim, name)
     sim.write_simulation(silent=True)
-    lak_file = str(test.workspace / f"{name}.lak")
-    _assert_implicit_written(lak_file)
-    if force_fallback:
-        _enable_dev_fallback(lak_file)
+    _assert_implicit_written(str(test.workspace / f"{name}.lak"))
     return sim, name
 
 
@@ -119,23 +116,6 @@ def _assert_implicit_written(lak_file):
     assert "IMPLICIT" in open(lak_file).read().upper(), (
         f"IMPLICIT was not written to {os.path.basename(lak_file)}; run update-flopy"
     )
-
-
-def _enable_dev_fallback(lak_file):
-    # add the hidden DEV_FORCE_FALLBACK option to the LAK OPTIONS block, which
-    # routes every active lake through the substitution fallback path. It is a
-    # development-only option that flopy does not expose, so unlike IMPLICIT it
-    # is written directly to the input file.
-    lines = open(lak_file).read().splitlines()
-    out = []
-    done = False
-    for ln in lines:
-        out.append(ln)
-        if ln.strip().lower() == "begin options" and not done:
-            out.append("  DEV_FORCE_FALLBACK")
-            done = True
-    assert done, f"could not find OPTIONS block in {lak_file}"
-    open(lak_file, "w").write("\n".join(out) + "\n")
 
 
 def _make_connectionless(lak_file):
@@ -1343,127 +1323,3 @@ def test_connectionless_lake_errors(function_tmpdir, targets):
         assert "implicit" in msg, msg
 
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
-
-
-@pytest.mark.developmode
-def test_two_lakes_outlet_fallback(function_tmpdir, targets):
-    # the two-lake outlet model with every lake forced onto the substitution
-    # fallback (DEV_FORCE_FALLBACK). The fallback path handles the lake-to-lake
-    # outlet routing (it zeroes and recomputes simoutrate before assembling the
-    # fallback lakes), so it must reproduce the legacy result exactly. The strict
-    # 1e-6 agreement is checked here rather than through the framework's looser
-    # head comparison.
-    def build(test):
-        sim_f, _ = _write_implicit(test, _build_twolake, force_fallback=True)
-        return sim_f, None
-
-    def check(test):
-        ws_f = str(test.workspace)
-        _assert_budget_closes(ws_f, "lk")
-
-        ws_l = test.workspace / "mf6"
-        ws_l.mkdir(exist_ok=True)
-        sim_l, _ = _build_twolake(str(ws_l), test.targets["mf6"])
-        sim_l.write_simulation(silent=True)
-        assert _run(sim_l), "legacy solver failed for the two-lake outlet model"
-
-        sl = _stages(str(ws_l), "lk")
-        sf = _stages(ws_f, "lk")
-        assert np.allclose(sl, sf, atol=1e-6), f"fallback stage mismatch: {sl} vs {sf}"
-        hl = _heads(str(ws_l), "lk")
-        hf = _heads(ws_f, "lk")
-        assert float(np.nanmax(np.abs(hl - hf))) < 1e-6, "fallback head mismatch"
-
-    _framework(function_tmpdir, targets, build, check, compare=None).run()
-
-
-@pytest.mark.developmode
-def test_outlet_mover_fallback(function_tmpdir, targets):
-    # regression test for #2968. test_lake_outlet_mover already covers an outlet
-    # routed through the mover, but not with a lake on the substitution fallback,
-    # which is what triggered the defect: the mover provider term was accumulated
-    # once in lak_fc_implicit and again at the end of the fallback-only
-    # lak_solve, so any model with a fallback lake advertised twice the outlet
-    # flow to the mover. TO-MVR came out roughly doubled and the surplus appeared
-    # as a positive EXT-OUTFLOW, an apparent inflow that let the lake budget
-    # close on the wrong flows.
-    def build(test):
-        sim_f, _ = _write_implicit(test, _build_twolake_mvr, force_fallback=True)
-        return sim_f, None
-
-    def check(test):
-        ws_f = str(test.workspace)
-        _assert_budget_closes(ws_f, "lk")
-
-        ws_l = test.workspace / "mf6"
-        ws_l.mkdir(exist_ok=True)
-        sim_l, _ = _build_twolake_mvr(str(ws_l), test.targets["mf6"])
-        sim_l.write_simulation(silent=True)
-        assert _run(sim_l), "legacy solver failed for the two-lake mover model"
-
-        ql = _lak_flows(str(ws_l), "lk", "TO-MVR")
-        qf = _lak_flows(ws_f, "lk", "TO-MVR")
-        assert np.abs(ql).max() > 1.0e-6, "the outlet did not spill to the mover"
-        assert np.allclose(ql, qf, rtol=1e-6, atol=1e-9), (
-            f"mover flow does not match the legacy solver: {ql} vs {qf}"
-        )
-
-        # the doubled provider term showed up as a positive (inflow) EXT-OUTFLOW
-        eo = _lak_flows(ws_f, "lk", "EXT-OUTFLOW")
-        assert np.abs(eo).max() < 1e-6 * np.abs(ql).max(), (
-            f"unexpected external outflow with a mover on the outlet: {eo}"
-        )
-
-    _framework(function_tmpdir, targets, build, check, compare=None).run()
-
-
-@pytest.mark.developmode
-def test_fallback_matches_legacy(function_tmpdir, targets):
-    # a weakly connected lake solved three ways, all of which must agree:
-    #   1. the legacy substitution solver,
-    #   2. the IMPLICIT formulation, and
-    #   3. the IMPLICIT formulation with every lake forced onto the substitution
-    #      fallback (DEV_FORCE_FALLBACK).
-    # case 3 routes the lake through the fallback assembly in lak_fc_implicit
-    # (solve the stage by substitution, then assemble it like a constant-stage
-    # lake), which must reproduce the legacy result. A small synthetic model does
-    # not stall the implicit solver on its own, so the fallback path is forced
-    # here to give a deterministic regression test of that assembly. The strict
-    # 1e-6 three-way agreement is checked here rather than through the framework's
-    # looser head comparison.
-    def build(test):
-        sim_i, _ = _write_implicit(test, _build_weak)
-        return sim_i, None
-
-    def check(test):
-        ws_i = str(test.workspace)
-        _assert_budget_closes(ws_i, "lk")
-
-        # legacy substitution reference
-        ws_l = test.workspace / "mf6"
-        ws_l.mkdir(exist_ok=True)
-        sim_l, _ = _build_weak(str(ws_l), test.targets["mf6"])
-        sim_l.write_simulation(silent=True)
-        assert _run(sim_l), "legacy solver failed for the weak lake"
-
-        # IMPLICIT with every lake forced onto the substitution fallback
-        ws_fb = test.workspace / "fallback"
-        ws_fb.mkdir(exist_ok=True)
-        sim_f, _ = _build_weak(str(ws_fb), test.targets["mf6"])
-        _set_implicit(sim_f, "lk")
-        sim_f.write_simulation(silent=True)
-        _assert_implicit_written(str(ws_fb / "lk.lak"))
-        _enable_dev_fallback(str(ws_fb / "lk.lak"))
-        assert _run(sim_f), "IMPLICIT with forced fallback failed for the weak lake"
-        _assert_budget_closes(str(ws_fb), "lk")
-
-        hl = _heads(str(ws_l), "lk")
-        sl = _stage(str(ws_l), "lk")
-        for label, ws in (("implicit", ws_i), ("fallback", str(ws_fb))):
-            hx = _heads(ws, "lk")
-            maxdiff = float(np.nanmax(np.abs(hl - hx)))
-            assert maxdiff < 1e-6, f"{label} head mismatch vs legacy: {maxdiff}"
-            sx = _stage(ws, "lk")
-            assert abs(sl - sx) < 1e-6, f"{label} stage mismatch: {sl} vs {sx}"
-
-    _framework(function_tmpdir, targets, build, check, compare=None).run()

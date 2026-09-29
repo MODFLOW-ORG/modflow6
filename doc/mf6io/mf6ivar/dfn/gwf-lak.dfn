@@ -284,7 +284,15 @@ type keyword
 reader urword
 optional true
 longname force the substitution fallback solution
-description keyword that solves every active lake with the substitution fallback under the implicit formulation, instead of only those lakes that are too poorly conditioned to solve as a matrix unknown.  This development option is not supported.
+description keyword that solves every active lake with the substitution fallback under the implicit formulation, instead of only those lakes that are too poorly conditioned to solve as a matrix unknown.  Cannot be specified with DEV\_FORCE\_FALLBACK\_LAKE.  This development option is not supported.
+
+block options
+name dev_force_fallback_lake
+type integer
+reader urword
+optional true
+longname force the substitution fallback solution for one lake
+description integer lake number that is solved with the substitution fallback under the implicit formulation, while the other lakes are solved as matrix unknowns.  Cannot be specified with DEV\_FORCE\_FALLBACK.  This development option is not supported.
 
 block options
 name dev_groundwater_head_conductance

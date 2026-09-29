@@ -79,6 +79,7 @@ module LakModule
     !    groundwater flow matrix instead of by the legacy substitution iteration
     integer(I4B), pointer :: iimplicit => NULL() !< flag: solve lake stage in the gwf matrix
     integer(I4B), pointer :: iforcefb => NULL() !< flag (dev): force every active lake onto the substitution fallback
+    integer(I4B), pointer :: iforcefblak => NULL() !< lake (dev) forced onto the substitution fallback, 0 if none
     ! -- for budgets
     integer(I4B), pointer :: bditems => NULL()
     ! -- vectors
@@ -413,6 +414,7 @@ contains
     call mem_allocate(this%check_attr, 'CHECK_ATTR', this%memoryPath)
     call mem_allocate(this%iimplicit, 'IIMPLICIT', this%memoryPath)
     call mem_allocate(this%iforcefb, 'IFORCEFB', this%memoryPath)
+    call mem_allocate(this%iforcefblak, 'IFORCEFBLAK', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
     call mem_allocate(this%cbcauxitems, 'CBCAUXITEMS', this%memoryPath)
     call mem_allocate(this%idense, 'IDENSE', this%memoryPath)
@@ -437,6 +439,7 @@ contains
     this%delh = DP999 * this%dmaxchg
     this%iimplicit = 0
     this%iforcefb = 0
+    this%iforcefblak = 0
     this%bditems = 11
     this%cbcauxitems = 1
     this%idense = 0
@@ -1727,6 +1730,15 @@ contains
       write (errmsg, '(a)') &
         'NLAKES WAS NOT SPECIFIED OR WAS SPECIFIED INCORRECTLY.'
       call store_error(errmsg)
+    end if
+    !
+    if (this%iforcefblak /= 0) then
+      if (this%iforcefblak < 1 .or. this%iforcefblak > this%nlakes) then
+        write (errmsg, '(a,i0,a,i0,a)') &
+          'DEV_FORCE_FALLBACK_LAKE (', this%iforcefblak, &
+          ') MUST BE BETWEEN 1 AND NLAKES (', this%nlakes, ').'
+        call store_error(errmsg)
+      end if
     end if
     !
     ! -- stop if errors were encountered in the DIMENSIONS block
@@ -3418,6 +3430,20 @@ contains
       write (this%iout, '(4x,a)') &
         'EVERY ACTIVE LAKE WILL BE SOLVED WITH THE SUBSTITUTION FALLBACK '// &
         'UNDER THE IMPLICIT FORMULATION'
+      if (this%iforcefblak /= 0) then
+        call store_error('DEV_FORCE_FALLBACK and DEV_FORCE_FALLBACK_LAKE '// &
+                         'cannot both be specified.')
+      end if
+    case ('DEV_FORCE_FALLBACK_LAKE')
+      call this%parser%DevOpt()
+      this%iforcefblak = this%parser%GetInteger()
+      write (this%iout, '(4x,a,i0,a)') 'LAKE ', this%iforcefblak, &
+        ' WILL BE SOLVED WITH THE SUBSTITUTION FALLBACK UNDER THE IMPLICIT '// &
+        'FORMULATION'
+      if (this%iforcefb /= 0) then
+        call store_error('DEV_FORCE_FALLBACK and DEV_FORCE_FALLBACK_LAKE '// &
+                         'cannot both be specified.')
+      end if
     case ('DEV_NO_FINAL_CHECK')
       call this%parser%DevOpt()
       this%iconvchk = 0
@@ -4591,6 +4617,7 @@ contains
     call mem_deallocate(this%check_attr)
     call mem_deallocate(this%iimplicit)
     call mem_deallocate(this%iforcefb)
+    call mem_deallocate(this%iforcefblak)
     call mem_deallocate(this%bditems)
     call mem_deallocate(this%cbcauxitems)
     call mem_deallocate(this%idense)
@@ -5461,7 +5488,10 @@ contains
       this%en2(n) = this%laketop(n)
       call this%lak_calculate_residual(n, this%en2(n), this%r2(n))
     end do
+    ! -- a fallback-only solve keeps the outlet rates of the implicit lakes,
+    !    which are final and still needed for the mover and downstream lakes
     do n = 1, this%noutlets
+      if (fbonly .and. this%ifallback(this%lakein(n)) == 0) cycle
       this%simoutrate(n) = DZERO
     end do
     !
