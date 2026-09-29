@@ -65,6 +65,15 @@ aliases = {
     "NSETS": "NWAVESETS",
 }
 
+# aliases checked for shared memory: one array and every scalar, since the
+# scalars are checked in through a separate mem_checkin overload
+shared_aliases = [
+    ("ETACT", "ET_UZ"),
+    ("NWAV_PVAR", "NWAVES_MAX"),
+    ("NTRAIL_PVAR", "NTRAIL_INPUT"),
+    ("NSETS", "NWAVESETS"),
+]
+
 # model spatial dimensions
 nlay, nrow, ncol = 3, 3, 3
 
@@ -206,14 +215,16 @@ def api_func(exe, idx, model_ws=None):
         elif not np.array_equal(vold, vnew):
             failures.append(f"{old} -> {new}: values differ")
 
-    # -- an alias must share memory with the renamed variable, not copy it
-    etact = mf6.get_value_ptr(mf6.get_var_address("ETACT", name, "UZF-1"))
-    et_uz = mf6.get_value_ptr(mf6.get_var_address("ET_UZ", name, "UZF-1"))
-    saved = etact[0]
-    etact[0] = -12345.0
-    if et_uz[0] != -12345.0:
-        failures.append("ETACT does not share memory with ET_UZ")
-    etact[0] = saved
+    # -- an alias must share memory with the renamed variable, not copy it;
+    #    checked for an array and for each scalar alias
+    for old, new in shared_aliases:
+        vold = mf6.get_value_ptr(mf6.get_var_address(old, name, "UZF-1"))
+        vnew = mf6.get_value_ptr(mf6.get_var_address(new, name, "UZF-1"))
+        saved = vold.flat[0]
+        vold.flat[0] = saved + 7
+        if vnew.flat[0] != saved + 7:
+            failures.append(f"{old} does not share memory with {new}")
+        vold.flat[0] = saved
 
     try:
         mf6.finalize()
