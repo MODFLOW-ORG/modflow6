@@ -48,20 +48,20 @@ contains
 
     call uzf%init(NCELLS, NWAV, create_mem_path('TESTUZF', tag))
     do icell = 1, NCELLS
-      uzf%thtr(icell) = THETA_RES
-      uzf%thts(icell) = THETA_SAT
-      uzf%eps(icell) = 4.0_DP
+      uzf%theta_res(icell) = THETA_RES
+      uzf%theta_sat(icell) = THETA_SAT
+      uzf%bc_eps(icell) = 4.0_DP
       uzf%vks(icell) = 1.0_DP
-      uzf%ha(icell) = 0.5_DP
+      uzf%air_entry(icell) = 0.5_DP
       uzf%celtop(icell) = 100.0_DP
       uzf%celbot(icell) = 80.0_DP
-      uzf%watab(icell) = 90.0_DP
-      uzf%nwavst(icell) = 3
+      uzf%water_table(icell) = 90.0_DP
+      uzf%nwaves(icell) = 3
       do j = 1, 3
-        uzf%uzdpst(j, icell) = DEPTH(j)
-        uzf%uzthst(j, icell) = THETA(j)
-        uzf%uzflst(j, icell) = DZERO
-        uzf%uzspst(j, icell) = DZERO
+        uzf%wave_depth(j, icell) = DEPTH(j)
+        uzf%wave_theta(j, icell) = THETA(j)
+        uzf%wave_flux(j, icell) = DZERO
+        uzf%wave_speed(j, icell) = DZERO
       end do
     end do
   end subroutine setup
@@ -77,22 +77,22 @@ contains
     call uzf%store_waves(ICELL, uzf%wavsav)
 
     ! -- overwrite the train, as a trial solution would
-    uzf%nwavst(ICELL) = 1
+    uzf%nwaves(ICELL) = 1
     do j = 1, 3
-      uzf%uzdpst(j, ICELL) = -DONE
-      uzf%uzthst(j, ICELL) = -DONE
-      uzf%uzflst(j, ICELL) = -DONE
-      uzf%uzspst(j, ICELL) = -DONE
+      uzf%wave_depth(j, ICELL) = -DONE
+      uzf%wave_theta(j, ICELL) = -DONE
+      uzf%wave_flux(j, ICELL) = -DONE
+      uzf%wave_speed(j, ICELL) = -DONE
     end do
 
     call uzf%load_waves(ICELL, uzf%wavsav)
 
-    call check(error, uzf%nwavst(ICELL), 3)
+    call check(error, uzf%nwaves(ICELL), 3)
     if (allocated(error)) return
     do j = 1, 3
-      call check(error, uzf%uzdpst(j, ICELL), DEPTH(j))
+      call check(error, uzf%wave_depth(j, ICELL), DEPTH(j))
       if (allocated(error)) return
-      call check(error, uzf%uzthst(j, ICELL), THETA(j))
+      call check(error, uzf%wave_theta(j, ICELL), THETA(j))
       if (allocated(error)) return
     end do
   end subroutine test_store_load_roundtrip
@@ -105,18 +105,18 @@ contains
     integer(I4B) :: j
 
     call setup(uzf, 'OTHERCELLS')
-    uzf%uzthst(1, 1) = 0.25_DP
-    uzf%uzthst(1, 3) = 0.27_DP
+    uzf%wave_theta(1, 1) = 0.25_DP
+    uzf%wave_theta(1, 3) = 0.27_DP
 
     call uzf%store_waves(ICELL, uzf%wavsav)
     do j = 1, 3
-      uzf%uzthst(j, ICELL) = DZERO
+      uzf%wave_theta(j, ICELL) = DZERO
     end do
     call uzf%load_waves(ICELL, uzf%wavsav)
 
-    call check(error, uzf%uzthst(1, 1), 0.25_DP)
+    call check(error, uzf%wave_theta(1, 1), 0.25_DP)
     if (allocated(error)) return
-    call check(error, uzf%uzthst(1, 3), 0.27_DP)
+    call check(error, uzf%wave_theta(1, 3), 0.27_DP)
   end subroutine test_store_load_other_cells
 
   !> @brief Shifting by -1 opens position 1 for a new wave at the surface
@@ -129,13 +129,13 @@ contains
     ! -- move waves 1..3 up to 2..4, counting down so the source stays ahead
     call uzf%shift_waves(ICELL, -1, 4, 2, -1)
 
-    call check(error, uzf%uzdpst(2, ICELL), DEPTH(1))
+    call check(error, uzf%wave_depth(2, ICELL), DEPTH(1))
     if (allocated(error)) return
-    call check(error, uzf%uzdpst(3, ICELL), DEPTH(2))
+    call check(error, uzf%wave_depth(3, ICELL), DEPTH(2))
     if (allocated(error)) return
-    call check(error, uzf%uzdpst(4, ICELL), DEPTH(3))
+    call check(error, uzf%wave_depth(4, ICELL), DEPTH(3))
     if (allocated(error)) return
-    call check(error, uzf%uzthst(2, ICELL), THETA(1))
+    call check(error, uzf%wave_theta(2, ICELL), THETA(1))
   end subroutine test_shift_waves_up
 
   !> @brief Shifting by +1 drops the deepest wave off the bottom
@@ -148,11 +148,11 @@ contains
     ! -- move waves 2..3 down to 1..2, counting up so the source stays ahead
     call uzf%shift_waves(ICELL, 1, 1, 2, 1)
 
-    call check(error, uzf%uzdpst(1, ICELL), DEPTH(2))
+    call check(error, uzf%wave_depth(1, ICELL), DEPTH(2))
     if (allocated(error)) return
-    call check(error, uzf%uzdpst(2, ICELL), DEPTH(3))
+    call check(error, uzf%wave_depth(2, ICELL), DEPTH(3))
     if (allocated(error)) return
-    call check(error, uzf%uzthst(1, ICELL), THETA(2))
+    call check(error, uzf%wave_theta(1, ICELL), THETA(2))
   end subroutine test_shift_waves_down
 
   !> @brief Mobile water over the full train is the sum of the wave segments
@@ -200,7 +200,7 @@ contains
     real(DP) :: expected
 
     call setup(uzf, 'GETWCNEW')
-    thk = uzf%celtop(ICELL) - uzf%watab(ICELL)
+    thk = uzf%celtop(ICELL) - uzf%water_table(ICELL)
     d = thk
     expected = uzf%unsat_stor(ICELL, d) / thk + THETA_RES
 
@@ -235,13 +235,13 @@ contains
     call setup(uzf, 'CAPH')
     tho = 0.20_DP
     star = (tho - THETA_RES) / (THETA_SAT - THETA_RES)
-    lambda = DTWO / (uzf%eps(ICELL) - 3.0_DP)
-    expected = uzf%ha(ICELL) * star**(-DONE / lambda)
+    lambda = DTWO / (uzf%bc_eps(ICELL) - 3.0_DP)
+    expected = uzf%air_entry(ICELL) * star**(-DONE / lambda)
 
     call check(error, uzf%caph(ICELL, tho), expected, thr=1.0e-12_DP)
     if (allocated(error)) return
     ! -- at saturation the head is the air entry potential
-    call check(error, uzf%caph(ICELL, THETA_SAT), uzf%ha(ICELL), &
+    call check(error, uzf%caph(ICELL, THETA_SAT), uzf%air_entry(ICELL), &
                thr=1.0e-12_DP)
     if (allocated(error)) return
     ! -- above saturation there is no capillary head
