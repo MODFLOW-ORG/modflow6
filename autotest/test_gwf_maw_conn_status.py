@@ -14,8 +14,13 @@ Cases:
   - maw_cs_override : a connection is deactivated, then the whole well is made
                       INACTIVE and ACTIVE again; the connection must still be
                       inactive afterwards.
+  - maw_cs_constant : as maw_cs_override, with the well made CONSTANT instead
+                      of ACTIVE.
   - maw_cs_noop     : every connection is explicitly ACTIVE, which must give the
                       same results as a model with no CONNECTION_STATUS setting.
+
+A separate test checks that making every connection of a well INACTIVE is an
+error, since STATUS INACTIVE is used to deactivate a well (xfail).
 """
 
 import os
@@ -25,7 +30,13 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["maw_cs_plug", "maw_cs_deepen", "maw_cs_override", "maw_cs_noop"]
+cases = [
+    "maw_cs_plug",
+    "maw_cs_deepen",
+    "maw_cs_override",
+    "maw_cs_constant",
+    "maw_cs_noop",
+]
 
 nlay, nrow, ncol, nper = 3, 1, 5, 3
 botm = [-10.0, -20.0, -30.0]
@@ -50,6 +61,11 @@ settings = {
         0: [[0, "rate", mawrate], [0, "connection_status", 2, "inactive"]],
         1: [[0, "status", "inactive"]],
         2: [[0, "status", "active"]],
+    },
+    "maw_cs_constant": {
+        0: [[0, "rate", mawrate], [0, "connection_status", 2, "inactive"]],
+        1: [[0, "status", "inactive"]],
+        2: [[0, "status", "constant"], [0, "well_head", -5.0]],
     },
     "maw_cs_noop": {
         0: [[0, "rate", mawrate]]
@@ -172,7 +188,7 @@ def check_output(idx, test):
         assert np.isclose(terms[0][1][deep], 0.0), "connection must start inactive"
         assert not np.isclose(terms[1][1][deep], 0.0), "connection must be activated"
         assert not np.isclose(terms[2][1][deep], 0.0), "connection must stay active"
-    elif name == "maw_cs_override":
+    elif name in ("maw_cs_override", "maw_cs_constant"):
         assert np.isclose(terms[0][1][deep], 0.0), "connection must be inactive"
         assert not np.isclose(terms[0][1][0], 0.0), "other connections must flow"
         # an inactive well suspends every connection
@@ -199,5 +215,32 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+    )
+    test.run()
+
+
+def test_all_connections_inactive(function_tmpdir, targets):
+    # deactivating every connection of a well is an error; the well is
+    # deactivated with STATUS INACTIVE instead
+    name = "maw_cs_allinact"
+    perioddata = {
+        0: [[0, "rate", mawrate]],
+        1: [[0, "connection_status", k, "inactive"] for k in range(nlay)],
+    }
+
+    def check(test):
+        text = open(os.path.join(test.workspace, "mfsim.lst")).read()
+        assert "Every connection of maw well 1 is inactive" in text, (
+            "expected the all-connections-inactive error"
+        )
+        assert "STATUS INACTIVE" in text, "expected the STATUS INACTIVE remedy"
+
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: (get_model(name, t.workspace, perioddata), None),
+        check=check,
+        xfail=True,
     )
     test.run()

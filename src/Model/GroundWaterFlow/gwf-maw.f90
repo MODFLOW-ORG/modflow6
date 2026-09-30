@@ -2093,6 +2093,7 @@ contains
     integer(I4B) :: j
     integer(I4B) :: jpos
     integer(I4B) :: jj
+    integer(I4B) :: nactive
     integer(I4B) :: icon
     integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
@@ -2351,6 +2352,22 @@ contains
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
+      !
+      ! -- a well must keep at least one active connection; STATUS INACTIVE,
+      !    not CONNECTION_STATUS, is used to deactivate every connection
+      do imaw = 1, this%nmawwells
+        nactive = 0
+        do jj = 1, this%ngwfnodes(imaw)
+          jpos = this%get_jpos(imaw, jj)
+          if (this%iboundconn(jpos) /= 0) nactive = nactive + 1
+        end do
+        if (nactive == 0) then
+          write (errmsg, '(a,1x,i0,1x,a)') &
+            'Every connection of maw well', imaw, 'is inactive. Use '// &
+            'STATUS INACTIVE to deactivate all connections of a well.'
+          call store_error(errmsg)
+        end if
+      end do
       !
       ! -- using data from the last stress period
     else
