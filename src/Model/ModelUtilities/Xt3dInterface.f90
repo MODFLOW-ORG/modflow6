@@ -661,6 +661,12 @@ contains
       call this%xt3d_qnbrs(nodes, m, n, nnbr1, inbr1, chat1j, hnew, qnbrs)
       qnm = qnm - qnbrs
       ! -- Multiply by saturated area and add correction to qsat.
+      !    xt3d_fc selected the upstream cell from qsat before this
+      !    correction was added. That is consistent only because the HFB
+      !    correction reduces the magnitude of the flow and cannot reverse
+      !    its sign; a future correction that could change the sign of
+      !    qsat would require the upstream cell to be selected after all
+      !    corrections are applied.
       call this%xt3d_areas(nodes, n, m, jjs01, .true., ar01, ar10, hnew)
       this%qsat(ii01) = this%qsat(ii01) + qnm * ar01
       ! -- Scale coefficients by actual area.
@@ -1307,6 +1313,8 @@ contains
   !> @brief Compute interfacial areas.
   !<
   subroutine xt3d_areas(this, nodes, n, m, jjs01, lsat, ar01, ar10, hnew, qsat)
+    ! -- modules
+    use SimModule, only: store_error
     ! -- dummy
     class(Xt3dType) :: this
     logical :: lsat
@@ -1364,10 +1372,15 @@ contains
           else
             satups = this%sat(m)
           end if
-        else if (hnew(m) < hnew(n)) then
-          satups = this%sat(n)
         else
-          satups = this%sat(m)
+          !
+          ! -- Every Newton call for the actual area must provide qsat;
+          !    selecting the upstream cell from the head difference instead
+          !    would reintroduce the discontinuity described above
+          call store_error('Program error: xt3d_areas called for a Newton &
+                           &horizontal connection without the saturated &
+                           &flow qsat.', terminate=.TRUE.)
+          satups = DZERO
         end if
         ar01 = ar01 * satups
       end if
