@@ -278,3 +278,36 @@ def test_mf6model(idx, name, function_tmpdir, targets, export, gridded_input):
         cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
     )
     test.run()
+
+
+def check_output_legacy_mesh_attr(idx, test, export, gridded_input):
+    """Same as check_output, but first rewrites the generated UGRID netcdf
+    file's `modflow_mesh` global attribute back to the legacy unprefixed
+    `mesh` name, to verify NCContextBuild.f90's backward-compatible fallback
+    still reads such files correctly.
+    """
+    fname = f"rch.{export}.nc"
+    with nc.Dataset(test.workspace / fname, "r+") as ds:
+        value = ds.getncattr("modflow_mesh")
+        ds.delncattr("modflow_mesh")
+        ds.setncattr("mesh", value)
+
+    check_output(idx, test, export, gridded_input)
+
+
+@pytest.mark.netcdf
+def test_mf6model_legacy_mesh_attr(function_tmpdir, targets):
+    """Backward compatibility: a UGRID netcdf input file carrying only the
+    legacy unprefixed `mesh` global attribute (as written by MF6 versions
+    before the modflow_mesh rename) must still be read correctly.
+    """
+    idx, export, gridded_input = 0, "ugrid", "netcdf"
+    test = TestFramework(
+        name=cases[idx],
+        workspace=function_tmpdir,
+        build=lambda t: build_models(idx, t, export, gridded_input),
+        check=lambda t: check_output_legacy_mesh_attr(idx, t, export, gridded_input),
+        targets=targets,
+        cargs=["--mode=validate"],
+    )
+    test.run()

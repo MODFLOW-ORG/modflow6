@@ -10,7 +10,7 @@ module NCModelExportModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, LENCOMPONENTNAME, LENMODELNAME, &
                              LENMEMPATH, LENBIGLINE, LENVARNAME, MVALIDATE, &
-                             DIS, DISU, DISV
+                             DIS, DISU, DISV, DPIO180, DZERO
   use SimVariablesModule, only: isim_mode, idm_context, errmsg
   use SimModule, only: store_error, store_error_filename
   use InputLoadTypeModule, only: ModelDynamicPkgsType
@@ -25,7 +25,10 @@ module NCModelExportModule
   public :: ExportPackageType
   public :: NETCDF_UNDEF, NETCDF_STRUCTURED, NETCDF_MESH2D
   public :: export_longname, export_varname
-  public :: wkt_to_cf_gridmapping
+  public :: wkt_to_cf_gridmapping, wrap_rotated_crs
+  public :: wkt_transverse_mercator_params
+  public :: wkt_lambert_conformal_conic_params
+  public :: wkt_albers_conical_equal_area_params
 
   !> @brief netcdf export types enumerator
   !<
@@ -222,7 +225,7 @@ contains
     this%longname = ''
 
     ! set file conventions
-    this%conventions = 'CF-1.11'
+    this%conventions = 'CF-1.13'
     if (nctype == NETCDF_MESH2D) this%conventions = &
       trim(this%conventions)//' UGRID-1.0'
 
@@ -558,7 +561,7 @@ contains
     end do
   end subroutine export_input
 
-  !> @brief map a WKT string to a CF-1.11 grid_mapping_name
+  !> @brief map a WKT string to a CF-1.13 grid_mapping_name
   !!
   !! Accepts either WKT1 (OGC 01-009, PROJECTION["name"]) or WKT2
   !! (ISO 19162:2019, METHOD["name"]) format.  WKT1 is tried first;
@@ -642,6 +645,367 @@ contains
       gmname = 'polar_stereographic'
     end select
   end function wkt_to_cf_gridmapping
+
+  !> @brief find the first number following a quoted parameter name
+  !!
+  !! Matches e.g. PARAMETER["central_meridian",-117] (WKT1) or
+  !! PARAMETER["Longitude of natural origin",-117,...] (WKT2).
+  !! Best-effort only -- MF6 has no CRS parsing library.  found=.false.
+  !! if name is not present or no number follows it.
+  !<
+  function wkt_find_param(wkt, name, found) result(value)
+    use InputOutputModule, only: upcase
+    character(len=*), intent(in) :: wkt
+    character(len=*), intent(in) :: name
+    logical(LGP), intent(out) :: found
+    real(DP) :: value
+    character(len=LENBIGLINE) :: wkt_upper
+    character(len=LINELENGTH) :: target_upper
+    integer :: ipos, istart, iend, ios, wkt_len
+
+    found = .false.
+    value = DZERO
+    wkt_len = len_trim(wkt)
+    target_upper = '"'//trim(name)//'"'
+    wkt_upper = wkt
+    call upcase(wkt_upper)
+    call upcase(target_upper)
+    ipos = index(wkt_upper(1:wkt_len), trim(target_upper))
+    if (ipos == 0) return
+
+    istart = ipos + len_trim(target_upper)
+    do while (istart <= wkt_len)
+      if (wkt(istart:istart) == ',') exit
+      istart = istart + 1
+    end do
+    istart = istart + 1
+    iend = istart
+    do while (iend <= wkt_len)
+      if (wkt(iend:iend) == ',' .or. wkt(iend:iend) == ']') exit
+      iend = iend + 1
+    end do
+    if (iend <= istart) return
+    read (wkt(istart:iend - 1), *, iostat=ios) value
+    if (ios == 0) found = .true.
+  end function wkt_find_param
+
+  !> @brief find semi-major axis and inverse flattening from a WKT string
+  !!
+  !! Matches SPHEROID["name",A,B,...] (WKT1) or ELLIPSOID["name",A,B,...]
+  !! (WKT2).  Best-effort only.  found=.false. if neither keyword is
+  !! present or the two numbers cannot be read.
+  !<
+  subroutine wkt_find_ellipsoid(wkt, semi_major_axis, inverse_flattening, found)
+    use InputOutputModule, only: upcase
+    character(len=*), intent(in) :: wkt
+    real(DP), intent(out) :: semi_major_axis
+    real(DP), intent(out) :: inverse_flattening
+    logical(LGP), intent(out) :: found
+    character(len=LENBIGLINE) :: wkt_upper
+    integer :: ipos, i, iend, ios, wkt_len, nquote
+
+    found = .false.
+    semi_major_axis = DZERO
+    inverse_flattening = DZERO
+    wkt_len = len_trim(wkt)
+    wkt_upper = wkt
+    call upcase(wkt_upper)
+
+    ipos = index(wkt_upper(1:wkt_len), 'SPHEROID[')
+    if (ipos == 0) ipos = index(wkt_upper(1:wkt_len), 'ELLIPSOID[')
+    if (ipos == 0) return
+
+    ! skip past the quoted ellipsoid name (its closing quote)
+    i = ipos
+    nquote = 0
+    do while (i <= wkt_len)
+      if (wkt(i:i) == '"') nquote = nquote + 1
+      if (nquote == 2) exit
+      i = i + 1
+    end do
+    if (nquote < 2) return
+    i = i + 1
+    if (wkt(i:i) == ',') i = i + 1
+
+    iend = i
+    do while (iend <= wkt_len)
+      if (wkt(iend:iend) == ',') exit
+      iend = iend + 1
+    end do
+    if (iend <= i) return
+    read (wkt(i:iend - 1), *, iostat=ios) semi_major_axis
+    if (ios /= 0) return
+
+    i = iend + 1
+    iend = i
+    do while (iend <= wkt_len)
+      if (wkt(iend:iend) == ',' .or. wkt(iend:iend) == ']') exit
+      iend = iend + 1
+    end do
+    if (iend <= i) return
+    read (wkt(i:iend - 1), *, iostat=ios) inverse_flattening
+    if (ios == 0) found = .true.
+  end subroutine wkt_find_ellipsoid
+
+  !> @brief extract CF transverse_mercator grid_mapping parameters
+  !!
+  !! Best-effort extraction from a WKT1 or WKT2 string -- MF6 has no
+  !! CRS parsing library.  Tries WKT1 parameter names first, falling
+  !! back to WKT2 names.  found=.false. if any parameter cannot be
+  !! located.
+  !<
+  subroutine wkt_transverse_mercator_params(wkt, longitude_of_central_meridian, &
+                                            latitude_of_projection_origin, &
+                                            scale_factor_at_central_meridian, &
+                                            false_easting, false_northing, &
+                                            semi_major_axis, inverse_flattening, &
+                                            found)
+    character(len=*), intent(in) :: wkt
+    real(DP), intent(out) :: longitude_of_central_meridian
+    real(DP), intent(out) :: latitude_of_projection_origin
+    real(DP), intent(out) :: scale_factor_at_central_meridian
+    real(DP), intent(out) :: false_easting
+    real(DP), intent(out) :: false_northing
+    real(DP), intent(out) :: semi_major_axis
+    real(DP), intent(out) :: inverse_flattening
+    logical(LGP), intent(out) :: found
+    logical(LGP) :: f1, f2, f3, f4, f5, f6
+
+    longitude_of_central_meridian = wkt_find_param(wkt, 'central_meridian', f1)
+    if (.not. f1) longitude_of_central_meridian = &
+      wkt_find_param(wkt, 'Longitude of natural origin', f1)
+
+    latitude_of_projection_origin = wkt_find_param(wkt, 'latitude_of_origin', f2)
+    if (.not. f2) latitude_of_projection_origin = &
+      wkt_find_param(wkt, 'Latitude of natural origin', f2)
+
+    scale_factor_at_central_meridian = wkt_find_param(wkt, 'scale_factor', f3)
+    if (.not. f3) scale_factor_at_central_meridian = &
+      wkt_find_param(wkt, 'Scale factor at natural origin', f3)
+
+    false_easting = wkt_find_param(wkt, 'false_easting', f4)
+    if (.not. f4) false_easting = wkt_find_param(wkt, 'False easting', f4)
+
+    false_northing = wkt_find_param(wkt, 'false_northing', f5)
+    if (.not. f5) false_northing = wkt_find_param(wkt, 'False northing', f5)
+
+    call wkt_find_ellipsoid(wkt, semi_major_axis, inverse_flattening, f6)
+
+    found = f1 .and. f2 .and. f3 .and. f4 .and. f5 .and. f6
+  end subroutine wkt_transverse_mercator_params
+
+  !> @brief extract CF lambert_conformal_conic grid_mapping parameters
+  !!
+  !! Best-effort extraction from a WKT1 or WKT2 string -- MF6 has no
+  !! CRS parsing library.  2SP (two standard parallels) only: CF's
+  !! lambert_conformal_conic has no scale_factor attribute, so a 1SP
+  !! (scale-factor-based) WKT cannot be exactly represented without
+  !! trigonometric conversion MF6 has no library for.  is_2sp=.false.
+  !! if a second standard parallel is not present (i.e. likely 1SP);
+  !! found=.false. if is_2sp but any other parameter cannot be located.
+  !<
+  subroutine wkt_lambert_conformal_conic_params(wkt, standard_parallel_1, &
+                                                standard_parallel_2, &
+                                                longitude_of_central_meridian, &
+                                                latitude_of_projection_origin, &
+                                                false_easting, false_northing, &
+                                                semi_major_axis, &
+                                                inverse_flattening, is_2sp, found)
+    character(len=*), intent(in) :: wkt
+    real(DP), intent(out) :: standard_parallel_1
+    real(DP), intent(out) :: standard_parallel_2
+    real(DP), intent(out) :: longitude_of_central_meridian
+    real(DP), intent(out) :: latitude_of_projection_origin
+    real(DP), intent(out) :: false_easting
+    real(DP), intent(out) :: false_northing
+    real(DP), intent(out) :: semi_major_axis
+    real(DP), intent(out) :: inverse_flattening
+    logical(LGP), intent(out) :: is_2sp
+    logical(LGP), intent(out) :: found
+    logical(LGP) :: f1, f2, f3, f4, f5, f6, f7
+
+    standard_parallel_2 = wkt_find_param(wkt, 'standard_parallel_2', f2)
+    if (.not. f2) standard_parallel_2 = &
+      wkt_find_param(wkt, 'Latitude of 2nd standard parallel', f2)
+    is_2sp = f2
+    if (.not. is_2sp) then
+      found = .false.
+      return
+    end if
+
+    standard_parallel_1 = wkt_find_param(wkt, 'standard_parallel_1', f1)
+    if (.not. f1) standard_parallel_1 = &
+      wkt_find_param(wkt, 'Latitude of 1st standard parallel', f1)
+
+    longitude_of_central_meridian = wkt_find_param(wkt, 'central_meridian', f3)
+    if (.not. f3) longitude_of_central_meridian = &
+      wkt_find_param(wkt, 'Longitude of false origin', f3)
+
+    latitude_of_projection_origin = wkt_find_param(wkt, 'latitude_of_origin', f4)
+    if (.not. f4) latitude_of_projection_origin = &
+      wkt_find_param(wkt, 'Latitude of false origin', f4)
+
+    false_easting = wkt_find_param(wkt, 'false_easting', f5)
+    if (.not. f5) false_easting = &
+      wkt_find_param(wkt, 'Easting at false origin', f5)
+
+    false_northing = wkt_find_param(wkt, 'false_northing', f6)
+    if (.not. f6) false_northing = &
+      wkt_find_param(wkt, 'Northing at false origin', f6)
+
+    call wkt_find_ellipsoid(wkt, semi_major_axis, inverse_flattening, f7)
+
+    found = f1 .and. f3 .and. f4 .and. f5 .and. f6 .and. f7
+  end subroutine wkt_lambert_conformal_conic_params
+
+  !> @brief extract CF albers_conical_equal_area grid_mapping parameters
+  !!
+  !! Best-effort extraction from a WKT1 or WKT2 string -- MF6 has no
+  !! CRS parsing library.  found=.false. if any parameter cannot be
+  !! located.
+  !<
+  subroutine wkt_albers_conical_equal_area_params(wkt, standard_parallel_1, &
+                                                  standard_parallel_2, &
+                                                  longitude_of_central_meridian, &
+                                                  latitude_of_projection_origin, &
+                                                  false_easting, &
+                                                  false_northing, &
+                                                  semi_major_axis, &
+                                                  inverse_flattening, found)
+    character(len=*), intent(in) :: wkt
+    real(DP), intent(out) :: standard_parallel_1
+    real(DP), intent(out) :: standard_parallel_2
+    real(DP), intent(out) :: longitude_of_central_meridian
+    real(DP), intent(out) :: latitude_of_projection_origin
+    real(DP), intent(out) :: false_easting
+    real(DP), intent(out) :: false_northing
+    real(DP), intent(out) :: semi_major_axis
+    real(DP), intent(out) :: inverse_flattening
+    logical(LGP), intent(out) :: found
+    logical(LGP) :: f1, f2, f3, f4, f5, f6, f7
+
+    standard_parallel_1 = wkt_find_param(wkt, 'standard_parallel_1', f1)
+    if (.not. f1) standard_parallel_1 = &
+      wkt_find_param(wkt, 'Latitude of 1st standard parallel', f1)
+
+    standard_parallel_2 = wkt_find_param(wkt, 'standard_parallel_2', f2)
+    if (.not. f2) standard_parallel_2 = &
+      wkt_find_param(wkt, 'Latitude of 2nd standard parallel', f2)
+
+    longitude_of_central_meridian = wkt_find_param(wkt, 'longitude_of_center', f3)
+    if (.not. f3) longitude_of_central_meridian = &
+      wkt_find_param(wkt, 'Longitude of false origin', f3)
+
+    latitude_of_projection_origin = wkt_find_param(wkt, 'latitude_of_center', f4)
+    if (.not. f4) latitude_of_projection_origin = &
+      wkt_find_param(wkt, 'Latitude of false origin', f4)
+
+    false_easting = wkt_find_param(wkt, 'false_easting', f5)
+    if (.not. f5) false_easting = &
+      wkt_find_param(wkt, 'Easting at false origin', f5)
+
+    false_northing = wkt_find_param(wkt, 'false_northing', f6)
+    if (.not. f6) false_northing = &
+      wkt_find_param(wkt, 'Northing at false origin', f6)
+
+    call wkt_find_ellipsoid(wkt, semi_major_axis, inverse_flattening, f7)
+
+    found = f1 .and. f2 .and. f3 .and. f4 .and. f5 .and. f6 .and. f7
+  end subroutine wkt_albers_conical_equal_area_params
+
+  !> @brief wrap a WKT2 PROJCRS in a derived CRS encoding grid rotation
+  !!
+  !! Builds a DerivedProjectedCRS wrapping the given WKT2 PROJCRS in an
+  !! EPSG:9624 (affine parametric transformation) deriving conversion
+  !! parameterized from xorigin/yorigin/angrot (degrees). Per ISO 19111,
+  !! a deriving conversion is directed base->derived, so the parameters
+  !! encode the world->local (inverse) rotation; a CRS-aware consumer
+  !! applies the inverse to resolve true position from local coordinates.
+  !! Returns '' if wkt is not recognized as a WKT2 PROJCRS -- a
+  !! best-effort structural check only, as MF6 has no CRS parsing
+  !! library and does not validate the WKT beyond this.
+  !<
+  function wrap_rotated_crs(wkt, xorigin, yorigin, angrot) result(derived_wkt)
+    use InputOutputModule, only: upcase
+    character(len=*), intent(in) :: wkt
+    real(DP), intent(in) :: xorigin, yorigin, angrot
+    character(len=LENBIGLINE) :: derived_wkt
+    character(len=LENBIGLINE) :: wkt_trim, wkt_upper, base_body, conversion
+    character(len=30) :: a0s, a1s, a2s, b0s, b1s, b2s
+    integer :: nstart, i, depth, closures, iend, wkt_len
+    real(DP) :: ang, a0, a1, a2, b0, b1, b2
+
+    derived_wkt = ''
+
+    ! best-effort check that wkt is a WKT2 PROJCRS
+    wkt_trim = trim(adjustl(wkt))
+    wkt_len = len_trim(wkt_trim)
+    wkt_upper = wkt_trim
+    call upcase(wkt_upper)
+    if (wkt_len < 9 .or. wkt_upper(1:8) /= 'PROJCRS[') return
+
+    ! locate the end of PROJCRS's 2nd top-level child (the mandatory
+    ! BASEGEOGCRS/BASEGEODCRS and CONVERSION elements, in that order),
+    ! by tracking bracket depth from just inside the opening '['
+    nstart = 9
+    depth = 0
+    closures = 0
+    iend = 0
+    do i = nstart, wkt_len
+      if (wkt_trim(i:i) == '[') then
+        depth = depth + 1
+      else if (wkt_trim(i:i) == ']') then
+        depth = depth - 1
+        if (depth == 0) then
+          closures = closures + 1
+          if (closures == 2) then
+            iend = i
+            exit
+          end if
+        end if
+      end if
+    end do
+    if (iend == 0) return
+    base_body = wkt_trim(nstart:iend)
+
+    ! EPSG:9624 affine parameters, base(world) -> derived(local grid)
+    ang = angrot * DPIO180
+    a0 = -(xorigin * cos(ang) + yorigin * sin(ang))
+    a1 = cos(ang)
+    a2 = sin(ang)
+    b0 = xorigin * sin(ang) - yorigin * cos(ang)
+    b1 = -sin(ang)
+    b2 = cos(ang)
+    write (a0s, '(es22.15)') a0
+    write (a1s, '(es22.15)') a1
+    write (a2s, '(es22.15)') a2
+    write (b0s, '(es22.15)') b0
+    write (b1s, '(es22.15)') b1
+    write (b2s, '(es22.15)') b2
+
+    conversion = 'DERIVINGCONVERSION["MODFLOW 6 grid rotation",'// &
+                 'METHOD["Affine parametric transformation",'// &
+                 'ID["EPSG",9624]],'// &
+                 'PARAMETER["A0",'//trim(adjustl(a0s))// &
+                 ',LENGTHUNIT["metre",1]],'// &
+                 'PARAMETER["A1",'//trim(adjustl(a1s))// &
+                 ',SCALEUNIT["unity",1]],'// &
+                 'PARAMETER["A2",'//trim(adjustl(a2s))// &
+                 ',SCALEUNIT["unity",1]],'// &
+                 'PARAMETER["B0",'//trim(adjustl(b0s))// &
+                 ',LENGTHUNIT["metre",1]],'// &
+                 'PARAMETER["B1",'//trim(adjustl(b1s))// &
+                 ',SCALEUNIT["unity",1]],'// &
+                 'PARAMETER["B2",'//trim(adjustl(b2s))// &
+                 ',SCALEUNIT["unity",1]]]'
+
+    derived_wkt = 'DERIVEDPROJCRS["MODFLOW 6 rotated grid CRS",'// &
+                  'BASEPROJCRS['//trim(base_body)//'],'// &
+                  trim(conversion)//','// &
+                  'CS[Cartesian,2],'// &
+                  'AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],'// &
+                  'AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]]]'
+  end function wrap_rotated_crs
 
   !> @brief destroy model netcdf export object
   !<

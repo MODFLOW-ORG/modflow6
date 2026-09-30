@@ -119,6 +119,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: ncid
     character(len=NETCDF_ATTR_STRLEN) :: grid, mesh, nctype
+    integer(I4B) :: mesh_ierr
 
     ! initialize grid
     grid = ''
@@ -129,8 +130,13 @@ contains
     if (nf90_get_att(ncid, NF90_GLOBAL, "modflow_grid", &
                      grid) == NF90_NOERR) then
       call upcase(grid)
-      if (nf90_get_att(ncid, NF90_GLOBAL, "mesh", &
-                       mesh) == NF90_NOERR) then
+      mesh_ierr = nf90_get_att(ncid, NF90_GLOBAL, "modflow_mesh", mesh)
+      if (mesh_ierr /= NF90_NOERR) then
+        ! fall back to the legacy unprefixed name for files written by
+        ! older MF6 versions
+        mesh_ierr = nf90_get_att(ncid, NF90_GLOBAL, "mesh", mesh)
+      end if
+      if (mesh_ierr == NF90_NOERR) then
         call upcase(mesh)
         if (mesh == 'LAYERED') then
           nctype = 'LAYERED MESH'
@@ -142,7 +148,7 @@ contains
       else if (grid == 'STRUCTURED') then
         nctype = 'STRUCTURED'
       else if (grid == 'VERTEX' .or. grid == 'LAYERED MESH') then
-        warnmsg = 'Verify "modflow_grid" and "mesh" global &
+        warnmsg = 'Verify "modflow_grid" and "modflow_mesh" global &
                   &attributes in file: '//trim(nc_fname)
         call store_warning(warnmsg)
         nctype = 'LAYERED MESH'
