@@ -13,11 +13,11 @@ cases = ["ts_uzf01"]
 def get_model(ws, name, timeseries=False):
     # static model data
     # temporal discretization
-    nper = 1
+    nper = 3
     tdis_rc = []
     for _ in range(nper):
-        tdis_rc.append((1.0, 1, 1.0))
-    ts_times = np.arange(0.0, 2.0, 1.0, dtype=float)
+        tdis_rc.append((1.0, 10, 1.0))
+    ts_times = np.arange(0.0, float(nper) + 1.0, 1.0, dtype=float)
 
     auxnames = ["temp", "conc"]
     temp, conc = 32.5, 0.1
