@@ -323,7 +323,8 @@ def test_all_connections_inactive(function_tmpdir, targets):
 
 
 # a BOTTOM above the screen bottom of an active connection, including one
-# reactivated after the bottom was raised, or above the head is an error
+# reactivated after the bottom was raised, or above the head is an error; a
+# CONSTANT well is checked against its stored well head
 bottom_errors = {
     "maw_cs_botscrn": (
         {0: [[0, "rate", mawrate]], 1: [[0, "bottom", -15.0]]},
@@ -332,6 +333,17 @@ bottom_errors = {
     "maw_cs_bothead": (
         {0: [[0, "rate", mawrate]], 1: [[0, "bottom", 10.0]]},
         "must be >= BOTTOM_ELEVATION",
+    ),
+    "maw_cs_botconst": (
+        {
+            0: [[0, "rate", mawrate], [0, "well_head", -29.5]],
+            1: [
+                [0, "connection_status", 2, "inactive"],
+                [0, "bottom", -25.0],
+                [0, "status", "constant"],
+            ],
+        },
+        "WELL HEAD for MAW well 1 well head (-29.5",
     ),
     "maw_cs_reopen": (
         {

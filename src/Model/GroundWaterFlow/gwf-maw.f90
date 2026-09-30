@@ -2341,9 +2341,10 @@ contains
       end if
       !
       ! -- the well bottom, the datum for well storage, may not be above the
-      !    head or the screen bottom of an active connection
+      !    head or the screen bottom of an active connection; a CONSTANT well
+      !    is checked against its well head
       do imaw = 1, this%nmawwells
-        if (ibotset(imaw) /= 0) then
+        if (ibotset(imaw) /= 0 .and. this%iboundpak(imaw) >= 0) then
           if (this%bot(imaw) > this%xnewpak(imaw)) then
             write (cstr, fmthdbot) this%xnewpak(imaw), this%bot(imaw)
             call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
@@ -2361,7 +2362,7 @@ contains
             exit
           end if
         end do
-        if (iheadset(imaw) /= 0) then
+        if (iheadset(imaw) /= 0 .or. this%iboundpak(imaw) < 0) then
           if (this%well_head(imaw) < this%bot(imaw)) then
             write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
             call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
