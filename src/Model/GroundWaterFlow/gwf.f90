@@ -1293,7 +1293,8 @@ contains
     case ('SFR6')
       call sfr_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case ('LAK6')
-      call lak_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
+      call lak_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
     case ('UZF6')
       call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, pakname)
     case ('API6')
