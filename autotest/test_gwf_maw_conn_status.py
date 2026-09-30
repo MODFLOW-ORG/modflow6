@@ -45,6 +45,7 @@ nlay, nrow, ncol, nper = 3, 1, 5, 3
 botm = [-10.0, -20.0, -30.0]
 jcol = 2
 mawrate = -100.0
+dnodata = 3.0e30
 
 # user node numbers of the well connections, which are what the budget file holds
 expected_nodes = [k * nrow * ncol + jcol + 1 for k in range(nlay)]
@@ -120,7 +121,7 @@ def get_model(name, ws, perioddata):
         [0, k, (k, 0, jcol), 0.0 if k == 0 else botm[k - 1], botm[k], 1.0, 0.1]
         for k in range(nlay)
     ]
-    flopy.mf6.ModflowGwfmaw(
+    maw = flopy.mf6.ModflowGwfmaw(
         gwf,
         print_input=True,
         print_head=True,
@@ -132,6 +133,17 @@ def get_model(name, ws, perioddata):
         budget_filerecord=f"{name}.maw.bud",
         head_filerecord=f"{name}.maw.hds",
         pname="MAW-1",
+    )
+    # flow and conductance of the shallowest and deepest connections
+    maw.obs.initialize(
+        filename=f"{name}.maw.obs",
+        continuous={
+            f"{name}.maw.obs.csv": [
+                ("q1", "maw", 1, 1),
+                ("q3", "maw", 1, nlay),
+                ("c3", "conductance", 1, nlay),
+            ]
+        },
     )
     flopy.mf6.ModflowGwfoc(
         gwf,
@@ -172,6 +184,14 @@ def gwf_terms(ws, name):
     return out
 
 
+def period_obs(ws, name):
+    """MAW observations at the end of each stress period, keyed by name."""
+    obs = flopy.utils.Mf6Obs(os.path.join(ws, f"{name}.maw.obs.csv")).get_data()
+    tend = [10.0 * (kper + 1) for kper in range(nper)]
+    rows = [obs[np.isclose(obs["totim"], t)][0] for t in tend]
+    return {k: np.array([r[k] for r in rows]) for k in ("Q1", "Q3", "C3")}
+
+
 def check_output(idx, test):
     name = cases[idx]
     terms = gwf_terms(test.workspace, name)
@@ -188,6 +208,13 @@ def check_output(idx, test):
         assert not np.isclose(terms[0][1][deep], 0.0), "connection should be active"
         assert np.isclose(terms[1][1][deep], 0.0), "deactivated connection must be dry"
         assert not np.isclose(terms[2][1][deep], 0.0), "connection should be active"
+        # an inactive connection reports DNODATA, as an inactive well does
+        obs = period_obs(test.workspace, name)
+        for key in ("Q3", "C3"):
+            assert obs[key][1] == dnodata, f"{key} must be DNODATA when inactive"
+            assert obs[key][0] < dnodata and obs[key][2] < dnodata, (
+                f"{key} must be simulated when the connection is active"
+            )
         # the remaining connections take up the full pumping rate
         assert np.allclose(terms[1][1].sum(), -mawrate, atol=1e-2), (
             f"active connections must carry the well rate, got {terms[1][1].sum()}"
@@ -206,6 +233,12 @@ def check_output(idx, test):
             "connection must still be inactive after the well is reactivated"
         )
         assert not np.isclose(terms[2][1][0], 0.0), "other connections must resume"
+        obs = period_obs(test.workspace, name)
+        assert np.all(obs["Q3"] == dnodata), "inactive connection must be DNODATA"
+        assert obs["Q1"][1] == dnodata, "an inactive well must report DNODATA"
+        assert obs["Q1"][0] < dnodata and obs["Q1"][2] < dnodata, (
+            "an active connection of an active well must be simulated"
+        )
     elif name == "maw_cs_restore":
         assert np.isclose(terms[0][1][deep], 0.0), "connection must start inactive"
         # the inactive well suspends the reactivated connection

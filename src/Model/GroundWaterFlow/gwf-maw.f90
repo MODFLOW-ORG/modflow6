@@ -3757,8 +3757,11 @@ contains
               end if
             end if
           case ('MAW')
+            ! -- an inactive connection reports DNODATA, as an inactive well
             n = this%imap(jj)
-            if (this%iboundpak(n) /= 0) then
+            nn = jj - this%iaconn(n) + 1
+            jpos = this%get_jpos(n, nn)
+            if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
               v = this%qleak(jj)
             end if
           case ('RATE')
@@ -3823,9 +3826,9 @@ contains
             end if
           case ('CONDUCTANCE')
             n = this%imap(jj)
-            if (this%iboundpak(n) /= 0) then
-              nn = jj - this%iaconn(n) + 1
-              jpos = this%get_jpos(n, nn)
+            nn = jj - this%iaconn(n) + 1
+            jpos = this%get_jpos(n, nn)
+            if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
               v = this%simcond(jpos)
             end if
           case ('FW-CONDUCTANCE')
