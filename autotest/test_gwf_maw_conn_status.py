@@ -18,11 +18,17 @@ Cases:
                       of ACTIVE.
   - maw_cs_restore  : a connection is reactivated while the well is INACTIVE;
                       it must flow once the well is made ACTIVE again.
+  - maw_cs_bottom   : the well bottom is raised to the bottom of the middle
+                      connection while the deepest connection is deactivated in
+                      the same period; BOTTOM is listed first and the result must
+                      match the same settings in the opposite order.
   - maw_cs_noop     : every connection is explicitly ACTIVE, which must give the
                       same results as a model with no CONNECTION_STATUS setting.
 
-A separate test checks that making every connection of a well INACTIVE is an
-error, since STATUS INACTIVE is used to deactivate a well (xfail).
+Separate tests check that making every connection of a well INACTIVE is an
+error, since STATUS INACTIVE is used to deactivate a well, and that a BOTTOM
+above the head or above the screen bottom of an active connection is an error
+(xfail).
 """
 
 import os
@@ -38,6 +44,7 @@ cases = [
     "maw_cs_override",
     "maw_cs_constant",
     "maw_cs_restore",
+    "maw_cs_bottom",
     "maw_cs_noop",
 ]
 
@@ -75,6 +82,10 @@ settings = {
         0: [[0, "rate", mawrate], [0, "connection_status", 2, "inactive"]],
         1: [[0, "status", "inactive"], [0, "connection_status", 2, "active"]],
         2: [[0, "status", "active"]],
+    },
+    "maw_cs_bottom": {
+        0: [[0, "rate", mawrate]],
+        1: [[0, "bottom", botm[1]], [0, "connection_status", 2, "inactive"]],
     },
     "maw_cs_noop": {
         0: [[0, "rate", mawrate]]
@@ -158,6 +169,11 @@ def build_models(idx, test):
     name = cases[idx]
     sim = get_model(name, test.workspace, settings[name])
     mc = None
+    if name == "maw_cs_bottom":
+        # the same settings with BOTTOM after CONNECTION_STATUS
+        perioddata = dict(settings[name])
+        perioddata[1] = list(reversed(perioddata[1]))
+        mc = get_model(name, os.path.join(test.workspace, "mf6"), perioddata)
     if name == "maw_cs_noop":
         # the same model with no CONNECTION_STATUS setting at all
         mc = get_model(
@@ -246,6 +262,17 @@ def check_output(idx, test):
         assert not np.isclose(terms[2][1][deep], 0.0), (
             "connection reactivated while the well was inactive must flow"
         )
+    elif name == "maw_cs_bottom":
+        base = gwf_terms(os.path.join(test.workspace, "mf6"), name)
+        for kper, ((_, q), (_, qbase)) in enumerate(zip(terms, base)):
+            assert np.array_equal(q, qbase), (
+                f"period {kper + 1} flows depend on the order of BOTTOM and "
+                f"CONNECTION_STATUS: {q} vs {qbase}"
+            )
+        # the raised bottom and the inactive connection persist
+        for kper in (1, 2):
+            assert np.isclose(terms[kper][1][deep], 0.0), "connection must be dry"
+            assert not np.isclose(terms[kper][1][0], 0.0), "others must flow"
     elif name == "maw_cs_noop":
         base = gwf_terms(os.path.join(test.workspace, "mf6"), name)
         for kper, ((_, q), (_, qbase)) in enumerate(zip(terms, base)):
@@ -282,6 +309,37 @@ def test_all_connections_inactive(function_tmpdir, targets):
             "expected the all-connections-inactive error"
         )
         assert "STATUS INACTIVE" in text, "expected the STATUS INACTIVE remedy"
+
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: (get_model(name, t.workspace, perioddata), None),
+        check=check,
+        xfail=True,
+    )
+    test.run()
+
+
+@pytest.mark.parametrize(
+    "name, bottom, message",
+    [
+        ("maw_cs_botscrn", -15.0, "is above the screen bottom of active connection"),
+        ("maw_cs_bothead", 10.0, "must be >= BOTTOM_ELEVATION"),
+    ],
+)
+def test_bottom_errors(function_tmpdir, targets, name, bottom, message):
+    # a BOTTOM above the screen bottom of an active connection, or above the
+    # head in the well, is an error
+    perioddata = {
+        0: [[0, "rate", mawrate]],
+        1: [[0, "bottom", bottom]],
+    }
+
+    def check(test):
+        # error messages are wrapped across lines in the listing file
+        text = " ".join(open(os.path.join(test.workspace, "mfsim.lst")).read().split())
+        assert message in text, f"expected BOTTOM error: {message}"
 
     test = TestFramework(
         name=name,

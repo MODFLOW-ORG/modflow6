@@ -2095,9 +2095,10 @@ contains
     integer(I4B) :: jj
     integer(I4B) :: nactive
     integer(I4B) :: icon
+    integer(I4B), dimension(:), allocatable :: ibotset
+    integer(I4B), dimension(:), allocatable :: iheadset
     integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
-    real(DP) :: rval
     ! -- formats
     character(len=*), parameter :: fmtlsp = &
       &"(1X,/1X,'REUSING ',A,'S FROM LAST STRESS PERIOD')"
@@ -2140,6 +2141,16 @@ contains
       !
       ! -- set flag to check attributes
       this%check_attr = 1
+      ! -- wells whose BOTTOM or WELL_HEAD is set this period; both are checked
+      !    once every setting for the period has been applied, so the checks
+      !    do not depend on the order of the settings
+      allocate (ibotset(this%nmawwells))
+      allocate (iheadset(this%nmawwells))
+      do imaw = 1, this%nmawwells
+        ibotset(imaw) = 0
+        iheadset(imaw) = 0
+      end do
+      !
       do n = 1, this%input%nbound
         imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) then
@@ -2175,6 +2186,7 @@ contains
         ! -- CONNECTION_STATUS (compound group)
         if (trim(setting) == 'CONN_STATUS') then
           icon = this%input%period_icon(n)
+          str = this%input%connstatus(n)
           if (icon < 1 .or. icon > this%ngwfnodes(imaw)) then
             write (errmsg, '(2(a,1x),i0,1x,a,1x,i0,a)') &
               'ICON must be greater than 0 and', &
@@ -2182,7 +2194,6 @@ contains
               'for maw well', imaw, '.'
             call store_error(errmsg)
           else
-            str = this%input%connstatus(n)
             jpos = this%get_jpos(imaw, icon)
             select case (trim(str))
             case ('INACTIVE')
@@ -2200,29 +2211,8 @@ contains
         !
         ! -- BOTTOM
         if (trim(setting) == 'PERIOD_BOTTOM') then
-          rval = this%input%period_bottom(n)
-          !
-          ! -- the well bottom is the datum for well storage, so raising it
-          !    above the current head or above the screen bottom of a
-          !    connection that is still active is inconsistent input
-          if (rval > this%xnewpak(imaw)) then
-            write (cstr, fmthdbot) this%xnewpak(imaw), rval
-            call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
-          else
-            do jj = 1, this%ngwfnodes(imaw)
-              jpos = this%get_jpos(imaw, jj)
-              if (this%iboundconn(jpos) == 0) cycle
-              if (rval > this%botscrn(jpos)) then
-                write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
-                  'BOTTOM (', rval, ') for maw well', imaw, 'is above the '// &
-                  'screen bottom of active connection', jj, '(', &
-                  this%botscrn(jpos), ').'
-                call store_error(errmsg)
-                exit
-              end if
-            end do
-            this%bot(imaw) = rval
-          end if
+          this%bot(imaw) = this%input%period_bottom(n)
+          ibotset(imaw) = 1
         end if
         !
         ! -- RATE / WELL_HEAD
@@ -2230,10 +2220,7 @@ contains
         !
         ! -- WELL_HEAD
         if (trim(setting) == 'WELL_HEAD') then
-          if (this%well_head(imaw) < this%bot(imaw)) then
-            write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
-            call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
-          end if
+          iheadset(imaw) = 1
         end if
         !
         ! -- HEAD_LIMIT
@@ -2352,6 +2339,38 @@ contains
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
+      !
+      ! -- the well bottom is the datum for well storage, so a BOTTOM above
+      !    the current head or above the screen bottom of a connection that
+      !    is still active, or a WELL_HEAD below the bottom, is inconsistent
+      do imaw = 1, this%nmawwells
+        if (ibotset(imaw) /= 0) then
+          if (this%bot(imaw) > this%xnewpak(imaw)) then
+            write (cstr, fmthdbot) this%xnewpak(imaw), this%bot(imaw)
+            call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
+          end if
+          do jj = 1, this%ngwfnodes(imaw)
+            jpos = this%get_jpos(imaw, jj)
+            if (this%iboundconn(jpos) == 0) cycle
+            if (this%bot(imaw) > this%botscrn(jpos)) then
+              write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+                'BOTTOM (', this%bot(imaw), ') for maw well', imaw, &
+                'is above the screen bottom of active connection', jj, '(', &
+                this%botscrn(jpos), ').'
+              call store_error(errmsg)
+              exit
+            end if
+          end do
+        end if
+        if (iheadset(imaw) /= 0) then
+          if (this%well_head(imaw) < this%bot(imaw)) then
+            write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
+            call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
+          end if
+        end if
+      end do
+      deallocate (ibotset)
+      deallocate (iheadset)
       !
       ! -- a well must keep at least one active connection; STATUS INACTIVE,
       !    not CONNECTION_STATUS, is used to deactivate every connection
