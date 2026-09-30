@@ -5027,10 +5027,17 @@ contains
       do j = 1, this%ngwfnodes(n)
         jpos = this%get_jpos(n, j)
         n2 = this%get_gwfnode(n, j)
-        tmaw = this%topscrn(jpos)
-        bmaw = this%botscrn(jpos)
-        call this%maw_calculate_saturation(n, j, n2, sat)
-        this%qauxcbc(1) = DTWO * DPI * this%radius(n) * sat * (tmaw - bmaw)
+        !
+        ! -- a connection that is not simulated has no wetted area, so it
+        !    exchanges no heat by conduction with the aquifer (MWE)
+        if (this%iboundpak(n) == 0 .or. this%iboundconn(jpos) == 0) then
+          this%qauxcbc(1) = DZERO
+        else
+          tmaw = this%topscrn(jpos)
+          bmaw = this%botscrn(jpos)
+          call this%maw_calculate_saturation(n, j, n2, sat)
+          this%qauxcbc(1) = DTWO * DPI * this%radius(n) * sat * (tmaw - bmaw)
+        end if
         q = this%qleak(ibnd)
         call this%budobj%budterm(idx)%update_term(n, n2, q, this%qauxcbc)
         ibnd = ibnd + 1
