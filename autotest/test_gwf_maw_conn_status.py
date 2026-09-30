@@ -16,6 +16,8 @@ Cases:
                       inactive afterwards.
   - maw_cs_constant : as maw_cs_override, with the well made CONSTANT instead
                       of ACTIVE.
+  - maw_cs_restore  : a connection is reactivated while the well is INACTIVE;
+                      it must flow once the well is made ACTIVE again.
   - maw_cs_noop     : every connection is explicitly ACTIVE, which must give the
                       same results as a model with no CONNECTION_STATUS setting.
 
@@ -35,6 +37,7 @@ cases = [
     "maw_cs_deepen",
     "maw_cs_override",
     "maw_cs_constant",
+    "maw_cs_restore",
     "maw_cs_noop",
 ]
 
@@ -66,6 +69,11 @@ settings = {
         0: [[0, "rate", mawrate], [0, "connection_status", 2, "inactive"]],
         1: [[0, "status", "inactive"]],
         2: [[0, "status", "constant"], [0, "well_head", -5.0]],
+    },
+    "maw_cs_restore": {
+        0: [[0, "rate", mawrate], [0, "connection_status", 2, "inactive"]],
+        1: [[0, "status", "inactive"], [0, "connection_status", 2, "active"]],
+        2: [[0, "status", "active"]],
     },
     "maw_cs_noop": {
         0: [[0, "rate", mawrate]]
@@ -198,6 +206,13 @@ def check_output(idx, test):
             "connection must still be inactive after the well is reactivated"
         )
         assert not np.isclose(terms[2][1][0], 0.0), "other connections must resume"
+    elif name == "maw_cs_restore":
+        assert np.isclose(terms[0][1][deep], 0.0), "connection must start inactive"
+        # the inactive well suspends the reactivated connection
+        assert np.allclose(terms[1][1], 0.0), "inactive well must have no flow"
+        assert not np.isclose(terms[2][1][deep], 0.0), (
+            "connection reactivated while the well was inactive must flow"
+        )
     elif name == "maw_cs_noop":
         base = gwf_terms(os.path.join(test.workspace, "mf6"), name)
         for kper, ((_, q), (_, qbase)) in enumerate(zip(terms, base)):
