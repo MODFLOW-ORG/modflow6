@@ -474,8 +474,8 @@ def _build_weak(ws, exe):
     # and no outlet. The water table (CHD) is held below the lakebed, so the lake
     # sheds its inflow only by downward leakage; with the small leakance the stage
     # must rise far to drive that leakage. This is the weakly connected regime the
-    # substitution fallback exists for, so it is used to exercise the fallback
-    # assembly (DEV_FORCE_FALLBACK) against the legacy formulation.
+    # legacy substitution solve exists for, so it is used to exercise that
+    # assembly (DEV_FORCE_LEGACY) against the legacy formulation.
     name = "lk"
     nlay, nrow, ncol = 1, 15, 15
     delr = delc = 100.0
@@ -980,8 +980,8 @@ def _build_multiperiod(ws, exe):
     # a lake over two stress periods: a steady-state period followed by a
     # transient period in which the rainfall jumps, driving a transient
     # lake-stage rise. Exercises the implicit assembly across multiple stress
-    # periods and time steps, and the per-time-step reset of the substitution
-    # fallback flags (ifallback is cleared at the start of each time step), which
+    # periods and time steps, and the per-time-step reset of the legacy-solve
+    # flags (ilegacy is cleared at the start of each time step), which
     # the single-period cases never reach.
     name = "lk"
     nlay, nrow, ncol = 1, 11, 11
@@ -1049,7 +1049,7 @@ def _build_multiperiod(ws, exe):
 
 def test_multiperiod_ss_to_transient(function_tmpdir, targets):
     # the implicit formulation must assemble and converge across multiple stress
-    # periods (steady-state then transient), reset its fallback flags each time
+    # periods (steady-state then transient), reset its legacy-solve flags each time
     # step, and match the legacy substitution solver, with the budget closing.
     def build(test):
         sim_i, _ = _write_implicit(test, _build_multiperiod)
