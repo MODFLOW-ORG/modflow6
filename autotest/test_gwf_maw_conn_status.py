@@ -26,9 +26,10 @@ Cases:
                       same results as a model with no CONNECTION_STATUS setting.
 
 Separate tests check that making every connection of a well INACTIVE is an
-error, since STATUS INACTIVE is used to deactivate a well, and that a BOTTOM
-above the head or above the screen bottom of an active connection is an error
-(xfail).
+error, since STATUS INACTIVE is used to deactivate a well, that a BOTTOM above
+the head or above the screen bottom of an active connection is an error, also
+when the connection is reactivated after the bottom was raised (xfail), and
+that raising BOTTOM above an existing HEAD_LIMIT gives the head limit warning.
 """
 
 import os
@@ -321,20 +322,31 @@ def test_all_connections_inactive(function_tmpdir, targets):
     test.run()
 
 
-@pytest.mark.parametrize(
-    "name, bottom, message",
-    [
-        ("maw_cs_botscrn", -15.0, "is above the screen bottom of active connection"),
-        ("maw_cs_bothead", 10.0, "must be >= BOTTOM_ELEVATION"),
-    ],
-)
-def test_bottom_errors(function_tmpdir, targets, name, bottom, message):
-    # a BOTTOM above the screen bottom of an active connection, or above the
-    # head in the well, is an error
-    perioddata = {
-        0: [[0, "rate", mawrate]],
-        1: [[0, "bottom", bottom]],
-    }
+# a BOTTOM above the screen bottom of an active connection, including one
+# reactivated after the bottom was raised, or above the head is an error
+bottom_errors = {
+    "maw_cs_botscrn": (
+        {0: [[0, "rate", mawrate]], 1: [[0, "bottom", -15.0]]},
+        "is above the screen bottom of active connection 2",
+    ),
+    "maw_cs_bothead": (
+        {0: [[0, "rate", mawrate]], 1: [[0, "bottom", 10.0]]},
+        "must be >= BOTTOM_ELEVATION",
+    ),
+    "maw_cs_reopen": (
+        {
+            0: [[0, "rate", mawrate]],
+            1: [[0, "bottom", botm[1]], [0, "connection_status", 2, "inactive"]],
+            2: [[0, "connection_status", 2, "active"]],
+        },
+        "is above the screen bottom of active connection 3",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", list(bottom_errors))
+def test_bottom_errors(function_tmpdir, targets, name):
+    perioddata, message = bottom_errors[name]
 
     def check(test):
         # error messages are wrapped across lines in the listing file
@@ -348,5 +360,27 @@ def test_bottom_errors(function_tmpdir, targets, name, bottom, message):
         build=lambda t: (get_model(name, t.workspace, perioddata), None),
         check=check,
         xfail=True,
+    )
+    test.run()
+
+
+def test_head_limit_below_bottom(function_tmpdir, targets):
+    # raising BOTTOM above an existing HEAD_LIMIT gives the head limit warning
+    name = "maw_cs_hdlimit"
+    perioddata = {
+        0: [[0, "rate", mawrate], [0, "head_limit", "-25.0"]],
+        1: [[0, "bottom", botm[1]], [0, "connection_status", 2, "inactive"]],
+    }
+
+    def check(test):
+        text = " ".join(open(os.path.join(test.workspace, "mfsim.lst")).read().split())
+        assert "was below the well bottom" in text, "expected HEAD_LIMIT warning"
+
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: (get_model(name, t.workspace, perioddata), None),
+        check=check,
     )
     test.run()

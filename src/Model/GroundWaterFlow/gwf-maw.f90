@@ -2097,6 +2097,7 @@ contains
     integer(I4B) :: icon
     integer(I4B), dimension(:), allocatable :: ibotset
     integer(I4B), dimension(:), allocatable :: iheadset
+    integer(I4B), dimension(:), allocatable :: ilimset
     integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
     ! -- formats
@@ -2141,14 +2142,15 @@ contains
       !
       ! -- set flag to check attributes
       this%check_attr = 1
-      ! -- wells whose BOTTOM or WELL_HEAD is set this period; both are checked
-      !    once every setting for the period has been applied, so the checks
-      !    do not depend on the order of the settings
+      ! -- wells with BOTTOM, WELL_HEAD, or HEAD_LIMIT set this period, which
+      !    are checked after all of the period's settings are applied
       allocate (ibotset(this%nmawwells))
       allocate (iheadset(this%nmawwells))
+      allocate (ilimset(this%nmawwells))
       do imaw = 1, this%nmawwells
         ibotset(imaw) = 0
         iheadset(imaw) = 0
+        ilimset(imaw) = 0
       end do
       !
       do n = 1, this%input%nbound
@@ -2235,10 +2237,8 @@ contains
               errmsg = 'Could not read HEAD_LIMIT value. '//trim(errmsgr)
               call store_error(errmsg)
             end if
-            if (this%shutofflevel(imaw) <= this%bot(imaw)) then
-              iheadlimit_warning = iheadlimit_warning + 1
-            end if
           end if
+          ilimset(imaw) = 1
         end if
         !
         ! -- FLOWING_WELL (compound group)
@@ -2340,37 +2340,42 @@ contains
         call this%inputtab%finalize_table()
       end if
       !
-      ! -- the well bottom is the datum for well storage, so a BOTTOM above
-      !    the current head or above the screen bottom of a connection that
-      !    is still active, or a WELL_HEAD below the bottom, is inconsistent
+      ! -- the well bottom, the datum for well storage, may not be above the
+      !    head or the screen bottom of an active connection
       do imaw = 1, this%nmawwells
         if (ibotset(imaw) /= 0) then
           if (this%bot(imaw) > this%xnewpak(imaw)) then
             write (cstr, fmthdbot) this%xnewpak(imaw), this%bot(imaw)
             call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
           end if
-          do jj = 1, this%ngwfnodes(imaw)
-            jpos = this%get_jpos(imaw, jj)
-            if (this%iboundconn(jpos) == 0) cycle
-            if (this%bot(imaw) > this%botscrn(jpos)) then
-              write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
-                'BOTTOM (', this%bot(imaw), ') for maw well', imaw, &
-                'is above the screen bottom of active connection', jj, '(', &
-                this%botscrn(jpos), ').'
-              call store_error(errmsg)
-              exit
-            end if
-          end do
         end if
+        do jj = 1, this%ngwfnodes(imaw)
+          jpos = this%get_jpos(imaw, jj)
+          if (this%iboundconn(jpos) == 0) cycle
+          if (this%bot(imaw) > this%botscrn(jpos)) then
+            write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
+              'BOTTOM (', this%bot(imaw), ') for maw well', imaw, &
+              'is above the screen bottom of active connection', jj, '(', &
+              this%botscrn(jpos), ').'
+            call store_error(errmsg)
+            exit
+          end if
+        end do
         if (iheadset(imaw) /= 0) then
           if (this%well_head(imaw) < this%bot(imaw)) then
             write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
             call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
           end if
         end if
+        if (ibotset(imaw) /= 0 .or. ilimset(imaw) /= 0) then
+          if (this%shutofflevel(imaw) <= this%bot(imaw)) then
+            iheadlimit_warning = iheadlimit_warning + 1
+          end if
+        end if
       end do
       deallocate (ibotset)
       deallocate (iheadset)
+      deallocate (ilimset)
       !
       ! -- a well must keep at least one active connection; STATUS INACTIVE,
       !    not CONNECTION_STATUS, is used to deactivate every connection
@@ -3197,6 +3202,7 @@ contains
       qmax = DZERO
       do j = 1, this%ngwfnodes(n)
         jpos = this%get_jpos(n, j)
+        if (this%iboundconn(jpos) == 0) cycle
         igwfnode = this%get_gwfnode(n, j)
         hgwf = this%xnew(igwfnode)
         bmaw = this%botscrn(jpos)
