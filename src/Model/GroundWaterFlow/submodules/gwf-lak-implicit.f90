@@ -326,8 +326,8 @@ contains
   !> @brief Warn when a legacy-solved lake still prevents IMPLICIT convergence
   !!
   !! Called on the last outer iteration of a solution that did not converge. By
-  !! this point any stalled lake has already been switched to the substitution
-  !! legacy solver (lak_set_legacy). If at least one lake is on it and the
+  !! this point any stalled lake has already been switched to the legacy
+  !! substitution solver (lak_set_legacy). If at least one lake is on it and the
   !! solution still did not converge, the implicit formulation needed more outer
   !! iterations than were allowed; a one-time warning reports this and points the
   !! user to the remedies, including the default formulation, which converges
