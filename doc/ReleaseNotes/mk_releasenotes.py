@@ -92,7 +92,7 @@ def load_items(
 
 
 def render(
-    toml_path: Path,
+    schema_path: Path,
     tex_path: Path,
     *,
     template_name: str = "develop.tex.jinja",
@@ -102,25 +102,25 @@ def render(
     date: str = date,
 ) -> bool:
     """Render the release note items to a LaTeX file, using the sections and
-    subsections in the schema TOML file at toml_path. Items are read from the
+    subsections in the schema TOML file at schema_path. Items are read from the
     items/ directory next to the schema file.
 
     Returns True if notes were rendered, False if there was nothing to render
     (no schema file, or no items after any --patch filtering). In the latter case
     an empty LaTeX file is still written so downstream document builds succeed.
     """
-    if not toml_path.is_file():
-        warn(f"Release notes schema file not found: {toml_path}")
+    if not schema_path.is_file():
+        warn(f"Release notes schema file not found: {schema_path}")
         return False
 
     tex_path.unlink(missing_ok=True)
 
     from jinja2 import Environment, FileSystemLoader
 
-    sections, subsections = load_schema(toml_path)
+    sections, subsections = load_schema(schema_path)
     items = [
         item
-        for _, item in load_items(toml_path.parent / "items", sections, subsections)
+        for _, item in load_items(schema_path.parent / "items", sections, subsections)
     ]
     # if patch, only include fixes and examples
     if patch:
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--toml", default="schema.toml")
+    parser.add_argument("--schema", default="schema.toml")
     parser.add_argument("--tex", default="develop.tex")
     parser.add_argument("--patch", default=False, action="store_true")
     parser.add_argument(
@@ -200,7 +200,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    toml_path = Path(args.toml).expanduser().absolute()
+    schema_path = Path(args.schema).expanduser().absolute()
     tex_path = Path(args.tex).expanduser().absolute()
 
     render_version = version
@@ -212,7 +212,7 @@ if __name__ == "__main__":
 
     try:
         render(
-            toml_path,
+            schema_path,
             tex_path,
             template_name=f"{tex_path.name}.jinja",
             patch=args.patch,
