@@ -10,6 +10,8 @@ Contributions to MODFLOW 6 are welcome. We ask that contributors follow some gui
   - [Bugs](#bugs)
   - [Questions](#questions)
   - [Requests](#requests)
+  - [Pull requests](#pull-requests)
+  - [AI and large language model use](#ai-and-large-language-model-use)
 - [Source code](#source-code)
   - [Format](#format)
   - [Style guide](#style-guide)
@@ -32,7 +34,7 @@ Help us keep MODFLOW 6 open and inclusive. Please read and follow our [Code of C
 
 ### Bugs
 
-If you find a bug, you can help us by submitting an issue. Even better, you can submit a pull request with a fix.
+If you find a bug, you can help us by submitting an issue. Once a maintainer has accepted the issue, you can also submit a pull request with a fix (see [pull requests](#pull-requests)).
 
 Before submitting an issue, please search the issue tracker. Your issue may already have been reported, and the discussion might inform you of workarounds readily available.
 
@@ -60,16 +62,16 @@ You can request a new feature by submitting an issue to our GitHub Repository.
 If you would like to implement a new feature:
 
 - **Major** features should be discussed first. Please open an issue and outline your proposal. This will also allow us to coordinate our efforts, prevent duplication of work, and help you craft the change so that it can be accepted into the project.
-- **Small** features can be submitted directly as a pull request.
+- **Small** features also start with an issue if you do not have write access to the repository (see [pull requests](#pull-requests)).
 
 To submit a pull request (PR):
 
-1. To avoid duplicating effort, [search](https://github.com/MODFLOW-ORG/modflow6/pulls) for an open or closed PR that relates to your submission.
+1. To avoid duplicating effort, [search](https://github.com/MODFLOW-ORG/modflow6/pulls) for an open or closed PR that relates to your submission. If you do not have write access to the repository, find or open the issue the PR will address and wait for a maintainer to assign it a milestone.
 2. Fork the MODFLOW-ORG/modflow6 repo and make your changes in a new branch, following our style and commit message guidelines and [including appropriate test cases](./DEVELOPER.md#writing-tests).
 3. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
 4. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
 5. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
-6. Push your branch to GitHub and create a pull request to the `develop` branch.
+6. Push your branch to GitHub and create a pull request to the `develop` branch, filling in the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md) and linking the issue it addresses.
 7. If we suggest changes:
   a. make the required updates
   b. make sure tests still pass
@@ -83,6 +85,25 @@ If you have installed the pixi environment you can complete steps 3 and 4 using:
 ```shell
 pixi run prepare-pull-request
 ```
+
+### Pull requests
+
+Pull requests are checked automatically when they are opened or edited.
+
+- **Follow the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md).** Replace the placeholder paragraph with a description of the change, check the items you completed, and delete the rest. The "Removed checklist items not relevant to this pull request" item stays and is checked. A description that does not follow the template fails the check and a comment lists what to fix; the check runs again when the description is edited.
+- **Have one pull request open at a time.** Contributors without write access to the repository may have one open pull request. A second pull request is closed with a comment linking the open one; reopen it once the open one is merged or closed.
+- **Address an accepted issue.** Contributors without write access to the repository must open an issue before a pull request, and wait for a maintainer to accept it by assigning it a milestone. The pull request names the issue on the "Closed issue #xxxx" or "Referenced issue or pull request #xxxx" line of the template, or with a closing keyword such as "Closes #1234". A pull request without a linked issue that has a milestone fails the check and a comment says what is missing; the check runs again when the description is edited.
+- **Support performance claims with timings.** A pull request that claims a change is faster must report run times before and after the change for a model in the pull request or the test suite.
+
+### AI and large language model use
+
+AI and large language model (LLM) tools may be used to prepare issues and pull requests if:
+
+- for contributors without write access to the repository, the issue or pull request description says that AI was used and names the tool;
+- you have reviewed all generated code, documentation, and tests before asking anyone to review them &mdash; you are responsible for the contribution however it was written; and
+- issues, pull request descriptions, and comments are written by you, using the terminology already established in the code and documentation; AI-generated text is included only as a quotation clearly attributed to the tool.
+
+Commits on a pull request branch may credit an AI tool with a `Co-Authored-By` trailer, so reviewers can see which commits were generated. Pull requests are squash merged, and the trailer may be removed from the merged commit.
 
 ## Source code
 
