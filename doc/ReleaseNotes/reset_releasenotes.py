@@ -52,7 +52,7 @@ def clear_items(*, patch: bool = False):
 
     For a patch release, items outside the patch sections (fixes and examples)
     are kept (they carry forward to the next minor release); otherwise every
-    item is deleted. The .gitkeep file is kept so the directory stays tracked.
+    item is deleted. The README.md is kept so the directory stays tracked.
     """
     with open(schema_path, "rb") as schema_file:
         schema = tomllib.load(schema_file)
