@@ -66,13 +66,13 @@ To submit a pull request (PR):
 
 1. To avoid duplicating effort, [search](https://github.com/MODFLOW-ORG/modflow6/pulls) for an open or closed PR that relates to your submission.
 2. Fork the MODFLOW-ORG/modflow6 repo and make your changes in a new branch, following our style and commit message guidelines and [including appropriate test cases](./DEVELOPER.md#writing-tests).
-3. For user-facing changes (new features, bug fixes, behavior changes), add a release note fragment to `doc/ReleaseNotes/items/`. Name the file with a short descriptive slug, e.g. `wel-auto-flow-reduce-auxname.toml`. Each fragment is a TOML file with three keys:
+3. For user-facing changes (new features, bug fixes, behavior changes), add a release note file to `doc/ReleaseNotes/items/`. Name the file descriptively, e.g. `wel-auto-flow-reduce-auxname.toml`. The file should be TOML with three attributes:
    ```toml
    section = "features"       # or "fixes", "examples", "documentation"
    subsection = "stress"      # see [subsections] in doc/ReleaseNotes/schema.toml for valid values
    description = "Description of the change..."
    ```
-   Items are rendered in `schema.toml` section/subsection order, then by file name. The old `develop.toml` file is no longer used; if a merge restores it, move its items to fragments and delete it.
+   Items are rendered in `schema.toml` section/subsection order, then by file name.
 4. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
 5. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
 6. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.

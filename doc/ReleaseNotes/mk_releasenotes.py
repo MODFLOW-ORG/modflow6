@@ -1,8 +1,7 @@
-"""Convert the release note items to a LaTeX file for the PDF build.
+"""Convert release note TOML files to a LaTeX file.
 
 Each release note item is a TOML file in items/ with a section, subsection
-and description. Valid sections and subsections are defined in schema.toml,
-in the order they are rendered.
+and description. Valid sections and subsections are defined in schema.toml.
 
 Two formats (see --archive). The --archive format is more compact, for the
 archive section of the release notes document, and has a leading version string
@@ -57,7 +56,7 @@ def load_schema(schema_path: Path) -> tuple[dict, dict]:
 def load_items(
     items_dir: Path, sections: dict, subsections: dict
 ) -> list[tuple[Path, dict]]:
-    """Load and validate the release note item files in a directory.
+    """Load and validate the release note TOML files in a directory.
 
     Returns (path, item) pairs sorted by file name. Raises ValueError listing
     every invalid item if any is not valid TOML, is missing a required key, or

@@ -141,9 +141,9 @@ Before proceeding with a release, check for deprecated DFN variables due for rem
 
 ### Review release notes
 
-Double-check release notes in `doc/ReleaseNotes/items/` with the authors of any changes to be included in the release. Each file in that directory is one release note item.
+Double-check release notes in `doc/ReleaseNotes/items/` with the authors of any changes to be included in the release. Each file in that directory is one release note.
 
-For hotfix releases, item files for features not included in the hotfix must be removed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes and examples.
+For hotfix releases, files for features not included in the hotfix must be removed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes and examples.
 
 **Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically by the release workflow, using `doc/ReleaseNotes/release_history.py` (`pixi run add-release-history`). The date is the date the workflow starts, which is also used for build timestamps and the software citation. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
 
@@ -199,7 +199,7 @@ Publish the release.
 
 ### Reset the develop branch
 
-When a release is published, the `reset` job in `.github/workflows/release_dispatch.yml` creates a branch called `post-release-<version>-reset` from `master`, with several changes: updating version strings (bump minor number, add `.dev0` suffix), setting `IDEVELOPMODE = 1`, and archiving/clearing the release notes. Release notes are archived to `doc/ReleaseNotes/previous/v<version>.tex` and cleared by deleting the released item files from `doc/ReleaseNotes/items/` (`pixi run reset-release-notes`). For a patch release, only fix and example items are deleted; the rest carry forward to the next minor release. The job then creates a PR from this branch into `develop`. Merge (do not squash) the PR.
+When a release is published, the `reset` job in `.github/workflows/release_dispatch.yml` creates a branch called `post-release-<version>-reset` from `master`, with several changes: updating version strings (bump minor number, add `.dev0` suffix), setting `IDEVELOPMODE = 1`, and archiving/clearing the release notes. Release notes are archived to `doc/ReleaseNotes/previous/v<version>.tex` and cleared by deleting the files from `doc/ReleaseNotes/items/` (`pixi run reset-release-notes`). The job then creates a PR from this branch into `develop`. Merge (do not squash) the PR.
 
 ### Release downstream repos
 
