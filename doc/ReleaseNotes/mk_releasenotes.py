@@ -47,6 +47,13 @@ def latest_release():
         raise ValueError(f"{e}; pass --version and --date explicitly") from e
 
 
+def load_schema(schema_path: Path) -> tuple[dict, dict]:
+    """Load the sections and subsections from the schema TOML file."""
+    with open(schema_path, "rb") as schema_file:
+        schema = tomllib.load(schema_file)
+    return schema.get("sections", {}), schema.get("subsections", {})
+
+
 def load_items(
     items_dir: Path, sections: dict, subsections: dict
 ) -> list[tuple[Path, dict]]:
@@ -110,10 +117,7 @@ def render(
 
     from jinja2 import Environment, FileSystemLoader
 
-    with open(toml_path, "rb") as toml_file:
-        content = tomllib.load(toml_file)
-    sections = content.get("sections", {})
-    subsections = content.get("subsections", {})
+    sections, subsections = load_schema(toml_path)
     items = [
         item
         for _, item in load_items(toml_path.parent / "items", sections, subsections)

@@ -17,10 +17,10 @@ from mk_releasenotes import (
     items_dir,
     latest_release,
     load_items,
+    load_schema,
     notes_dir,
     patch_sections,
     render,
-    tomllib,
     version,
 )
 
@@ -54,9 +54,7 @@ def clear_items(*, patch: bool = False):
     are kept (they carry forward to the next minor release); otherwise every
     item is deleted. The README.md is kept so the directory stays tracked.
     """
-    with open(schema_path, "rb") as schema_file:
-        schema = tomllib.load(schema_file)
-    items = load_items(items_dir, schema["sections"], schema["subsections"])
+    items = load_items(items_dir, *load_schema(schema_path))
     removed = [
         path for path, item in items if not patch or item["section"] in patch_sections
     ]
