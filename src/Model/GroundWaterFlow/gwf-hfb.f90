@@ -694,9 +694,10 @@ contains
     call this%check_data()
   end subroutine source_data
 
-  !> @brief Check for hfb's between two unconnected cells and write a warning
+  !> @brief Check the hfb input data
   !!
-  !! Store ipos in idxloc
+  !! Check that the two cells of each hfb are connected and that no more than
+  !! one hfb is assigned to any one cell connection.  Store ipos in idxloc.
   !<
   subroutine check_data(this)
     ! -- modules
@@ -705,17 +706,29 @@ contains
     class(GwfHfbType) :: this
     ! -- local
     integer(I4B) :: ihfb, n, m
-    integer(I4B) :: ipos
+    integer(I4B) :: ipos, isympos
+    integer(I4B), dimension(:), allocatable :: ihfbcon
     character(len=LINELENGTH) :: nodenstr, nodemstr
     logical :: found
     ! -- formats
     character(len=*), parameter :: fmterr = "(1x, 'HFB no. ',i0, &
       &' is between two unconnected cells: ', a, ' and ', a)"
+    character(len=*), parameter :: fmtdup = "(1x, 'HFB no. ',i0, ' and HFB &
+      &no. ',i0, ' are both between cells ', a, ' and ', a, '. Only one HFB &
+      &can be assigned to a cell connection.')"
+    !
+    ! -- ihfbcon holds, for each symmetric connection, the first hfb assigned
+    !    to it (0 if none), so duplicates are found in one pass over the hfbs.
+    allocate (ihfbcon(this%dis%njas))
+    do isympos = 1, this%dis%njas
+      ihfbcon(isympos) = 0
+    end do
     !
     do ihfb = 1, this%nhfb
       n = this%noden(ihfb)
       m = this%nodem(ihfb)
       found = .false.
+      this%idxloc(ihfb) = 0
       do ipos = this%ia(n) + 1, this%ia(n + 1) - 1
         if (m == this%ja(ipos)) then
           found = .true.
@@ -731,8 +744,25 @@ contains
         write (errmsg, fmterr) ihfb, trim(adjustl(nodenstr)), &
           trim(adjustl(nodemstr))
         call store_error(errmsg)
+        cycle
+      end if
+      !
+      ! -- check to make sure this connection does not already have an hfb.
+      !    jas maps both (n, m) and (m, n) to the same symmetric connection,
+      !    so cells entered in either order are detected.
+      isympos = this%jas(this%idxloc(ihfb))
+      if (ihfbcon(isympos) == 0) then
+        ihfbcon(isympos) = ihfb
+      else
+        call this%dis%noder_to_string(n, nodenstr)
+        call this%dis%noder_to_string(m, nodemstr)
+        write (errmsg, fmtdup) ihfbcon(isympos), ihfb, &
+          trim(adjustl(nodenstr)), trim(adjustl(nodemstr))
+        call store_error(errmsg)
       end if
     end do
+    !
+    deallocate (ihfbcon)
     !
     ! -- Stop if errors detected
     if (count_errors() > 0) then
