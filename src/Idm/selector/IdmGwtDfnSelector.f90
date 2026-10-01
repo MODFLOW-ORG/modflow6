@@ -16,10 +16,14 @@ module IdmGwtDfnSelectorModule
   use GwtFmiInputModule
   use GwtIcInputModule
   use GwtIstInputModule
+  use GwtLktInputModule
   use GwtMstInputModule
+  use GwtMwtInputModule
   use GwtOcInputModule
+  use GwtSftInputModule
   use GwtSrcInputModule
   use GwtSsmInputModule
+  use GwtUztInputModule
 
   implicit none
   private
@@ -78,14 +82,22 @@ contains
       call set_param_pointer(input_definition, gwt_ic_param_definitions)
     case ('IST')
       call set_param_pointer(input_definition, gwt_ist_param_definitions)
+    case ('LKT')
+      call set_param_pointer(input_definition, gwt_lkt_param_definitions)
     case ('MST')
       call set_param_pointer(input_definition, gwt_mst_param_definitions)
+    case ('MWT')
+      call set_param_pointer(input_definition, gwt_mwt_param_definitions)
     case ('OC')
       call set_param_pointer(input_definition, gwt_oc_param_definitions)
+    case ('SFT')
+      call set_param_pointer(input_definition, gwt_sft_param_definitions)
     case ('SRC')
       call set_param_pointer(input_definition, gwt_src_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_param_definitions)
+    case ('UZT')
+      call set_param_pointer(input_definition, gwt_uzt_param_definitions)
     case default
     end select
     return
@@ -118,14 +130,22 @@ contains
       call set_param_pointer(input_definition, gwt_ic_aggregate_definitions)
     case ('IST')
       call set_param_pointer(input_definition, gwt_ist_aggregate_definitions)
+    case ('LKT')
+      call set_param_pointer(input_definition, gwt_lkt_aggregate_definitions)
     case ('MST')
       call set_param_pointer(input_definition, gwt_mst_aggregate_definitions)
+    case ('MWT')
+      call set_param_pointer(input_definition, gwt_mwt_aggregate_definitions)
     case ('OC')
       call set_param_pointer(input_definition, gwt_oc_aggregate_definitions)
+    case ('SFT')
+      call set_param_pointer(input_definition, gwt_sft_aggregate_definitions)
     case ('SRC')
       call set_param_pointer(input_definition, gwt_src_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwt_ssm_aggregate_definitions)
+    case ('UZT')
+      call set_param_pointer(input_definition, gwt_uzt_aggregate_definitions)
     case default
     end select
     return
@@ -158,14 +178,22 @@ contains
       call set_block_pointer(input_definition, gwt_ic_block_definitions)
     case ('IST')
       call set_block_pointer(input_definition, gwt_ist_block_definitions)
+    case ('LKT')
+      call set_block_pointer(input_definition, gwt_lkt_block_definitions)
     case ('MST')
       call set_block_pointer(input_definition, gwt_mst_block_definitions)
+    case ('MWT')
+      call set_block_pointer(input_definition, gwt_mwt_block_definitions)
     case ('OC')
       call set_block_pointer(input_definition, gwt_oc_block_definitions)
+    case ('SFT')
+      call set_block_pointer(input_definition, gwt_sft_block_definitions)
     case ('SRC')
       call set_block_pointer(input_definition, gwt_src_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwt_ssm_block_definitions)
+    case ('UZT')
+      call set_block_pointer(input_definition, gwt_uzt_block_definitions)
     case default
     end select
     return
@@ -197,14 +225,22 @@ contains
       multi_package = gwt_ic_multi_package
     case ('IST')
       multi_package = gwt_ist_multi_package
+    case ('LKT')
+      multi_package = gwt_lkt_multi_package
     case ('MST')
       multi_package = gwt_mst_multi_package
+    case ('MWT')
+      multi_package = gwt_mwt_multi_package
     case ('OC')
       multi_package = gwt_oc_multi_package
+    case ('SFT')
+      multi_package = gwt_sft_multi_package
     case ('SRC')
       multi_package = gwt_src_multi_package
     case ('SSM')
       multi_package = gwt_ssm_multi_package
+    case ('UZT')
+      multi_package = gwt_uzt_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -239,14 +275,22 @@ contains
       is_advanced = gwt_ic_is_advanced
     case ('IST')
       is_advanced = gwt_ist_is_advanced
+    case ('LKT')
+      is_advanced = gwt_lkt_is_advanced
     case ('MST')
       is_advanced = gwt_mst_is_advanced
+    case ('MWT')
+      is_advanced = gwt_mwt_is_advanced
     case ('OC')
       is_advanced = gwt_oc_is_advanced
+    case ('SFT')
+      is_advanced = gwt_sft_is_advanced
     case ('SRC')
       is_advanced = gwt_src_is_advanced
     case ('SSM')
       is_advanced = gwt_ssm_is_advanced
+    case ('UZT')
+      is_advanced = gwt_uzt_is_advanced
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWT"'//&
@@ -281,14 +325,22 @@ contains
       call set_subpkg_pointer(subpackages, gwt_ic_subpackages)
     case ('IST')
       call set_subpkg_pointer(subpackages, gwt_ist_subpackages)
+    case ('LKT')
+      call set_subpkg_pointer(subpackages, gwt_lkt_subpackages)
     case ('MST')
       call set_subpkg_pointer(subpackages, gwt_mst_subpackages)
+    case ('MWT')
+      call set_subpkg_pointer(subpackages, gwt_mwt_subpackages)
     case ('OC')
       call set_subpkg_pointer(subpackages, gwt_oc_subpackages)
+    case ('SFT')
+      call set_subpkg_pointer(subpackages, gwt_sft_subpackages)
     case ('SRC')
       call set_subpkg_pointer(subpackages, gwt_src_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwt_ssm_subpackages)
+    case ('UZT')
+      call set_subpkg_pointer(subpackages, gwt_uzt_subpackages)
     case default
     end select
     return
@@ -321,13 +373,21 @@ contains
       integrated = .true.
     case ('IST')
       integrated = .true.
+    case ('LKT')
+      integrated = .true.
     case ('MST')
       integrated = .true.
+    case ('MWT')
+      integrated = .true.
     case ('OC')
+      integrated = .true.
+    case ('SFT')
       integrated = .true.
     case ('SRC')
       integrated = .true.
     case ('SSM')
+      integrated = .true.
+    case ('UZT')
       integrated = .true.
     case default
     end select

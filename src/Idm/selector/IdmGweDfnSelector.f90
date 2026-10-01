@@ -16,8 +16,12 @@ module IdmGweDfnSelectorModule
   use GweEstInputModule
   use GweFmiInputModule
   use GweIcInputModule
+  use GweLkeInputModule
+  use GweMweInputModule
   use GweOcInputModule
+  use GweSfeInputModule
   use GweSsmInputModule
+  use GweUzeInputModule
 
   implicit none
   private
@@ -76,10 +80,18 @@ contains
       call set_param_pointer(input_definition, gwe_fmi_param_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwe_ic_param_definitions)
+    case ('LKE')
+      call set_param_pointer(input_definition, gwe_lke_param_definitions)
+    case ('MWE')
+      call set_param_pointer(input_definition, gwe_mwe_param_definitions)
     case ('OC')
       call set_param_pointer(input_definition, gwe_oc_param_definitions)
+    case ('SFE')
+      call set_param_pointer(input_definition, gwe_sfe_param_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwe_ssm_param_definitions)
+    case ('UZE')
+      call set_param_pointer(input_definition, gwe_uze_param_definitions)
     case default
     end select
     return
@@ -112,10 +124,18 @@ contains
       call set_param_pointer(input_definition, gwe_fmi_aggregate_definitions)
     case ('IC')
       call set_param_pointer(input_definition, gwe_ic_aggregate_definitions)
+    case ('LKE')
+      call set_param_pointer(input_definition, gwe_lke_aggregate_definitions)
+    case ('MWE')
+      call set_param_pointer(input_definition, gwe_mwe_aggregate_definitions)
     case ('OC')
       call set_param_pointer(input_definition, gwe_oc_aggregate_definitions)
+    case ('SFE')
+      call set_param_pointer(input_definition, gwe_sfe_aggregate_definitions)
     case ('SSM')
       call set_param_pointer(input_definition, gwe_ssm_aggregate_definitions)
+    case ('UZE')
+      call set_param_pointer(input_definition, gwe_uze_aggregate_definitions)
     case default
     end select
     return
@@ -148,10 +168,18 @@ contains
       call set_block_pointer(input_definition, gwe_fmi_block_definitions)
     case ('IC')
       call set_block_pointer(input_definition, gwe_ic_block_definitions)
+    case ('LKE')
+      call set_block_pointer(input_definition, gwe_lke_block_definitions)
+    case ('MWE')
+      call set_block_pointer(input_definition, gwe_mwe_block_definitions)
     case ('OC')
       call set_block_pointer(input_definition, gwe_oc_block_definitions)
+    case ('SFE')
+      call set_block_pointer(input_definition, gwe_sfe_block_definitions)
     case ('SSM')
       call set_block_pointer(input_definition, gwe_ssm_block_definitions)
+    case ('UZE')
+      call set_block_pointer(input_definition, gwe_uze_block_definitions)
     case default
     end select
     return
@@ -183,10 +211,18 @@ contains
       multi_package = gwe_fmi_multi_package
     case ('IC')
       multi_package = gwe_ic_multi_package
+    case ('LKE')
+      multi_package = gwe_lke_multi_package
+    case ('MWE')
+      multi_package = gwe_mwe_multi_package
     case ('OC')
       multi_package = gwe_oc_multi_package
+    case ('SFE')
+      multi_package = gwe_sfe_multi_package
     case ('SSM')
       multi_package = gwe_ssm_multi_package
+    case ('UZE')
+      multi_package = gwe_uze_multi_package
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWE"'//&
@@ -221,10 +257,18 @@ contains
       is_advanced = gwe_fmi_is_advanced
     case ('IC')
       is_advanced = gwe_ic_is_advanced
+    case ('LKE')
+      is_advanced = gwe_lke_is_advanced
+    case ('MWE')
+      is_advanced = gwe_mwe_is_advanced
     case ('OC')
       is_advanced = gwe_oc_is_advanced
+    case ('SFE')
+      is_advanced = gwe_sfe_is_advanced
     case ('SSM')
       is_advanced = gwe_ssm_is_advanced
+    case ('UZE')
+      is_advanced = gwe_uze_is_advanced
     case default
       call store_error('Idm selector subcomponent not found; '//&
                        &'component="GWE"'//&
@@ -259,10 +303,18 @@ contains
       call set_subpkg_pointer(subpackages, gwe_fmi_subpackages)
     case ('IC')
       call set_subpkg_pointer(subpackages, gwe_ic_subpackages)
+    case ('LKE')
+      call set_subpkg_pointer(subpackages, gwe_lke_subpackages)
+    case ('MWE')
+      call set_subpkg_pointer(subpackages, gwe_mwe_subpackages)
     case ('OC')
       call set_subpkg_pointer(subpackages, gwe_oc_subpackages)
+    case ('SFE')
+      call set_subpkg_pointer(subpackages, gwe_sfe_subpackages)
     case ('SSM')
       call set_subpkg_pointer(subpackages, gwe_ssm_subpackages)
+    case ('UZE')
+      call set_subpkg_pointer(subpackages, gwe_uze_subpackages)
     case default
     end select
     return
@@ -295,9 +347,17 @@ contains
       integrated = .true.
     case ('IC')
       integrated = .true.
+    case ('LKE')
+      integrated = .true.
+    case ('MWE')
+      integrated = .true.
     case ('OC')
       integrated = .true.
+    case ('SFE')
+      integrated = .true.
     case ('SSM')
+      integrated = .true.
+    case ('UZE')
       integrated = .true.
     case default
     end select

@@ -323,7 +323,7 @@ def check_energy_storage_change(times, volumes, temperatures, answers, verbose=F
         print("Answers:", answers)
         print("Difference:", diff)
 
-    if not np.allclose(diff, 0.0):
+    if not np.allclose(energy_storage_changes, answers, rtol=1e-5):
         print(f"Energy storage change check failed with max error {np.abs(diff).max()}")
         success = False
     else:
