@@ -12,4 +12,6 @@ description = "Plain-language description of the change..."
 
 Valid values for `section` and `subsection` are defined in `doc/ReleaseNotes/schema.toml`.
 
+Sections and subsections are rendered in the order listed in `schema.toml`. Within a subsection, items are ordered by file name.
+
 Files are merged by the `mk_releasenotes.py` script underlying the `pixi run make-release-notes` task.

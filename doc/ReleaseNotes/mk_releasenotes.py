@@ -61,8 +61,15 @@ def load_items(
 
     Returns (path, item) pairs sorted by file name. Raises ValueError listing
     every invalid item if any is not valid TOML, is missing a required key, or
-    has a section or subsection not defined in the schema.
+    has a section or subsection not defined in the schema. Also raises if the
+    retired develop.toml file is present, e.g. restored by a merge.
     """
+    legacy_path = items_dir.parent / "develop.toml"
+    if legacy_path.is_file():
+        raise ValueError(
+            f"{legacy_path} is no longer used, move its items to separate files "
+            f"in {items_dir} and delete it (see {items_dir / 'README.md'})"
+        )
     items = []
     errors = []
     for path in sorted(items_dir.glob("*.toml")):

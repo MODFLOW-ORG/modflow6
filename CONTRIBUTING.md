@@ -72,6 +72,7 @@ To submit a pull request (PR):
    subsection = "stress"      # see [subsections] in doc/ReleaseNotes/schema.toml for valid values
    description = "Description of the change..."
    ```
+   Items are rendered in `schema.toml` section/subsection order, then by file name. The old `develop.toml` file is no longer used; if a merge restores it, move its items to fragments and delete it.
 4. [Check the spelling and formatting](./DEVELOPER.md#formatting) of any modified or new Fortran source files, python files definition files, markdown, and LaTeX files.
 5. [Rebuild makefiles](./DEVELOPER.md#generating-makefiles) and update MSVS project files if you added, removed, or renamed any source files.
 6. [Run the full test suite](./DEVELOPER.md#running-tests) and make sure all tests pass.
