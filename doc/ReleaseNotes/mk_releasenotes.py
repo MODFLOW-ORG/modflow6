@@ -53,14 +53,18 @@ def load_items(
     """Load and validate the release note item files in a directory.
 
     Returns (path, item) pairs sorted by file name. Raises ValueError listing
-    every invalid item if any is missing a required key or has a section or
-    subsection not defined in the schema.
+    every invalid item if any is not valid TOML, is missing a required key, or
+    has a section or subsection not defined in the schema.
     """
     items = []
     errors = []
     for path in sorted(items_dir.glob("*.toml")):
-        with open(path, "rb") as item_file:
-            item = tomllib.load(item_file)
+        try:
+            with open(path, "rb") as item_file:
+                item = tomllib.load(item_file)
+        except tomllib.TOMLDecodeError as e:
+            errors.append(f"{path.name}: invalid TOML: {e}")
+            continue
         for key in ("section", "subsection", "description"):
             if key not in item:
                 errors.append(f"{path.name}: missing required key '{key}'")
