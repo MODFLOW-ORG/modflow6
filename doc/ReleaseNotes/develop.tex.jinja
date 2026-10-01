@@ -2,19 +2,22 @@
 \subsection{Version mf(( version ))---(( date ))}
 
 ([ endif ])
-([ for section_key, section_items in items|groupby("section") ])
+([ for section_key, section_name in sections.items() ])
+([ set section_items = items|selectattr("section", "equalto", section_key)|list ])
+([ if section_items ])
 ([ if archive ])
-\textbf{\underline{(( sections[section_key] ))}}
+\textbf{\underline{(( section_name ))}}
 ([ else ])
-\subsection{(( sections[section_key].title() ))}
+\subsection{(( section_name.title() ))}
 ([ endif ])
-([ for subsection_key, subsection_items in section_items|groupby("subsection") ])
-([ set subsection = subsections[subsection_key] ])
-([ if subsection|length > 0 ])
+([ for subsection_key, subsection_name in subsections.items() ])
+([ set subsection_items = section_items|selectattr("subsection", "equalto", subsection_key)|list ])
+([ if subsection_items ])
+([ if subsection_name|length > 0 ])
 ([ if archive ])
-\underline{(( subsection ))}
+\underline{(( subsection_name ))}
 ([ else ])
-\subsubsection{(( subsection.title() ))}
+\subsubsection{(( subsection_name.title() ))}
 ([ endif ])
 ([ endif ])
 ([ if not archive ])
@@ -28,5 +31,7 @@
 ([ if archive ])
 
 ([ endif ])
+([ endif ])
 ([ endfor ])
+([ endif ])
 ([ endfor ])

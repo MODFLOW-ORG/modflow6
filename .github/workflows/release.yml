@@ -38,7 +38,7 @@ on:
         required: true
         type: string
       patch:
-        description: 'Create a patch release. If true, only bug fixes will be included in generated documentation.'
+        description: 'Create a patch release. If true, only bug fixes and new examples will be included in generated documentation.'
         required: false
         type: boolean
         default: false

@@ -1,8 +1,8 @@
 """Post-release housekeeping for the release notes.
 
 Archives the just-released version's notes to previous/v<version>.tex in the
-compact archive format, registers them in appendixA.tex, and clears the
-archived items from develop.toml so the next development cycle starts empty.
+compact archive format, registers them in appendixA.tex, and deletes the
+archived item files from items/ so the next development cycle starts empty.
 
 The version is read from version.txt, so run this before bumping the version.
 For a patch release (--patch) only the fix and example items are archived and
@@ -10,13 +10,21 @@ cleared; the rest carry forward to the next minor release.
 """
 
 import argparse
-import re
 import sys
 from warnings import warn
 
-from mk_releasenotes import latest_release, notes_dir, patch_sections, render, version
+from mk_releasenotes import (
+    items_dir,
+    latest_release,
+    load_items,
+    notes_dir,
+    patch_sections,
+    render,
+    tomllib,
+    version,
+)
 
-develop_toml_path = notes_dir / "develop.toml"
+schema_path = notes_dir / "schema.toml"
 appendix_path = notes_dir / "appendixA.tex"
 previous_dir = notes_dir / "previous"
 
@@ -39,59 +47,30 @@ def register_archive(version: str):
     print(f"Registered {input_line} in {appendix_path}", file=sys.stderr)
 
 
-def clear_develop_toml(*, patch: bool = False):
-    """Remove release note items from develop.toml for the next cycle.
+def clear_items(*, patch: bool = False):
+    """Delete release note item files from items/ for the next cycle.
 
-    The [sections] and [subsections] tables are kept. For a patch release,
-    items outside the patch sections (fixes and examples) are kept (they carry
-    forward to the next minor release); otherwise every item is removed.
+    For a patch release, items outside the patch sections (fixes and examples)
+    are kept (they carry forward to the next minor release); otherwise every
+    item is deleted. The .gitkeep file is kept so the directory stays tracked.
     """
-    lines = develop_toml_path.read_text().splitlines()
-    try:
-        first = next(i for i, ln in enumerate(lines) if ln.strip() == "[[items]]")
-    except StopIteration:
-        return  # already empty
-
-    header = lines[:first]
-    while header and not header[-1].strip():
-        header.pop()
-
-    blocks: list[list[str]] = []
-    for ln in lines[first:]:
-        if ln.strip() == "[[items]]":
-            blocks.append([ln])
-        else:
-            blocks[-1].append(ln)
-
-    kept = []
-    if patch:
-        for block in blocks:
-            section = next(
-                (
-                    m.group(1)
-                    for ln in block
-                    if (m := re.match(r'\s*section\s*=\s*"([^"]*)"', ln))
-                ),
-                "",
-            )
-            if section not in patch_sections:
-                while block and not block[-1].strip():
-                    block.pop()
-                kept.append(block)
-
-    text = "\n".join(header) + "\n"
-    for block in kept:
-        text += "\n" + "\n".join(block) + "\n"
-    develop_toml_path.write_text(text)
+    with open(schema_path, "rb") as schema_file:
+        schema = tomllib.load(schema_file)
+    items = load_items(items_dir, schema["sections"], schema["subsections"])
+    removed = [
+        path for path, item in items if not patch or item["section"] in patch_sections
+    ]
+    for path in removed:
+        path.unlink()
     print(
-        f"Cleared {develop_toml_path}: removed {len(blocks) - len(kept)} item(s), "
-        f"kept {len(kept)}",
+        f"Cleared {items_dir}: removed {len(removed)} item(s), "
+        f"kept {len(items) - len(removed)}",
         file=sys.stderr,
     )
 
 
 def reset_release_notes(*, patch: bool = False):
-    """Archive the just-released version's notes and clear develop.toml."""
+    """Archive the just-released version's notes and clear the items."""
     header_version, header_date = latest_release()
     if header_version != version:
         warn(
@@ -101,7 +80,7 @@ def reset_release_notes(*, patch: bool = False):
         )
 
     if render(
-        develop_toml_path,
+        schema_path,
         previous_dir / f"v{version}.tex",
         patch=patch,
         archive=True,
@@ -116,7 +95,7 @@ def reset_release_notes(*, patch: bool = False):
     else:
         warn(f"No {'patch ' if patch else ''}items to archive for v{version}")
 
-    clear_develop_toml(patch=patch)
+    clear_items(patch=patch)
 
 
 if __name__ == "__main__":

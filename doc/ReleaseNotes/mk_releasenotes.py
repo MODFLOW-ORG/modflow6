@@ -1,4 +1,8 @@
-"""Convert the release notes TOML file to a LaTeX file for the PDF build.
+"""Convert the release note items to a LaTeX file for the PDF build.
+
+Each release note item is a TOML file in items/ with a section, subsection
+and description. Valid sections and subsections are defined in schema.toml,
+in the order they are rendered.
 
 Two formats (see --archive). The --archive format is more compact, for the
 archive section of the release notes document, and has a leading version string
@@ -11,6 +15,7 @@ See reset_releasenotes.py for the post-release archive-and-clear step.
 
 import argparse
 import datetime
+import sys
 from pathlib import Path
 from warnings import warn
 
@@ -22,6 +27,7 @@ except ModuleNotFoundError:  # Python < 3.11
     import tomli as tomllib
 
 notes_dir = Path(__file__).parent
+items_dir = notes_dir / "items"
 version_file = Path(__file__).parents[2] / "version.txt"
 version = version_file.read_text().strip()
 date = datetime.date.today().strftime("%b %d, %Y")
@@ -41,6 +47,39 @@ def latest_release():
         raise ValueError(f"{e}; pass --version and --date explicitly") from e
 
 
+def load_items(
+    items_dir: Path, sections: dict, subsections: dict
+) -> list[tuple[Path, dict]]:
+    """Load and validate the release note item files in a directory.
+
+    Returns (path, item) pairs sorted by file name. Raises ValueError listing
+    every invalid item if any is missing a required key or has a section or
+    subsection not defined in the schema.
+    """
+    items = []
+    errors = []
+    for path in sorted(items_dir.glob("*.toml")):
+        with open(path, "rb") as item_file:
+            item = tomllib.load(item_file)
+        for key in ("section", "subsection", "description"):
+            if key not in item:
+                errors.append(f"{path.name}: missing required key '{key}'")
+        if "section" in item and item["section"] not in sections:
+            errors.append(
+                f"{path.name}: invalid section '{item['section']}'"
+                f", expected one of: {list(sections)}"
+            )
+        if item.get("subsection") and item["subsection"] not in subsections:
+            errors.append(
+                f"{path.name}: invalid subsection '{item['subsection']}'"
+                f", expected one of: {list(subsections)}"
+            )
+        items.append((path, item))
+    if errors:
+        raise ValueError("Invalid release note items:\n" + "\n".join(errors))
+    return items
+
+
 def render(
     toml_path: Path,
     tex_path: Path,
@@ -51,14 +90,16 @@ def render(
     version: str = version,
     date: str = date,
 ) -> bool:
-    """Render a release notes TOML file to a LaTeX file.
+    """Render the release note items to a LaTeX file, using the sections and
+    subsections in the schema TOML file at toml_path. Items are read from the
+    items/ directory next to the schema file.
 
     Returns True if notes were rendered, False if there was nothing to render
-    (no TOML file, or no items after any --patch filtering). In the latter case
+    (no schema file, or no items after any --patch filtering). In the latter case
     an empty LaTeX file is still written so downstream document builds succeed.
     """
     if not toml_path.is_file():
-        warn(f"Release notes TOML file not found: {toml_path}")
+        warn(f"Release notes schema file not found: {toml_path}")
         return False
 
     tex_path.unlink(missing_ok=True)
@@ -69,7 +110,10 @@ def render(
         content = tomllib.load(toml_file)
     sections = content.get("sections", {})
     subsections = content.get("subsections", {})
-    items = content.get("items", [])
+    items = [
+        item
+        for _, item in load_items(toml_path.parent / "items", sections, subsections)
+    ]
     # if patch, only include fixes and examples
     if patch:
         items = [item for item in items if item["section"] in patch_sections]
@@ -80,6 +124,8 @@ def render(
     for item in items:
         if not item.get("subsection"):
             item["subsection"] = ""
+    # items without a subsection come first in their section, with no header
+    subsections = {"": "", **subsections}
     if not any(items):
         warn("No release notes found, aborting")
         # still leave an empty file behind
@@ -118,7 +164,7 @@ if __name__ == "__main__":
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--toml", default="develop.toml")
+    parser.add_argument("--toml", default="schema.toml")
     parser.add_argument("--tex", default="develop.tex")
     parser.add_argument("--patch", default=False, action="store_true")
     parser.add_argument(
@@ -156,12 +202,15 @@ if __name__ == "__main__":
         render_version = args.version or release_version
         render_date = args.date or release_date
 
-    render(
-        toml_path,
-        tex_path,
-        template_name=f"{tex_path.name}.jinja",
-        patch=args.patch,
-        archive=args.archive,
-        version=render_version,
-        date=render_date,
-    )
+    try:
+        render(
+            toml_path,
+            tex_path,
+            template_name=f"{tex_path.name}.jinja",
+            patch=args.patch,
+            archive=args.archive,
+            version=render_version,
+            date=render_date,
+        )
+    except ValueError as e:
+        sys.exit(str(e))

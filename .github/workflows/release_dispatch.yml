@@ -376,7 +376,7 @@ jobs:
           [ "$(echo "$ver" | cut -d. -f3)" != "0" ] && patch="--patch"
 
           # archive this version's notes to previous/v$ver.tex, register them
-          # in appendixA.tex, and clear the archived items from develop.toml
+          # in appendixA.tex, and delete the archived item files
           python reset_releasenotes.py $patch
 
       - name: Update version and open PR

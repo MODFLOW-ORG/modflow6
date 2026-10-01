@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "The Unsaturated Zone Flow (UZF) Package allocated and deallocated a complete set of unsaturated-zone work arrays on every evapotranspiration calculation, and a second, smaller set on every wave-routing calculation, once per UZF cell per outer iteration per time step. The work arrays are now allocated once when the package is set up, which reduces run times by 19 to 34 percent for the UZF test problems. Results are unchanged. The wave capacity NWAV and the number of trailing waves NTRAIL are now scalars rather than arrays with one value per UZF cell, so a program that reads them through the BMI or XMI interface must be updated."
