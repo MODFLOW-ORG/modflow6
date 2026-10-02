@@ -1,0 +1,107 @@
+# --------------------- gwf sfb options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name boundnames
+type keyword
+shape
+reader urword
+optional true
+longname
+description REPLACE boundnames {'{#1}': 'specified flux boundary'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'specified flux boundary'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print boundary flow to listing file
+description REPLACE print_flows {'{#1}': 'specified flux boundary'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save boundary flows to budget file
+description REPLACE save_flows {'{#1}': 'specified flux boundary'}
+mf6internal ipakcb
+
+# --------------------- gwf spf dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of specified flux cells
+description REPLACE maxbound {'{#1}': 'specified flux boundary'}
+
+
+# --------------------- gwf rch period ---------------------
+
+block period
+name iper
+type integer
+block_variable True
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name stress_period_data
+type recarray cellid aux boundname
+shape (maxbound)
+reader urword
+longname
+description
+mf6internal spd
+
+block period
+name cellid
+type integer
+shape (ncelldim)
+tagged false
+in_record true
+reader urword
+longname cell identifier
+description REPLACE cellid {}
+
+block period
+name aux
+type double precision
+in_record true
+tagged false
+shape (naux)
+reader urword
+optional true
+longname auxiliary variables
+description REPLACE aux {'{#1}': 'specified flux boundary'}
+mf6internal auxvar
+
+block period
+name boundname
+type string
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname specified flux boundary name
+description REPLACE boundname {'{#1}': 'specified flux boundary'}

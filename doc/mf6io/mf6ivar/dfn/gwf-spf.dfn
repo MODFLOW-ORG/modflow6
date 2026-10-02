@@ -1,0 +1,165 @@
+# --------------------- gwf spf options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Groundwater Flow'}
+
+block options
+name boundnames
+type keyword
+shape
+reader urword
+optional true
+longname
+description REPLACE boundnames {'{#1}': 'seepage'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'seepage'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print seepage rates to listing file
+description REPLACE print_flows {'{#1}': 'seepage'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save seepage flows to budget file
+description REPLACE save_flows {'{#1}': 'seepage'}
+mf6internal ipakcb
+
+block options
+name some_option
+type keyword
+reader urword
+optional true
+longname some option
+description description of some option
+
+
+# --------------------- gwf spf dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of seepage cells
+description REPLACE maxbound {'{#1}': 'seepage cells'}
+
+
+# --------------------- gwf rch period ---------------------
+
+block period
+name iper
+type integer
+block_variable True
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name stress_period_data
+type recarray cellid ihc cl1 hwva angldegx aux boundname
+shape (maxbound)
+reader urword
+longname
+description
+mf6internal spd
+
+block period
+name cellid
+type integer
+shape (ncelldim)
+tagged false
+in_record true
+reader urword
+longname cell identifier
+description REPLACE cellid {}
+
+block period
+name ihc
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname horizontal connection flag
+description is the connection type for the seepage face.  A value of 0 indicates a vertical connection (horizontal face, normal aligned with the z axis).  A value of 1 indicates a horizontal connection (vertical face, normal in the x-y plane as given by ANGLDEGX).
+
+block period
+name cl1
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname distance to seepage face
+description is the distance from the cell center to the seepage face.
+
+block period
+name hwva
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname seepage face area
+description is the area of the seepage face.
+
+block period
+name angldegx
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname face normal angle with x axis
+description is the angle (in degrees) between the outward normal of the seepage face and the x axis of the grid.  This value is only used when IHC is 1 and the hydraulic conductivity is anisotropic in the horizontal plane.
+
+block period
+name aux
+type double precision
+in_record true
+tagged false
+shape (naux)
+reader urword
+optional true
+longname auxiliary variables
+description REPLACE aux {'{#1}': 'seepage boundary'}
+mf6internal auxvar
+
+block period
+name boundname
+type string
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname seepage boundary name
+description REPLACE boundname {'{#1}': 'seepage'}

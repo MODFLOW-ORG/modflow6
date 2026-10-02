@@ -20,6 +20,10 @@ module GwfStoModule
   use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms, SyTerms
   use TvsModule, only: TvsType, tvs_cr
   use MatrixBaseModule
+  use GwfStoExtModule, only: GwfStoFormContainerType, &
+                             GwfStoFormulationType, &
+                             MAX_EXT_STO_FORMS, &
+                             DEFAULT_STORAGE
 
   implicit none
   public :: GwfStoType, sto_cr
@@ -47,6 +51,12 @@ module GwfStoModule
     real(DP), dimension(:), pointer, contiguous, private :: oldsy => null() !< previous time step specific yield
     integer(I4B), pointer :: iper => null() !< input context loaded period
     character(len=:), pointer :: storage !< input context storage string
+
+    integer(I4B), dimension(:), pointer, contiguous :: iformulation => null() !< active formulation for the connection (size: n)
+                                                                              !! with values 0 (= default) up to SIZE_STORAGE_FORM - 1
+    type(GwfStoFormContainerType), dimension(MAX_EXT_STO_FORMS), private :: &
+      sto_formulations !< alternative storage calculations by extension
+    class(GwfStoFormulationType), pointer :: default_form => null() !< default storage formulation
   contains
     procedure :: sto_ar
     procedure :: sto_rp
@@ -58,13 +68,35 @@ module GwfStoModule
     procedure :: sto_save_model_flows
     procedure :: sto_da
     procedure :: allocate_scalars
+    procedure :: add_sto_formulation
+    ! private
     procedure, private :: allocate_arrays
-    !procedure, private :: register_handlers
     procedure, private :: source_options
     procedure, private :: source_data
     procedure, private :: log_options
     procedure, private :: save_old_ss_sy
+    procedure, private :: fc_default_sto
+    procedure, private :: fn_default_sto
+    procedure, private :: cq_default_sto
+
   end type
+
+  !> @brief Default storage formulation
+  !!
+  !! Wraps the standard STO fill so it participates in the additive list of
+  !! storage formulations. Nodes claimed by an exclusive formulation are
+  !! skipped.
+  !<
+  type, extends(GwfStoFormulationType) :: DefaultStorageFormulationType
+    class(GwfStoType), pointer :: sto => null() !< owning STO package
+  contains
+    procedure :: is_active => default_storage_is_active
+    procedure :: fc => default_storage_fc
+    procedure :: fn => default_storage_fn
+    procedure :: cq => default_storage_cq
+    procedure :: bd => default_storage_bd
+    procedure :: save_flows => default_storage_save_flows
+  end type DefaultStorageFormulationType
 
 contains
 
@@ -140,6 +172,7 @@ contains
     if (this%intvs /= 0) then
       call this%tvs%ar(this%dis)
     end if
+
   end subroutine sto_ar
 
   !> @ brief Read and prepare method for package
@@ -223,7 +256,6 @@ contains
   !!
   !<
   subroutine sto_fc(this, kiter, hold, hnew, matrix_sln, idxglo, rhs)
-    ! -- modules
     use TdisModule, only: delt
     ! -- dummy variables
     class(GwfStoType) :: this !< GwfStoType object
@@ -234,23 +266,7 @@ contains
     integer(I4B), intent(in), dimension(:) :: idxglo !< global index model to solution
     real(DP), intent(inout), dimension(:) :: rhs !< right-hand side
     ! -- local variables
-    integer(I4B) :: n
-    integer(I4B) :: idiag
-    real(DP) :: tled
-    real(DP) :: sc1
-    real(DP) :: sc2
-    real(DP) :: rho1
-    real(DP) :: rho2
-    real(DP) :: sc1old
-    real(DP) :: sc2old
-    real(DP) :: rho1old
-    real(DP) :: rho2old
-    real(DP) :: tp
-    real(DP) :: bt
-    real(DP) :: snold
-    real(DP) :: snnew
-    real(DP) :: aterm
-    real(DP) :: rhsterm
+    integer(I4B) :: iform
     ! -- formats
     character(len=*), parameter :: fmtsperror = &
       &"('DETECTED TIME STEP LENGTH OF ZERO.  GWF STORAGE PACKAGE CANNOT BE ', &
@@ -265,83 +281,137 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     !
+    ! -- Each active formulation runs over all cells and adds its storage
+    !    terms; the default storage formulation is always active.
+    call this%default_form%fc(kiter, matrix_sln, rhs, idxglo, hold, hnew)
+    do iform = 1, MAX_EXT_STO_FORMS
+      if (this%sto_formulations(iform)%is_active) then
+        call this%sto_formulations(iform)%form%fc( &
+          kiter, matrix_sln, rhs, idxglo, hold, hnew)
+      end if
+    end do
+  end subroutine sto_fc
+
+  !> @brief Fill coefficients for the default storage formulation
+  !!
+  !! Runs over all cells and fills the standard STO terms, skipping cells
+  !! claimed by an exclusive formulation.
+  !<
+  subroutine default_storage_fc(this, kiter, matrix_sln, rhs, &
+                                idxglo, h_old, h_new)
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    integer(I4B), intent(in) :: kiter !< outer iteration number
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln !< A matrix
+    real(DP), dimension(:), intent(inout) :: rhs !< right-hand side
+    integer(I4B), dimension(:), intent(in) :: idxglo !< global index model to solution
+    real(DP), dimension(:), intent(in) :: h_old !< previous heads
+    real(DP), dimension(:), intent(in) :: h_new !< current heads
+    ! local
+    integer(I4B) :: n
+
+    do n = 1, this%sto%dis%nodes
+      if (this%sto%ibound(n) < 1) cycle
+      ! skip cells claimed by an exclusive formulation
+      if (this%sto%iformulation(n) /= DEFAULT_STORAGE) cycle
+      call this%sto%fc_default_sto(n, matrix_sln, rhs, idxglo, h_old, h_new)
+    end do
+
+  end subroutine default_storage_fc
+
+  !> @brief Default storage FC
+  !<
+  subroutine fc_default_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
+    use TdisModule, only: delt
+    class(GwfStoType) :: this !< GwfStoType object
+    integer(I4B), intent(in) :: n
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: hold
+    real(DP), dimension(:), intent(in) :: hnew
+    ! local
+    integer(I4B) :: idiag
+    real(DP) :: tled
+    real(DP) :: sc1, sc2
+    real(DP) :: rho1, rho2
+    real(DP) :: sc1old, sc2old, rho1old, rho2old
+    real(DP) :: tp, bt
+    real(DP) :: snold, snnew
+    real(DP) :: aterm, rhsterm
+    !
     ! -- set variables
     tled = DONE / delt
+    idiag = this%dis%con%ia(n)
     !
-    ! -- loop through and calculate storage contribution to hcof and rhs
-    do n = 1, this%dis%nodes
-      idiag = this%dis%con%ia(n)
-      if (this%ibound(n) < 1) cycle
+    ! -- aquifer elevations and thickness
+    tp = this%dis%top(n)
+    bt = this%dis%bot(n)
+    !
+    ! -- aquifer saturation
+    if (this%iconvert(n) == 0) then
+      snold = DONE
+      snnew = DONE
+    else
+      snold = sQuadraticSaturation(tp, bt, hold(n), this%satomega)
+      snnew = sQuadraticSaturation(tp, bt, hnew(n), this%satomega)
+    end if
+    !
+    ! -- storage coefficients
+    sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
+    rho1 = sc1 * tled
+    !
+    if (this%integratechanges /= 0) then
+      ! -- Integration of storage changes (e.g. when using TVS):
+      !    separate the old (start of time step) and new (end of time step)
+      !    primary storage capacities
+      sc1old = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), &
+                          this%oldss(n))
+      rho1old = sc1old * tled
+    else
+      ! -- No integration of storage changes: old and new values are
+      !    identical => normal MF6 storage formulation
+      rho1old = rho1
+    end if
+    !
+    ! -- calculate specific storage terms
+    call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
+                 rho1, rho1old, snnew, snold, hnew(n), hold(n), &
+                 aterm, rhsterm)
+    !
+    ! -- add specific storage terms to amat and rhs
+    call matrix_sln%add_value_pos(idxglo(idiag), aterm)
+    rhs(n) = rhs(n) + rhsterm
+    !
+    ! -- specific yield
+    if (this%iconvert(n) /= 0) then
+      rhsterm = DZERO
       !
-      ! -- aquifer elevations and thickness
-      tp = this%dis%top(n)
-      bt = this%dis%bot(n)
-      !
-      ! -- aquifer saturation
-      if (this%iconvert(n) == 0) then
-        snold = DONE
-        snnew = DONE
-      else
-        snold = sQuadraticSaturation(tp, bt, hold(n), this%satomega)
-        snnew = sQuadraticSaturation(tp, bt, hnew(n), this%satomega)
-      end if
-      !
-      ! -- storage coefficients
-      sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
-      rho1 = sc1 * tled
+      ! -- secondary storage coefficient
+      sc2 = SyCapacity(this%dis%area(n), this%sy(n))
+      rho2 = sc2 * tled
       !
       if (this%integratechanges /= 0) then
         ! -- Integration of storage changes (e.g. when using TVS):
         !    separate the old (start of time step) and new (end of time step)
-        !    primary storage capacities
-        sc1old = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), &
-                            this%oldss(n))
-        rho1old = sc1old * tled
+        !    secondary storage capacities
+        sc2old = SyCapacity(this%dis%area(n), this%oldsy(n))
+        rho2old = sc2old * tled
       else
         ! -- No integration of storage changes: old and new values are
         !    identical => normal MF6 storage formulation
-        rho1old = rho1
+        rho2old = rho2
       end if
       !
       ! -- calculate specific storage terms
-      call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
-                   rho1, rho1old, snnew, snold, hnew(n), hold(n), &
+      call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
                    aterm, rhsterm)
       !
-      ! -- add specific storage terms to amat and rhs
+      ! -- add specific yield terms to amat and rhs
       call matrix_sln%add_value_pos(idxglo(idiag), aterm)
       rhs(n) = rhs(n) + rhsterm
-      !
-      ! -- specific yield
-      if (this%iconvert(n) /= 0) then
-        rhsterm = DZERO
-        !
-        ! -- secondary storage coefficient
-        sc2 = SyCapacity(this%dis%area(n), this%sy(n))
-        rho2 = sc2 * tled
-        !
-        if (this%integratechanges /= 0) then
-          ! -- Integration of storage changes (e.g. when using TVS):
-          !    separate the old (start of time step) and new (end of time step)
-          !    secondary storage capacities
-          sc2old = SyCapacity(this%dis%area(n), this%oldsy(n))
-          rho2old = sc2old * tled
-        else
-          ! -- No integration of storage changes: old and new values are
-          !    identical => normal MF6 storage formulation
-          rho2old = rho2
-        end if
-        !
-        ! -- calculate specific storage terms
-        call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
-                     aterm, rhsterm)
-!
-        ! -- add specific yield terms to amat and rhs
-        call matrix_sln%add_value_pos(idxglo(idiag), aterm)
-        rhs(n) = rhs(n) + rhsterm
-      end if
-    end do
-  end subroutine sto_fc
+    end if
+
+  end subroutine fc_default_sto
 
   !> @ brief Fill Newton-Raphson terms in A and right-hand side for the package
   !!
@@ -350,8 +420,6 @@ contains
   !!
   !<
   subroutine sto_fn(this, kiter, hold, hnew, matrix_sln, idxglo, rhs)
-    ! -- modules
-    use TdisModule, only: delt
     ! -- dummy variables
     class(GwfStoType) :: this !< GwfStoType object
     integer(I4B), intent(in) :: kiter !< outer iteration number
@@ -361,81 +429,119 @@ contains
     integer(I4B), intent(in), dimension(:) :: idxglo !< global index model to solution
     real(DP), intent(inout), dimension(:) :: rhs !< right-hand side
     ! -- local variables
-    integer(I4B) :: n
-    integer(I4B) :: idiag
-    real(DP) :: tled
-    real(DP) :: sc1
-    real(DP) :: sc2
-    real(DP) :: rho1
-    real(DP) :: rho2
-    real(DP) :: tp
-    real(DP) :: bt
-    real(DP) :: tthk
-    real(DP) :: h
-    real(DP) :: snnew
-    real(DP) :: derv
-    real(DP) :: rterm
-    real(DP) :: drterm
+    integer(I4B) :: iform
     !
     ! -- test if steady-state stress period
     if (this%iss /= 0) return
     !
-    ! -- set variables
-    tled = DONE / delt
-    !
-    ! -- loop through and calculate storage contribution to hcof and rhs
-    do n = 1, this%dis%nodes
-      idiag = this%dis%con%ia(n)
-      if (this%ibound(n) <= 0) cycle
-      !
-      ! -- aquifer elevations and thickness
-      tp = this%dis%top(n)
-      bt = this%dis%bot(n)
-      tthk = tp - bt
-      h = hnew(n)
-      !
-      ! -- aquifer saturation
-      snnew = sQuadraticSaturation(tp, bt, h)
-      !
-      ! -- storage coefficients
-      sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
-      sc2 = SyCapacity(this%dis%area(n), this%sy(n))
-      rho1 = sc1 * tled
-      rho2 = sc2 * tled
-      !
-      ! -- calculate newton terms for specific storage
-      !    and specific yield
-      if (this%iconvert(n) /= 0) then
-        !
-        ! -- calculate saturation derivative
-        derv = sQuadraticSaturationDerivative(tp, bt, h)
-        !
-        ! -- newton terms for specific storage
-        if (this%iconf_ss == 0) then
-          if (this%iorig_ss == 0) then
-            drterm = -rho1 * derv * (h - bt) + rho1 * tthk * snnew * derv
-          else
-            drterm = -(rho1 * derv * h)
-          end if
-          call matrix_sln%add_value_pos(idxglo(idiag), drterm)
-          rhs(n) = rhs(n) + drterm * h
-        end if
-        !
-        ! -- newton terms for specific yield
-        !    only calculated if the current saturation
-        !    is less than one
-        if (snnew < DONE) then
-          ! -- calculate newton terms for specific yield
-          if (snnew > DZERO) then
-            rterm = -rho2 * tthk * snnew
-            drterm = -rho2 * tthk * derv
-            call matrix_sln%add_value_pos(idxglo(idiag), drterm + rho2)
-            rhs(n) = rhs(n) - rterm + drterm * h + rho2 * bt
-          end if
-        end if
+    ! -- Each active formulation runs over all cells and adds its newton
+    !    terms; the default storage formulation is always active.
+    call this%default_form%fn(kiter, matrix_sln, rhs, idxglo, hold, hnew)
+    do iform = 1, MAX_EXT_STO_FORMS
+      if (this%sto_formulations(iform)%is_active) then
+        call this%sto_formulations(iform)%form%fn( &
+          kiter, matrix_sln, rhs, idxglo, hold, hnew)
       end if
     end do
   end subroutine sto_fn
+
+  !> @brief Fill newton terms for the default storage formulation
+  !!
+  !! Runs over all cells and fills the standard STO newton terms, skipping
+  !! cells claimed by an exclusive formulation.
+  !<
+  subroutine default_storage_fn(this, kiter, matrix_sln, rhs, &
+                                idxglo, h_old, h_new)
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    integer(I4B), intent(in) :: kiter !< outer iteration number
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln !< A matrix
+    real(DP), dimension(:), intent(inout) :: rhs !< right-hand side
+    integer(I4B), dimension(:), intent(in) :: idxglo !< global index model to solution
+    real(DP), dimension(:), intent(in) :: h_old !< previous heads
+    real(DP), dimension(:), intent(in) :: h_new !< current heads
+    ! local
+    integer(I4B) :: n
+
+    do n = 1, this%sto%dis%nodes
+      if (this%sto%ibound(n) <= 0) cycle
+      ! skip cells claimed by an exclusive formulation
+      if (this%sto%iformulation(n) /= DEFAULT_STORAGE) cycle
+      call this%sto%fn_default_sto(n, matrix_sln, rhs, idxglo, h_old, h_new)
+    end do
+
+  end subroutine default_storage_fn
+
+  subroutine fn_default_sto(this, n, matrix_sln, rhs, idxglo, hold, hnew)
+    use TdisModule, only: delt
+    class(GwfStoType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: hold
+    real(DP), dimension(:), intent(in) :: hnew
+    ! local
+    integer(I4B) :: idiag
+    real(DP) :: tled
+    real(DP) :: sc1, sc2, rho1, rho2
+    real(DP) :: tp, bt
+    real(DP) :: tthk
+    real(DP) :: h
+    real(DP) :: snnew
+    real(DP) :: derv, rterm, drterm
+    !
+    ! set variables
+    tled = DONE / delt
+    idiag = this%dis%con%ia(n)
+    !
+    ! -- aquifer elevations and thickness
+    tp = this%dis%top(n)
+    bt = this%dis%bot(n)
+    tthk = tp - bt
+    h = hnew(n)
+    !
+    ! -- aquifer saturation
+    snnew = sQuadraticSaturation(tp, bt, h)
+    !
+    ! -- storage coefficients
+    sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
+    sc2 = SyCapacity(this%dis%area(n), this%sy(n))
+    rho1 = sc1 * tled
+    rho2 = sc2 * tled
+    !
+    ! -- calculate newton terms for specific storage
+    !    and specific yield
+    if (this%iconvert(n) /= 0) then
+      !
+      ! -- calculate saturation derivative
+      derv = sQuadraticSaturationDerivative(tp, bt, h)
+      !
+      ! -- newton terms for specific storage
+      if (this%iconf_ss == 0) then
+        if (this%iorig_ss == 0) then
+          drterm = -rho1 * derv * (h - bt) + rho1 * tthk * snnew * derv
+        else
+          drterm = -(rho1 * derv * h)
+        end if
+        call matrix_sln%add_value_pos(idxglo(idiag), drterm)
+        rhs(n) = rhs(n) + drterm * h
+      end if
+      !
+      ! -- newton terms for specific yield
+      !    only calculated if the current saturation
+      !    is less than one
+      if (snnew < DONE) then
+        ! -- calculate newton terms for specific yield
+        if (snnew > DZERO) then
+          rterm = -rho2 * tthk * snnew
+          drterm = -rho2 * tthk * derv
+          call matrix_sln%add_value_pos(idxglo(idiag), drterm + rho2)
+          rhs(n) = rhs(n) - rterm + drterm * h + rho2 * bt
+        end if
+      end if
+    end if
+
+  end subroutine fn_default_sto
 
   !> @ brief Calculate flows for package
   !!
@@ -444,8 +550,6 @@ contains
   !!
   !<
   subroutine sto_cq(this, flowja, hnew, hold)
-    ! -- modules
-    use TdisModule, only: delt
     ! -- dummy variables
     class(GwfStoType) :: this !< GwfStoType object
     real(DP), dimension(:), contiguous, intent(inout) :: flowja !< connection flows
@@ -453,114 +557,169 @@ contains
     real(DP), dimension(:), contiguous, intent(in) :: hold !< previous head
     ! -- local variables
     integer(I4B) :: n
-    integer(I4B) :: idiag
-    real(DP) :: rate
-    real(DP) :: tled
-    real(DP) :: sc1
-    real(DP) :: sc2
-    real(DP) :: rho1
-    real(DP) :: rho2
-    real(DP) :: sc1old
-    real(DP) :: sc2old
-    real(DP) :: rho1old
-    real(DP) :: rho2old
-    real(DP) :: tp
-    real(DP) :: bt
-    real(DP) :: snold
-    real(DP) :: snnew
-    real(DP) :: aterm
-    real(DP) :: rhsterm
+    integer(I4B) :: iform
     !
-    ! -- initialize strg arrays
+    ! -- reset storage rates
     do n = 1, this%dis%nodes
       this%strgss(n) = DZERO
       this%strgsy(n) = DZERO
     end do
     !
-    ! -- Set strt to zero or calculate terms if not steady-state stress period
-    if (this%iss == 0) then
-      !
-      ! -- set variables
-      tled = DONE / delt
-      !
-      ! -- Calculate storage change
-      do n = 1, this%dis%nodes
-        if (this%ibound(n) <= 0) cycle
-        ! -- aquifer elevations and thickness
-        tp = this%dis%top(n)
-        bt = this%dis%bot(n)
-        !
-        ! -- aquifer saturation
-        if (this%iconvert(n) == 0) then
-          snold = DONE
-          snnew = DONE
-        else
-          snold = sQuadraticSaturation(tp, bt, hold(n), this%satomega)
-          snnew = sQuadraticSaturation(tp, bt, hnew(n), this%satomega)
-        end if
-        !
-        ! -- primary storage coefficient
-        sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
-        rho1 = sc1 * tled
-        !
-        if (this%integratechanges /= 0) then
-          ! -- Integration of storage changes (e.g. when using TVS):
-          !    separate the old (start of time step) and new (end of time step)
-          !    primary storage capacities
-          sc1old = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), &
-                              this%oldss(n))
-          rho1old = sc1old * tled
-        else
-          ! -- No integration of storage changes: old and new values are
-          !    identical => normal MF6 storage formulation
-          rho1old = rho1
-        end if
-        !
-        ! -- calculate specific storage terms and rate
-        call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
-                     rho1, rho1old, snnew, snold, hnew(n), hold(n), &
-                     aterm, rhsterm, rate)
-        !
-        ! -- save rate
-        this%strgss(n) = rate
-        !
-        ! -- add storage term to flowja
-        idiag = this%dis%con%ia(n)
-        flowja(idiag) = flowja(idiag) + rate
-        !
-        ! -- specific yield
-        rate = DZERO
-        if (this%iconvert(n) /= 0) then
-          !
-          ! -- secondary storage coefficient
-          sc2 = SyCapacity(this%dis%area(n), this%sy(n))
-          rho2 = sc2 * tled
-          !
-          if (this%integratechanges /= 0) then
-            ! -- Integration of storage changes (e.g. when using TVS):
-            !    separate the old (start of time step) and new (end of time
-            !    step) secondary storage capacities
-            sc2old = SyCapacity(this%dis%area(n), this%oldsy(n))
-            rho2old = sc2old * tled
-          else
-            ! -- No integration of storage changes: old and new values are
-            !    identical => normal MF6 storage formulation
-            rho2old = rho2
-          end if
-          !
-          ! -- calculate specific yield storage terms and rate
-          call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
-                       aterm, rhsterm, rate)
-
-        end if
-        this%strgsy(n) = rate
-        !
-        ! -- add storage term to flowja
-        idiag = this%dis%con%ia(n)
-        flowja(idiag) = flowja(idiag) + rate
-      end do
-    end if
+    if (this%iss == 1) return !< no storage for steady state period
+    !
+    ! -- Each active formulation runs over all cells and adds its storage
+    !    change; the default storage formulation is always active.
+    call this%default_form%cq(flowja, hnew, hold)
+    do iform = 1, MAX_EXT_STO_FORMS
+      if (this%sto_formulations(iform)%is_active) then
+        call this%sto_formulations(iform)%form%cq(flowja, hnew, hold)
+      end if
+    end do
   end subroutine sto_cq
+
+  !> @brief Calculate flows for the default storage formulation
+  !!
+  !! Runs over all cells and stores the standard STO change in storage,
+  !! skipping cells claimed by an exclusive formulation.
+  !<
+  subroutine default_storage_cq(this, flowja, h_new, h_old)
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    real(DP), dimension(:), intent(inout) :: flowja !< connection flows
+    real(DP), dimension(:), intent(in) :: h_new !< current head
+    real(DP), dimension(:), intent(in) :: h_old !< previous head
+    ! local
+    integer(I4B) :: n
+
+    do n = 1, this%sto%dis%nodes
+      if (this%sto%ibound(n) <= 0) cycle
+      ! skip cells claimed by an exclusive formulation
+      if (this%sto%iformulation(n) /= DEFAULT_STORAGE) cycle
+      call this%sto%cq_default_sto(n, flowja, h_new, h_old)
+    end do
+
+  end subroutine default_storage_cq
+
+  !> @brief The default formulation uses the claim mask, not is_active
+  !<
+  function default_storage_is_active(this, n) result(is_active)
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    integer(I4B), intent(in) :: n !< node number
+    logical(LGP) :: is_active !< always false for the default formulation
+    is_active = .false.
+  end function default_storage_is_active
+
+  !> @brief Default storage budget is handled directly by sto_bd
+  !<
+  subroutine default_storage_bd(this, isuppress_output, model_budget)
+    use BudgetModule, only: BudgetType
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    integer(I4B), intent(in) :: isuppress_output !< flag to suppress model output
+    type(BudgetType), intent(inout) :: model_budget !< model budget object
+  end subroutine default_storage_bd
+
+  !> @brief Default storage flows are saved directly by sto_save_model_flows
+  !<
+  subroutine default_storage_save_flows(this, iprint, ibinun)
+    class(DefaultStorageFormulationType), intent(inout) :: this !< default formulation
+    integer(I4B), intent(in) :: iprint !< print flag
+    integer(I4B), intent(in) :: ibinun !< cell-by-cell file unit number
+  end subroutine default_storage_save_flows
+
+  !> @brief Standard flow calculation for the storage
+  !<
+  subroutine cq_default_sto(this, n, flowja, hnew, hold)
+    use TdisModule, only: delt
+    class(GwfStoType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(:), intent(inout) :: flowja
+    real(DP), dimension(:), intent(in) :: hnew
+    real(DP), dimension(:), intent(in) :: hold
+    ! local
+    integer(I4B) :: idiag
+    real(DP) :: rate
+    real(DP) :: tled
+    real(DP) :: sc1, sc2, rho1, rho2
+    real(DP) :: sc1old, sc2old, rho1old, rho2old
+    real(DP) :: tp, bt
+    real(DP) :: snold, snnew
+    real(DP) :: aterm, rhsterm
+    !
+    tled = DONE / delt
+    !
+    ! -- aquifer elevations and thickness
+    tp = this%dis%top(n)
+    bt = this%dis%bot(n)
+    !
+    ! -- aquifer saturation
+    if (this%iconvert(n) == 0) then
+      snold = DONE
+      snnew = DONE
+    else
+      snold = sQuadraticSaturation(tp, bt, hold(n), this%satomega)
+      snnew = sQuadraticSaturation(tp, bt, hnew(n), this%satomega)
+    end if
+    !
+    ! -- primary storage coefficient
+    sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
+    rho1 = sc1 * tled
+    !
+    if (this%integratechanges /= 0) then
+      ! -- Integration of storage changes (e.g. when using TVS):
+      !    separate the old (start of time step) and new (end of time step)
+      !    primary storage capacities
+      sc1old = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), &
+                          this%oldss(n))
+      rho1old = sc1old * tled
+    else
+      ! -- No integration of storage changes: old and new values are
+      !    identical => normal MF6 storage formulation
+      rho1old = rho1
+    end if
+    !
+    ! -- calculate specific storage terms and rate
+    call SsTerms(this%iconvert(n), this%iorig_ss, this%iconf_ss, tp, bt, &
+                 rho1, rho1old, snnew, snold, hnew(n), hold(n), &
+                 aterm, rhsterm, rate)
+    !
+    ! -- save rate
+    this%strgss(n) = rate
+    !
+    ! -- add storage term to flowja
+    idiag = this%dis%con%ia(n)
+    flowja(idiag) = flowja(idiag) + rate
+    !
+    ! -- specific yield
+    rate = DZERO
+    if (this%iconvert(n) /= 0) then
+      !
+      ! -- secondary storage coefficient
+      sc2 = SyCapacity(this%dis%area(n), this%sy(n))
+      rho2 = sc2 * tled
+      !
+      if (this%integratechanges /= 0) then
+        ! -- Integration of storage changes (e.g. when using TVS):
+        !    separate the old (start of time step) and new (end of time
+        !    step) secondary storage capacities
+        sc2old = SyCapacity(this%dis%area(n), this%oldsy(n))
+        rho2old = sc2old * tled
+      else
+        ! -- No integration of storage changes: old and new values are
+        !    identical => normal MF6 storage formulation
+        rho2old = rho2
+      end if
+      !
+      ! -- calculate specific yield storage terms and rate
+      call SyTerms(tp, bt, rho2, rho2old, snnew, snold, &
+                   aterm, rhsterm, rate)
+
+    end if
+    this%strgsy(n) = rate
+    !
+    ! -- add storage term to flowja
+    idiag = this%dis%con%ia(n)
+    flowja(idiag) = flowja(idiag) + rate
+
+  end subroutine cq_default_sto
 
   !> @ brief Model budget calculation for package
   !!
@@ -577,15 +736,23 @@ contains
     integer(I4B), intent(in) :: isuppress_output !< flag to suppress model output
     type(BudgetType), intent(inout) :: model_budget !< model budget object
     ! -- local variables
+    integer(I4B) :: i
     real(DP) :: rin
     real(DP) :: rout
+    !
+    ! -- Add external storage rates to model budget
+    do i = 1, MAX_EXT_STO_FORMS
+      if (this%sto_formulations(i)%is_active) then
+        call this%sto_formulations(i)%form%bd(isuppress_output, model_budget)
+      end if
+    end do
     !
     ! -- Add confined storage rates to model budget
     call rate_accumulator(this%strgss, rin, rout)
     call model_budget%addentry(rin, rout, delt, budtxt(1), &
                                isuppress_output, '         STORAGE')
     !
-    ! -- Add unconfined storage rates to model budget
+    ! -- Add unconfined storage rates to model budget (TODO_UZR: extension as a separate entry?)
     if (this%iusesy == 1) then
       call rate_accumulator(this%strgsy, rin, rout)
       call model_budget%addentry(rin, rout, delt, budtxt(2), &
@@ -604,6 +771,7 @@ contains
     integer(I4B), intent(in) :: icbcfl !< flag to output budget data
     integer(I4B), intent(in) :: icbcun !< cell-by-cell file unit number
     ! -- local variables
+    integer(I4B) :: iform
     integer(I4B) :: ibinun
     integer(I4B) :: iprint, nvaluesp, nwidthp
     character(len=1) :: cdatafmp = ' ', editdesc = ' '
@@ -623,6 +791,13 @@ contains
     if (ibinun /= 0) then
       iprint = 0
       dinact = DZERO
+      !
+      ! -- external formulations first
+      do iform = 1, MAX_EXT_STO_FORMS
+        if (this%sto_formulations(iform)%is_active) then
+          call this%sto_formulations(iform)%form%save_flows(iprint, ibinun)
+        end if
+      end do
       !
       ! -- storage(ss)
       call this%dis%record_array(this%strgss, this%iout, iprint, -ibinun, &
@@ -662,6 +837,13 @@ contains
       call mem_deallocate(this%sy)
       call mem_deallocate(this%strgss)
       call mem_deallocate(this%strgsy)
+      call mem_deallocate(this%iformulation)
+      !
+      ! -- deallocate the default storage formulation
+      if (associated(this%default_form)) then
+        deallocate (this%default_form)
+        this%default_form => null()
+      end if
       !
       ! -- deallocate TVS arrays
       if (associated(this%oldss)) then
@@ -744,6 +926,7 @@ contains
     call mem_allocate(this%sy, nodes, 'SY', this%memoryPath)
     call mem_allocate(this%strgss, nodes, 'STRGSS', this%memoryPath)
     call mem_allocate(this%strgsy, nodes, 'STRGSY', this%memoryPath)
+    call mem_allocate(this%iformulation, nodes, 'IFORM', this%memoryPath)
     !
     ! -- set input context pointers
     if (this%inunit > 0) then
@@ -765,7 +948,16 @@ contains
           this%oldsy(n) = DZERO
         end if
       end if
+
+      this%iformulation(n) = DEFAULT_STORAGE
     end do
+    !
+    ! -- create the default storage formulation and point it at this package
+    allocate (DefaultStorageFormulationType :: this%default_form)
+    select type (form => this%default_form)
+    type is (DefaultStorageFormulationType)
+      form%sto => this
+    end select
   end subroutine allocate_arrays
 
   !> @ brief Source input options for package
@@ -1013,5 +1205,15 @@ contains
       end do
     end if
   end subroutine save_old_ss_sy
+
+  subroutine add_sto_formulation(this, sto_form, form_id)
+    class(GwfStoType), intent(inout) :: this !< this NPF instance
+    class(GwfStoFormulationType), pointer :: sto_form !< the alternative storage calculator
+    integer(I4B) :: form_id !< the id for the flow formulation
+
+    this%sto_formulations(form_id)%is_active = .true.
+    this%sto_formulations(form_id)%form => sto_form
+
+  end subroutine add_sto_formulation
 
 end module GwfStoModule
