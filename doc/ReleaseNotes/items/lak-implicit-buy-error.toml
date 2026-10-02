@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "A Lake (LAK) Package using the IMPLICIT option ignored the density terms of the Buoyancy (BUY) Package for every lake solved implicitly, so a model with a density contrast between a lake and the aquifer ran without a warning and returned the lake-aquifer exchange of a model without density. The program now terminates with an error when the IMPLICIT option is specified and the BUY Package is active, until the implicit formulation includes the density terms. Models that use BUY with the default LAK formulation are unaffected."

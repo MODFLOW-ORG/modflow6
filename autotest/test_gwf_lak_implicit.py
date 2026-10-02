@@ -1307,6 +1307,25 @@ def test_requires_bicgstab(function_tmpdir, targets):
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
 
 
+def test_buy_errors(function_tmpdir, targets):
+    # the IMPLICIT formulation does not include the BUY density terms, so a LAK
+    # package with the IMPLICIT option must terminate with an error when BUY is
+    # active rather than silently ignoring density
+    def build(test):
+        sim_i, name = _write_implicit(test, _build_confined)
+        gwf = sim_i.get_model(name)
+        pd = [(0, 0.7, 0.0, "gwt", "concentration")]
+        flopy.mf6.ModflowGwfbuy(gwf, packagedata=pd, denseref=1000.0)
+        sim_i.write_simulation(silent=True)
+        return sim_i
+
+    def check(test):
+        msg = (test.workspace / "mfsim.lst").read_text().upper()
+        assert "IMPLICIT" in msg and "BUY" in msg and "DENSITY" in msg, msg
+
+    _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
+
+
 def test_connectionless_lake_errors(function_tmpdir, targets):
     # a lake with no groundwater connections cannot be solved as a matrix
     # unknown (its lake row would have no off-diagonal coupling and a singular

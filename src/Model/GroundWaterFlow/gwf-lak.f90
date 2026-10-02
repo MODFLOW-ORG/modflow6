@@ -6576,6 +6576,17 @@ contains
     ! -- local
     integer(I4B) :: i, j
     !
+    ! -- the IMPLICIT formulation does not include the density terms yet
+    if (this%iimplicit /= 0) then
+      write (errmsg, '(a)') &
+        'The IMPLICIT option cannot be used with the BUY package until the &
+        &implicit formulation includes density terms. Remove the IMPLICIT &
+        &option from LAK package '//trim(this%packName)//' to simulate &
+        &density.'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+    end if
+    !
     ! -- Set idense and reallocate denseterms to be of size MAXBOUND
     this%idense = 1
     call mem_reallocate(this%denseterms, 3, this%MAXBOUND, 'DENSETERMS', &

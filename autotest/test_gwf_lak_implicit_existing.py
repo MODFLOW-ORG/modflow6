@@ -29,7 +29,7 @@ import pytest
 from framework import TestFramework
 
 # (module, case index) pairs to exercise -- one representative converging case
-# per existing LAK test (core lake physics plus the coupled transport/density/
+# per existing LAK test (core lake physics plus the coupled transport and
 # viscosity models)
 #
 # Deliberately excluded:
@@ -41,6 +41,8 @@ from framework import TestFramework
 #                         heads are not directly comparable, and with the model's
 #                         surfdep=0 the implicit solve diverges. It is covered
 #                         instead by test_ats_implicit_matches_default below.
+#   test_gwf_buy_lak02 -- BUY is active, and IMPLICIT does not include the
+#                         density terms yet, so the run is an error (#3025).
 _TARGETS = [
     ("test_gwf_lak_bedleak", 0),  # vertical bedleak, two lakes
     ("test_gwf_lak_status", 0),  # STATUS changes (active/inactive/constant)
@@ -50,8 +52,7 @@ _TARGETS = [
     ("test_gwf_lakobs02", 0),  # lake outlet observations
     ("test_gwf_ts_lak01", 0),  # time-series lake input
     ("test_gwf_laket", 0),  # coupled lake transport (LKT)
-    ("test_gwf_buy_lak01", 0),  # buoyancy (density) coupled lake
-    ("test_gwf_buy_lak02", 1),  # buoyancy with a density contrast
+    ("test_gwf_buy_lak01", 0),  # lake density specified, BUY not active
     ("test_gwf_vsc04_lak", 1),  # viscosity active
 ]
 
