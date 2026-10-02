@@ -518,11 +518,72 @@ jobs:
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
 
+      - name: Enable Windows crash dumps (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          # Configure Windows Error Reporting LocalDumps so an unhandled crash
+          # in mf6.exe writes a full .dmp to D:\crashdumps BEFORE the test runs.
+          # Passive config: no effect on the build or on non-crashing runs.
+          New-Item -ItemType Directory -Force -Path "D:\crashdumps" | Out-Null
+          $base = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps"
+          $key = "$base\mf6.exe"
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name "DumpFolder" -Value "D:\crashdumps" -PropertyType ExpandString -Force | Out-Null
+          New-ItemProperty -Path $key -Name "DumpType" -Value 2 -PropertyType DWord -Force | Out-Null
+          New-ItemProperty -Path $key -Name "DumpCount" -Value 10 -PropertyType DWord -Force | Out-Null
+          Write-Host "LocalDumps enabled for mf6.exe -> D:\crashdumps"
+
       - name: Test MF6
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
         run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+
+      - name: Extract and symbolize any backtrace from test output (Windows)
+        if: always() && runner.os == 'Windows'
+        working-directory: modflow6
+        run: |
+          LOGFILE="autotest/test_mf6_output.log"
+          if [ ! -f "$LOGFILE" ] || ! grep -q "Backtrace for this error" "$LOGFILE"; then
+            echo "No backtrace found in test output."
+            exit 0
+          fi
+          echo "=== found a gfortran backtrace in test output, attempting to symbolize ==="
+          ADDR2LINE="$(dirname "$(which gfortran)")/addr2line.exe"
+          [ -f "$ADDR2LINE" ] || ADDR2LINE=addr2line
+          grep -A 40 "Backtrace for this error" "$LOGFILE" | grep -oE '#[0-9]+ +0x[0-9a-fA-F]+' | while read -r frame addr; do
+            echo "--- $frame $addr (as printed, relative to runtime load address -- may not match the static image base if ASLR relocated the module) ---"
+            "$ADDR2LINE" -e bin/mf6.exe -f -C "$addr" 2>&1 | sed 's/^/    /'
+          done
+
+      - name: Analyze crash dump if present (Windows)
+        if: always() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $dumps = Get-ChildItem -Path "D:\crashdumps" -Filter *.dmp -ErrorAction SilentlyContinue
+          if (-not $dumps) {
+            Write-Host "No crash dumps found."
+          } else {
+            choco install windbg -y --no-progress | Out-Null
+            $cdb = Get-ChildItem -Path "C:\Program Files*" -Filter cdb.exe -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+            foreach ($d in $dumps) {
+              Write-Host "=== crash dump: $($d.FullName) ==="
+              if ($cdb) {
+                & $cdb.FullName -z $d.FullName -c "kb; lm; q" 2>&1 | Write-Host
+              } else {
+                Write-Host "cdb.exe not found after install; dump will be uploaded as an artifact instead."
+              }
+            }
+          }
+
+      - name: Upload crash dumps (Windows)
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: crash-dumps-${{ matrix.os }}-${{ matrix.debug }}
+          path: D:\crashdumps\*.dmp
+          if-no-files-found: ignore
 
       - name: Test MF6 models
         working-directory: modflow6
@@ -555,6 +616,27 @@ jobs:
           cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
           cd ../modflow6-examples/autotest
           pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n auto test_scripts.py
+
+      - name: Bundle runtime DLLs for standalone binary (Windows)
+        if: always() && runner.os == 'Windows'
+        working-directory: modflow6
+        shell: pwsh
+        run: |
+          $gfortran = Get-Command gfortran -ErrorAction SilentlyContinue
+          if (-not $gfortran) {
+            Write-Host "gfortran not found on PATH; cannot locate runtime DLLs."
+          } else {
+            $mingwBin = Split-Path $gfortran.Source -Parent
+            Write-Host "Copying runtime DLLs from $mingwBin"
+            Copy-Item -Path "$mingwBin\*.dll" -Destination "bin" -Force
+          }
+
+      - name: Upload mf6 binary for offline symbolization (Windows)
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mf6-binary-${{ matrix.os }}-${{ matrix.debug }}
+          path: modflow6/bin
 
       - name: Upload failed test output
         if: failure()

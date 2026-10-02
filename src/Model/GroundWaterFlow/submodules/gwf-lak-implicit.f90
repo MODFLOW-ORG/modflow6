@@ -151,7 +151,7 @@ contains
       rhs(iloc) = hlak
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) < 1) cycle
         call matrix_sln%add_value_pos(this%idxsymdglo(ipos), this%hcof(j))
         rhs(igwfnode) = rhs(igwfnode) + this%rhs(j)
@@ -170,7 +170,7 @@ contains
       !
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) < 1) cycle
         head = this%xnew(igwfnode)
         !
@@ -214,7 +214,7 @@ contains
       rhs(iloc) = hlak
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         ipos = ipos + 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) < 1) cycle
         head = this%xnew(igwfnode)
         call this%lak_calculate_conn_exchange(n, j, hlak, head, flow, &
@@ -283,7 +283,7 @@ contains
       this%ilegacy(n) = 0
       this%nstuck(n) = 0
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-        igwfnode = this%cellid(j)
+        igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) >= 1) then
           this%holdconn(j) = this%xnew(igwfnode)
         end if
@@ -302,7 +302,7 @@ contains
     dstage = abs(this%xnewpak(n) - this%s0(n))
     dhead = DZERO
     do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
-      igwfnode = this%cellid(j)
+      igwfnode = this%gwfconn(j)
       if (this%ibound(igwfnode) >= 1) then
         dhead = max(dhead, abs(this%xnew(igwfnode) - this%holdconn(j)))
         this%holdconn(j) = this%xnew(igwfnode)
