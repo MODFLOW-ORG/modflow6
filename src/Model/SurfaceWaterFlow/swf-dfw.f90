@@ -109,6 +109,7 @@ module SwfDfwModule
     procedure :: get_cond
     procedure :: get_cond_swr
     procedure :: get_cond_n
+    procedure, public :: get_cond_rj
     procedure :: get_flow_area_nm
     procedure :: calc_velocity
     procedure :: sav_velocity
@@ -838,6 +839,60 @@ contains
 
   end function get_cond_n
 
+  !> @brief Calculate reach-junction conductance
+  !!
+  !! Return the half-cell conductance between reach n and a junction located at
+  !! one of its endpoints.  The junction is a zero-length point, so the only
+  !! half-cell distance is the reach's own half-length (dx); there is no second
+  !! half-cell to harmonically average with.  Depth and gradient use the reach
+  !! and junction stages.  Used by the CHF junction (JNC) package to assemble
+  !! the junction continuity equation with DFW-consistent conductance.
+  !<
+  function get_cond_rj(this, n, dx, stage_n, stage_j) result(cond)
+    ! modules
+    use SmoothingModule, only: sQuadratic
+    ! dummy
+    class(SwfDfwType) :: this !< this instance
+    integer(I4B), intent(in) :: n !< reach number
+    real(DP), intent(in) :: dx !< reach half-length to the junction endpoint
+    real(DP), intent(in) :: stage_n !< stage in reach n
+    real(DP), intent(in) :: stage_j !< stage at the junction
+    ! return
+    real(DP) :: cond
+    ! local
+    real(DP) :: depth
+    real(DP) :: dhds
+    real(DP) :: width
+    real(DP) :: width_dummy
+    real(DP) :: range = 1.d-6
+    real(DP) :: dydx
+    real(DP) :: smooth_factor
+
+    cond = DZERO
+    if (dx <= DPREC) return
+
+    ! depth with upstream weighting (match get_cond: use the higher stage)
+    if (stage_n >= stage_j) then
+      depth = stage_n - this%dis%bot(n)
+    else
+      depth = stage_j - this%dis%bot(n)
+    end if
+
+    ! gradient between reach center and junction over the reach half-length
+    dhds = abs(stage_n - stage_j) / dx
+
+    ! smoothed depth that goes to zero over the specified range
+    call sQuadratic(depth, range, dydx, smooth_factor)
+    depth = depth * smooth_factor
+
+    ! reach flow width (junction endpoint uses the reach width)
+    call this%dis%get_flow_width(n, n, 1, width, width_dummy)
+
+    ! half-cell conductance from the reach center to the junction
+    cond = this%get_cond_n(n, depth, dx, width, dhds)
+
+  end function get_cond_rj
+
   !> @brief Calculate effective conductance for cells n and m using SWR method
   !!
   !! The SWR Process for MODFLOW uses average cell parameters from cell n and
@@ -1139,6 +1194,7 @@ contains
 
     do n = 1, this%dis%nodes
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        if (this%dis%con%mask(ipos) == 0) cycle
         m = this%dis%con%ja(ipos)
         if (m < n) cycle
         qnm = this%qcalc(n, m, stage(n), stage(m), ipos)

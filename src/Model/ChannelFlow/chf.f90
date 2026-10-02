@@ -116,9 +116,11 @@ contains
     call this%oc%oc_df()
     call this%budget%budget_df(NIUNIT_CHF, 'VOLUME', 'L**3')
 
-    ! detect junctions from the DISV1D connectivity
-    call this%jnc%set_pointers(this%dis)
+    ! detect junctions from the DISV1D connectivity and mask the direct
+    ! reach-reach connections they replace (so DFW routes through the junction)
+    call this%jnc%set_pointers(this%dis, this%dfw)
     call this%jnc%detect_junctions()
+    call this%jnc%mask_reach_connections()
 
     ! junction rows are appended immediately after the reach rows
     this%jnc%ioffset = 0
@@ -209,8 +211,8 @@ contains
     ! shared SWF flow calculation
     call swf_cq(this, icnvg, isuppress_output)
 
-    ! junction flows / junction stage capture
-    call this%jnc%jnc_cq(this%x, this%dis%nodes)
+    ! junction stage capture and reach-junction flow contribution to flowja
+    call this%jnc%jnc_cq(this%x, this%flowja, this%dis%nodes)
 
   end subroutine chf_cq
 

@@ -10,18 +10,18 @@
 !! row index; connections added to the solution sparse matrix, not to dis%con).
 !! TODO(jnc-stage2b): parse the optional user JNC input block (loss coefficients,
 !! observation points); it enhances auto-detected junctions but never creates
-!! them.  Until then the package is auto-detect-only (has_user_input = 0) and the
-!! reach-junction conductance is a Stage 3 placeholder (see jnc_fc).
+!! them.  Until then the package is auto-detect-only (has_user_input = 0).
 !<
 module ChfJncModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE
+  use ConstantsModule, only: DZERO, DHALF
   use SimModule, only: store_error, store_error_filename
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use MatrixBaseModule, only: MatrixBaseType
   use Disv1dModule, only: Disv1dType
+  use SwfDfwModule, only: SwfDfwType
 
   implicit none
   private
@@ -40,6 +40,7 @@ module ChfJncModule
     integer(I4B), pointer :: has_user_input => null() !< 0 = auto-only, 1 = user-enhanced
     ! TODO(jnc-stage2b): set has_user_input when the user JNC block is parsed
     type(Disv1dType), pointer :: disv1d => null() !< concrete DISV1D grid (narrowed in set_pointers)
+    type(SwfDfwType), pointer :: dfw => null() !< DFW package, for reach-junction conductance
     integer(I4B), dimension(:), pointer, contiguous :: ivert => null() !< DISV1D vertex number, per junction
     integer(I4B), dimension(:), pointer, contiguous :: nreaches => null() !< number of connected reaches, per junction
     real(DP), dimension(:), pointer, contiguous :: stage => null() !< current stage, per junction
@@ -62,6 +63,8 @@ module ChfJncModule
     procedure :: allocate_scalars
     procedure :: set_pointers
     procedure :: detect_junctions
+    procedure :: mask_reach_connections
+    procedure, private :: qcalc_rj
   end type ChfJncType
 
 contains
@@ -137,11 +140,14 @@ contains
   !!
   !! Narrow the model's polymorphic dis to a concrete DISV1D pointer once and
   !! cache it, so later routines need no type guard (as in the SWF ZDG package).
+  !! Also cache the DFW package, used for DFW-consistent reach-junction
+  !! conductance in jnc_fc / jnc_cq.
   !<
-  subroutine set_pointers(this, dis)
+  subroutine set_pointers(this, dis, dfw)
     ! dummy
     class(ChfJncType) :: this !< this instance
     class(DisBaseType), pointer, intent(in) :: dis !< model discretization (expected DISV1D)
+    type(SwfDfwType), pointer, intent(in) :: dfw !< the DFW package
 
     select type (dis)
     type is (Disv1dType)
@@ -150,6 +156,8 @@ contains
       call store_error('JNC package requires a DISV1D discretization.')
       call store_error_filename(this%input_fname)
     end select
+
+    this%dfw => dfw
 
   end subroutine set_pointers
 
@@ -292,13 +300,13 @@ contains
       this%iajunc(k + 1) = ja
     end do
 
-    ! CHF-JNC-DIAG: report detection results to the listing file
+    ! report detected junctions to the listing file
     if (this%iout > 0) then
       write (this%iout, '(1x,a,i0,a)') &
-        'CHF-JNC-DIAG: detected ', this%njunctions, ' junction(s).'
+        'CHF JNC: detected ', this%njunctions, ' junction(s).'
       do k = 1, this%njunctions
         write (this%iout, '(4x,a,i0,a,i0,a)') &
-          'CHF-JNC-DIAG: junction at vertex ', this%ivert(k), &
+          'Junction at vertex ', this%ivert(k), &
           ' connects ', this%nreaches(k), ' reaches.'
       end do
     end if
@@ -310,6 +318,44 @@ contains
     deallocate (javertcells)
 
   end subroutine detect_junctions
+
+  !> @brief Mask the direct reach-reach connections at each junction
+  !!
+  !! Two reaches that share a junction vertex are directly connected in the
+  !! DISV1D connectivity (dis%con), so DFW would compute a pairwise flow between
+  !! them.  With explicit junctions that pairwise coupling is replaced by routing
+  !! through the junction node, so the direct reach-reach connections must be
+  !! masked out (both directions) to avoid double-counting the exchange.  DFW
+  !! honors con%mask in both its formulate and flow-calculation loops.
+  !<
+  subroutine mask_reach_connections(this)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    ! local
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: ia1, ia2 !< flat-array cursors for the two reaches
+    integer(I4B) :: ireach, jreach !< the two reach node numbers
+    integer(I4B) :: ipos !< connection position in dis%con
+
+    do k = 1, this%njunctions
+      ! for every unordered pair of reaches meeting at this junction
+      do ia1 = this%iajunc(k), this%iajunc(k + 1) - 1
+        ireach = this%reach_nodes(ia1)
+        do ia2 = ia1 + 1, this%iajunc(k + 1) - 1
+          jreach = this%reach_nodes(ia2)
+
+          ! mask ireach -> jreach
+          ipos = this%disv1d%con%getjaindex(ireach, jreach)
+          if (ipos > 0) call this%disv1d%con%set_mask(ipos, 0)
+
+          ! mask jreach -> ireach
+          ipos = this%disv1d%con%getjaindex(jreach, ireach)
+          if (ipos > 0) call this%disv1d%con%set_mask(ipos, 0)
+        end do
+      end do
+    end do
+
+  end subroutine mask_reach_connections
 
   !> @brief Define the junction package
   !<
@@ -394,18 +440,45 @@ contains
 
   end subroutine jnc_mc
 
-  !> @brief Formulate junction continuity rows
+  !> @brief Flow from reach r into junction k
   !!
-  !! Assembles the pure-continuity equation for each junction k:
-  !!   sum_r C_kr (h_r - h_k) = 0        (zero storage, RHS = 0)
-  !! and the symmetric reach-side coupling (reach r sees flow to/from junction k).
-  !! The junction stage h_k lives in the solution vector at row (nreach+ioffset+k).
+  !! q = C_rk (h_r - h_k), using the DFW half-cell reach-junction conductance
+  !! (reach half-length to the junction endpoint).  Positive q is flow from the
+  !! reach into the junction.
+  !<
+  function qcalc_rj(this, ireach, stage_r, stage_j) result(q)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    integer(I4B), intent(in) :: ireach !< reduced reach node number
+    real(DP), intent(in) :: stage_r !< stage in the reach
+    real(DP), intent(in) :: stage_j !< stage at the junction
+    ! return
+    real(DP) :: q
+    ! local
+    real(DP) :: dx
+    real(DP) :: cond
+
+    ! reach half-length to the junction endpoint
+    dx = DHALF * this%disv1d%length(ireach)
+    cond = this%dfw%get_cond_rj(ireach, dx, stage_r, stage_j)
+    q = cond * (stage_r - stage_j)
+
+  end function qcalc_rj
+
+  !> @brief Formulate junction continuity rows (Newton)
+  !!
+  !! For each junction k, assembles continuity sum_r q_rk = 0 where q_rk is the
+  !! flow from reach r into the junction.  The conductance is stage-dependent, so
+  !! derivatives are formed by numerical perturbation, matching dfw_qnm_fc_nr.
+  !! The reach equations receive the opposite contribution (-q_rk).
   !<
   subroutine jnc_fc(this, matrix_sln, rhs, stage, nreach)
+    ! modules
+    use MathUtilModule, only: get_perturbation
     ! dummy
     class(ChfJncType) :: this !< this instance
     class(MatrixBaseType), pointer :: matrix_sln !< solution matrix
-    real(DP), intent(inout), dimension(:) :: rhs !< solution right-hand side
+    real(DP), intent(inout), dimension(:) :: rhs !< solution right-hand side (model-local)
     real(DP), intent(inout), dimension(:) :: stage !< solution dependent-variable (model-local)
     integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
     ! local
@@ -413,51 +486,78 @@ contains
     integer(I4B) :: ipos !< position in flat connection arrays
     integer(I4B) :: jeq !< model-local junction equation number
     integer(I4B) :: req !< model-local reach equation number
-    real(DP) :: cond !< reach-junction conductance
+    real(DP) :: hj !< junction stage
+    real(DP) :: hr !< reach stage
+    real(DP) :: q !< flow from reach into junction
+    real(DP) :: qeps
+    real(DP) :: eps
+    real(DP) :: dqdhr !< d(q)/d(reach stage)
+    real(DP) :: dqdhj !< d(q)/d(junction stage)
 
     do k = 1, this%njunctions
       jeq = nreach + this%ioffset + k
+      hj = stage(jeq)
       do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
         req = this%reach_nodes(ipos)
-        ! TODO(jnc-stage3): use the DFW reach conductance here instead of unity
-        cond = DONE
-        ! junction continuity row: sum_r cond*(h_r - h_k) = 0
-        call matrix_sln%add_value_pos(this%idxjdglo(k), -cond)
-        call matrix_sln%add_value_pos(this%idxjoffdglo(ipos), cond)
-        ! symmetric reach-side coupling: reach exchanges with junction
-        call matrix_sln%add_value_pos(this%idxrdglo(ipos), -cond)
-        call matrix_sln%add_value_pos(this%idxroffdglo(ipos), cond)
+        hr = stage(req)
+
+        ! flow from reach into junction and its stage derivatives
+        q = this%qcalc_rj(req, hr, hj)
+        eps = get_perturbation(hr)
+        qeps = this%qcalc_rj(req, hr + eps, hj)
+        dqdhr = (qeps - q) / eps
+        eps = get_perturbation(hj)
+        qeps = this%qcalc_rj(req, hr, hj + eps)
+        dqdhj = (qeps - q) / eps
+
+        ! junction continuity row: + q_rk (inflow positive), Newton-linearized
+        rhs(jeq) = rhs(jeq) - q + dqdhr * hr + dqdhj * hj
+        call matrix_sln%add_value_pos(this%idxjoffdglo(ipos), dqdhr)
+        call matrix_sln%add_value_pos(this%idxjdglo(k), dqdhj)
+
+        ! reach row receives the opposite contribution: - q_rk
+        rhs(req) = rhs(req) + q - dqdhr * hr - dqdhj * hj
+        call matrix_sln%add_value_pos(this%idxrdglo(ipos), -dqdhr)
+        call matrix_sln%add_value_pos(this%idxroffdglo(ipos), -dqdhj)
       end do
     end do
 
   end subroutine jnc_fc
 
-  !> @brief Calculate reach-junction flows for the budget
+  !> @brief Capture junction stage and add reach-junction flows to flowja
+  !!
+  !! Each reach-junction connection is off dis%con, so csr_diagsum never sees it.
+  !! Following the MAW convention (bnd_cq_simrate), add each connection's flow
+  !! onto the reach cell's flowja diagonal so the reach residual closes and the
+  !! model budget balances.  Positive q_rk is flow from the reach into the
+  !! junction, i.e. flow leaving the reach, so -q_rk is added to the reach
+  !! diagonal (flowja is positive into a cell).  The junction node itself has
+  !! zero storage and net-zero through-flow, so it needs no diagonal term.
   !<
-  subroutine jnc_cq(this, stage, nreach)
+  subroutine jnc_cq(this, stage, flowja, nreach)
     ! dummy
     class(ChfJncType) :: this !< this instance
     real(DP), intent(in), dimension(:) :: stage !< solution dependent-variable (model-local)
+    real(DP), intent(inout), dimension(:) :: flowja !< model connection flows (CSR)
     integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
     ! local
     integer(I4B) :: k !< junction index
     integer(I4B) :: ipos !< position in flat connection arrays
     integer(I4B) :: jeq !< model-local junction equation number
     integer(I4B) :: req !< model-local reach equation number
-    real(DP) :: cond !< reach-junction conductance
+    integer(I4B) :: idiag !< reach diagonal position in flowja
+    real(DP) :: hj !< junction stage
+    real(DP) :: q !< flow from reach into junction
 
-    ! store the current junction stage for output
     do k = 1, this%njunctions
       jeq = nreach + this%ioffset + k
-      this%stage(k) = stage(jeq)
-    end do
-
-    ! TODO(jnc-stage3): accumulate reach-junction flows into a budget term using
-    ! the DFW reach conductance (unity placeholder keeps this inert for now)
-    do k = 1, this%njunctions
+      hj = stage(jeq)
+      this%stage(k) = hj
       do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
         req = this%reach_nodes(ipos)
-        cond = DONE
+        q = this%qcalc_rj(req, stage(req), hj)
+        idiag = this%disv1d%con%ia(req)
+        flowja(idiag) = flowja(idiag) - q
       end do
     end do
 
@@ -495,6 +595,7 @@ contains
 
     ! nullify borrowed pointers (not owned by this package)
     nullify (this%disv1d)
+    nullify (this%dfw)
 
     ! deallocate scalars
     call mem_deallocate(this%njunctions)
