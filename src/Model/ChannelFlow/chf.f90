@@ -2,14 +2,18 @@
 !<
 module ChfModule
 
-  use KindModule, only: I4B
+  use KindModule, only: DP, I4B
   use ConstantsModule, only: LENPACKAGETYPE, LENMEMPATH, LINELENGTH
   use SimModule, only: store_error
   use BaseModelModule, only: BaseModelType
   use ListsModule, only: basemodellist
   use BaseModelModule, only: AddBaseModelToList
-  use SwfModule, only: SwfModelType
+  use BndModule, only: BndType, GetBndFromList
+  use SwfModule, only: SwfModelType, swf_ac, swf_mc, swf_fc, swf_cq, swf_da
   use BudgetModule, only: budget_cr
+  use MatrixBaseModule, only: MatrixBaseType
+  use SparseModule, only: sparsematrix
+  use ChfJncModule, only: ChfJncType, chf_jnc_cr
 
   implicit none
 
@@ -20,7 +24,14 @@ module ChfModule
   public :: CHF_BASEPKG, CHF_MULTIPKG
 
   type, extends(SwfModelType) :: ChfModelType
+    type(ChfJncType), pointer :: jnc => null() !< channel junction package (CHF-only)
   contains
+    procedure :: model_df => chf_df
+    procedure :: model_ac => chf_ac
+    procedure :: model_mc => chf_mc
+    procedure :: model_fc => chf_fc
+    procedure :: model_cq => chf_cq
+    procedure :: model_da => chf_da
     procedure :: set_namfile_options
     procedure :: log_namfile_options
   end type ChfModelType
@@ -79,7 +90,145 @@ contains
     ! create model packages
     call this%create_packages()
 
+    ! create the CHF junction package (auto-generated, CHF-only)
+    call chf_jnc_cr(this%jnc, this%name, this%iout)
+
   end subroutine chf_cr
+
+  !> @brief Define the CHF model
+  !!
+  !! Overrides SwfModelType%model_df (swf_df) to detect channel junctions and
+  !! grow the model equation count to include them, before model arrays are
+  !! allocated.  The junction rows are appended after the reach rows; their
+  !! connections are added to the solution sparse matrix in chf_ac (the model's
+  !! own ia/ja, which point at dis%con, are left untouched - MAW convention).
+  !<
+  subroutine chf_df(this)
+    ! dummy
+    class(ChfModelType) :: this
+    ! local
+    integer(I4B) :: ip
+    class(BndType), pointer :: packobj
+
+    ! call package df routines
+    call this%dis%dis_df()
+    call this%dfw%dfw_df(this%dis)
+    call this%oc%oc_df()
+    call this%budget%budget_df(NIUNIT_CHF, 'VOLUME', 'L**3')
+
+    ! detect junctions from the DISV1D connectivity
+    call this%jnc%set_pointers(this%dis)
+    call this%jnc%detect_junctions()
+
+    ! junction rows are appended immediately after the reach rows
+    this%jnc%ioffset = 0
+
+    ! set model sizes: reach equations plus one per junction.  nja and ia/ja
+    ! stay as the DIS reach structure; junction connections are added only to
+    ! the solution sparse matrix (chf_ac), never to dis%con.
+    this%neq = this%dis%nodes + this%jnc%njunctions
+    this%nja = this%dis%nja
+    this%ia => this%dis%con%ia
+    this%ja => this%dis%con%ja
+
+    ! allocate model arrays, now that neq and nja are known
+    call this%allocate_arrays()
+
+    ! define packages and assign iout for time series managers
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      call packobj%bnd_df(this%dis%nodes, this%dis)
+    end do
+
+    ! store information needed for observations
+    call this%obs%obs_df(this%iout, this%name, 'SWF', this%dis)
+
+  end subroutine chf_df
+
+  !> @brief Add CHF model connections to the sparse matrix
+  !!
+  !! Adds the reach grid connections (shared swf_ac) plus the junction rows and
+  !! reach-junction connections (jnc_ac).
+  !<
+  subroutine chf_ac(this, sparse)
+    ! dummy
+    class(ChfModelType) :: this
+    type(sparsematrix), intent(inout) :: sparse
+
+    ! reach connections and any boundary-package connections
+    call swf_ac(this, sparse)
+
+    ! junction rows and reach-junction connections
+    call this%jnc%jnc_ac(this%moffset, this%dis%nodes, sparse)
+
+  end subroutine chf_ac
+
+  !> @brief Map CHF model connection positions in the solution matrix
+  !<
+  subroutine chf_mc(this, matrix_sln)
+    ! dummy
+    class(ChfModelType) :: this
+    class(MatrixBaseType), pointer :: matrix_sln
+
+    ! reach and boundary-package position mapping
+    call swf_mc(this, matrix_sln)
+
+    ! junction connection position caching
+    call this%jnc%jnc_mc(this%moffset, this%dis%nodes, matrix_sln)
+
+  end subroutine chf_mc
+
+  !> @brief Fill CHF model coefficients
+  !!
+  !! Runs the shared SWF fill (DFW, storage, boundary packages) then adds the
+  !! junction continuity rows.
+  !<
+  subroutine chf_fc(this, kiter, matrix_sln, inwtflag)
+    ! dummy
+    class(ChfModelType) :: this
+    integer(I4B), intent(in) :: kiter
+    class(MatrixBaseType), pointer :: matrix_sln
+    integer(I4B), intent(in) :: inwtflag
+
+    ! shared SWF coefficient fill
+    call swf_fc(this, kiter, matrix_sln, inwtflag)
+
+    ! junction continuity rows
+    call this%jnc%jnc_fc(matrix_sln, this%rhs, this%x, this%dis%nodes)
+
+  end subroutine chf_fc
+
+  !> @brief Calculate CHF model flows
+  !<
+  subroutine chf_cq(this, icnvg, isuppress_output)
+    ! dummy
+    class(ChfModelType) :: this
+    integer(I4B), intent(in) :: icnvg
+    integer(I4B), intent(in) :: isuppress_output
+
+    ! shared SWF flow calculation
+    call swf_cq(this, icnvg, isuppress_output)
+
+    ! junction flows / junction stage capture
+    call this%jnc%jnc_cq(this%x, this%dis%nodes)
+
+  end subroutine chf_cq
+
+  !> @brief Deallocate the CHF model
+  !<
+  subroutine chf_da(this)
+    ! dummy
+    class(ChfModelType) :: this
+
+    ! deallocate the junction package
+    call this%jnc%jnc_da()
+    deallocate (this%jnc)
+    nullify (this%jnc)
+
+    ! deallocate the shared SWF model
+    call swf_da(this)
+
+  end subroutine chf_da
 
   !> @brief Handle namefile options
   !!

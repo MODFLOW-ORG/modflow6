@@ -1,0 +1,510 @@
+!> @brief This module contains the CHF junction (JNC) package
+!!
+!! Explicit channel-flow junctions.  A junction is a DISV1D vertex
+!! that is touched by two or more reaches.  Each such vertex is promoted to an
+!! explicit node carrying its own stage unknown and a continuity equation
+!! (only inflows/outflows, no storage).  Junctions are auto-detected from the
+!! DISV1D connectivity and wired into the CHF model (chf_df appends the junction
+!! equations; chf_ac/mc/fc/cq assemble them), following the MAW/advanced-package
+!! convention for a package that adds its own matrix rows (ioffset + per-junction
+!! row index; connections added to the solution sparse matrix, not to dis%con).
+!! TODO(jnc-stage2b): parse the optional user JNC input block (loss coefficients,
+!! observation points); it enhances auto-detected junctions but never creates
+!! them.  Until then the package is auto-detect-only (has_user_input = 0) and the
+!! reach-junction conductance is a Stage 3 placeholder (see jnc_fc).
+!<
+module ChfJncModule
+
+  use KindModule, only: DP, I4B
+  use ConstantsModule, only: DZERO, DONE
+  use SimModule, only: store_error, store_error_filename
+  use NumericalPackageModule, only: NumericalPackageType
+  use BaseDisModule, only: DisBaseType
+  use MatrixBaseModule, only: MatrixBaseType
+  use Disv1dModule, only: Disv1dType
+
+  implicit none
+  private
+  public :: ChfJncType, chf_jnc_cr
+
+  !> @brief CHF junction (JNC) package type
+  !!
+  !! Junction data are stored struct-of-arrays, indexed by junction k.  The
+  !! ragged junction->reach connectivity uses a CSR layout: iajunc(k)..iajunc(k+1)
+  !! -1 index into the flat jareach / reach_nodes arrays.
+  !<
+  type, extends(NumericalPackageType) :: ChfJncType
+    integer(I4B), pointer :: njunctions => null() !< total number of junctions
+    integer(I4B), pointer :: nconn => null() !< total junction-reach connections (size of flat arrays)
+    integer(I4B), pointer :: ioffset => null() !< offset of junction rows in the model (row = dis%nodes + ioffset + k)
+    integer(I4B), pointer :: has_user_input => null() !< 0 = auto-only, 1 = user-enhanced
+    ! TODO(jnc-stage2b): set has_user_input when the user JNC block is parsed
+    type(Disv1dType), pointer :: disv1d => null() !< concrete DISV1D grid (narrowed in set_pointers)
+    integer(I4B), dimension(:), pointer, contiguous :: ivert => null() !< DISV1D vertex number, per junction
+    integer(I4B), dimension(:), pointer, contiguous :: nreaches => null() !< number of connected reaches, per junction
+    real(DP), dimension(:), pointer, contiguous :: stage => null() !< current stage, per junction
+    integer(I4B), dimension(:), pointer, contiguous :: iajunc => null() !< CSR row pointer (size njunctions + 1) into jareach / reach_nodes
+    integer(I4B), dimension(:), pointer, contiguous :: jareach => null() !< flat connected reach (cell) numbers (size nconn)
+    integer(I4B), dimension(:), pointer, contiguous :: reach_nodes => null() !< flat connected reach reduced node numbers (size nconn)
+    ! matrix position caches (filled in jnc_mc, MAW convention)
+    integer(I4B), dimension(:), pointer, contiguous :: idxjdglo => null() !< global position of each junction-row diagonal (size njunctions)
+    integer(I4B), dimension(:), pointer, contiguous :: idxjoffdglo => null() !< global position of each junction-row off-diagonal to its reach (size nconn)
+    integer(I4B), dimension(:), pointer, contiguous :: idxrdglo => null() !< global position of each reach-row diagonal touched by a junction (size nconn)
+    integer(I4B), dimension(:), pointer, contiguous :: idxroffdglo => null() !< global position of each reach-row off-diagonal to its junction (size nconn)
+  contains
+    procedure :: jnc_df
+    procedure :: jnc_ac
+    procedure :: jnc_mc
+    procedure :: jnc_fc
+    procedure :: jnc_cq
+    procedure :: jnc_ot
+    procedure :: jnc_da
+    procedure :: allocate_scalars
+    procedure :: set_pointers
+    procedure :: detect_junctions
+  end type ChfJncType
+
+contains
+
+  !> @brief Create a new JNC package object
+  !!
+  !! Auto-generated from DISV1D connectivity, not read from a file, so inunit is
+  !! set to zero (no file-driven input).
+  !! TODO(jnc-stage2b): when the optional user JNC block is supported, accept and
+  !! store its input mempath/inunit here instead of hardwiring inunit = 0.
+  !<
+  subroutine chf_jnc_cr(jncobj, name_model, iout)
+    ! dummy
+    type(ChfJncType), pointer :: jncobj !< object to create
+    character(len=*), intent(in) :: name_model !< name of the CHF model
+    integer(I4B), intent(in) :: iout !< unit number for model listing output
+
+    ! create the object
+    allocate (jncobj)
+
+    ! create name and memory path
+    call jncobj%set_names(1, name_model, 'JNC', 'JNC')
+
+    ! allocate scalars
+    call jncobj%allocate_scalars()
+
+    ! set variables
+    jncobj%inunit = 0
+    jncobj%iout = iout
+
+  end subroutine chf_jnc_cr
+
+  !> @brief Allocate scalar members
+  !<
+  subroutine allocate_scalars(this)
+    ! modules
+    use MemoryManagerModule, only: mem_allocate
+    ! dummy
+    class(ChfJncType) :: this
+
+    ! allocate scalars in NumericalPackageType
+    call this%NumericalPackageType%allocate_scalars()
+
+    ! allocate scalars
+    call mem_allocate(this%njunctions, 'NJUNCTIONS', this%memoryPath)
+    call mem_allocate(this%nconn, 'NCONN', this%memoryPath)
+    call mem_allocate(this%ioffset, 'IOFFSET', this%memoryPath)
+    call mem_allocate(this%has_user_input, 'HAS_USER_INPUT', this%memoryPath)
+
+    ! allocate junction arrays at zero size; detect_junctions sizes them
+    call mem_allocate(this%ivert, 0, 'IVERT', this%memoryPath)
+    call mem_allocate(this%nreaches, 0, 'NREACHES', this%memoryPath)
+    call mem_allocate(this%stage, 0, 'STAGE', this%memoryPath)
+    call mem_allocate(this%iajunc, 0, 'IAJUNC', this%memoryPath)
+    call mem_allocate(this%jareach, 0, 'JAREACH', this%memoryPath)
+    call mem_allocate(this%reach_nodes, 0, 'REACH_NODES', this%memoryPath)
+
+    ! allocate matrix position caches at zero size; jnc_mc sizes them
+    call mem_allocate(this%idxjdglo, 0, 'IDXJDGLO', this%memoryPath)
+    call mem_allocate(this%idxjoffdglo, 0, 'IDXJOFFDGLO', this%memoryPath)
+    call mem_allocate(this%idxrdglo, 0, 'IDXRDGLO', this%memoryPath)
+    call mem_allocate(this%idxroffdglo, 0, 'IDXROFFDGLO', this%memoryPath)
+
+    ! initialize scalars
+    this%njunctions = 0
+    this%nconn = 0
+    this%ioffset = 0
+    this%has_user_input = 0
+
+  end subroutine allocate_scalars
+
+  !> @brief Store pointers to objects needed by the package
+  !!
+  !! Narrow the model's polymorphic dis to a concrete DISV1D pointer once and
+  !! cache it, so later routines need no type guard (as in the SWF ZDG package).
+  !<
+  subroutine set_pointers(this, dis)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    class(DisBaseType), pointer, intent(in) :: dis !< model discretization (expected DISV1D)
+
+    select type (dis)
+    type is (Disv1dType)
+      this%disv1d => dis
+    class default
+      call store_error('JNC package requires a DISV1D discretization.')
+      call store_error_filename(this%input_fname)
+    end select
+
+  end subroutine set_pointers
+
+  !> @brief Detect junctions from DISV1D connectivity
+  !!
+  !! Promotes every vertex touched by two or more reaches to a junction (a vertex
+  !! touched by one reach is a boundary endpoint).  Fills the junction arrays and
+  !! njunctions / nconn; the solution-row mapping is assigned later during wiring.
+  !! Requires set_pointers first.
+  !!
+  !! A vertex->cell map is needed but the grid does not persist one (its builder,
+  !! disv1dconnections_verts, computes an equivalent map only as a transient
+  !! local), so this routine rebuilds it locally from iavert/javert.
+  !!
+  !! LIMITATION: reduced DISV1D grids (dis%nodes < dis%nodesuser) are not yet
+  !! supported; detection runs in user-node space while the model solves in
+  !! reduced space, so this routine guards against them rather than implementing
+  !! unverified mapping.
+  !! TODO(jnc-future): support reduced DISV1D grids - translate connected reaches
+  !! through nodereduced, exclude inactive reaches, base Nr on dis%nodes, and add
+  !! a dedicated reduced-grid test; then remove the guard below.
+  !<
+  subroutine detect_junctions(this)
+    ! modules
+    use MemoryManagerModule, only: mem_reallocate
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    ! local
+    integer(I4B), dimension(:), pointer, contiguous :: iavert
+    integer(I4B), dimension(:), pointer, contiguous :: javert
+    integer(I4B) :: nodesuser !< number of user reaches
+    integer(I4B) :: nvert !< number of vertices
+    integer(I4B), allocatable :: vertcount(:) !< reaches touching each vertex
+    integer(I4B), allocatable :: vfill(:) !< per-vertex fill cursor
+    integer(I4B), allocatable :: iavertcells(:) !< CSR index: vertex -> cells
+    integer(I4B), allocatable :: javertcells(:) !< CSR data: cells touching each vertex
+    integer(I4B) :: n !< reach (cell) index
+    integer(I4B) :: iv !< vertex index
+    integer(I4B) :: j !< javert position
+    integer(I4B) :: ipos !< javertcells position
+    integer(I4B) :: nvc !< running total of vertex->cell connections
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: njunc !< number of detected junctions
+    integer(I4B) :: njconn !< number of junction-reach connections
+    integer(I4B) :: ja !< running fill cursor into flat junction arrays
+
+    ! the concrete DISV1D grid must have been cached by set_pointers
+    if (.not. associated(this%disv1d)) then
+      call store_error('JNC detect_junctions called before set_pointers; &
+                       &no DISV1D grid is associated.')
+      call store_error_filename(this%input_fname)
+      return
+    end if
+
+    ! guard: reduced DISV1D grids are not yet supported (see routine header)
+    if (this%disv1d%nodes < this%disv1d%nodesuser) then
+      call store_error('JNC junctions are not yet supported on a reduced &
+                       &DISV1D grid (IDOMAIN excludes one or more reaches). &
+                       &Remove IDOMAIN exclusions to use channel junctions.')
+      call store_error_filename(this%input_fname)
+      return
+    end if
+
+    iavert => this%disv1d%iavert
+    javert => this%disv1d%javert
+    nodesuser = this%disv1d%nodesuser
+    nvert = this%disv1d%nvert
+
+    ! first pass: count how many reaches touch each vertex
+    allocate (vertcount(nvert))
+    do iv = 1, nvert
+      vertcount(iv) = 0
+    end do
+    do n = 1, nodesuser
+      do j = iavert(n), iavert(n + 1) - 1
+        iv = javert(j)
+        vertcount(iv) = vertcount(iv) + 1
+      end do
+    end do
+
+    ! build CSR index array iavertcells (vertex -> cells)
+    allocate (iavertcells(nvert + 1))
+    nvc = 0
+    iavertcells(1) = 1
+    do iv = 1, nvert
+      nvc = nvc + vertcount(iv)
+      iavertcells(iv + 1) = iavertcells(iv) + vertcount(iv)
+    end do
+
+    ! second pass: fill the javertcells data array
+    allocate (javertcells(nvc))
+    allocate (vfill(nvert))
+    do iv = 1, nvert
+      vfill(iv) = iavertcells(iv)
+    end do
+    do n = 1, nodesuser
+      do j = iavert(n), iavert(n + 1) - 1
+        iv = javert(j)
+        javertcells(vfill(iv)) = n
+        vfill(iv) = vfill(iv) + 1
+      end do
+    end do
+
+    ! count junctions (vertices touched by >= 2 reaches) and total connections
+    njunc = 0
+    njconn = 0
+    do iv = 1, nvert
+      if (vertcount(iv) >= 2) then
+        njunc = njunc + 1
+        njconn = njconn + vertcount(iv)
+      end if
+    end do
+
+    ! size the package arrays now that the counts are known
+    this%njunctions = njunc
+    this%nconn = njconn
+    call mem_reallocate(this%ivert, njunc, 'IVERT', this%memoryPath)
+    call mem_reallocate(this%nreaches, njunc, 'NREACHES', this%memoryPath)
+    call mem_reallocate(this%stage, njunc, 'STAGE', this%memoryPath)
+    call mem_reallocate(this%iajunc, njunc + 1, 'IAJUNC', this%memoryPath)
+    call mem_reallocate(this%jareach, njconn, 'JAREACH', this%memoryPath)
+    call mem_reallocate(this%reach_nodes, njconn, 'REACH_NODES', this%memoryPath)
+
+    ! fill the junction arrays and the CSR connectivity (iajunc / jareach)
+    k = 0
+    ja = 1
+    this%iajunc(1) = 1
+    do iv = 1, nvert
+      if (vertcount(iv) < 2) cycle
+      k = k + 1
+      this%ivert(k) = iv
+      this%nreaches(k) = vertcount(iv)
+      this%stage(k) = DZERO
+      do ipos = iavertcells(iv), iavertcells(iv + 1) - 1
+        this%jareach(ja) = javertcells(ipos)
+        ! reduced node == user reach number here (reduced grids are guarded out)
+        this%reach_nodes(ja) = javertcells(ipos)
+        ja = ja + 1
+      end do
+      this%iajunc(k + 1) = ja
+    end do
+
+    ! CHF-JNC-DIAG: report detection results to the listing file
+    if (this%iout > 0) then
+      write (this%iout, '(1x,a,i0,a)') &
+        'CHF-JNC-DIAG: detected ', this%njunctions, ' junction(s).'
+      do k = 1, this%njunctions
+        write (this%iout, '(4x,a,i0,a,i0,a)') &
+          'CHF-JNC-DIAG: junction at vertex ', this%ivert(k), &
+          ' connects ', this%nreaches(k), ' reaches.'
+      end do
+    end if
+
+    ! cleanup local maps
+    deallocate (vertcount)
+    deallocate (vfill)
+    deallocate (iavertcells)
+    deallocate (javertcells)
+
+  end subroutine detect_junctions
+
+  !> @brief Define the junction package
+  !<
+  subroutine jnc_df(this)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    ! junctions are auto-detected in chf_df; nothing to define yet.
+    ! TODO(jnc-stage2b): parse the optional user JNC input block here
+  end subroutine jnc_df
+
+  !> @brief Add junction rows and reach-junction connections to the sparse matrix
+  !!
+  !! Each junction k owns global row (moffset + nreach + ioffset + k).  For every
+  !! connected reach it adds the symmetric pair of off-diagonals coupling the
+  !! junction row and the reach row, plus the junction-row diagonal.  Follows the
+  !! MAW convention; the model's own ia/ja (dis%con) is left untouched.
+  !<
+  subroutine jnc_ac(this, moffset, nreach, sparse)
+    use SparseModule, only: sparsematrix
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    integer(I4B), intent(in) :: moffset !< model offset in the solution
+    integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
+    type(sparsematrix), intent(inout) :: sparse !< sparse matrix structure
+    ! local
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: ipos !< position in flat connection arrays
+    integer(I4B) :: jglo !< global junction row number
+    integer(I4B) :: rglo !< global reach row number
+
+    do k = 1, this%njunctions
+      jglo = moffset + nreach + this%ioffset + k
+      call sparse%addconnection(jglo, jglo, 1)
+      do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
+        rglo = moffset + this%reach_nodes(ipos)
+        call sparse%addconnection(jglo, rglo, 1)
+        call sparse%addconnection(rglo, jglo, 1)
+      end do
+    end do
+
+  end subroutine jnc_ac
+
+  !> @brief Cache solution-matrix positions for the junction connections
+  !!
+  !! Mirrors MAW: find and store the global A positions this package writes to,
+  !! so jnc_fc can fill coefficients by position.
+  !<
+  subroutine jnc_mc(this, moffset, nreach, matrix_sln)
+    use MemoryManagerModule, only: mem_reallocate
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    integer(I4B), intent(in) :: moffset !< model offset in the solution
+    integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
+    class(MatrixBaseType), pointer :: matrix_sln !< solution matrix
+    ! local
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: ipos !< position in flat connection arrays
+    integer(I4B) :: jglo !< global junction row number
+    integer(I4B) :: rglo !< global reach row number
+
+    ! size the position caches
+    call mem_reallocate(this%idxjdglo, this%njunctions, 'IDXJDGLO', &
+                        this%memoryPath)
+    call mem_reallocate(this%idxjoffdglo, this%nconn, 'IDXJOFFDGLO', &
+                        this%memoryPath)
+    call mem_reallocate(this%idxrdglo, this%nconn, 'IDXRDGLO', this%memoryPath)
+    call mem_reallocate(this%idxroffdglo, this%nconn, 'IDXROFFDGLO', &
+                        this%memoryPath)
+
+    do k = 1, this%njunctions
+      jglo = moffset + nreach + this%ioffset + k
+      this%idxjdglo(k) = matrix_sln%get_position_diag(jglo)
+      do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
+        rglo = moffset + this%reach_nodes(ipos)
+        ! junction-row entries: diagonal (cached above) and off-diagonal to reach
+        this%idxjoffdglo(ipos) = matrix_sln%get_position(jglo, rglo)
+        ! reach-row entries: its own diagonal and off-diagonal back to junction
+        this%idxrdglo(ipos) = matrix_sln%get_position_diag(rglo)
+        this%idxroffdglo(ipos) = matrix_sln%get_position(rglo, jglo)
+      end do
+    end do
+
+  end subroutine jnc_mc
+
+  !> @brief Formulate junction continuity rows
+  !!
+  !! Assembles the pure-continuity equation for each junction k:
+  !!   sum_r C_kr (h_r - h_k) = 0        (zero storage, RHS = 0)
+  !! and the symmetric reach-side coupling (reach r sees flow to/from junction k).
+  !! The junction stage h_k lives in the solution vector at row (nreach+ioffset+k).
+  !<
+  subroutine jnc_fc(this, matrix_sln, rhs, stage, nreach)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    class(MatrixBaseType), pointer :: matrix_sln !< solution matrix
+    real(DP), intent(inout), dimension(:) :: rhs !< solution right-hand side
+    real(DP), intent(inout), dimension(:) :: stage !< solution dependent-variable (model-local)
+    integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
+    ! local
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: ipos !< position in flat connection arrays
+    integer(I4B) :: jeq !< model-local junction equation number
+    integer(I4B) :: req !< model-local reach equation number
+    real(DP) :: cond !< reach-junction conductance
+
+    do k = 1, this%njunctions
+      jeq = nreach + this%ioffset + k
+      do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
+        req = this%reach_nodes(ipos)
+        ! TODO(jnc-stage3): use the DFW reach conductance here instead of unity
+        cond = DONE
+        ! junction continuity row: sum_r cond*(h_r - h_k) = 0
+        call matrix_sln%add_value_pos(this%idxjdglo(k), -cond)
+        call matrix_sln%add_value_pos(this%idxjoffdglo(ipos), cond)
+        ! symmetric reach-side coupling: reach exchanges with junction
+        call matrix_sln%add_value_pos(this%idxrdglo(ipos), -cond)
+        call matrix_sln%add_value_pos(this%idxroffdglo(ipos), cond)
+      end do
+    end do
+
+  end subroutine jnc_fc
+
+  !> @brief Calculate reach-junction flows for the budget
+  !<
+  subroutine jnc_cq(this, stage, nreach)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    real(DP), intent(in), dimension(:) :: stage !< solution dependent-variable (model-local)
+    integer(I4B), intent(in) :: nreach !< number of reach equations (dis%nodes)
+    ! local
+    integer(I4B) :: k !< junction index
+    integer(I4B) :: ipos !< position in flat connection arrays
+    integer(I4B) :: jeq !< model-local junction equation number
+    integer(I4B) :: req !< model-local reach equation number
+    real(DP) :: cond !< reach-junction conductance
+
+    ! store the current junction stage for output
+    do k = 1, this%njunctions
+      jeq = nreach + this%ioffset + k
+      this%stage(k) = stage(jeq)
+    end do
+
+    ! TODO(jnc-stage3): accumulate reach-junction flows into a budget term using
+    ! the DFW reach conductance (unity placeholder keeps this inert for now)
+    do k = 1, this%njunctions
+      do ipos = this%iajunc(k), this%iajunc(k + 1) - 1
+        req = this%reach_nodes(ipos)
+        cond = DONE
+      end do
+    end do
+
+  end subroutine jnc_cq
+
+  !> @brief Output junction results
+  !<
+  subroutine jnc_ot(this)
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    ! TODO(jnc-future): output junction observations
+  end subroutine jnc_ot
+
+  !> @brief Deallocate junction storage
+  !<
+  subroutine jnc_da(this)
+    ! modules
+    use MemoryManagerModule, only: mem_deallocate
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+
+    ! deallocate junction arrays
+    call mem_deallocate(this%ivert)
+    call mem_deallocate(this%nreaches)
+    call mem_deallocate(this%stage)
+    call mem_deallocate(this%iajunc)
+    call mem_deallocate(this%jareach)
+    call mem_deallocate(this%reach_nodes)
+
+    ! deallocate matrix position caches
+    call mem_deallocate(this%idxjdglo)
+    call mem_deallocate(this%idxjoffdglo)
+    call mem_deallocate(this%idxrdglo)
+    call mem_deallocate(this%idxroffdglo)
+
+    ! nullify borrowed pointers (not owned by this package)
+    nullify (this%disv1d)
+
+    ! deallocate scalars
+    call mem_deallocate(this%njunctions)
+    call mem_deallocate(this%nconn)
+    call mem_deallocate(this%ioffset)
+    call mem_deallocate(this%has_user_input)
+
+    ! deallocate parent
+    call this%NumericalPackageType%da()
+
+  end subroutine jnc_da
+
+end module ChfJncModule

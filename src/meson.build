@@ -171,6 +171,7 @@ modflow_sources = files(
     'Idm' / 'selector' / 'IdmSimDfnSelector.f90',
     'Idm' / 'selector' / 'IdmUtlDfnSelector.f90',
     'Model' / 'ChannelFlow' / 'chf.f90',
+    'Model' / 'ChannelFlow' / 'chf-jnc.f90',
     'Model' / 'Connection' / 'ConnectionBuilder.f90',
     'Model' / 'Connection' / 'CellWithNbrs.f90',
     'Model' / 'Connection' / 'CsrUtils.f90',
