@@ -19,6 +19,10 @@ The cases focus on the dry-lake handling:
                   lakebotfill scenario), exercising the lakebed seepage coupling
                   for both connection types.
 
+A test of a vertical connection whose cell goes dry under the standard
+formulation checks that the connection, moved to the active cell below, is
+coupled on that cell and matches the legacy solver.
+
 A separate test ("perched") covers a steady-state lake completely disconnected
 from the aquifer: holding the connected-cell head at the lake bottom keeps the
 perched leakage on the lake-stage diagonal, so the implicit formulation
@@ -1342,3 +1346,83 @@ def test_connectionless_lake_errors(function_tmpdir, targets):
         assert "implicit" in msg, msg
 
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
+
+
+def _build_dry_below(ws, exe):
+    # a lake vertically connected to a convertible cell that goes dry under the
+    # standard (non-Newton) formulation, so the connection moves to the active
+    # cell below (lak_cf). Rainfall keeps the lake wet, and its leakage passes
+    # through the lower layer to constant heads at the edges.
+    name = "lk"
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim)
+    flopy.mf6.ModflowIms(
+        sim,
+        print_option="SUMMARY",
+        outer_dvclose=1e-6,
+        outer_maximum=200,
+        inner_dvclose=1e-8,
+        inner_maximum=100,
+        linear_acceleration="BICGSTAB",
+    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
+    idomain = np.ones((3, 1, 3), dtype=int)
+    idomain[0, 0, 1] = 0
+    flopy.mf6.ModflowGwfdis(
+        gwf,
+        nlay=3,
+        nrow=1,
+        ncol=3,
+        delr=100.0,
+        delc=100.0,
+        top=10.0,
+        botm=[9.0, 5.0, 0.0],
+        idomain=idomain,
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=10.0)
+    flopy.mf6.ModflowGwfic(gwf, strt=8.0)
+    flopy.mf6.ModflowGwfchd(
+        gwf, stress_period_data=[[(2, 0, 0), 3.0], [(2, 0, 2), 3.0]]
+    )
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        print_stage=True,
+        save_flows=True,
+        stage_filerecord=f"{name}.lak.stage",
+        budget_filerecord=f"{name}.lak.bud",
+        nlakes=1,
+        noutlets=0,
+        packagedata=[[0, 9.5, 1]],
+        connectiondata=[[0, 0, (1, 0, 1), "VERTICAL", 0.1, 0.0, 0.0, 0.0, 0.0]],
+        perioddata=[[0, "RAINFALL", 0.01]],
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord=f"{name}.hds",
+        budget_filerecord=f"{name}.cbc",
+        saverecord=[("HEAD", "LAST"), ("BUDGET", "LAST")],
+    )
+    return sim, name
+
+
+def test_connection_moves_below_dry_cell(function_tmpdir, targets):
+    # the cell a vertical connection was coupled to goes dry, so the connection
+    # moves to the cell below, which has no matrix entries with the lake. The
+    # implicit formulation must couple the moved connection on the lower cell's
+    # diagonal, not at the dry cell's positions, and match the legacy solver:
+    # the lower cell stays active and the rainfall leaks to the aquifer.
+    def build(test):
+        sim_i, _ = _write_implicit(test, _build_dry_below)
+        return sim_i, _write_legacy(test, _build_dry_below)
+
+    def check(test):
+        ws = str(test.workspace)
+        _assert_budget_closes(ws, "lk")
+        head = _heads(ws, "lk")
+        assert head[1, 0, 1] < -1e29, "the connected cell did not go dry"
+        assert head[2, 0, 1] > 3.0, "the cell below the dry cell went dry"
+        # all of the rainfall (0.01 m/d over 1e4 m2) leaks to the aquifer
+        qgwf = _lak_flows(ws, "lk", "GWF").sum()
+        assert np.isclose(qgwf, -100.0, rtol=1e-6), f"lake-aquifer flow {qgwf}"
+
+    _framework(function_tmpdir, targets, build, check).run()
