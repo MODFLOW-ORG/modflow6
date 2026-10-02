@@ -175,7 +175,7 @@ name nvert
 type integer
 reader urword
 optional false
-longname number of columns
+longname number of vertices
 description is the total number of (x, y) vertex pairs used to characterize the horizontal configuration of the model grid.
 
 # --------------------- gwe disv griddata ---------------------

@@ -114,7 +114,7 @@ name nvert
 type integer
 reader urword
 optional true
-longname number of columns
+longname number of vertices
 description is the total number of (x, y, z) vertex pairs used to characterize the model grid.
 
 # --------------------- chf disv1d griddata ---------------------

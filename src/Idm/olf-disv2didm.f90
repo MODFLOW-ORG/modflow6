@@ -285,7 +285,7 @@ module OlfDisv2dInputModule
     'NVERT', & ! fortran variable
     'INTEGER', & ! type
     '', & ! shape
-    'number of columns', & ! longname
+    'number of vertices', & ! longname
     .true., & ! required
     .false., & ! developmode
     .false., & ! multi-record
