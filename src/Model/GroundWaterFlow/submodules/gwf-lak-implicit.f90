@@ -175,24 +175,6 @@ contains
         if (this%ibound(igwfnode) < 1) cycle
         head = this%xnew(igwfnode)
         !
-        ! -- a vertical connection moved to a lower cell when its cell went dry
-        !    (lak_cf) has no matrix entries with the lake. Couple it as the
-        !    default formulation does: the stage derivative on the lake row with
-        !    the head lagged one outer iteration, and the exchange at the current
-        !    stage on the cell's diagonal.
-        if (igwfnode /= this%idxcellid(ipos)) then
-          call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, flow, &
-                                                      dqds)
-          call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
-          rhs(iloc) = rhs(iloc) + dqds * hlak - flow
-          adiag = adiag + dqds
-          call this%lak_calculate_conn_exchange(n, j, hlak, head, flow, &
-                                                gwfhcof, gwfrhs)
-          call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), gwfhcof)
-          rhs(igwfnode) = rhs(igwfnode) + gwfrhs
-          cycle
-        end if
-        !
         ! -- lakebed seepage and its derivatives. The lake stage and the
         !    connected-cell head are each kept at or above the lake bottom,
         !    the same wet/dry cutoff as the default formulation. A wet
@@ -202,6 +184,21 @@ contains
         !    perched leakage still responds to stage.
         call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, flow, &
                                                     dqds, dqdh)
+        !
+        ! -- a vertical connection moved to a lower cell when its cell went dry
+        !    (lak_cf) has no matrix entries with the lake. Couple it as the
+        !    default formulation does: the stage derivative on the lake row with
+        !    the head lagged one outer iteration, and the head derivative on the
+        !    cell's diagonal with the stage lagged. Both rows use the same flow
+        !    that lak_cq reports.
+        if (igwfnode /= this%idxcellid(ipos)) then
+          call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
+          rhs(iloc) = rhs(iloc) + dqds * hlak - flow
+          adiag = adiag + dqds
+          call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), -dqdh)
+          rhs(igwfnode) = rhs(igwfnode) - dqdh * head + flow
+          cycle
+        end if
         call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
         call matrix_sln%add_value_pos(this%idxoffdglo(ipos), dqdh)
         call matrix_sln%add_value_pos(this%idxsymdglo(ipos), -dqdh)
