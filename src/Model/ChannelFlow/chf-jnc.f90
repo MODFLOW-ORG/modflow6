@@ -8,9 +8,11 @@
 !! equations; chf_ac/mc/fc/cq assemble them), following the MAW/advanced-package
 !! convention for a package that adds its own matrix rows (ioffset + per-junction
 !! row index; connections added to the solution sparse matrix, not to dis%con).
-!! TODO(jnc-stage2b): parse the optional user JNC input block (loss coefficients,
-!! observation points); it enhances auto-detected junctions but never creates
-!! them.  Until then the package is auto-detect-only (has_user_input = 0).
+!!
+!! The package is enabled by listing JNC6 in the CHF name file: present means
+!! junctions are detected and activated; absent means none of the junction logic
+!! runs.  The input file carries only an OPTIONS block (currently SAVE_FLOWS);
+!! junctions themselves are always auto-detected from the grid, never listed.
 !<
 module ChfJncModule
 
@@ -37,8 +39,6 @@ module ChfJncModule
     integer(I4B), pointer :: njunctions => null() !< total number of junctions
     integer(I4B), pointer :: nconn => null() !< total junction-reach connections (size of flat arrays)
     integer(I4B), pointer :: ioffset => null() !< offset of junction rows in the model (row = dis%nodes + ioffset + k)
-    integer(I4B), pointer :: has_user_input => null() !< 0 = auto-only, 1 = user-enhanced
-    ! TODO(jnc-stage2b): set has_user_input when the user JNC block is parsed
     type(Disv1dType), pointer :: disv1d => null() !< concrete DISV1D grid (narrowed in set_pointers)
     type(SwfDfwType), pointer :: dfw => null() !< DFW package, for reach-junction conductance
     integer(I4B), dimension(:), pointer, contiguous :: ivert => null() !< DISV1D vertex number, per junction
@@ -64,6 +64,8 @@ module ChfJncModule
     procedure :: set_pointers
     procedure :: detect_junctions
     procedure :: mask_reach_connections
+    procedure, private :: source_options
+    procedure, private :: log_options
     procedure, private :: qcalc_rj
   end type ChfJncType
 
@@ -71,31 +73,82 @@ contains
 
   !> @brief Create a new JNC package object
   !!
-  !! Auto-generated from DISV1D connectivity, not read from a file, so inunit is
-  !! set to zero (no file-driven input).
-  !! TODO(jnc-stage2b): when the optional user JNC block is supported, accept and
-  !! store its input mempath/inunit here instead of hardwiring inunit = 0.
+  !! Called unconditionally by the CHF model; inunit > 0 only when JNC6 is listed
+  !! in the name file.  When inunit <= 0 the package stays dormant: the model
+  !! skips detect_junctions / the junction rows, so no junction logic runs.  When
+  !! active, the OPTIONS block is sourced from the input context at mempath.
   !<
-  subroutine chf_jnc_cr(jncobj, name_model, iout)
+  subroutine chf_jnc_cr(jncobj, name_model, mempath, inunit, iout)
     ! dummy
     type(ChfJncType), pointer :: jncobj !< object to create
     character(len=*), intent(in) :: name_model !< name of the CHF model
+    character(len=*), intent(in) :: mempath !< input context mem path
+    integer(I4B), intent(in) :: inunit !< package input file unit (0 if JNC6 absent)
     integer(I4B), intent(in) :: iout !< unit number for model listing output
 
     ! create the object
     allocate (jncobj)
 
     ! create name and memory path
-    call jncobj%set_names(1, name_model, 'JNC', 'JNC')
+    call jncobj%set_names(1, name_model, 'JNC', 'JNC', mempath)
 
     ! allocate scalars
     call jncobj%allocate_scalars()
 
     ! set variables
-    jncobj%inunit = 0
+    jncobj%inunit = inunit
     jncobj%iout = iout
 
+    ! source the OPTIONS block when the package is active
+    if (inunit > 0) then
+      call jncobj%source_options()
+    end if
+
   end subroutine chf_jnc_cr
+
+  !> @brief Source input options for the package
+  !!
+  !! Reads the JNC OPTIONS block from the input context.  Only SAVE_FLOWS is
+  !! supported; it maps to the standard ipakcb flag on NumericalPackageType.
+  !<
+  subroutine source_options(this)
+    ! modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use ChfJncInputModule, only: ChfJncParamFoundType
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    ! local
+    type(ChfJncParamFoundType) :: found
+
+    call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
+
+    if (found%ipakcb) then
+      this%ipakcb = -1
+    end if
+
+    call this%log_options(found)
+
+  end subroutine source_options
+
+  !> @brief Log the options found in the input
+  !<
+  subroutine log_options(this, found)
+    ! modules
+    use ChfJncInputModule, only: ChfJncParamFoundType
+    ! dummy
+    class(ChfJncType) :: this !< this instance
+    type(ChfJncParamFoundType), intent(in) :: found
+
+    write (this%iout, '(1x,a)') 'PROCESSING JNC OPTIONS'
+
+    if (found%ipakcb) then
+      write (this%iout, '(4x,a)') &
+        'JUNCTION FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL'
+    end if
+
+    write (this%iout, '(1x,a)') 'END OF JNC OPTIONS'
+
+  end subroutine log_options
 
   !> @brief Allocate scalar members
   !<
@@ -112,7 +165,6 @@ contains
     call mem_allocate(this%njunctions, 'NJUNCTIONS', this%memoryPath)
     call mem_allocate(this%nconn, 'NCONN', this%memoryPath)
     call mem_allocate(this%ioffset, 'IOFFSET', this%memoryPath)
-    call mem_allocate(this%has_user_input, 'HAS_USER_INPUT', this%memoryPath)
 
     ! allocate junction arrays at zero size; detect_junctions sizes them
     call mem_allocate(this%ivert, 0, 'IVERT', this%memoryPath)
@@ -132,7 +184,6 @@ contains
     this%njunctions = 0
     this%nconn = 0
     this%ioffset = 0
-    this%has_user_input = 0
 
   end subroutine allocate_scalars
 
@@ -362,8 +413,8 @@ contains
   subroutine jnc_df(this)
     ! dummy
     class(ChfJncType) :: this !< this instance
-    ! junctions are auto-detected in chf_df; nothing to define yet.
-    ! TODO(jnc-stage2b): parse the optional user JNC input block here
+    ! Options are sourced in chf_jnc_cr and junctions are auto-detected in
+    ! chf_df, so there is nothing to define here.
   end subroutine jnc_df
 
   !> @brief Add junction rows and reach-junction connections to the sparse matrix
@@ -601,7 +652,6 @@ contains
     call mem_deallocate(this%njunctions)
     call mem_deallocate(this%nconn)
     call mem_deallocate(this%ioffset)
-    call mem_deallocate(this%has_user_input)
 
     ! deallocate parent
     call this%NumericalPackageType%da()

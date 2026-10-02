@@ -34,17 +34,18 @@ module ChfModule
     procedure :: model_da => chf_da
     procedure :: set_namfile_options
     procedure :: log_namfile_options
+    procedure, private :: create_jnc_package
   end type ChfModelType
 
   !> @brief CHF base package array descriptors
   !!
   !! CHF model base package types.  Only listed packages are candidates
   !< for input and these will be loaded in the order specified.
-  integer(I4B), parameter :: CHF_NBASEPKG = 7
+  integer(I4B), parameter :: CHF_NBASEPKG = 8
   character(len=LENPACKAGETYPE), dimension(CHF_NBASEPKG) :: &
     CHF_BASEPKG = ['DISV1D6', 'DFW6   ', 'CXS6   ', &
                    'OC6    ', 'IC6    ', 'OBS6   ', &
-                   'STO6   ']
+                   'STO6   ', 'JNC6   ']
 
   !> @brief CHF multi package array descriptors
   !!
@@ -90,10 +91,61 @@ contains
     ! create model packages
     call this%create_packages()
 
-    ! create the CHF junction package (auto-generated, CHF-only)
-    call chf_jnc_cr(this%jnc, this%name, this%iout)
+    ! create the CHF junction package (CHF-only; enabled by JNC6 in the name
+    ! file).  JNC6 is not handled by the shared SWF create_packages, so its
+    ! input unit and mempath are resolved here from the CHF model package list.
+    call this%create_jnc_package()
 
   end subroutine chf_cr
+
+  !> @brief Create the CHF junction (JNC) package
+  !!
+  !! Scans the CHF model's IDM package list for JNC6 and creates the junction
+  !! package with its input mempath.  JNC6 is a CHF-only base package, so this
+  !! wiring lives in the CHF layer rather than the shared SWF create_packages.
+  !! If JNC6 is not listed, the package is created dormant (inunit = 0) and no
+  !! junction logic runs.
+  !<
+  subroutine create_jnc_package(this)
+    use ConstantsModule, only: LENPACKAGETYPE
+    use CharacterStringModule, only: CharacterStringType
+    use MemoryManagerModule, only: mem_setptr
+    use MemoryHelperModule, only: create_mem_path
+    use SimVariablesModule, only: idm_context
+    class(ChfModelType) :: this
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: pkgtypes => null()
+    type(CharacterStringType), dimension(:), contiguous, &
+      pointer :: mempaths => null()
+    character(len=LENMEMPATH) :: model_mempath
+    character(len=LENPACKAGETYPE) :: pkgtype
+    character(len=LENMEMPATH) :: mempathjnc
+    integer(I4B) :: injnc
+    integer(I4B) :: n
+
+    ! default: package dormant unless JNC6 is listed
+    injnc = 0
+    mempathjnc = ''
+
+    ! find JNC6 in the CHF model package list
+    model_mempath = create_mem_path(component=this%name, context=idm_context)
+    call mem_setptr(pkgtypes, 'PKGTYPES', model_mempath)
+    call mem_setptr(mempaths, 'MEMPATHS', model_mempath)
+    do n = 1, size(pkgtypes)
+      pkgtype = pkgtypes(n)
+      if (pkgtype == 'JNC6') then
+        ! JNC6 is loaded into the IDM input context (no persistent file unit),
+        ! so presence in the package list is the activation signal, following
+        ! the convention used for the other IDM base packages (e.g. STO6).
+        injnc = 1
+        mempathjnc = mempaths(n)
+        exit
+      end if
+    end do
+
+    call chf_jnc_cr(this%jnc, this%name, mempathjnc, injnc, this%iout)
+
+  end subroutine create_jnc_package
 
   !> @brief Define the CHF model
   !!
@@ -116,11 +168,15 @@ contains
     call this%oc%oc_df()
     call this%budget%budget_df(NIUNIT_CHF, 'VOLUME', 'L**3')
 
-    ! detect junctions from the DISV1D connectivity and mask the direct
-    ! reach-reach connections they replace (so DFW routes through the junction)
-    call this%jnc%set_pointers(this%dis, this%dfw)
-    call this%jnc%detect_junctions()
-    call this%jnc%mask_reach_connections()
+    ! when the JNC package is active (JNC6 in the name file), detect junctions
+    ! from the DISV1D connectivity and mask the direct reach-reach connections
+    ! they replace (so DFW routes through the junction).  When inactive, the
+    ! package stays dormant with zero junctions and the model is unchanged.
+    if (this%jnc%inunit > 0) then
+      call this%jnc%set_pointers(this%dis, this%dfw)
+      call this%jnc%detect_junctions()
+      call this%jnc%mask_reach_connections()
+    end if
 
     ! junction rows are appended immediately after the reach rows
     this%jnc%ioffset = 0

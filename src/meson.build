@@ -130,6 +130,7 @@ modflow_sources = files(
     'Idm' / 'chf-pcpidm.f90',
     'Idm' / 'chf-stoidm.f90',
     'Idm' / 'chf-zdgidm.f90',
+    'Idm' / 'chf-jncidm.f90',
     'Idm' / 'olf-dis2didm.f90',
     'Idm' / 'olf-disv2didm.f90',
     'Idm' / 'olf-namidm.f90',
