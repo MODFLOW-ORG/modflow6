@@ -22,7 +22,7 @@ reader urword
 optional false
 in_record true
 longname
-description xxx
+description keyword to specify the names of the time series. The ``NAME'' keyword can be used as a substitute for ``NAMES''.
 
 block attributes
 name time_series_names

@@ -77,6 +77,7 @@ A MODFLOW 6 input variable is described by a set of attributes. Some attributes 
 | deprecated    | Indicates that the parameter has been deprecated.                      | No       | None    | Should be a semantic version number, the version in which the parameter was deprecated. If this attribute is provided without a value, it is ignored.            |
 | removed       | Indicates that the parameter has been removed.                         | No       | None    | Should be a semantic version number, the version in which the parameter was removed. If this attribute is provided without a value, it is ignored.               |
 | developmode    | Indicates that the parameter should be omitted from releases.               | No       | False   | Should be set to true to indicate that a parameter is not ready for inclusion in releases. The parameter will be omitted from the generated IO guide.   |
+| other_names   | Other names MODFLOW 6 accepts for a keyword.                           | No       | None    | One or more space-separated names. Only valid for `keyword` parameters.                                                                                       |
 
 ### Reader Attribute
 
