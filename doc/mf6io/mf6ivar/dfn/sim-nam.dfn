@@ -103,7 +103,6 @@ name tdis6
 preserve_case true
 type string
 reader urword
-optional
 longname name of tdis input file
 description is the name of the Temporal Discretization (TDIS) Input File.
 
