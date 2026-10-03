@@ -7,6 +7,7 @@ program tester
   use TestBudget, only: collect_budget
   use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
+  use TestGridFileReader, only: collect_gridfilereader
   use TestHashTable, only: collect_hashtable
   use TestInputOutput, only: collect_inputoutput
   use TestKeyValueList, only: collect_keyvaluelist
@@ -42,6 +43,7 @@ program tester
                new_testsuite("Budget", collect_budget), &
                new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
+               new_testsuite("GridFileReader", collect_gridfilereader), &
                new_testsuite("HashTable", collect_hashtable), &
                new_testsuite("InputOutput", collect_inputoutput), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &

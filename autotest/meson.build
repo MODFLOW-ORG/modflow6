@@ -6,6 +6,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'Budget',
     'FeatureFlags',
     'GeomUtil',
+    'GridFileReader',
     'HashTable',
     'InputOutput',
     'KeyValueList',

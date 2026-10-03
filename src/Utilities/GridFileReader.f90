@@ -22,10 +22,11 @@ module GridFileReaderModule
     integer(I4B) :: lentxt !< header line length per variable
     ! index
     type(HashTableType), pointer :: dim !< map variable name to number of dims
-    type(HashTableType), pointer :: pos !< map variable name to position in file
+    type(HashTableType), pointer :: pos_idx !< map variable name to index in pos
     type(HashTableType), pointer :: typ !< map variable name to type (1=int, 2=dbl)
     type(HashTableType), pointer :: shp_idx !< map variable name to index in shp
     integer(I4B), allocatable :: shp(:) !< flat array of variable shapes
+    integer(I8B), allocatable :: pos(:) !< variable positions in file
     character(len=10), allocatable, public :: keys(:) !< variable names
   contains
     procedure, public :: initialize
@@ -58,7 +59,7 @@ contains
 
     this%inunit = iu
     call hash_table_cr(this%dim)
-    call hash_table_cr(this%pos)
+    call hash_table_cr(this%pos_idx)
     call hash_table_cr(this%typ)
     call hash_table_cr(this%shp_idx)
     allocate (this%shp(0))
@@ -72,10 +73,11 @@ contains
 
     close (this%inunit)
     call hash_table_da(this%dim)
-    call hash_table_da(this%pos)
+    call hash_table_da(this%pos_idx)
     call hash_table_da(this%typ)
     call hash_table_da(this%shp_idx)
     deallocate (this%shp)
+    if (allocated(this%pos)) deallocate (this%pos)
 
   end subroutine finalize
 
@@ -141,11 +143,13 @@ contains
     character(len=:), allocatable :: line
     character(len=10) :: key, dtype
     real(DP) :: rval
-    integer(I4B) :: i, lloc, istart, istop, ival, pos
+    integer(I4B) :: i, lloc, istart, istop, ival
+    integer(I8B) :: pos
     integer(I4B) :: nvars, ndim, dim, ishp
     integer(I4B), allocatable :: shp(:)
 
     allocate (this%keys(this%ntxt))
+    allocate (this%pos(this%ntxt))
     allocate (character(len=this%lentxt*this%ntxt) :: body)
     allocate (character(len=this%lentxt) :: line)
 
@@ -195,7 +199,8 @@ contains
       end if
 
       ! position
-      call this%pos%add(key, pos)
+      this%pos(nvars) = pos
+      call this%pos_idx%add(key, nvars)
       if (ndim == 0) then
         if (dtype == "INTEGER") then
           pos = pos + 4
@@ -204,11 +209,11 @@ contains
         end if
       else
         if (dtype == "INTEGER") then
-          pos = pos + (product(shp) * 4)
+          pos = pos + (product(int(shp, I8B)) * 4)
         else if (dtype == "DOUBLE") then
-          pos = pos + (product(shp) * 8)
+          pos = pos + (product(int(shp, I8B)) * 8)
         else if (dtype == "CHARACTER") then
-          pos = pos + (product(shp) * 8)
+          pos = pos + (product(int(shp, I8B)) * 8)
         end if
       end if
     end do
@@ -223,7 +228,8 @@ contains
     character(len=*), intent(in) :: key
     integer(I4B) :: v
     ! local
-    integer(I4B) :: ndim, pos, typ
+    integer(I4B) :: ndim, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not an integer scalar'
@@ -237,7 +243,7 @@ contains
       write (errmsg, '(a)') msg
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     read (this%inunit, pos=pos) v
     rewind (this%inunit)
 
@@ -249,7 +255,8 @@ contains
     character(len=*), intent(in) :: key
     real(DP) :: v
     ! local
-    integer(I4B) :: ndim, pos, typ
+    integer(I4B) :: ndim, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a double precision scalar'
@@ -263,7 +270,7 @@ contains
       write (errmsg, '(a)') msg
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     read (this%inunit, pos=pos) v
     rewind (this%inunit)
 
@@ -277,7 +284,8 @@ contains
     character(len=*), intent(in) :: key
     integer(I4B), allocatable :: v(:)
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a 1D integer array'
@@ -292,7 +300,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     allocate (v(nvals))
     read (this%inunit, pos=pos) v
@@ -310,7 +318,8 @@ contains
     character(len=*), intent(in) :: key
     integer(I4B), dimension(:), intent(inout) :: v
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a 1D integer array'
@@ -325,7 +334,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     ! verify array is correct size
     if (size(v) /= nvals) then
@@ -347,7 +356,8 @@ contains
     character(len=*), intent(in) :: key
     real(DP), allocatable :: v(:)
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a 1D double array'
@@ -362,7 +372,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     allocate (v(nvals))
     read (this%inunit, pos=pos) v
@@ -380,7 +390,8 @@ contains
     character(len=*), intent(in) :: key
     real(DP), dimension(:), intent(inout) :: v
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a 1D double array'
@@ -395,7 +406,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     ! verify array is correct size
     if (size(v) /= nvals) then
@@ -417,7 +428,8 @@ contains
     character(len=*), intent(in) :: key
     character(len=:), allocatable :: charstr
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a character array'
@@ -432,7 +444,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     allocate (character(nvals) :: charstr)
     read (this%inunit, pos=pos) charstr
@@ -448,7 +460,8 @@ contains
     character(len=*), intent(in) :: key
     character(len=:), allocatable, intent(inout) :: charstr
     ! local
-    integer(I4B) :: idx, ndim, nvals, pos, typ
+    integer(I4B) :: idx, ndim, nvals, typ
+    integer(I8B) :: pos
     character(len=:), allocatable :: msg
 
     msg = 'Variable '//trim(key)//' is not a character array'
@@ -463,7 +476,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos%get(key)
+    pos = this%pos(this%pos_idx%get(key))
     nvals = this%shp(idx)
     ! reallocate if not allocated or wrong length
     if (allocated(charstr)) then

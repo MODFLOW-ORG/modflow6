@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "The binary grid file reader stored file positions as 32-bit integers, so the Flow Model Interface (FMI) Packages for GWT, GWE, and PRT failed when reading a GWF binary grid file larger than 2 GiB, as can occur for models with tens of millions of cells. File positions are now stored as 64-bit integers so that FMI can read binary grid files larger than 2 GiB."
