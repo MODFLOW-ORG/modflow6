@@ -529,6 +529,9 @@ contains
     case ('SFRTAB')
       ! MANFRACTION present only when NCOL=3 (2 base columns otherwise)
       if (tagname == 'MANFRACTION') in_scope = this%option_check('NCOL', 2)
+    case ('LAKTAB')
+      ! BAREA present only for embedded lakes, whose table has 4 columns
+      if (tagname == 'BAREA') in_scope = this%option_check('NCOL', 3)
     case default
       ! unrecognized subcomponent with an optional param not handled
       ! above is a development error -- abort so the gap is visible
