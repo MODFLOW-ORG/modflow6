@@ -10,7 +10,8 @@ module TestBinaryFileReader
   !> First record starts just below the 2 GiB signed 32-bit boundary so that
   !! it straddles the boundary and the second record starts beyond it. Bytes
   !! before this position are never written, so on most file systems the test
-  !! file is sparse and uses almost no disk space.
+  !! file is sparse and uses almost no disk space. Scratch files give each run
+  !! a unique file, since meson may run the suite in parallel processes.
   integer(I8B), parameter :: POS0 = 2_I8B**31 - 100_I8B
 
 contains
@@ -28,7 +29,6 @@ contains
   !> @brief Read budget records located across and beyond the 2 GiB offset
   subroutine test_budget_file_beyond_2gib(error)
     type(error_type), allocatable, intent(out) :: error
-    character(len=*), parameter :: fname = 'test_bfr_2gib.cbc'
     integer(I4B), parameter :: nja = 50
     integer(I4B), parameter :: nflow = 3
     type(BudgetFileReaderType) :: bfr
@@ -41,8 +41,7 @@ contains
     flow = [(-real(i, DP), i=1, nflow)]
 
     ! write two imeth=1 records starting at POS0
-    open (newunit=iu, file=fname, access='stream', form='unformatted', &
-          status='replace', action='write')
+    open (newunit=iu, access='stream', form='unformatted', status='scratch')
     write (iu, pos=POS0) 1, 1, '    FLOW-JA-FACE', nja, 1, -1
     write (iu) 1, 1.0_DP, 1.0_DP, 1.0_DP
     write (iu) flowja
@@ -50,11 +49,8 @@ contains
     write (iu) 1, 1, '          STO-SS', nflow, 1, -1
     write (iu) 1, 1.0_DP, 1.0_DP, 1.0_DP
     write (iu) flow
-    close (iu)
 
     ! position the reader at the first record
-    open (newunit=iu, file=fname, access='stream', form='unformatted', &
-          status='old', action='read')
     bfr%inunit = iu
     call bfr%rewind()
     read (iu, pos=POS0)
@@ -87,13 +83,12 @@ contains
     if (allocated(error)) goto 100
     call check(error, bfr%endoffile, 'end of file not detected')
 
-100 close (iu, status='delete')
+100 close (iu)
   end subroutine test_budget_file_beyond_2gib
 
   !> @brief Read head records located across and beyond the 2 GiB offset
   subroutine test_head_file_beyond_2gib(error)
     type(error_type), allocatable, intent(out) :: error
-    character(len=*), parameter :: fname = 'test_hfr_2gib.hds'
     integer(I4B), parameter :: ncol = 10, nrow = 5
     type(HeadFileReaderType) :: hfr
     real(DP) :: head1(ncol * nrow), head2(ncol * nrow)
@@ -105,18 +100,14 @@ contains
     head2 = -head1
 
     ! write two head records starting at POS0
-    open (newunit=iu, file=fname, access='stream', form='unformatted', &
-          status='replace', action='write')
+    open (newunit=iu, access='stream', form='unformatted', status='scratch')
     write (iu, pos=POS0) 1, 1, 1.0_DP, 1.0_DP, '            HEAD', ncol, nrow, 1
     write (iu) head1
     inquire (unit=iu, pos=pos1)
     write (iu) 2, 1, 2.0_DP, 2.0_DP, '            HEAD', ncol, nrow, 1
     write (iu) head2
-    close (iu)
 
     ! position the reader at the first record
-    open (newunit=iu, file=fname, access='stream', form='unformatted', &
-          status='old', action='read')
     hfr%inunit = iu
     call hfr%rewind()
     read (iu, pos=POS0)
@@ -144,7 +135,7 @@ contains
     if (allocated(error)) goto 100
     call check(error, hfr%endoffile, 'end of file not detected')
 
-100 close (iu, status='delete')
+100 close (iu)
   end subroutine test_head_file_beyond_2gib
 
 end module TestBinaryFileReader
