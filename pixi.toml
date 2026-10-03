@@ -42,7 +42,7 @@ shapely = "*"
 syrupy = "<5"
 test-drive = "*"
 xarray = "*"
-xugrid = "*"
+xugrid = ">=0.14"
 xmipy = ">=1.4.0"
 
 [pypi-dependencies]
@@ -50,7 +50,12 @@ modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
 
 # os-specific dependencies
 [target.win-64.dependencies]
-test-drive = "!=0.6.0"
+# conda-forge publishes gfortran, flang and ifx builds; the
+# unit tests are built with gfortran so require that variant
+test-drive = { version = "!=0.6.0", build = "gfortran*" }
+# meson >=1.11 skips mpiifort on windows and finds Intel MPI
+# via I_MPI_ROOT without the include path for the mpi module
+meson = ">=1.7.0,<1.11"
 
 [tasks]
 # install
