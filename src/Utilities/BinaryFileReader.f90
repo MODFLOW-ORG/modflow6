@@ -7,7 +7,7 @@ module BinaryFileReaderModule
   public :: BinaryFileHeaderType, BinaryFileReaderType
 
   type :: BinaryFileHeaderType
-    integer(I4B) :: pos, size
+    integer(I8B) :: pos, size
     integer(I4B) :: kper, kstp
     real(DP) :: pertim, totim
   contains
@@ -19,7 +19,7 @@ module BinaryFileReaderModule
     integer(I4B) :: nrecords
     logical(LGP) :: indexed
     logical(LGP) :: endoffile
-    integer(I4B), allocatable :: record_sizes(:)
+    integer(I8B), allocatable :: record_sizes(:)
     class(BinaryFileHeaderType), allocatable :: header
     class(BinaryFileHeaderType), allocatable :: headernext
   contains
@@ -69,7 +69,7 @@ contains
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
     logical(LGP) :: success
-    integer(I4B) :: pos, record_size
+    integer(I8B) :: pos, record_size
 
     this%indexed = .false.
     this%nrecords = 0

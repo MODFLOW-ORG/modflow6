@@ -74,7 +74,8 @@ contains
     logical, intent(out) :: success
     integer(I4B), intent(in), optional :: iout
     ! -- local
-    integer(I4B) :: iostat, pos
+    integer(I4B) :: iostat
+    integer(I8B) :: pos
     !
     success = .true.
     select type (h => this%header)
