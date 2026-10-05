@@ -216,56 +216,45 @@ PAIRED = {"basesm": "base", "sorbsm": "sorb", "dcysm": "dcy"}
 
 def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
     """Concentration, solute mass, and stranded mass for a set of cases."""
+    legend_kwargs = {
+        "ncols": legend_ncols,
+        "loc": "upper right",
+        "fontsize": 7,
+        "handlelength": 2.0,
+        "framealpha": 0.9,
+        "edgecolor": "0.7",
+    }
     with styles.USGSPlot():
-        fig, axes = plt.subplots(
-            nrows=3,
-            ncols=1,
+        fig, axd = plt.subplot_mosaic(
+            [["A"], ["B"], ["C"]],
             figsize=(6.8, 5.6),
             sharex=True,
-            constrained_layout=True,
+            layout="constrained",
         )
 
-        ax = axes[0]
+        ax = axd["A"]
         for tag in tags:
             label, color, ls = LOOKUP[tag]
             ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
-        ax.set_ylabel("Concentration, in grams\nper cubic meter")
+        styles.ylabel(ax=ax, label="Concentration, in grams\nper cubic meter")
         ax.set_ylim(0.0, 265.0)
-        ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="A")
-        styles.graph_legend(
-            ax=ax,
-            ncols=legend_ncols,
-            loc="upper right",
-            fontsize=7,
-            handlelength=2.0,
-            framealpha=0.9,
-            edgecolor="0.7",
-        )
+        styles.graph_legend(ax=ax, **legend_kwargs)
 
-        ax = axes[1]
+        ax = axd["B"]
         for tag in tags:
             label, color, ls = LOOKUP[tag]
             ax.plot(
                 times, results[tag][4] / 1000.0, color=color, ls=ls, lw=1.2, label=label
             )
-        ax.set_ylabel("Solute mass of the tested\ncell, in kilograms")
+        styles.ylabel(ax=ax, label="Solute mass of the tested\ncell, in kilograms")
         # -- headroom above the curves for the explanation
         mmax = max(results[tag][4].max() for tag in tags) / 1000.0
         ax.set_ylim(0.0, 1.62 * mmax)
-        ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="B")
-        styles.graph_legend(
-            ax=ax,
-            ncols=legend_ncols,
-            loc="upper right",
-            fontsize=7,
-            handlelength=2.0,
-            framealpha=0.9,
-            edgecolor="0.7",
-        )
+        styles.graph_legend(ax=ax, **legend_kwargs)
 
-        ax = axes[2]
+        ax = axd["C"]
         for tag in tags:
             if results[tag][3] is None:
                 continue
@@ -278,23 +267,15 @@ def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
                 lw=1.2,
                 label=label,
             )
-        ax.set_ylabel("Stranded mass, in kilograms")
+        styles.ylabel(ax=ax, label="Stranded mass, in kilograms")
         ax.set_ylim(0.0, 9800.0)
-        ax.set_xlabel("Time, in days")
+        styles.xlabel(ax=ax, label="Time, in days")
         ax.set_xlim(0.0, times[-1])
-        ax.tick_params(direction="in", top=True, right=True)
         styles.heading(ax=ax, letter="C")
-        styles.graph_legend(
-            ax=ax,
-            ncols=legend_ncols,
-            loc="upper right",
-            fontsize=7,
-            handlelength=2.0,
-            framealpha=0.9,
-            edgecolor="0.7",
-        )
+        styles.graph_legend(ax=ax, **legend_kwargs)
 
-    fig.savefig(figpth / fname, dpi=300)
+        fig.align_ylabels([axd["A"], axd["B"], axd["C"]])
+        fig.savefig(figpth / fname)
     print(f"Saved {figpth / fname}")
 
 
@@ -302,17 +283,17 @@ LOOKUP = {tag: (label, color, ls) for tag, _, _, _, label, color, ls in CASES}
 
 # -- figure 1, the oscillating water table
 with styles.USGSPlot():
-    fig, ax = plt.subplots(figsize=(6.8, 2.6), constrained_layout=True)
+    fig, axd = plt.subplot_mosaic([["A"]], figsize=(6.8, 2.6), layout="constrained")
+    ax = axd["A"]
     ax.plot(times, heads, color="black", lw=1.2)
-    ax.set_ylabel("Head, in meters")
-    ax.set_xlabel("Time, in days")
+    styles.ylabel(ax=ax, label="Head, in meters")
+    styles.xlabel(ax=ax, label="Time, in days")
     ax.set_ylim(0.0, TOP)
     ax.set_xlim(0.0, times[-1])
-    ax.tick_params(direction="in", top=True, right=True)
     ax2 = ax.twinx()
     ax2.set_ylim(0.0, 1.0)
-    ax2.set_ylabel("Saturation")
-fig.savefig(figpth / "MSTStrandedMassHead.pdf", dpi=300)
+    styles.ylabel(ax=ax2, label="Saturation")
+    fig.savefig(figpth / "MSTStrandedMassHead.pdf")
 print(f"Saved {figpth / 'MSTStrandedMassHead.pdf'}")
 
 # -- figure 2, without decay; figure 3, with decay

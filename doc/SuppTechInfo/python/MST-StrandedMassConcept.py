@@ -86,10 +86,12 @@ def draw_change(ax, x, y0, y1, facecolor):
 
 
 with styles.USGSPlot():
-    fig, axes = plt.subplots(ncols=2, figsize=(6.8, 3.7), constrained_layout=True)
+    fig, axd = plt.subplot_mosaic(
+        [["A", "B"]], figsize=(6.8, 3.7), layout="constrained"
+    )
 
     # -- A, the water table falls and the saturated volume decreases
-    ax = axes[0]
+    ax = axd["A"]
     draw_cell(ax, XL, HI, "before")
     draw_cell(ax, XR, LO, "after")
     draw_change(ax, XR, LO, HI, DRAINED)
@@ -125,7 +127,7 @@ with styles.USGSPlot():
     styles.heading(ax=ax, letter="A")
 
     # -- B, the water table rises and the saturated volume increases
-    ax = axes[1]
+    ax = axd["B"]
     draw_cell(ax, XL, LO, "before")
     draw_cell(ax, XR, HI, "after")
     draw_change(ax, XR, LO, HI, WATER)
@@ -153,7 +155,7 @@ with styles.USGSPlot():
     )
     styles.heading(ax=ax, letter="B")
 
-    for ax in axes:
+    for ax in axd.values():
         ax.set_xlim(0.2, 8.6)
         ax.set_ylim(-1.9, 11.2)
         ax.set_axis_off()
@@ -186,6 +188,6 @@ with styles.USGSPlot():
     leg.get_title().set_fontsize(7.5)
     leg.get_title().set_fontweight("bold")
 
-figpth = Path(__file__).resolve().parent.parent / "Figures"
-fig.savefig(figpth / "MSTStrandedMassConcept.pdf", dpi=300)
+    figpth = Path(__file__).resolve().parent.parent / "Figures"
+    fig.savefig(figpth / "MSTStrandedMassConcept.pdf")
 print(f"Saved {figpth / 'MSTStrandedMassConcept.pdf'}")

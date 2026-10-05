@@ -165,9 +165,11 @@ with tempfile.TemporaryDirectory() as tmp:
 figpth = Path(__file__).resolve().parent.parent / "Figures"
 
 with styles.USGSPlot():
-    fig, axes = plt.subplots(ncols=2, figsize=(6.8, 3.0), constrained_layout=True)
+    fig, axd = plt.subplot_mosaic(
+        [["A", "B"]], figsize=(6.8, 3.0), layout="constrained"
+    )
 
-    ax = axes[0]
+    ax = axd["A"]
     ratio = np.array(SY_VALUES) / POROSITY
     ax.plot(
         ratio,
@@ -187,11 +189,12 @@ with styles.USGSPlot():
         lw=1.2,
         label="departure in concentration",
     )
-    ax.set_xlabel("Specific yield divided by porosity\n(no sorption)")
-    ax.set_ylabel("Percentage of the initial mass\nor of the initial concentration")
+    styles.xlabel(ax=ax, label="Specific yield divided by porosity\n(no sorption)")
+    styles.ylabel(
+        ax=ax, label="Percentage of the initial mass\nor of the initial concentration"
+    )
     ax.set_xlim(1.05, 0.10)
     ax.set_ylim(0.0, max(sy_mass.max(), sy_conc.max()) * 1.45)
-    ax.tick_params(direction="in", top=True, right=True)
     styles.heading(ax=ax, letter="A")
     styles.graph_legend(
         ax=ax,
@@ -203,18 +206,18 @@ with styles.USGSPlot():
         edgecolor="0.7",
     )
 
-    ax = axes[1]
+    ax = axd["B"]
     kd = np.array(KD_VALUES) * 1.0e4
     ax.plot(kd, kd_mass, color="#d62728", marker="o", ms=3.5, lw=1.2)
     ax.plot(kd, kd_conc, color="#1f77b4", marker="s", ms=3.5, lw=1.2)
-    ax.set_xlabel(
-        "Distribution coefficient, in units of\n"
+    styles.xlabel(
+        ax=ax,
+        label="Distribution coefficient, in units of\n"
         r"$1 \times 10^{-4}$ cubic meters per kilogram"
-        "\n(specific yield half the porosity)"
+        "\n(specific yield half the porosity)",
     )
     ax.set_ylim(0.0, max(kd_mass.max(), kd_conc.max()) * 1.45)
-    ax.tick_params(direction="in", top=True, right=True)
     styles.heading(ax=ax, letter="B")
 
-    fig.savefig(figpth / "MSTStrandedMassSensitivity.pdf", dpi=300)
+    fig.savefig(figpth / "MSTStrandedMassSensitivity.pdf")
 print(f"Saved {figpth / 'MSTStrandedMassSensitivity.pdf'}")
