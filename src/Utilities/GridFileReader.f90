@@ -214,7 +214,7 @@ contains
         else if (dtype == "DOUBLE") then
           pos = pos + (product(int(shp, I8B)) * 8)
         else if (dtype == "CHARACTER") then
-          pos = pos + (product(int(shp, I8B)) * 8)
+          pos = pos + product(int(shp, I8B))
         end if
       end if
     end do

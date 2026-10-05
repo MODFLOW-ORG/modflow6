@@ -60,7 +60,7 @@ contains
     open (newunit=iu, access='stream', form='unformatted', status='scratch')
     call write_line(iu, 'GRID DISU', LENHDR)
     call write_line(iu, 'VERSION 2', LENHDR)
-    call write_line(iu, 'NTXT 6', LENHDR)
+    call write_line(iu, 'NTXT 7', LENHDR)
     write (txt, '(a, i0)') 'LENTXT ', LENTXT
     call write_line(iu, txt, LENHDR)
     write (txt, '(a, i0)') 'NODES INTEGER NDIM 0 # ', nodes
@@ -74,6 +74,7 @@ contains
     call write_line(iu, 'ANGROT DOUBLE NDIM 0 # 30.0', LENTXT)
     write (txt, '(a, i0)') 'CRS CHARACTER NDIM 1 ', len(crs)
     call write_line(iu, txt, LENTXT)
+    call write_line(iu, 'NCPL INTEGER NDIM 0 # 7', LENTXT)
 
     ! data, skipping over the padding
     write (iu) nodes
@@ -83,6 +84,7 @@ contains
     write (iu) botm
     write (iu) 30.0_DP
     write (iu) crs
+    write (iu) 7
     rewind (iu)
 
     call gfr%initialize(iu)
@@ -99,6 +101,8 @@ contains
     if (allocated(error)) goto 100
     crs_read = gfr%read_charstr('CRS')
     call check(error, crs_read == crs, 'wrong CRS')
+    if (allocated(error)) goto 100
+    call check(error, gfr%read_int('NCPL') == 7, 'wrong NCPL')
 
 100 call gfr%finalize()
   end subroutine test_grid_file_beyond_2gib
