@@ -61,6 +61,8 @@ def _common(chf, name, strt):
     flopy.mf6.ModflowChfic(chf, strt=strt)
     flopy.mf6.ModflowChfdfw(chf, manningsn=0.03, idcxs=0)
     flopy.mf6.ModflowChfcxs(chf, **_RECT_CXS)
+    # enable explicit channel junctions (JNC6 present = junctions on)
+    flopy.mf6.ModflowChfjnc(chf, save_flows=True)
     flopy.mf6.ModflowChfoc(
         chf,
         budget_filerecord=f"{name}.bud",

@@ -493,11 +493,24 @@ contains
 
   !> @brief Flow from reach r into junction k
   !!
-  !! q = C_rk (h_r - h_k), using the DFW half-cell reach-junction conductance
-  !! (reach half-length to the junction endpoint).  Positive q is flow from the
-  !! reach into the junction.
+  !! q = C_rk (h_r - h_k), where C_rk is the half-cell conductance between the
+  !! reach center and the junction.  Positive q is flow from the reach into the
+  !! junction.
+  !!
+  !! The junction sits at the reach endpoint and is a zero-length point, so the
+  !! only half-cell distance is the reach's own half-length (dx) and there is no
+  !! second half-cell to harmonically average with.  This routine prepares the
+  !! half-cell inputs (upstream-weighted depth, friction gradient over the half-
+  !! length, smoothed depth, flow width) the same way the DFW reach-reach path
+  !! does, then calls the shared DFW half-cell conductance kernel get_cond_n so
+  !! the Manning conductance physics lives in one place.  The reach-junction
+  !! gradient uses the half-length dx (abs(stage_r - stage_j) / dx), not a
+  !! center-to-center distance, because the junction is at the face.
   !<
   function qcalc_rj(this, ireach, stage_r, stage_j) result(q)
+    ! modules
+    use ConstantsModule, only: DPREC
+    use SmoothingModule, only: sQuadratic
     ! dummy
     class(ChfJncType) :: this !< this instance
     integer(I4B), intent(in) :: ireach !< reduced reach node number
@@ -507,11 +520,44 @@ contains
     real(DP) :: q
     ! local
     real(DP) :: dx
+    real(DP) :: depth
+    real(DP) :: dhds
+    real(DP) :: width
+    real(DP) :: width_dummy
+    real(DP) :: range = 1.d-6
+    real(DP) :: dydx
+    real(DP) :: smooth_factor
     real(DP) :: cond
 
     ! reach half-length to the junction endpoint
     dx = DHALF * this%disv1d%length(ireach)
-    cond = this%dfw%get_cond_rj(ireach, dx, stage_r, stage_j)
+
+    cond = DZERO
+    if (dx > DPREC) then
+
+      ! depth with upstream weighting (use the higher of reach/junction stage)
+      if (stage_r >= stage_j) then
+        depth = stage_r - this%disv1d%bot(ireach)
+      else
+        depth = stage_j - this%disv1d%bot(ireach)
+      end if
+
+      ! friction gradient between reach center and junction over the half-length
+      dhds = abs(stage_r - stage_j) / dx
+
+      ! smoothed depth that goes to zero over the specified range
+      call sQuadratic(depth, range, dydx, smooth_factor)
+      depth = depth * smooth_factor
+
+      ! reach flow width (the junction endpoint uses the reach width)
+      call this%disv1d%get_flow_width(ireach, ireach, 1, width, width_dummy)
+
+      ! half-cell conductance from the reach center to the junction, using the
+      ! shared DFW Manning conductance kernel
+      cond = this%dfw%get_cond_n(ireach, depth, dx, width, dhds)
+
+    end if
+
     q = cond * (stage_r - stage_j)
 
   end function qcalc_rj
