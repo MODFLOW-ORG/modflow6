@@ -1,0 +1,23 @@
+Input to the Time-Varying Array (TVA) Utility is read from the file that is specified in the TVA6 record of the OPTIONS block of the package that uses it.  The TVA Utility provides one or more named arrays that can change by stress period.  In the present version, the TVA Utility is used only by the Seawater Intrusion (SWI) Package, which reads the saltwater head from a TVA auxiliary variable named SALTWATER\_HEAD.
+
+Each array provided through the TVA Utility is declared as an auxiliary variable in the AUXILIARY option.  The arrays are assigned in PERIOD blocks, in which each array is specified by its auxiliary variable name followed by the array values, read with the READARRAY utility.  An array can also be assigned from a time-array series by entering the name of the time-array series in place of the array values (see the ``Time-Variable Input'' section).  The arrays are zero until they are assigned, and once assigned they retain their values in subsequent stress periods until they are changed by another PERIOD block.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tva-options.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tva-period.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-tva-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-tva-example.dat}

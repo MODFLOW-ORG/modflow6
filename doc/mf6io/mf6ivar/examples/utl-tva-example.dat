@@ -1,0 +1,24 @@
+BEGIN OPTIONS
+  AUXILIARY SALTWATER_HEAD
+  PRINT_INPUT
+END OPTIONS
+
+# Sea level, which the SWI Package uses as the saltwater head, is 0.0 for
+# stress periods 1 through 3, rises to 0.25 in stress period 4, and is 0.5
+# from stress period 5 to the end of the simulation.  An array keeps its
+# value until it is changed in a later PERIOD block.
+
+BEGIN PERIOD 1
+  SALTWATER_HEAD
+    CONSTANT 0.0
+END PERIOD
+
+BEGIN PERIOD 4
+  SALTWATER_HEAD
+    CONSTANT 0.25
+END PERIOD
+
+BEGIN PERIOD 5
+  SALTWATER_HEAD
+    CONSTANT 0.5
+END PERIOD
