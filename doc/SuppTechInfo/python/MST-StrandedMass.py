@@ -14,6 +14,7 @@ Three figures are written: the oscillating water table, the comparison without
 sorption, and the comparison with sorption.
 """
 
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -146,6 +147,28 @@ def build_model(ws, sorption, decay, stranded):
     return sim
 
 
+#: largest percent discrepancy of the model budget in each case, over the time
+#: steps in which more than 1 g/d of solute enters or leaves the model
+DISCREPANCY = {}
+
+
+def budget_discrepancy(ws):
+    """Largest rate discrepancy in time steps where more than 1 g/d moves.
+
+    In the remaining time steps almost no solute moves, and the percentage is
+    a ratio of numbers near zero.
+    """
+    text = (ws / "gwt-sm.lst").read_text()
+    worst = 0.0
+    for block in text.split("BUDGET FOR ENTIRE MODEL")[1:]:
+        block = block[:4000]
+        disc = re.findall(r"PERCENT DISCREPANCY\s*=\s*([-+0-9.Ee]+)", block)
+        total_in = re.findall(r"TOTAL IN\s*=\s*([-+0-9.Ee]+)", block)
+        if abs(float(total_in[1])) > 1.0:
+            worst = max(worst, abs(float(disc[1])))
+    return worst
+
+
 def run_case(tmp, tag, sorption, decay, stranded):
     ws = Path(tmp) / tag
     build_model(ws, sorption, decay, stranded)
@@ -153,6 +176,7 @@ def run_case(tmp, tag, sorption, decay, stranded):
     if r.returncode != 0:
         print(r.stdout[-2000:])
         raise RuntimeError(f"mf6 failed for case {tag}")
+    DISCREPANCY[tag] = budget_discrepancy(ws)
 
     conc = flopy.utils.HeadFile(ws / "gwt-sm.ucn", text="CONCENTRATION")
     times = np.array(conc.get_times())
@@ -232,6 +256,8 @@ def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
             layout="constrained",
         )
 
+        # -- the explanation is on panel A only; the line colors and styles are
+        #    the same in every panel
         ax = axd["A"]
         for tag in tags:
             label, color, ls = LOOKUP[tag]
@@ -248,11 +274,9 @@ def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
                 times, results[tag][4] / 1000.0, color=color, ls=ls, lw=1.2, label=label
             )
         styles.ylabel(ax=ax, label="Solute mass of the tested\ncell, in kilograms")
-        # -- headroom above the curves for the explanation
         mmax = max(results[tag][4].max() for tag in tags) / 1000.0
-        ax.set_ylim(0.0, 1.62 * mmax)
+        ax.set_ylim(0.0, 1.1 * mmax)
         styles.heading(ax=ax, letter="B")
-        styles.graph_legend(ax=ax, **legend_kwargs)
 
         ax = axd["C"]
         for tag in tags:
@@ -272,7 +296,6 @@ def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
         styles.xlabel(ax=ax, label="Time, in days")
         ax.set_xlim(0.0, times[-1])
         styles.heading(ax=ax, letter="C")
-        styles.graph_legend(ax=ax, **legend_kwargs)
 
         fig.align_ylabels([axd["A"], axd["B"], axd["C"]])
         fig.savefig(figpth / fname)
@@ -309,6 +332,8 @@ comparison_figure(
 
 # -- summary numbers quoted in the chapter text
 for tag, _, _, _, label, _, _ in CASES:
+    print(f"{label:38s} largest budget discrepancy {DISCREPANCY[tag]:.2f} percent")
+for tag, _, _, _, label, _, _ in CASES:
     c = results[tag][2]
     s = results[tag][3]
     smax = "n/a" if s is None else f"{s.max() / 1000.0:9.1f} kg"
@@ -341,3 +366,25 @@ for tag, ref in PAIRED.items():
         f"{LOOKUP[tag][0]:38s} mass difference min={d.min():6.2f} %  "
         f"max={d.max():6.2f} %  end={d[-1]:6.2f} %"
     )
+
+# -- the same example over 40 cycles, to show how the mass error without the
+#    option grows; mass is compared at the same point of every cycle, when the
+#    head returns to its starting value
+NPER = 40 * int(TCYCLE / PERLEN)
+print("\n=== 40 cycles: change in the solute mass of the tested cell ===")
+with tempfile.TemporaryDirectory() as tmp:
+    for tag, sorb, sm in (
+        ("base", False, False),
+        ("basesm", False, True),
+        ("sorb", True, False),
+        ("sorbsm", True, True),
+    ):
+        t, _, _, _, m = run_case(tmp, tag, sorb, False, sm)
+        idx = [int(np.argmin(abs(t - (PERLEN + TCYCLE * k)))) for k in range(41)]
+        change = 100.0 * (m[idx] - m[0]) / m[0]
+        gain = np.diff(m[idx]) / 1000.0
+        print(
+            f"{LOOKUP[tag][0]:38s} percent after 1, 4, 10, 20, 40 cycles: "
+            + " ".join(f"{change[k]:7.2f}" for k in (1, 4, 10, 20, 40))
+            + f"  gain in cycle 40 {gain[-1]:7.1f} kg"
+        )
