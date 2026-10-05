@@ -36,6 +36,7 @@ module GridFileReaderModule
     procedure, private :: read_header
     procedure, private :: read_header_meta
     procedure, private :: read_header_body
+    procedure, private :: get_pos
     ! scalar read functions
     procedure, public :: read_int
     procedure, public :: read_dbl
@@ -222,6 +223,22 @@ contains
 
   end subroutine read_header_body
 
+  !> @brief Get a variable's position in the file. Internal use only.
+  function get_pos(this, key) result(pos)
+    class(GridFileReaderType), intent(inout) :: this
+    character(len=*), intent(in) :: key
+    integer(I8B) :: pos
+    ! local
+    integer(I4B) :: idx
+
+    idx = this%pos_idx%get(key)
+    if (idx == 0) then
+      write (errmsg, '(a)') 'Variable '//trim(key)//' not found'
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    pos = this%pos(idx)
+  end function get_pos
+
   !> @brief Read an integer scalar from a grid file.
   function read_int(this, key) result(v)
     class(GridFileReaderType), intent(inout) :: this
@@ -243,7 +260,7 @@ contains
       write (errmsg, '(a)') msg
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     read (this%inunit, pos=pos) v
     rewind (this%inunit)
 
@@ -270,7 +287,7 @@ contains
       write (errmsg, '(a)') msg
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     read (this%inunit, pos=pos) v
     rewind (this%inunit)
 
@@ -300,7 +317,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     allocate (v(nvals))
     read (this%inunit, pos=pos) v
@@ -334,7 +351,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     ! verify array is correct size
     if (size(v) /= nvals) then
@@ -372,7 +389,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     allocate (v(nvals))
     read (this%inunit, pos=pos) v
@@ -406,7 +423,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     ! verify array is correct size
     if (size(v) /= nvals) then
@@ -444,7 +461,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     allocate (character(nvals) :: charstr)
     read (this%inunit, pos=pos) charstr
@@ -476,7 +493,7 @@ contains
       call store_error(errmsg, terminate=.TRUE.)
     end if
     idx = this%shp_idx%get(key)
-    pos = this%pos(this%pos_idx%get(key))
+    pos = this%get_pos(key)
     nvals = this%shp(idx)
     ! reallocate if not allocated or wrong length
     if (allocated(charstr)) then
