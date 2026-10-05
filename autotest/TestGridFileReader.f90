@@ -15,7 +15,8 @@ contains
     type(unittest_type), allocatable, intent(out) :: testsuite(:)
     testsuite = [ &
                 new_unittest("grid_file_beyond_2gib", &
-                             test_grid_file_beyond_2gib) &
+                             test_grid_file_beyond_2gib), &
+                new_unittest("has_variable", test_has_variable) &
                 ]
   end subroutine collect_gridfilereader
 
@@ -104,5 +105,38 @@ contains
 
 100 call gfr%finalize()
   end subroutine test_grid_file_beyond_2gib
+
+  !> @brief Check which variables the grid file reports having
+  subroutine test_has_variable(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(GridFileReaderType) :: gfr
+    integer(I4B) :: iu
+    character(len=LENTXT) :: txt
+
+    ! header
+    open (newunit=iu, access='stream', form='unformatted', status='scratch')
+    call write_line(iu, 'GRID DISV1D', LENHDR)
+    call write_line(iu, 'VERSION 1', LENHDR)
+    call write_line(iu, 'NTXT 2', LENHDR)
+    write (txt, '(a, i0)') 'LENTXT ', LENTXT
+    call write_line(iu, txt, LENHDR)
+    call write_line(iu, 'NCELLS INTEGER NDIM 0 # 2', LENTXT)
+    call write_line(iu, 'IDOMAIN INTEGER NDIM 1 2', LENTXT)
+
+    ! data
+    write (iu) 2
+    write (iu) 1, 1
+    rewind (iu)
+
+    call gfr%initialize(iu)
+
+    call check(error, gfr%has_variable('NCELLS'), 'scalar NCELLS not found')
+    if (allocated(error)) goto 100
+    call check(error, gfr%has_variable('IDOMAIN'), 'array IDOMAIN not found')
+    if (allocated(error)) goto 100
+    call check(error,.not. gfr%has_variable('ICELLTYPE'), 'ICELLTYPE found')
+
+100 call gfr%finalize()
+  end subroutine test_has_variable
 
 end module TestGridFileReader

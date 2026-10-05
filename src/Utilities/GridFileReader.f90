@@ -12,6 +12,10 @@ module GridFileReaderModule
 
   public :: GridFileReaderType
 
+  integer(I4B), parameter :: TYP_INT = 1 !< integer variable type
+  integer(I4B), parameter :: TYP_DBL = 2 !< double precision variable type
+  integer(I4B), parameter :: TYP_CHR = 3 !< character variable type
+
   type :: GridFileReaderType
     private
     integer(I4B), public :: inunit !< file unit
@@ -21,13 +25,13 @@ module GridFileReaderModule
     integer(I4B) :: ntxt !< number of variables
     integer(I4B) :: lentxt !< header line length per variable
     ! index
-    type(HashTableType), pointer :: dim !< map variable name to number of dims
-    type(HashTableType), pointer :: pos_idx !< map variable name to index in pos
-    type(HashTableType), pointer :: typ !< map variable name to type (1=int, 2=dbl)
-    type(HashTableType), pointer :: shp_idx !< map variable name to index in shp
-    integer(I4B), allocatable :: shp(:) !< flat array of variable shapes
-    integer(I8B), allocatable :: pos(:) !< variable positions in file
+    type(HashTableType), pointer :: idx !< map variable name to variable index
     character(len=10), allocatable, public :: keys(:) !< variable names
+    integer(I4B), allocatable :: ndims(:) !< variable number of dims
+    integer(I4B), allocatable :: typs(:) !< variable type (TYP_INT, TYP_DBL, TYP_CHR)
+    integer(I4B), allocatable :: shp_start(:) !< variable shape start in shp
+    integer(I8B), allocatable :: pos(:) !< variable position in file
+    integer(I4B), allocatable :: shp(:) !< flat array of variable shapes
   contains
     procedure, public :: initialize
     procedure, public :: finalize
@@ -36,7 +40,7 @@ module GridFileReaderModule
     procedure, private :: read_header
     procedure, private :: read_header_meta
     procedure, private :: read_header_body
-    procedure, private :: get_pos
+    procedure, private :: lookup
     ! scalar read functions
     procedure, public :: read_int
     procedure, public :: read_dbl
@@ -59,10 +63,7 @@ contains
     integer(I4B), intent(in) :: iu
 
     this%inunit = iu
-    call hash_table_cr(this%dim)
-    call hash_table_cr(this%pos_idx)
-    call hash_table_cr(this%typ)
-    call hash_table_cr(this%shp_idx)
+    call hash_table_cr(this%idx)
     allocate (this%shp(0))
     call this%read_header()
 
@@ -73,12 +74,13 @@ contains
     class(GridFileReaderType) :: this
 
     close (this%inunit)
-    call hash_table_da(this%dim)
-    call hash_table_da(this%pos_idx)
-    call hash_table_da(this%typ)
-    call hash_table_da(this%shp_idx)
-    deallocate (this%shp)
+    call hash_table_da(this%idx)
+    if (allocated(this%keys)) deallocate (this%keys)
+    if (allocated(this%ndims)) deallocate (this%ndims)
+    if (allocated(this%typs)) deallocate (this%typs)
+    if (allocated(this%shp_start)) deallocate (this%shp_start)
     if (allocated(this%pos)) deallocate (this%pos)
+    if (allocated(this%shp)) deallocate (this%shp)
 
   end subroutine finalize
 
@@ -145,77 +147,73 @@ contains
     character(len=10) :: key, dtype
     real(DP) :: rval
     integer(I4B) :: i, lloc, istart, istop, ival
+    integer(I4B) :: ivar, ndim, dim, ishp, nbytes
     integer(I8B) :: pos
-    integer(I4B) :: nvars, ndim, dim, ishp
-    integer(I4B), allocatable :: shp(:)
 
     allocate (this%keys(this%ntxt))
+    allocate (this%ndims(this%ntxt))
+    allocate (this%typs(this%ntxt))
+    allocate (this%shp_start(this%ntxt))
     allocate (this%pos(this%ntxt))
     allocate (character(len=this%lentxt*this%ntxt) :: body)
     allocate (character(len=this%lentxt) :: line)
 
-    nvars = 0
     read (this%inunit) body
     inquire (this%inunit, pos=pos)
-    do i = 1, this%lentxt * this%ntxt, this%lentxt
+    do ivar = 1, this%ntxt
+      i = (ivar - 1) * this%lentxt + 1
       line = body(i:i + this%lentxt - 1)
-      lloc = 1
 
       ! key
       lloc = 1
       call urword(line, lloc, istart, istop, 1, ival, rval, 0, 0)
       key = line(istart:istop)
-      nvars = nvars + 1
-      this%keys(nvars) = key
+      this%keys(ivar) = key
+      call this%idx%add(key, ivar)
 
       ! type
       call urword(line, lloc, istart, istop, 1, ival, rval, 0, 0)
       dtype = line(istart:istop)
-      if (dtype == "INTEGER") then
-        call this%typ%add(key, 1)
-      else if (dtype == "DOUBLE") then
-        call this%typ%add(key, 2)
-      else if (dtype == "CHARACTER") then
-        call this%typ%add(key, 3)
-      end if
+      select case (dtype)
+      case ("INTEGER")
+        this%typs(ivar) = TYP_INT
+        nbytes = 4
+      case ("DOUBLE")
+        this%typs(ivar) = TYP_DBL
+        nbytes = 8
+      case ("CHARACTER")
+        this%typs(ivar) = TYP_CHR
+        nbytes = 1
+      case default
+        this%typs(ivar) = 0
+        nbytes = 0
+      end select
 
       ! dims
       call urword(line, lloc, istart, istop, 0, ival, rval, 0, 0)
       call urword(line, lloc, istart, istop, 2, ival, rval, 0, 0)
       ndim = ival
-      call this%dim%add(key, ndim)
+      this%ndims(ivar) = ndim
 
       ! shape
-      if (allocated(shp)) deallocate (shp)
-      allocate (shp(ndim))
+      this%shp_start(ivar) = 0
       if (ndim > 0) then
-        do dim = 1, ndim
-          call urword(line, lloc, istart, istop, 2, ival, rval, 0, 0)
-          shp(dim) = ival
-        end do
         ishp = size(this%shp)
         call ExpandArray(this%shp, increment=ndim)
-        this%shp(ishp + 1:ishp + ndim) = shp
-        call this%shp_idx%add(key, ishp + 1)
+        do dim = 1, ndim
+          call urword(line, lloc, istart, istop, 2, ival, rval, 0, 0)
+          this%shp(ishp + dim) = ival
+        end do
+        this%shp_start(ivar) = ishp + 1
       end if
 
       ! position
-      this%pos(nvars) = pos
-      call this%pos_idx%add(key, nvars)
+      this%pos(ivar) = pos
       if (ndim == 0) then
-        if (dtype == "INTEGER") then
-          pos = pos + 4
-        else if (dtype == "DOUBLE") then
-          pos = pos + 8
-        end if
+        pos = pos + nbytes
       else
-        if (dtype == "INTEGER") then
-          pos = pos + (product(int(shp, I8B)) * 4)
-        else if (dtype == "DOUBLE") then
-          pos = pos + (product(int(shp, I8B)) * 8)
-        else if (dtype == "CHARACTER") then
-          pos = pos + product(int(shp, I8B))
-        end if
+        ishp = this%shp_start(ivar)
+        pos = pos + product(int(this%shp(ishp:ishp + ndim - 1), I8B)) * nbytes
       end if
     end do
 
@@ -223,21 +221,30 @@ contains
 
   end subroutine read_header_body
 
-  !> @brief Get a variable's position in the file. Internal use only.
-  function get_pos(this, key) result(pos)
+  !> @brief Look up a variable and check its rank and type.
+  !!
+  !! Returns the variable's index. Terminates with an error if the
+  !! variable does not exist or does not have the expected rank and type.
+  !! Internal use only.
+  !<
+  function lookup(this, key, ndim, typ, desc) result(ivar)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
-    integer(I8B) :: pos
-    ! local
-    integer(I4B) :: idx
+    integer(I4B), intent(in) :: ndim !< expected number of dims
+    integer(I4B), intent(in) :: typ !< expected type
+    character(len=*), intent(in) :: desc !< expected kind, for error messages
+    integer(I4B) :: ivar
 
-    idx = this%pos_idx%get(key)
-    if (idx == 0) then
+    ivar = this%idx%get(key)
+    if (ivar == 0) then
       write (errmsg, '(a)') 'Variable '//trim(key)//' not found'
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    pos = this%pos(idx)
-  end function get_pos
+    if (this%ndims(ivar) /= ndim .or. this%typs(ivar) /= typ) then
+      write (errmsg, '(a)') 'Variable '//trim(key)//' is not '//desc
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+  end function lookup
 
   !> @brief Read an integer scalar from a grid file.
   function read_int(this, key) result(v)
@@ -245,25 +252,11 @@ contains
     character(len=*), intent(in) :: key
     integer(I4B) :: v
     ! local
-    integer(I4B) :: ndim, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar
 
-    msg = 'Variable '//trim(key)//' is not an integer scalar'
-    ndim = this%dim%get(key)
-    if (ndim /= 0) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    pos = this%get_pos(key)
-    read (this%inunit, pos=pos) v
+    ivar = this%lookup(key, 0, TYP_INT, 'an integer scalar')
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end function read_int
 
   !> @brief Read a double precision scalar from a grid file.
@@ -272,57 +265,29 @@ contains
     character(len=*), intent(in) :: key
     real(DP) :: v
     ! local
-    integer(I4B) :: ndim, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar
 
-    msg = 'Variable '//trim(key)//' is not a double precision scalar'
-    ndim = this%dim%get(key)
-    if (ndim /= 0) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 2) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    pos = this%get_pos(key)
-    read (this%inunit, pos=pos) v
+    ivar = this%lookup(key, 0, TYP_DBL, 'a double precision scalar')
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end function read_dbl
 
   !> @brief Read a 1D integer array from a grid file.
   !!
   !! Allocates and returns a new array containing the data.
+  !<
   function read_int_1d(this, key) result(v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     integer(I4B), allocatable :: v(:)
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a 1D integer array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
+    ivar = this%lookup(key, 1, TYP_INT, 'a 1D integer array')
+    nvals = this%shp(this%shp_start(ivar))
     allocate (v(nvals))
-    read (this%inunit, pos=pos) v
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end function read_int_1d
 
   !> @brief Read a 1D integer array into a preallocated array.
@@ -330,71 +295,42 @@ contains
   !! Populates a preallocated array. Array must already be allocated to the
   !! correct size. This version is compatible with both allocatable arrays and
   !! memory-manager-allocated pointer targets.
+  !<
   subroutine read_int_1d_into(this, key, v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     integer(I4B), dimension(:), intent(inout) :: v
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a 1D integer array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
-    ! verify array is correct size
+    ivar = this%lookup(key, 1, TYP_INT, 'a 1D integer array')
+    nvals = this%shp(this%shp_start(ivar))
     if (size(v) /= nvals) then
       write (errmsg, '(a,i0,a,i0)') &
         'Array size mismatch for '//trim(key)//': expected ', &
         nvals, ', got ', size(v)
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    read (this%inunit, pos=pos) v
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end subroutine read_int_1d_into
 
   !> @brief Read a 1D double array from a grid file.
   !!
   !! Allocates and returns a new array containing the data.
+  !<
   function read_dbl_1d(this, key) result(v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     real(DP), allocatable :: v(:)
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a 1D double array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 2) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
+    ivar = this%lookup(key, 1, TYP_DBL, 'a 1D double array')
+    nvals = this%shp(this%shp_start(ivar))
     allocate (v(nvals))
-    read (this%inunit, pos=pos) v
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end function read_dbl_1d
 
   !> @brief Read a 1D double array into a preallocated array.
@@ -402,69 +338,41 @@ contains
   !! Populates a preallocated array. Array must already be allocated to the
   !! correct size. This version is compatible with both allocatable arrays and
   !! memory-manager-allocated pointer targets.
+  !<
   subroutine read_dbl_1d_into(this, key, v)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     real(DP), dimension(:), intent(inout) :: v
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a 1D double array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 2) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
-    ! verify array is correct size
+    ivar = this%lookup(key, 1, TYP_DBL, 'a 1D double array')
+    nvals = this%shp(this%shp_start(ivar))
     if (size(v) /= nvals) then
       write (errmsg, '(a,i0,a,i0)') &
         'Array size mismatch for '//trim(key)//': expected ', &
         nvals, ', got ', size(v)
       call store_error(errmsg, terminate=.TRUE.)
     end if
-    read (this%inunit, pos=pos) v
+    read (this%inunit, pos=this%pos(ivar)) v
     rewind (this%inunit)
-
   end subroutine read_dbl_1d_into
 
   !> @brief Read a character string from a grid file.
   !!
   !! Allocates and returns a new character string containing the data.
+  !<
   function read_charstr(this, key) result(charstr)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     character(len=:), allocatable :: charstr
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a character array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 3) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
+    ivar = this%lookup(key, 1, TYP_CHR, 'a character array')
+    nvals = this%shp(this%shp_start(ivar))
     allocate (character(nvals) :: charstr)
-    read (this%inunit, pos=pos) charstr
+    read (this%inunit, pos=this%pos(ivar)) charstr
     rewind (this%inunit)
   end function read_charstr
 
@@ -472,39 +380,21 @@ contains
   !!
   !! Populates a preallocated character string. If the string is not allocated
   !! or is the wrong length, it will be (re)allocated to the correct length.
+  !<
   subroutine read_charstr_into(this, key, charstr)
     class(GridFileReaderType), intent(inout) :: this
     character(len=*), intent(in) :: key
     character(len=:), allocatable, intent(inout) :: charstr
     ! local
-    integer(I4B) :: idx, ndim, nvals, typ
-    integer(I8B) :: pos
-    character(len=:), allocatable :: msg
+    integer(I4B) :: ivar, nvals
 
-    msg = 'Variable '//trim(key)//' is not a character array'
-    ndim = this%dim%get(key)
-    if (ndim /= 1) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    typ = this%typ%get(key)
-    if (typ /= 3) then
-      write (errmsg, '(a)') msg
-      call store_error(errmsg, terminate=.TRUE.)
-    end if
-    idx = this%shp_idx%get(key)
-    pos = this%get_pos(key)
-    nvals = this%shp(idx)
-    ! reallocate if not allocated or wrong length
+    ivar = this%lookup(key, 1, TYP_CHR, 'a character array')
+    nvals = this%shp(this%shp_start(ivar))
     if (allocated(charstr)) then
-      if (len(charstr) /= nvals) then
-        deallocate (charstr)
-        allocate (character(nvals) :: charstr)
-      end if
-    else
-      allocate (character(nvals) :: charstr)
+      if (len(charstr) /= nvals) deallocate (charstr)
     end if
-    read (this%inunit, pos=pos) charstr
+    if (.not. allocated(charstr)) allocate (character(nvals) :: charstr)
+    read (this%inunit, pos=this%pos(ivar)) charstr
     rewind (this%inunit)
   end subroutine read_charstr_into
 
@@ -541,12 +431,13 @@ contains
 
   end function read_grid_shape
 
+  !> @brief Check whether the grid file contains a variable.
   function has_variable(this, key) result(has)
     class(GridFileReaderType) :: this
     character(len=*), intent(in) :: key
-    logical(LGP), allocatable :: has
+    logical(LGP) :: has
 
-    has = this%dim%get(key) /= 0
+    has = this%idx%get(key) /= 0
   end function has_variable
 
 end module GridFileReaderModule
