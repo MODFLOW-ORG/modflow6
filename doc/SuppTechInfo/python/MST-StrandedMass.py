@@ -388,3 +388,23 @@ with tempfile.TemporaryDirectory() as tmp:
             + " ".join(f"{change[k]:7.2f}" for k in (1, 4, 10, 20, 40))
             + f"  gain in cycle 40 {gain[-1]:7.1f} kg"
         )
+
+# -- the sign of the error without the option, over 10 cycles, for a specific
+#    yield below, equal to, and above the porosity
+NPER = 10 * int(TCYCLE / PERLEN)
+print("\n=== 10 cycles: change in mass with the specific yield (percent) ===")
+for SY in (0.15, 0.3, 0.4):
+    with tempfile.TemporaryDirectory() as tmp:
+        for tag, sorb, sm in (
+            ("base", False, False),
+            ("basesm", False, True),
+            ("sorb", True, False),
+            ("sorbsm", True, True),
+        ):
+            t, _, _, _, m = run_case(tmp, tag, sorb, False, sm)
+            idx = [int(np.argmin(abs(t - (PERLEN + TCYCLE * k)))) for k in range(11)]
+            change = 100.0 * (m[idx] - m[0]) / m[0]
+            print(
+                f"specific yield {SY:4.2f}  {LOOKUP[tag][0]:38s} after 1, 4, 10 "
+                f"cycles: {change[1]:7.2f} {change[4]:7.2f} {change[10]:7.2f}"
+            )
