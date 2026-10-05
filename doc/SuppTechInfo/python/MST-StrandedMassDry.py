@@ -163,24 +163,25 @@ t0, t1 = times[dry][0] - PERLEN, times[dry][-1]
 figpth = Path(__file__).resolve().parent.parent / "Figures"
 
 with styles.USGSPlot():
-    fig, axes = plt.subplots(
-        nrows=3, figsize=(6.8, 5.0), sharex=True, constrained_layout=True
+    fig, axd = plt.subplot_mosaic(
+        [["A"], ["B"], ["C"]], figsize=(6.8, 5.0), sharex=True, layout="constrained"
     )
-    for ax in axes:
+    for ax in axd.values():
         ax.axvspan(t0, t1, color="0.88", zorder=0)
-        ax.tick_params(direction="in", top=True, right=True)
 
-    ax = axes[0]
+    ax = axd["A"]
     ax.plot(times, hplot, color="black", lw=1.2)
     ax.axhline(BOTM[0], color="0.5", lw=0.8, ls=":")
-    ax.set_ylabel("Head in the tested\ncell, in meters")
+    styles.ylabel(ax=ax, label="Head in the tested\ncell, in meters")
     ax.set_ylim(0.0, 34.0)
     styles.heading(ax=ax, letter="A")
 
-    ax = axes[1]
+    ax = axd["B"]
     ax.plot(times, cplot, color="#d62728", lw=1.2, label="no decay")
     ax.plot(times, cplot_d, color="#d62728", lw=1.2, ls="--", label="first-order decay")
-    ax.set_ylabel("Concentration, in grams\nper cubic meter")
+    styles.ylabel(ax=ax, label="Concentration, in grams\nper cubic meter")
+    # -- headroom above the curves for the explanation
+    ax.set_ylim(0.0, 1.6 * np.nanmax(cplot))
     styles.heading(ax=ax, letter="B")
     styles.graph_legend(
         ax=ax,
@@ -192,13 +193,14 @@ with styles.USGSPlot():
         edgecolor="0.7",
     )
 
-    ax = axes[2]
+    ax = axd["C"]
     ax.plot(times, st / 1000.0, color="#d62728", lw=1.2)
     ax.plot(times, st_d / 1000.0, color="#d62728", lw=1.2, ls="--")
-    ax.set_ylabel("Stranded mass,\nin kilograms")
-    ax.set_xlabel("Time, in days")
+    styles.ylabel(ax=ax, label="Stranded mass,\nin kilograms")
+    styles.xlabel(ax=ax, label="Time, in days")
     ax.set_xlim(times[0], times[-1])
     styles.heading(ax=ax, letter="C")
 
-    fig.savefig(figpth / "MSTStrandedMassDry.pdf", dpi=300)
+    fig.align_ylabels([axd["A"], axd["B"], axd["C"]])
+    fig.savefig(figpth / "MSTStrandedMassDry.pdf")
 print(f"Saved {figpth / 'MSTStrandedMassDry.pdf'}")
