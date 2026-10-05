@@ -2,7 +2,6 @@ module BinaryFileReaderModule
 
   use KindModule, only: I4B, I8B, DP, LGP
   use ErrorUtilModule, only: pstop
-  use InputOutputModule, only: fseek_stream
 
   public :: BinaryFileHeaderType, BinaryFileReaderType
 
@@ -16,10 +15,10 @@ module BinaryFileReaderModule
 
   type, abstract :: BinaryFileReaderType
     integer(I4B) :: inunit
-    integer(I4B) :: nrecords
-    logical(LGP) :: indexed
-    logical(LGP) :: endoffile
-    integer(I8B), allocatable :: record_sizes(:)
+    integer(I4B) :: nrecords = 0
+    logical(LGP) :: indexed = .false.
+    logical(LGP) :: endoffile = .false.
+    integer(I8B), allocatable :: record_positions(:) !< record start positions
     class(BinaryFileHeaderType), allocatable :: header
     class(BinaryFileHeaderType), allocatable :: headernext
   contains
@@ -28,6 +27,7 @@ module BinaryFileReaderModule
     procedure :: build_index
     procedure :: peek_record
     procedure :: rewind
+    procedure :: seek_to_index
   end type BinaryFileReaderType
 
   abstract interface
@@ -64,17 +64,17 @@ contains
     str = trim(str)
   end function get_str
 
-  !> @brief Build an index of data sizes in the file
+  !> @brief Build an index of record positions in the file
   subroutine build_index(this)
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
     logical(LGP) :: success
-    integer(I8B) :: pos, record_size
+    integer(I4B) :: i
 
     this%indexed = .false.
     this%nrecords = 0
     call this%rewind()
-    if (allocated(this%record_sizes)) deallocate (this%record_sizes)
+    if (allocated(this%record_positions)) deallocate (this%record_positions)
 
     ! first pass: count
     do
@@ -82,20 +82,40 @@ contains
       if (.not. success) exit
       this%nrecords = this%nrecords + 1
     end do
+
+    ! second pass: save positions (read first so header%pos is set)
     call this%rewind()
-    allocate (this%record_sizes(this%nrecords))
-    ! second pass: save
+    allocate (this%record_positions(this%nrecords))
+    i = 0
     do
       call this%read_record(success)
-      inquire (this%inunit, pos=pos)
-      record_size = pos - this%header%pos
       if (.not. success) exit
-      this%record_sizes(this%nrecords) = this%header%size + record_size
+      i = i + 1
+      this%record_positions(i) = this%header%pos
     end do
     call this%rewind()
 
     this%indexed = .true.
   end subroutine build_index
+
+  !> @brief Position the file at the start of an indexed record
+  subroutine seek_to_index(this, index)
+    class(BinaryFileReaderType), intent(inout) :: this
+    integer(I4B), intent(in) :: index
+    ! local
+    integer(I4B) :: iostat
+
+    if (.not. this%indexed) &
+      call pstop(1, 'Cannot seek to index in unindexed file')
+    if (index < 1 .or. index > this%nrecords) then
+      this%endoffile = .true.
+      return
+    end if
+
+    read (this%inunit, pos=this%record_positions(index), iostat=iostat)
+    if (iostat /= 0) call pstop(1, 'Error seeking to index position')
+    this%endoffile = .false.
+  end subroutine seek_to_index
 
   !> @brief Peek to see if another record is available.
   subroutine peek_record(this)
