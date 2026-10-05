@@ -13,6 +13,9 @@ Cases:
   - mst06_cycle : the cell is drained and rewetted over a full cycle, so all of
                   the stranded mass must return and the reservoir must empty.
   - mst06_osc   : repeated drain and rewet cycles must not drift.
+  - isotherm    : with a Freundlich or Langmuir isotherm, the mass held out of
+                  the mobile domain over a drainage step is the sorbate of the
+                  part of the cell that drained, and all of it returns.
 """
 
 import os
@@ -52,7 +55,7 @@ heads = {
 }
 
 
-def get_model(name, ws, hds, strand, sorb):
+def get_model(name, ws, hds, strand, sorb, isotherm=None):
     nper = len(hds)
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
@@ -113,6 +116,8 @@ def get_model(name, ws, hds, strand, sorb):
     kwargs = {"porosity": porosity, "save_flows": True}
     if sorb:
         kwargs.update(sorption="linear", bulk_density=rhob, distcoef=kd)
+        if isotherm is not None:
+            kwargs.update(isotherm)
     if strand:
         kwargs.update(stranded_mass=True)
         if sorb:
@@ -291,3 +296,54 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
     )
     test.run()
+
+
+# isotherm options, and the sorbate concentration they give
+isotherms = {
+    "freundlich": (
+        {"sorption": "freundlich", "distcoef": 1.0e-3, "sp2": 0.7},
+        lambda c: 1.0e-3 * c**0.7,
+    ),
+    "langmuir": (
+        {"sorption": "langmuir", "distcoef": 1.0e-2, "sp2": 1.0e-2},
+        lambda c: 1.0e-2 * 1.0e-2 * c / (1.0 + 1.0e-2 * c),
+    ),
+}
+
+
+@pytest.mark.parametrize("isotherm", list(isotherms))
+def test_isotherm(function_tmpdir, targets, isotherm):
+    options, sorbate = isotherms[isotherm]
+    name = f"mst06_{isotherm[:4]}"
+
+    def build(test):
+        return get_model(name, test.workspace, cycle, True, True, options)
+
+    def check(test):
+        ws = test.workspace
+        disc = discrepancies(ws, name)[1:]
+        assert np.allclose(disc, 0.0, atol=1e-2), f"budget does not close {disc}"
+        conc = series(ws, name, "ucn", "CONCENTRATION")
+        stranded = series(ws, name, "strand.bin", "STRANDED")
+        hds = flopy.utils.HeadFile(os.path.join(ws, f"gwf-{name}.hds"))
+        h = np.array([hds.get_data(totim=t).flatten()[0] for t in hds.get_times()])
+        sat = np.clip((h - botm) / (top - botm), 0.0, 1.0)
+        sat_prev = np.concatenate(([1.0], sat[:-1]))
+        # the specific yield equals the porosity, so only sorbate is stranded
+        ndrain = len(drain)
+        expected = np.cumsum((sat_prev - sat) * vcell * rhob * sorbate(conc))
+        assert np.allclose(stranded[:ndrain], expected[:ndrain], rtol=1e-3), (
+            f"stranded {stranded[:ndrain]} expected {expected[:ndrain]}"
+        )
+        assert stranded.max() > 0.0, "no mass was stranded"
+        assert np.isclose(stranded[-1], 0.0, atol=stranded.max() * 1e-4), (
+            f"the reservoir did not empty on rewetting, {stranded[-1]} remains"
+        )
+
+    TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+    ).run()
