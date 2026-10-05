@@ -54,40 +54,41 @@ contains
     write (iu) 1, 1.0_DP, 1.0_DP, 1.0_DP
     write (iu) flow
 
-    ! position the reader at the first record
-    bfr%inunit = iu
-    call bfr%rewind()
-    read (iu, pos=POS0)
+    checks: block
+      ! position the reader at the first record
+      bfr%inunit = iu
+      call bfr%rewind()
+      read (iu, pos=POS0)
 
-    ! first record straddles 2 GiB
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read first record')
-    if (allocated(error)) goto 100
-    call check(error, bfr%header%pos == POS0, 'wrong first record position')
-    if (allocated(error)) goto 100
-    call check(error, all(bfr%flowja == flowja), 'wrong FLOW-JA-FACE values')
-    if (allocated(error)) goto 100
-    call check(error,.not. bfr%endoffile, 'second record not found')
-    if (allocated(error)) goto 100
+      ! first record straddles 2 GiB
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read first record')
+      if (allocated(error)) exit checks
+      call check(error, bfr%header%pos == POS0, 'wrong first record position')
+      if (allocated(error)) exit checks
+      call check(error, all(bfr%flowja == flowja), 'wrong FLOW-JA-FACE values')
+      if (allocated(error)) exit checks
+      call check(error,.not. bfr%endoffile, 'second record not found')
+      if (allocated(error)) exit checks
 
-    ! second record lies entirely beyond 2 GiB
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read second record')
-    if (allocated(error)) goto 100
-    call check(error, bfr%header%pos == pos1, 'wrong second record position')
-    if (allocated(error)) goto 100
-    select type (h => bfr%header)
-    type is (BudgetFileHeaderType)
-      call check(error, h%budtxt == '          STO-SS', 'wrong budget text')
-      if (allocated(error)) goto 100
-      call check(error, h%imeth == 1, 'wrong method code')
-      if (allocated(error)) goto 100
-    end select
-    call check(error, all(bfr%flow == flow), 'wrong STO-SS values')
-    if (allocated(error)) goto 100
-    call check(error, bfr%endoffile, 'end of file not detected')
-
-100 close (iu)
+      ! second record lies entirely beyond 2 GiB
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read second record')
+      if (allocated(error)) exit checks
+      call check(error, bfr%header%pos == pos1, 'wrong second record position')
+      if (allocated(error)) exit checks
+      select type (h => bfr%header)
+      type is (BudgetFileHeaderType)
+        call check(error, h%budtxt == '          STO-SS', 'wrong budget text')
+        if (allocated(error)) exit checks
+        call check(error, h%imeth == 1, 'wrong method code')
+        if (allocated(error)) exit checks
+      end select
+      call check(error, all(bfr%flow == flow), 'wrong STO-SS values')
+      if (allocated(error)) exit checks
+      call check(error, bfr%endoffile, 'end of file not detected')
+    end block checks
+    close (iu)
   end subroutine test_budget_file_beyond_2gib
 
   !> @brief Read head records located across and beyond the 2 GiB offset
@@ -111,35 +112,36 @@ contains
     write (iu) 2, 1, 2.0_DP, 2.0_DP, '            HEAD', ncol, nrow, 1
     write (iu) head2
 
-    ! position the reader at the first record
-    hfr%inunit = iu
-    call hfr%rewind()
-    read (iu, pos=POS0)
+    checks: block
+      ! position the reader at the first record
+      hfr%inunit = iu
+      call hfr%rewind()
+      read (iu, pos=POS0)
 
-    ! first record straddles 2 GiB
-    call hfr%read_record(success)
-    call check(error, success, 'failed to read first record')
-    if (allocated(error)) goto 100
-    call check(error, hfr%header%pos == POS0, 'wrong first record position')
-    if (allocated(error)) goto 100
-    call check(error, all(hfr%head == head1), 'wrong first head values')
-    if (allocated(error)) goto 100
-    call check(error,.not. hfr%endoffile, 'second record not found')
-    if (allocated(error)) goto 100
+      ! first record straddles 2 GiB
+      call hfr%read_record(success)
+      call check(error, success, 'failed to read first record')
+      if (allocated(error)) exit checks
+      call check(error, hfr%header%pos == POS0, 'wrong first record position')
+      if (allocated(error)) exit checks
+      call check(error, all(hfr%head == head1), 'wrong first head values')
+      if (allocated(error)) exit checks
+      call check(error,.not. hfr%endoffile, 'second record not found')
+      if (allocated(error)) exit checks
 
-    ! second record lies entirely beyond 2 GiB
-    call hfr%read_record(success)
-    call check(error, success, 'failed to read second record')
-    if (allocated(error)) goto 100
-    call check(error, hfr%header%pos == pos1, 'wrong second record position')
-    if (allocated(error)) goto 100
-    call check(error, hfr%header%kstp == 2, 'wrong second record kstp')
-    if (allocated(error)) goto 100
-    call check(error, all(hfr%head == head2), 'wrong second head values')
-    if (allocated(error)) goto 100
-    call check(error, hfr%endoffile, 'end of file not detected')
-
-100 close (iu)
+      ! second record lies entirely beyond 2 GiB
+      call hfr%read_record(success)
+      call check(error, success, 'failed to read second record')
+      if (allocated(error)) exit checks
+      call check(error, hfr%header%pos == pos1, 'wrong second record position')
+      if (allocated(error)) exit checks
+      call check(error, hfr%header%kstp == 2, 'wrong second record kstp')
+      if (allocated(error)) exit checks
+      call check(error, all(hfr%head == head2), 'wrong second head values')
+      if (allocated(error)) exit checks
+      call check(error, hfr%endoffile, 'end of file not detected')
+    end block checks
+    close (iu)
   end subroutine test_head_file_beyond_2gib
 
   !> @brief Index budget records and seek to them by index
@@ -167,58 +169,59 @@ contains
       write (iu) flow(:, k)
     end do
 
-    bfr%inunit = iu
-    call bfr%build_index()
-    call check(error, bfr%indexed, 'file not indexed')
-    if (allocated(error)) goto 100
-    call check(error, bfr%nrecords == nrec, 'wrong number of records')
-    if (allocated(error)) goto 100
-    call check(error, all(bfr%record_positions == expected), &
-               'wrong record positions')
-    if (allocated(error)) goto 100
+    checks: block
+      bfr%inunit = iu
+      call bfr%build_index()
+      call check(error, bfr%indexed, 'file not indexed')
+      if (allocated(error)) exit checks
+      call check(error, bfr%nrecords == nrec, 'wrong number of records')
+      if (allocated(error)) exit checks
+      call check(error, all(bfr%record_positions == expected), &
+                 'wrong record positions')
+      if (allocated(error)) exit checks
 
-    ! seek to the second record and read it
-    call bfr%seek_to_index(2)
-    call check(error,.not. bfr%endoffile, 'end of file after seek')
-    if (allocated(error)) goto 100
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read second record')
-    if (allocated(error)) goto 100
-    call check(error, bfr%header%pos == expected(2), &
-               'wrong second record position')
-    if (allocated(error)) goto 100
-    select type (h => bfr%header)
-    type is (BudgetFileHeaderType)
-      call check(error, h%budtxt == budtxt(2), 'wrong budget text')
-      if (allocated(error)) goto 100
-    end select
-    call check(error, all(bfr%flow == flow(:, 2)), 'wrong second record values')
-    if (allocated(error)) goto 100
+      ! seek to the second record and read it
+      call bfr%seek_to_index(2)
+      call check(error,.not. bfr%endoffile, 'end of file after seek')
+      if (allocated(error)) exit checks
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read second record')
+      if (allocated(error)) exit checks
+      call check(error, bfr%header%pos == expected(2), &
+                 'wrong second record position')
+      if (allocated(error)) exit checks
+      select type (h => bfr%header)
+      type is (BudgetFileHeaderType)
+        call check(error, h%budtxt == budtxt(2), 'wrong budget text')
+        if (allocated(error)) exit checks
+      end select
+      call check(error, all(bfr%flow == flow(:, 2)), 'wrong second record values')
+      if (allocated(error)) exit checks
 
-    ! read the last record, reaching end of file, then seek back to the first
-    call bfr%seek_to_index(nrec)
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read last record')
-    if (allocated(error)) goto 100
-    call check(error, bfr%endoffile, 'end of file not detected')
-    if (allocated(error)) goto 100
-    call bfr%seek_to_index(1)
-    call check(error,.not. bfr%endoffile, 'end of file after seek')
-    if (allocated(error)) goto 100
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read first record after end of file')
-    if (allocated(error)) goto 100
-    call check(error, bfr%header%pos == expected(1), &
-               'wrong first record position')
-    if (allocated(error)) goto 100
-    call check(error, all(bfr%flow == flow(:, 1)), 'wrong first record values')
-    if (allocated(error)) goto 100
+      ! read the last record, reaching end of file, then seek back to the first
+      call bfr%seek_to_index(nrec)
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read last record')
+      if (allocated(error)) exit checks
+      call check(error, bfr%endoffile, 'end of file not detected')
+      if (allocated(error)) exit checks
+      call bfr%seek_to_index(1)
+      call check(error,.not. bfr%endoffile, 'end of file after seek')
+      if (allocated(error)) exit checks
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read first record after end of file')
+      if (allocated(error)) exit checks
+      call check(error, bfr%header%pos == expected(1), &
+                 'wrong first record position')
+      if (allocated(error)) exit checks
+      call check(error, all(bfr%flow == flow(:, 1)), 'wrong first record values')
+      if (allocated(error)) exit checks
 
-    ! seeking past the last record signals end of file
-    call bfr%seek_to_index(nrec + 1)
-    call check(error, bfr%endoffile, 'end of file not signaled')
-
-100 close (iu)
+      ! seeking past the last record signals end of file
+      call bfr%seek_to_index(nrec + 1)
+      call check(error, bfr%endoffile, 'end of file not signaled')
+    end block checks
+    close (iu)
   end subroutine test_budget_file_index
 
   !> @brief Index budget records located beyond the 2 GiB offset
@@ -260,35 +263,37 @@ contains
     write (iu) 1, 1.0_DP, 1.0_DP, 1.0_DP
     write (iu) flow(:, 3)
 
-    bfr%inunit = iu
-    call bfr%build_index()
-    call check(error, bfr%nrecords == nrec, 'wrong number of records')
-    if (allocated(error)) goto 100
-    call check(error, all(bfr%record_positions == expected), &
-               'wrong record positions')
-    if (allocated(error)) goto 100
-    call check(error, all(bfr%record_positions(2:) > 2_I8B**31), &
-               'records not beyond 2 GiB')
-    if (allocated(error)) goto 100
+    checks: block
+      bfr%inunit = iu
+      call bfr%build_index()
+      call check(error, bfr%nrecords == nrec, 'wrong number of records')
+      if (allocated(error)) exit checks
+      call check(error, all(bfr%record_positions == expected), &
+                 'wrong record positions')
+      if (allocated(error)) exit checks
+      call check(error, all(bfr%record_positions(2:) > 2_I8B**31), &
+                 'records not beyond 2 GiB')
+      if (allocated(error)) exit checks
 
-    ! seek to the last record and read it
-    call bfr%seek_to_index(nrec)
-    call bfr%read_record(success)
-    call check(error, success, 'failed to read last record')
-    if (allocated(error)) goto 100
-    call check(error, bfr%header%pos == expected(nrec), &
-               'wrong last record position')
-    if (allocated(error)) goto 100
-    select type (h => bfr%header)
-    type is (BudgetFileHeaderType)
-      call check(error, h%budtxt == budtxt(nrec), 'wrong budget text')
-      if (allocated(error)) goto 100
-    end select
-    call check(error, all(bfr%flow == flow(:, nrec)), 'wrong last record values')
-    if (allocated(error)) goto 100
-    call check(error, bfr%endoffile, 'end of file not detected')
-
-100 close (iu)
+      ! seek to the last record and read it
+      call bfr%seek_to_index(nrec)
+      call bfr%read_record(success)
+      call check(error, success, 'failed to read last record')
+      if (allocated(error)) exit checks
+      call check(error, bfr%header%pos == expected(nrec), &
+                 'wrong last record position')
+      if (allocated(error)) exit checks
+      select type (h => bfr%header)
+      type is (BudgetFileHeaderType)
+        call check(error, h%budtxt == budtxt(nrec), 'wrong budget text')
+        if (allocated(error)) exit checks
+      end select
+      call check(error, all(bfr%flow == flow(:, nrec)), &
+                 'wrong last record values')
+      if (allocated(error)) exit checks
+      call check(error, bfr%endoffile, 'end of file not detected')
+    end block checks
+    close (iu)
   end subroutine test_budget_file_index_beyond_2gib
 
 end module TestBinaryFileReader
