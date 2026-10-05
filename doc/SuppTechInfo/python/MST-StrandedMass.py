@@ -190,8 +190,8 @@ def case_mass(ws, times, sorption, stranded):
 
 
 CASES = [
-    ("base", False, False, False, "current approach", "#1f77b4", "-"),
-    ("basesm", False, False, True, "stranded mass", "#d62728", "-"),
+    ("base", False, False, False, "without stranded mass", "#1f77b4", "-"),
+    ("basesm", False, False, True, "with stranded mass", "#d62728", "-"),
     ("sorb", True, False, False, "sorption", "#1f77b4", "-"),
     ("sorbsm", True, False, True, "sorption, stranded mass", "#d62728", "-"),
     ("dcy", True, True, False, "sorption and decay", "#1f77b4", "--"),
