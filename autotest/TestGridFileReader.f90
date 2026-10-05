@@ -33,11 +33,9 @@ contains
 
   !> @brief Read variables located beyond the 2 GiB offset
   !!
-  !! A padding array of exactly 2 GiB precedes the variables of interest,
-  !! so the size computation and every subsequent position overflow a
-  !! 32-bit integer. The padding is never written, so on most file systems
-  !! the test file is sparse and uses almost no disk space. A scratch file
-  !! gives each run a unique file, since meson may run suites in parallel.
+  !! The reader indexes whatever the header declares, so declare a fake
+  !! 2 GiB PAD array to push the other variables past 2 GiB. PAD is never
+  !! written, so the file is sparse where the file system supports it.
   !<
   subroutine test_grid_file_beyond_2gib(error)
     type(error_type), allocatable, intent(out) :: error
