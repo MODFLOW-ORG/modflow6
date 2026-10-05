@@ -88,22 +88,23 @@ contains
 
     call gfr%initialize(iu)
 
-    call check(error, gfr%read_int('NODES') == nodes, 'wrong NODES')
-    if (allocated(error)) goto 100
-    call gfr%read_int_1d_into('IDOMAIN', idomain_read)
-    call check(error, all(idomain_read == idomain), 'wrong IDOMAIN')
-    if (allocated(error)) goto 100
-    botm_read = gfr%read_dbl_1d('BOTM')
-    call check(error, all(botm_read == botm), 'wrong BOTM')
-    if (allocated(error)) goto 100
-    call check(error, gfr%read_dbl('ANGROT') == 30.0_DP, 'wrong ANGROT')
-    if (allocated(error)) goto 100
-    crs_read = gfr%read_charstr('CRS')
-    call check(error, crs_read == crs, 'wrong CRS')
-    if (allocated(error)) goto 100
-    call check(error, gfr%read_int('NCPL') == 7, 'wrong NCPL')
-
-100 call gfr%finalize()
+    checks: block
+      call check(error, gfr%read_int('NODES') == nodes, 'wrong NODES')
+      if (allocated(error)) exit checks
+      call gfr%read_int_1d_into('IDOMAIN', idomain_read)
+      call check(error, all(idomain_read == idomain), 'wrong IDOMAIN')
+      if (allocated(error)) exit checks
+      botm_read = gfr%read_dbl_1d('BOTM')
+      call check(error, all(botm_read == botm), 'wrong BOTM')
+      if (allocated(error)) exit checks
+      call check(error, gfr%read_dbl('ANGROT') == 30.0_DP, 'wrong ANGROT')
+      if (allocated(error)) exit checks
+      crs_read = gfr%read_charstr('CRS')
+      call check(error, crs_read == crs, 'wrong CRS')
+      if (allocated(error)) exit checks
+      call check(error, gfr%read_int('NCPL') == 7, 'wrong NCPL')
+    end block checks
+    call gfr%finalize()
   end subroutine test_grid_file_beyond_2gib
 
   !> @brief Check which variables the grid file reports having
@@ -130,13 +131,14 @@ contains
 
     call gfr%initialize(iu)
 
-    call check(error, gfr%has_variable('NCELLS'), 'scalar NCELLS not found')
-    if (allocated(error)) goto 100
-    call check(error, gfr%has_variable('IDOMAIN'), 'array IDOMAIN not found')
-    if (allocated(error)) goto 100
-    call check(error,.not. gfr%has_variable('ICELLTYPE'), 'ICELLTYPE found')
-
-100 call gfr%finalize()
+    checks: block
+      call check(error, gfr%has_variable('NCELLS'), 'scalar NCELLS not found')
+      if (allocated(error)) exit checks
+      call check(error, gfr%has_variable('IDOMAIN'), 'array IDOMAIN not found')
+      if (allocated(error)) exit checks
+      call check(error,.not. gfr%has_variable('ICELLTYPE'), 'ICELLTYPE found')
+    end block checks
+    call gfr%finalize()
   end subroutine test_has_variable
 
 end module TestGridFileReader
