@@ -195,6 +195,25 @@ contains
     call check(error, all(bfr%flow == flow(:, 2)), 'wrong second record values')
     if (allocated(error)) goto 100
 
+    ! read the last record, reaching end of file, then seek back to the first
+    call bfr%seek_to_index(nrec)
+    call bfr%read_record(success)
+    call check(error, success, 'failed to read last record')
+    if (allocated(error)) goto 100
+    call check(error, bfr%endoffile, 'end of file not detected')
+    if (allocated(error)) goto 100
+    call bfr%seek_to_index(1)
+    call check(error,.not. bfr%endoffile, 'end of file after seek')
+    if (allocated(error)) goto 100
+    call bfr%read_record(success)
+    call check(error, success, 'failed to read first record after end of file')
+    if (allocated(error)) goto 100
+    call check(error, bfr%header%pos == expected(1), &
+               'wrong first record position')
+    if (allocated(error)) goto 100
+    call check(error, all(bfr%flow == flow(:, 1)), 'wrong first record values')
+    if (allocated(error)) goto 100
+
     ! seeking past the last record signals end of file
     call bfr%seek_to_index(nrec + 1)
     call check(error, bfr%endoffile, 'end of file not signaled')

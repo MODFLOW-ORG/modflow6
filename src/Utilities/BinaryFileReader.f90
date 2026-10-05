@@ -114,6 +114,9 @@ contains
 
     read (this%inunit, pos=this%record_positions(index), iostat=iostat)
     if (iostat /= 0) call pstop(1, 'Error seeking to index position')
+    ! peek_record deallocates headernext at end of file
+    if (.not. allocated(this%headernext)) &
+      allocate (this%headernext, mold=this%header)
     this%endoffile = .false.
   end subroutine seek_to_index
 
