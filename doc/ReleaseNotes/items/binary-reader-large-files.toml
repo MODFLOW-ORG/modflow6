@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "model"
-description = "The binary budget and head file readers stored file positions as 32-bit integers, so the Flow Model Interface (FMI) Packages for GWT, GWE, and PRT failed with an invalid method code error when reading a GWF budget or head file record located beyond 2 GiB. File positions are now stored as 64-bit integers so that FMI can read budget and head files larger than 2 GiB."
