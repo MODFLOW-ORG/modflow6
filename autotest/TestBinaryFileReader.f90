@@ -1,6 +1,5 @@
 module TestBinaryFileReader
-  use testdrive, only: error_type, unittest_type, new_unittest, check, &
-                       skip_test
+  use testdrive, only: error_type, unittest_type, new_unittest, check
   use KindModule, only: I4B, I8B, DP, LGP
   use BudgetFileReaderModule, only: BudgetFileReaderType, BudgetFileHeaderType
   use HeadFileReaderModule, only: HeadFileReaderType, HeadFileHeaderType
@@ -14,9 +13,6 @@ module TestBinaryFileReader
   !! file is sparse and uses almost no disk space. Scratch files give each run
   !! a unique file, since meson may run the suite in parallel processes.
   integer(I8B), parameter :: POS0 = 2_I8B**31 - 100_I8B
-
-  !> Set this environment variable to run tests that read 2 GiB or more
-  character(len=*), parameter :: LARGE_TESTS_VAR = 'MF6_LARGE_TESTS'
 
 contains
 
@@ -210,8 +206,7 @@ contains
   !!
   !! The first record holds 2 GiB of FLOW-JA-FACE data. Only its header is
   !! written, so the data region is sparse on most file systems, but indexing
-  !! reads it twice and allocates it in memory. Skipped unless the
-  !! MF6_LARGE_TESTS environment variable is set.
+  !! reads it twice and allocates it in memory.
   subroutine test_budget_file_index_beyond_2gib(error)
     type(error_type), allocatable, intent(out) :: error
     integer(I4B), parameter :: nja = 2**28
@@ -223,14 +218,8 @@ contains
     type(BudgetFileReaderType) :: bfr
     real(DP) :: flow(nval, 2:nrec)
     integer(I8B) :: expected(nrec), pos
-    integer(I4B) :: iu, i, k, envlen
+    integer(I4B) :: iu, i
     logical(LGP) :: success
-
-    call get_environment_variable(LARGE_TESTS_VAR, length=envlen)
-    if (envlen == 0) then
-      call skip_test(error, 'set '//LARGE_TESTS_VAR//' to run')
-      return
-    end if
 
     flow = reshape([(real(i, DP), i=1, nval * (nrec - 1))], [nval, nrec - 1])
 
