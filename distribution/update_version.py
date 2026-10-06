@@ -269,10 +269,13 @@ def update_version_f90(
             )
         elif ":: VERSIONNUMBER =" in line:
             line = line.rpartition("::")[0] + f":: VERSIONNUMBER = '{version_num}'"
-        elif ":: VERSIONVCSTAG =" in line and not developmode:
+        elif ":: VERSIONVCSTAG =" in line:
             # release builds run before the release commit/tag exists,
-            # so set an empty tag here rather than rely on meson at build time
-            line = line.replace("@VCS_TAG@", "")
+            # so set an empty tag here rather than rely on meson at build
+            # time. development builds need the placeholder for meson to
+            # substitute, so restore it in case a release removed it.
+            tag = "@VCS_TAG@" if developmode else ""
+            line = line.rpartition("::")[0] + f':: VERSIONVCSTAG = "{tag}"'
         elif ":: VERSIONTITLE =" in line:
             line = line.rpartition("::")[0] + f":: VERSIONTITLE = '{new_title}'"
         elif ":: FMTDISCLAIMER =" in line:
@@ -459,6 +462,28 @@ def test_update_version(version, full):
     finally:
         for p in touched_file_paths:
             os.system(f"git restore {p}")
+
+
+@pytest.mark.parametrize("developmode", [True, False])
+def test_update_version_f90_vcs_tag_round_trip(tmp_path, monkeypatch, developmode):
+    # switching to release mode and back must restore the
+    # @VCS_TAG@ placeholder meson substitutes in dev builds
+    utils_path = tmp_path / "src" / "Utilities"
+    utils_path.mkdir(parents=True)
+    for name in ["version.f90.in", "version.f90"]:
+        src_path = project_root_path / "src" / "Utilities" / name
+        (utils_path / name).write_text(src_path.read_text())
+    monkeypatch.setattr(sys.modules[__name__], "project_root_path", tmp_path)
+
+    timestamp = datetime.now()
+    update_version_f90(release_version(), timestamp, developmode=False)
+    update_version_f90(post_release_version(), timestamp, developmode=developmode)
+
+    template = (utils_path / "version.f90.in").read_text()
+    static = (utils_path / "version.f90").read_text()
+    assert ('VERSIONVCSTAG = "@VCS_TAG@"' in template) == developmode
+    assert ('VERSIONVCSTAG = ""' in template) != developmode
+    assert "@VCS_TAG@" not in static
 
 
 if __name__ == "__main__":
