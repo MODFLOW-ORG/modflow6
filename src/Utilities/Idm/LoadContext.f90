@@ -401,7 +401,7 @@ contains
       case ('NCPL', 'NAUX NCPL')
         dimsize = this%ncpl
       case ('NODES', 'NAUX NODES')
-        dimsize = this%maxbound
+        dimsize = this%nodes
       case default
       end select
     end if

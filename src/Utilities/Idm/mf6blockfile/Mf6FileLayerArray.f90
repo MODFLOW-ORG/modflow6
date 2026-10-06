@@ -133,7 +133,7 @@ contains
     use IdmLoggerModule, only: idm_log_header, idm_log_close, idm_log_var
     class(LayerArrayLoadType), intent(inout) :: this
     type(BlockParserType), pointer, intent(inout) :: parser
-    logical(LGP) :: endOfBlock, netcdf
+    logical(LGP) :: endOfBlock, netcdf, layered
     character(len=LINELENGTH) :: keyword, param_tag
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: iaux, iparam
@@ -152,6 +152,7 @@ contains
       ! initialize
       iaux = 0
       netcdf = .false.
+      layered = .false.
 
       ! read next line
       call parser%GetNextLine(endOfBlock)
@@ -191,10 +192,13 @@ contains
         end if
       else if (keyword == 'NETCDF') then
         netcdf = .true.
+      else if (keyword == 'LAYERED' .and. idt%layered) then
+        layered = .true.
       end if
 
       ! read and load the parameter
-      call this%param_load(parser, idt, this%mf6_input%mempath, netcdf, iaux)
+      call this%param_load(parser, idt, this%mf6_input%mempath, netcdf, &
+                           layered, iaux)
     end do
 
     ! check if layer index variable was read; default to 1 if not provided.
@@ -294,7 +298,7 @@ contains
     end do
   end subroutine params_alloc
 
-  subroutine param_load(this, parser, idt, mempath, netcdf, iaux)
+  subroutine param_load(this, parser, idt, mempath, netcdf, layered, iaux)
     use TdisModule, only: kper
     use MemoryManagerModule, only: mem_setptr
     use ArrayHandlersModule, only: ifind
@@ -302,6 +306,8 @@ contains
     use DefinitionSelectModule, only: get_param_definition_type
     use Double1dReaderModule, only: read_dbl1d
     use Double2dReaderModule, only: read_dbl2d
+    use LayeredArrayReaderModule, only: read_dbl1d_layered
+    use SourceCommonModule, only: get_layered_shape
     use Integer1dReaderModule, only: read_int1d
     use LoadNCInputModule, only: netcdf_read_array
     use IdmLoggerModule, only: idm_log_var
@@ -310,11 +316,13 @@ contains
     type(InputParamDefinitionType), intent(in) :: idt
     character(len=*), intent(in) :: mempath
     logical(LGP), intent(in) :: netcdf
+    logical(LGP), intent(in) :: layered
     integer(I4B), intent(in) :: iaux
     integer(I4B), dimension(:), pointer, contiguous :: int1d
     real(DP), dimension(:), pointer, contiguous :: dbl1d
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
-    integer(I4B) :: iparam, n
+    integer(I4B) :: iparam, n, nvals, nlay
+    integer(I4B), dimension(:), allocatable :: layer_shape
 
     select case (idt%datatype)
     case ('INTEGER1D')
@@ -333,21 +341,32 @@ contains
         call netcdf_read_array(dbl1d, this%ctx%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper)
+      else if (layered) then
+        call get_layered_shape(this%ctx%mshape, nlay, layer_shape)
+        call read_dbl1d_layered(parser, dbl1d, idt%mf6varname, nlay, &
+                                layer_shape)
       else
         call read_dbl1d(parser, dbl1d, idt%mf6varname)
       end if
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
     case ('DOUBLE2D')
       call mem_setptr(dbl2d, idt%mf6varname, mempath)
-      allocate (dbl1d(this%ctx%ncpl))
+      ! the array may span a single layer or the full grid; take the extent
+      ! from the allocated array rather than assuming one layer
+      nvals = size(dbl2d, dim=2)
+      allocate (dbl1d(nvals))
       if (netcdf) then
         call netcdf_read_array(dbl1d, this%ctx%mshape, idt, &
                                this%mf6_input, this%nc_vars, this%input_name, &
                                this%iout, kper, iaux)
+      else if (layered) then
+        call get_layered_shape(this%ctx%mshape, nlay, layer_shape)
+        call read_dbl1d_layered(parser, dbl1d, idt%mf6varname, nlay, &
+                                layer_shape)
       else
         call read_dbl1d(parser, dbl1d, idt%mf6varname)
       end if
-      do n = 1, this%ctx%ncpl
+      do n = 1, nvals
         dbl2d(iaux, n) = dbl1d(n)
       end do
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
