@@ -153,7 +153,8 @@ contains
         ipos = ipos + 1
         igwfnode = this%cellid(j)
         if (this%ibound(igwfnode) < 1) cycle
-        call matrix_sln%add_value_pos(this%idxsymdglo(ipos), this%hcof(j))
+        call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), &
+                                      this%hcof(j))
         rhs(igwfnode) = rhs(igwfnode) + this%rhs(j)
       end do
     else if (this%iboundpak(n) > 0) then
@@ -183,6 +184,21 @@ contains
         !    perched leakage still responds to stage.
         call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, flow, &
                                                     dqds, dqdh)
+        !
+        ! -- a vertical connection moved to a lower cell when its cell went dry
+        !    (lak_cf) has no matrix entries with the lake. Couple it as the
+        !    default formulation does: the stage derivative on the lake row with
+        !    the head lagged one outer iteration, and the head derivative on the
+        !    cell's diagonal with the stage lagged. Both rows use the same flow
+        !    that lak_cq reports.
+        if (igwfnode /= this%idxcellid(ipos)) then
+          call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
+          rhs(iloc) = rhs(iloc) + dqds * hlak - flow
+          adiag = adiag + dqds
+          call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), -dqdh)
+          rhs(igwfnode) = rhs(igwfnode) - dqdh * head + flow
+          cycle
+        end if
         call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
         call matrix_sln%add_value_pos(this%idxoffdglo(ipos), dqdh)
         call matrix_sln%add_value_pos(this%idxsymdglo(ipos), -dqdh)
@@ -219,7 +235,7 @@ contains
         head = this%xnew(igwfnode)
         call this%lak_calculate_conn_exchange(n, j, hlak, head, flow, &
                                               gwfhcof, gwfrhs)
-        call matrix_sln%add_value_pos(this%idxsymdglo(ipos), gwfhcof)
+        call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), gwfhcof)
         rhs(igwfnode) = rhs(igwfnode) + gwfrhs
       end do
     else
@@ -238,6 +254,27 @@ contains
       end do
     end if
   end do
+
+contains
+
+  !> @brief Matrix position of the diagonal of a connected cell
+  !!
+  !! A connection moved to a lower cell (lak_cf) has no stored position, so
+  !! the diagonal of the cell is looked up.
+  !<
+  function cell_diag_pos(ipos, igwfnode) result(idiag)
+    ! -- dummy
+    integer(I4B), intent(in) :: ipos !< connection index in the idx* arrays
+    integer(I4B), intent(in) :: igwfnode !< cell the connection is on
+    ! -- return
+    integer(I4B) :: idiag
+    !
+    if (igwfnode == this%idxcellid(ipos)) then
+      idiag = this%idxsymdglo(ipos)
+    else
+      idiag = matrix_sln%get_position_diag(igwfnode + this%moffset)
+    end if
+  end function cell_diag_pos
   end procedure lak_fc_implicit
 
   !> @brief Switch a stalled IMPLICIT lake back to the legacy solver
