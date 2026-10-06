@@ -759,6 +759,24 @@ contains
       depth_m = stage_m - this%dis%bot(m)
 
       ! assign gradients
+      !
+      ! TODO(dfw-halfcell-gradient): possible inconsistency, under review.
+      ! The two half-cells below (cn, cm) each use their OWN local cell
+      ! properties (depth, width, cross section, roughness, half-length cln/clm)
+      ! but are both handed the SAME gradient, computed over the full
+      ! center-to-center distance (cln + clm).  Because the half-cell
+      ! conductance scales as 1/sqrt(dhds) (a nonlinear function of the
+      ! gradient), feeding both halves one shared slope is not equivalent to
+      ! each half using its own local slope, so two half-cells in series here
+      ! do not reduce to the harmonic mean of locally-consistent half-cells.
+      ! A consequence: placing an explicit CHF junction (which does use a local
+      ! per-half-cell gradient, |stage - stage_junction| / dx; see qcalc_rj in
+      ! chf-jnc.f90) at a mid-channel vertex on an otherwise straight reach
+      ! changes the solution slightly (it is not perfectly transparent).  It is
+      ! not yet decided which convention is correct; the junction code uses the
+      ! locally-consistent gradient on purpose.  Resolve/confirm with the DFW
+      ! formulation before relying on exact reach-reach vs reach-junction
+      ! equivalence.
       if (this%is2d == 0) then
         dhds_n = abs(stage_m - stage_n) / (cln + clm)
         dhds_m = dhds_n
