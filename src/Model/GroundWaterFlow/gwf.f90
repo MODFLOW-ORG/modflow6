@@ -10,6 +10,7 @@ module GwfModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwfIcModule, only: GwfIcType
   use GwfNpfModule, only: GwfNpfType
+  use ConductanceProviderModule, only: ConductanceProviderType
   use Xt3dModule, only: Xt3dType
   use GwfBuyModule, only: GwfBuyType
   use GwfVscModule, only: GwfVscType
@@ -37,6 +38,7 @@ module GwfModule
 
     type(GwfIcType), pointer :: ic => null() ! initial conditions package
     type(GwfNpfType), pointer :: npf => null() ! node property flow package
+    class(ConductanceProviderType), pointer :: cond_provider => null() ! directional effective-K provider (NPF-backed)
     type(Xt3dType), pointer :: xt3d => null() ! xt3d option for npf
     type(GwfBuyType), pointer :: buy => null() ! buoyancy package
     type(GwfVscType), pointer :: vsc => null() ! viscosity package
@@ -315,6 +317,8 @@ contains
   !!
   !<
   subroutine gwf_ar(this)
+    ! -- modules
+    use NpfConductanceProviderModule, only: create_npf_conductance_provider
     ! -- dummy
     class(GwfModelType) :: this
     ! -- locals
@@ -336,6 +340,11 @@ contains
     !
     ! -- Call dis_ar to write binary grid file
     call this%dis%dis_ar(this%npf%icelltype)
+    !
+    ! -- expose NPF directional effective-K through the abstract provider
+    if (this%innpf > 0) then
+      call create_npf_conductance_provider(this%cond_provider, this%npf)
+    end if
     !
     ! -- set up output control
     call this%oc%oc_ar(this%x, this%dis, this%npf%hnoflo)
@@ -1081,6 +1090,7 @@ contains
     ! -- Internal flow packages deallocate
     call this%dis%dis_da()
     call this%ic%ic_da()
+    if (associated(this%cond_provider)) deallocate (this%cond_provider)
     call this%npf%npf_da()
     call this%xt3d%xt3d_da()
     call this%buy%buy_da()

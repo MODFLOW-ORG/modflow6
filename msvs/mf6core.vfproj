@@ -388,6 +388,7 @@
 				<Filter Name="ModelUtilities">
 					<File RelativePath="..\src\Model\ModelUtilities\BoundaryPackage.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\BoundaryPackageExt.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\ConductanceProvider.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Connections.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\DiscretizationBase.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Disv1dGeom.f90"/>
@@ -405,6 +406,7 @@
 					<File RelativePath="..\src\Model\ModelUtilities\GwtDspOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\ModelPackageInput.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Mover.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\NpfConductanceProvider.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\PackageMover.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionManager.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\SfrCrossSectionUtils.f90"/>

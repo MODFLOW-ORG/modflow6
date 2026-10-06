@@ -260,6 +260,8 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'DiscretizationBase.f90',
     'Model' / 'ModelUtilities' / 'DisvGeom.f90',
     'Model' / 'ModelUtilities' / 'Disv1dGeom.f90',
+    'Model' / 'ModelUtilities' / 'ConductanceProvider.f90',
+    'Model' / 'ModelUtilities' / 'NpfConductanceProvider.f90',
     'Model' / 'ModelUtilities' / 'FlowModelInterface.f90',
     'Model' / 'ModelUtilities' / 'GweInputData.f90',
     'Model' / 'ModelUtilities' / 'GwfBuyInputData.f90',
