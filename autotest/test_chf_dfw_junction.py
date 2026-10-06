@@ -106,7 +106,7 @@ def _add_common(chf, name, strt, with_jnc):
 
 
 def _build_confluence(test, name, with_jnc):
-    """Steady Y confluence: reaches 0,1 inflow -> shared vertex 4 -> reach 2
+    """Steady Y confluence: reaches 0,1 inflow -> shared vertex 3 -> reach 2
     outlet (ZDG).  Shared by the junctions-on (mb) and junctions-off cases;
     the only difference is whether the JNC package is added."""
     sim = _sim(name, test.workspace)
