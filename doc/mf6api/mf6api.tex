@@ -1,0 +1,140 @@
+\documentclass[11pt,twoside,twocolumn]{usgsreport}
+\usepackage{usgsfonts}
+\usepackage{usgsgeo}
+\usepackage{usgsidx}
+\usepackage[figuretoc,tabletoc]{usgsreporta}
+
+\usepackage{amsmath}
+\usepackage{bm}
+\usepackage{calc}
+\usepackage{natbib}
+\usepackage{graphicx}
+\usepackage{longtable}
+
+%Do not allow a page break to result in a line appearing by itself
+% https://tex.stackexchange.com/questions/4152/how-do-i-prevent-widow-orphan-lines
+\usepackage[all]{nowidow}
+
+\makeindex
+\usepackage{setspace}
+\usepackage{etoolbox}
+\usepackage{verbatim}
+
+% set up the listings package for highlighting input files
+\usepackage{listings}
+\usepackage{xcolor}
+\lstset{
+  basicstyle=\footnotesize\ttfamily\color{black},
+  numbers=none,
+  columns=flexible,
+  backgroundcolor=\color{yellow!10},
+}
+\lstdefinestyle{inputfile}{
+  morecomment=[l]\#,
+  backgroundcolor=\color{gray!10},
+}
+\lstdefinestyle{pythoncode}{
+  language=Python,
+  basicstyle=\scriptsize\ttfamily,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray!60!black},
+  stringstyle=\color{red!60!black},
+  showstringspaces=false,
+  breaklines=true,
+  backgroundcolor=\color{gray!8},
+}
+\lstdefinestyle{pseudocode}{
+  basicstyle=\footnotesize\ttfamily,
+  commentstyle=\color{gray!60!black},
+  showstringspaces=false,
+  breaklines=true,
+  columns=fullflexible,
+  backgroundcolor=\color{blue!5},
+}
+
+\usepackage{hyperref}
+\hypersetup{
+    pdftitle={MODFLOW 6 -- Description of Variables Modifiable Through the API},
+    pdfauthor={MODFLOW 6 Development Team},
+    pdfsubject={numerical simulation groundwater flow},
+    pdfkeywords={groundwater, MODFLOW, simulation, API, BMI, XMI},
+    pdflang={en-US},
+    bookmarksnumbered=true,
+    bookmarksopen=true,
+    bookmarksopenlevel=1,
+    colorlinks=true,
+    allcolors={blue},
+    pdfstartview=Fit,
+    pdfpagemode=UseOutlines,
+    pdfpagelayout=TwoPageRight
+}
+
+% reuse the cover image and figures from the mf6io guide
+\graphicspath{{../mf6io/Figures/}}
+\input{../version.tex}
+
+\newcommand{\mli}[1]{\mathit{#1}}
+\renewcommand\labelitemi{\tiny$\bullet$}
+
+\renewcommand{\cooperator}
+{Water Availability and Use Science Program}
+
+\renewcommand{\reporttitle}
+{MODFLOW 6 -- Description of Variables Modifiable Through the Application Programming Interface (API)}
+
+\renewcommand{\preface}
+{This document describes which internal MODFLOW 6 variables can be meaningfully modified at run time through the MODFLOW 6 Application Programming Interface (API), on a package-by-package basis. The API exposes MODFLOW 6 memory through the Basic Model Interface (BMI) and its eXtended Model Interface (XMI), which are most commonly accessed from Python through the \href{https://github.com/MODFLOW-ORG/modflowapi}{modflowapi} and \href{https://github.com/Deltares/xmipy}{xmipy} packages. The API exposes essentially all variables stored in the MODFLOW 6 memory manager, but not every variable can be changed with the expected effect: some are derived quantities that are computed once and then used directly, some are recomputed every time step and silently overwrite any value set externally, and some are re-read from input at the start of each stress period. This document classifies the variables in each package so that users of the API know which variable to set, and when, to achieve a desired change. The performance of MODFLOW 6 has been tested in a variety of applications. Future applications, however, might reveal errors that were not detected in the test simulations. Users are requested to send notification of any errors found in this report or in the model program to the contact listed on the \href{https://doi.org/10.5066/P1IJAXDZ}{MODFLOW Web page}. Additional details and information about ongoing developments are available through the version-controlled \href{https://github.com/MODFLOW-ORG/modflow6}{MODFLOW 6 repository}.}
+
+\renewcommand{\coverphoto}{coverimage.jpg}
+\renewcommand{\GSphotocredit}{Binary computer code illustration.}
+\renewcommand{\reportseries}{}
+\renewcommand{\reportnumber}{}
+\renewcommand{\reportyear}{2017}
+\ifdef{\reportversion}{\renewcommand{\reportversion}{\currentmodflowversion}}{}
+\renewcommand{\theauthors}{MODFLOW 6 Development Team}
+\renewcommand{\thetitlepageauthors}{\theauthors}
+\renewcommand{\reportcitingtheauthors}{\theauthors}
+\renewcommand{\colophonmoreinfo}{}
+\renewcommand{\reportbodypages}{}
+\urlstyle{rm}
+\renewcommand{\reportwebsiteroot}{https://doi.org/10.5066/}
+\renewcommand{\reportwebsiteremainder}{P1IJAXDZ}
+\ifdef{\usgsissn}{\renewcommand{\usgsissn}{}}{}
+\renewcommand{\theconventions}{}
+\definecolor{coverbar}{RGB}{0, 47, 87}
+\renewcommand{\bannercolor}{\color{coverbar}}
+
+\renewcommand{\reportrefname}{References Cited}
+
+\newcommand{\programname}{MODFLOW 6}
+
+\def\tsc#1#2{\csdef{#1}{#2\xspace}}
+\tsc{mff}{MODFLOW}
+\tsc{mf}{MODFLOW~6}
+\tsc{mfpar}{(MODFLOW~6)}
+
+\usepackage{placeins}
+\usepackage{float}
+\floatstyle{plain}
+\newfloat{exampleinput}{H}{exi}
+\floatname{exampleinput}{}
+
+\begin{document}
+
+\ifdef{\makefrontcoveralt}{\makefrontcoveralt}{\makefrontcover}
+\ifdef{\makefrontmatterabv}{\makefrontmatterabv}{\makefrontmatter}
+
+\onecolumn
+\pagestyle{body}
+\RaggedRight
+\hbadness=10000
+\setlength{\parindent}{1.5pc}
+
+\input{./body.tex}
+
+\justifying
+\vspace*{\fill}
+\clearpage
+\pagestyle{backofreport}
+\makebackcover
+\end{document}
