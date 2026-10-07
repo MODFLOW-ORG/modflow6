@@ -5,7 +5,8 @@ solute of a lake or reach that goes dry and returns it as the feature rewets.
 Cases:
   - lake          : a lake on an impermeable bed evaporates dry and is refilled
                     by rainfall; all of its solute is held while it is dry and
-                    is returned in proportion to the volume regained.
+                    is returned in proportion to the volume regained, relative
+                    to its largest volume before it went dry.
   - lake_nooption : the same lake without the option cannot be solved once the
                     lake has no water (xfail).
   - reach         : the inflow to three reaches stops, so they go dry, and then
@@ -222,12 +223,17 @@ def test_lake(function_tmpdir, targets):
         dry = vol <= 0.0
         assert dry.any(), "the lake did not go dry"
         assert np.allclose(held[dry], mass0, rtol=1e-6), f"held {held[dry]}"
-        # the first refill step regains 1,500 of the 2,000 m3 the mass was
-        # dissolved in, so three quarters of it returns
+        # the first refill step regains 1,500 of the 10,000 m3 the lake held
+        # before it went dry, its largest volume, so 15 percent of it returns
         first = np.argmax(~dry & (np.arange(dry.size) > np.argmax(dry)))
         assert np.isclose(vol[first], 1500.0), f"volume {vol[first]}"
-        assert np.isclose(held[first], 0.25 * mass0, rtol=1e-6), f"{held[first]}"
-        assert np.isclose(held[-1], 0.0, atol=1e-6), f"held at the end {held[-1]}"
+        assert np.isclose(held[first], 0.85 * mass0, rtol=1e-6), f"{held[first]}"
+        # the rest has returned once the lake regains 10,000 m3
+        full = first + np.argmax(vol[first:] >= 10000.0)
+        assert np.isclose(held[full - 1], 0.1 * mass0, rtol=1e-6), (
+            f"held before the lake refills {held[full - 1]}"
+        )
+        assert np.isclose(held[full], 0.0, atol=1e-6), f"held {held[full]}"
         # the stranded observation is the rate to the held mass, so over the
         # 1-d time step in which the lake dries it is the whole mass
         obs = np.genfromtxt(ws / "lkt.obs.csv", delimiter=",", names=True)
@@ -279,8 +285,8 @@ def test_reach(function_tmpdir, targets):
         assert np.allclose(held[first_dry], expected, rtol=1e-6), (
             f"held {held[first_dry]} expected {expected}"
         )
-        # each reach refills to the volume its held mass came from, so all of
-        # it returns in the first time step of the third period
+        # each reach refills to its largest volume before it went dry, so all
+        # of it returns in the first time step of the third period
         assert np.allclose(held[10], 0.0, atol=1e-6), f"held after refill {held[10]}"
 
     TestFramework(
