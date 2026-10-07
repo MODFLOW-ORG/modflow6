@@ -20,6 +20,7 @@ module GwtMstModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
+  use TspSsmModule, only: TspSsmType
   use IsothermInterfaceModule, only: IsothermType
   use IsothermFactoryModule, only: create_isotherm
   use IsothermEnumModule
@@ -98,6 +99,8 @@ module GwtMstModule
     ! -- misc
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
+    type(TspSsmType), pointer :: ssm => null() !< pointer to ssm object, for sinks that leave solute behind
+    real(DP), dimension(:), allocatable :: qfree !< water leaving each cell through sinks that leave solute behind
 
   contains
 
@@ -113,6 +116,7 @@ module GwtMstModule
     procedure :: mst_fc_srb
     procedure :: mst_fc_dcy_srb
     procedure :: mst_fc_strand
+    procedure, private :: mst_solute_free
     procedure :: mst_cq
     procedure :: mst_cq_sto
     procedure :: mst_cq_dcy
@@ -327,6 +331,7 @@ contains
     real(DP) :: vret, released
     !
     tled = DONE / delt
+    call this%mst_solute_free()
     !
     do n = 1, this%dis%nodes
       !
@@ -341,6 +346,13 @@ contains
       sat_old = this%mst_satold_strand(n)
       released = DZERO
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
+      !
+      ! -- a sink that carries no solute, such as evapotranspiration, leaves
+      !    its solute behind; the share in the drained part of the cell is
+      !    held as deposited solute rather than added to the water
+      idiag = this%dis%con%ia(n)
+      call matrix_sln%add_value_pos(idxglo(idiag), &
+                                    -(DONE - sat_new) * this%qfree(n))
       !
       if (sat_new < sat_old) then
         !
@@ -380,6 +392,24 @@ contains
       end if
     end do
   end subroutine mst_fc_strand
+
+  !> @brief Water leaving each cell through sinks that carry no solute
+  !<
+  subroutine mst_solute_free(this)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    ! -- local
+    integer(I4B) :: n
+    !
+    if (.not. allocated(this%qfree)) allocate (this%qfree(this%dis%nodes))
+    if (associated(this%ssm)) then
+      call this%ssm%ssm_solute_free(this%qfree)
+    else
+      do n = 1, this%dis%nodes
+        this%qfree(n) = DZERO
+      end do
+    end if
+  end subroutine mst_solute_free
 
   !> @ brief Saturation of a cell at the end of the previous time step
   !!
@@ -784,10 +814,11 @@ contains
     real(DP) :: daq, dsrb
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw
-    real(DP) :: released, vdrain
+    real(DP) :: released, vdrain, mfree
     logical :: decay_strand
     !
     tled = DONE / delt
+    call this%mst_solute_free()
     !
     ! -- stranded mass decays at the rate that belongs to its phase, but
     !    zero-order decay would drive an empty reservoir negative
@@ -919,6 +950,14 @@ contains
                return_fraction(dw, this%strand%held_srb(n))
         this%strand%held_aq(n) = max(this%strand%held_aq(n) - dw, DZERO)
         this%strand%held_srb(n) = max(this%strand%held_srb(n) - dw, DZERO)
+      end if
+      !
+      ! -- solute left behind by sinks that carry no solute, held in the
+      !    drained part of the cell, which it is returned from on rewetting
+      mfree = (DONE - sat_new) * this%qfree(n) * cnew(n) * delt
+      if (mfree > DZERO) then
+        maq = maq + mfree
+        this%strand%held_aq(n) = max(this%strand%held_aq(n), DONE - sat_new)
       end if
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
@@ -1584,6 +1623,8 @@ contains
       call mem_deallocate(this%cstrand)
       this%ibound => null()
       this%fmi => null()
+      this%ssm => null()
+      if (allocated(this%qfree)) deallocate (this%qfree)
     end if
     !
     ! -- Scalars
