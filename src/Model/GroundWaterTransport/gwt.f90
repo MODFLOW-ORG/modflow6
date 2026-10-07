@@ -301,6 +301,10 @@ contains
     !    so this is reported rather than refused.
     if (this%inmst > 0) then
       if (this%mst%istrand /= 0) then
+        !
+        ! -- stranded mass also holds the solute that sinks such as
+        !    evapotranspiration leave behind in the drained part of a cell
+        if (this%inssm > 0) this%mst%ssm => this%ssm
         do ip = 1, this%bndlist%Count()
           packobj => GetBndFromList(this%bndlist, ip)
           if (packobj%filtyp == 'UZT') then

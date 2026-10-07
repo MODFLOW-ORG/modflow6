@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "The STRANDED\\_MASS option of the Mobile Storage and Transfer (MST) Package now also holds solute that a sink carrying no solute leaves behind, such as evapotranspiration given a mixed (AUXMIXED) concentration in the Source and Sink Mixing (SSM) Package. The share of that solute in the drained part of a cell is held and returned as the cell rewets, instead of being concentrated into the water that remains. Without it, the concentration of a cell that evapotranspiration nearly drains grows without bound and, with the Newton formulation, the transport solution can fail, while the model budget reports no error. Saturated cells are unaffected."
