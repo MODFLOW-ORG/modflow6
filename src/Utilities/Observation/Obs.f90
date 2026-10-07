@@ -707,12 +707,13 @@ contains
     ! -- dummy
     class(ObsType) :: this
     ! formats
-50  format('(g', i2.2, '.', i2.2, ')')
+50  format('(g0.', i2.2, ')')
     !
+    ! -- G0.d keeps the E of a three-digit exponent, which Gw.d drops
     if (this%idigits == 0) then
       this%obsfmtcont = '(G0)'
     else
-      write (this%obsfmtcont, 50) this%idigits + 7, this%idigits
+      write (this%obsfmtcont, 50) this%idigits
     end if
   end subroutine define_fmts
 
