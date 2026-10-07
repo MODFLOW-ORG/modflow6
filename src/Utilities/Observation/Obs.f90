@@ -709,8 +709,8 @@ contains
     ! formats
 50  format('(g', i2.2, '.', i2.2, 'e3)')
     !
-    ! -- a three-digit exponent keeps the E for any exponent, and the width
-    !    holds a negative value with one
+    ! -- E3 keeps the E for any exponent; the width DIGITS + 8 holds the
+    !    longest value, a sign, "0.", the digits, and an exponent such as E-119
     if (this%idigits == 0) then
       this%obsfmtcont = '(G0)'
     else
