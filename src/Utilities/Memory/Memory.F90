@@ -25,6 +25,8 @@ module MemoryTypeModule
     integer(I4B) :: element_size = 0 !< byte size of an element; string length
     integer(I4B) :: set_handler_idx = 0 !< index of side effect handler for external access
     logical(LGP) :: master = .true. !< master copy, others point to this one
+    logical(LGP) :: readonly = .false. !< when true, API consumers may not write this variable
+    logical(LGP) :: output = .false. !< when true, this variable is user-facing simulation output
     character(len=:), pointer :: strsclr => null() !< pointer to the character string
     logical(LGP), pointer :: logicalsclr => null() !< pointer to the logical
     integer(I4B), pointer :: intsclr => null() !< pointer to the integer
