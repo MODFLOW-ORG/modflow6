@@ -116,7 +116,7 @@ module TspAptModule
     integer(I4B), pointer :: nconcbudssm => null() !< number of concbudssm terms (columns)
     real(DP), dimension(:, :), pointer, contiguous :: concbudssm => null() !< user specified concentrations (or temperatures) for flow terms
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
-    integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry
+    integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry (2 if set by MST)
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
     real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume a feature must regain to return all of its held mass
     real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
@@ -143,6 +143,7 @@ module TspAptModule
     procedure :: set_pointers => apt_set_pointers
     procedure :: bnd_ac => apt_ac
     procedure :: apt_strand_coef
+    procedure :: apt_strand_from_mst
     procedure :: apt_strand_update
     procedure :: bnd_mc => apt_mc
     procedure :: bnd_ar => apt_ar
@@ -332,6 +333,12 @@ contains
     !
     ! --print a message identifying the apt package.
     write (this%iout, fmtapt) this%inunit
+    if (this%istrand == 2) then
+      write (this%iout, '(4x,a)') &
+        trim(adjustl(this%text))//' WILL HOLD THE MASS OF A FEATURE THAT &
+        &GOES DRY AND RETURN IT WHEN THE FEATURE REWETS, BECAUSE &
+        &STRANDED_MASS IS ACTIVE IN THE MST PACKAGE.'
+    end if
     !
     ! -- Allocate arrays
     call this%apt_allocate_arrays()
@@ -1798,6 +1805,16 @@ contains
       vold = vnew + qss * delt
     end if
   end subroutine apt_get_volumes
+
+  !> @brief Hold the mass of a feature that goes dry, as the MST Package does
+  !<
+  subroutine apt_strand_from_mst(this)
+    ! -- dummy
+    class(TspAptType) :: this
+    !
+    ! -- 2 marks the option as set by MST; the package keyword resets it to 1
+    if (this%istrand == 0) this%istrand = 2
+  end subroutine apt_strand_from_mst
 
   !> @brief Rates of mass moved to and returned from the held mass
   !!

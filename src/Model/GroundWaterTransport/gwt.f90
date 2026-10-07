@@ -7,7 +7,7 @@
 
 module GwtModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENFTYPE, LENMEMPATH, DZERO, DONE, &
                              LENPAKLOC, LENVARNAME, LENPACKAGETYPE, &
                              DNODATA, LINELENGTH
@@ -17,6 +17,7 @@ module GwtModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwtDspModule, only: GwtDspType
   use GwtMstModule, only: GwtMstType
+  use TspAptModule, only: TspAptType
   use BudgetModule, only: BudgetType
   use TransportModelModule
   use MatrixBaseModule
@@ -147,10 +148,13 @@ contains
   subroutine gwt_df(this)
     ! -- modules
     use SimModule, only: store_error
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(GwtModelType) :: this
     ! -- local
     integer(I4B) :: ip
+    integer(I4B), pointer :: istrand
+    logical(LGP) :: found
     class(BndType), pointer :: packobj
     !
     ! -- Define packages and utility objects
@@ -181,6 +185,28 @@ contains
     !
     ! -- Allocate model arrays, now that neq and nja are assigned
     call this%allocate_arrays()
+    !
+    ! -- stranded mass in the MST Package also holds the solute of a lake or
+    !    stream reach that goes dry, so it is set before they are defined
+    if (this%inmst > 0) then
+      allocate (istrand)
+      istrand = 0
+      ! -- the input is kept for MST, which reads it again
+      call mem_set_value(istrand, 'ISTRAND', this%mst%input_mempath, found, &
+                         release=.false.)
+      if (istrand /= 0) then
+        do ip = 1, this%bndlist%Count()
+          packobj => GetBndFromList(this%bndlist, ip)
+          select type (packobj)
+          class is (TspAptType)
+            if (packobj%filtyp == 'LKT' .or. packobj%filtyp == 'SFT') then
+              call packobj%apt_strand_from_mst()
+            end if
+          end select
+        end do
+      end if
+      deallocate (istrand)
+    end if
     !
     ! -- Define packages and assign iout for time series managers
     do ip = 1, this%bndlist%Count()
