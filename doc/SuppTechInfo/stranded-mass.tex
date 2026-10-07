@@ -97,6 +97,21 @@ A transport model that reads the flows saved by a separate flow simulation does 
 
 A cell whose water table falls below its bottom is inactive for transport until it is rewet. Its reservoirs are not emptied: the mass they hold decays at the rate given for its phase and is returned when the cell is rewet, in proportion to the part of the drained interval that resaturates. The saturation of the cell is recorded while it is inactive, so the time step in which it becomes active again is treated as rewetting. Without that record, the saturation from before the cell went dry would stand, and a cell that returns wetter than it was when it went dry, but not full, would appear to have drained further and would strand mass instead of returning it.
 
+\subsubsection{Solute left behind by evapotranspiration}
+
+A sink that carries no solute removes water from a cell and leaves its solute behind. Evapotranspiration is the usual example: given a mixed (AUXMIXED) concentration of zero in the Source and Sink Mixing (SSM) Package, it removes water without solute, as evaporation does. Without the option, all of that solute stays in the water of the cell. Where evapotranspiration drains a cell, and particularly where its extinction depth reaches below the cell so that it continues to draw water through a cell that is nearly dry, the same solute is concentrated into a volume of water that approaches zero, and the concentration grows without bound. The budget of the model is unaffected, because no mass is created or lost, so nothing in the budget reveals the problem, and in a cell that the Newton formulation keeps active at a small saturation the transport solution can fail.
+
+With the option, the solute that such a sink leaves behind is divided between the water that remains and the drained part of the cell in proportion to their shares of the cell. The share in the drained part is held with the solute of the retained water, as solute deposited above the water table,
+
+\begin{equation}
+\label{eqn:strandet}
+\Delta M_{et} = \left ( 1 - S_w \right ) Q_e \, C \, \Delta t ,
+\end{equation}
+
+\noindent where $\Delta M_{et}$ is the mass held over the time step ($M$) and $Q_e$ is the rate at which the sink removes water ($L^3/T$). A mixed sink whose concentration is below that of the cell removes no solute, so $Q_e C$ is the solute it leaves behind. The rate is part of the concentration equation, so the concentration and the held mass are consistent within the time step. A saturated cell holds none of it, so evaporative concentration of a cell whose water table is above it is unaffected. In a nearly dry cell almost all of it is held: where water flowing into such a cell at a concentration $C_{in}$ leaves only by evapotranspiration, the concentration of the cell approaches $C_{in}/(1 - S_w)$ rather than growing without bound. The held mass decays at the rate for the dissolved phase and is returned as the cell rewets, by equation~\ref{eqn:strandreturn}.
+
+A thin surficial layer drained by evapotranspiration whose extinction depth reaches below the layer shows the effect. With the standard formulation, the concentration of a surficial cell rises from 100 to 879 g/m$^3$ without the option as its saturation falls to about 0.1, and to 186 g/m$^3$ with it. With the Newton formulation, the transport solution fails without the option in the fourteenth time step, when the cells above the constant heads are nearly dry, and with the option the simulation completes with a peak concentration of 185 g/m$^3$. The percent discrepancy of the model budget is 0.00 in every time step of the simulations with the option.
+
 \subsection{Extension to Immobile Domains}
 
 An immobile domain represented with the IST Package multiplies its mass by the water saturation in the same way that the mobile domain does, so an immobile domain also returns its solute to the water that remains when a cell drains. Stranding is a property of a domain rather than of a cell: a simulation with $nim$ immobile domains would require $nim + 1$ sets of reservoirs, one for the mobile domain and one for each immobile domain, because each domain has its own bulk density, sorption parameters, and decay rates.
