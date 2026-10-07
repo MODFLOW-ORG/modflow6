@@ -21,6 +21,7 @@ module GwtSftInputModule
     logical :: iprconc = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
+    logical :: istrand = .false.
     logical :: conc_filerec = .false.
     logical :: options_concentration = .false.
     logical :: concfile = .false.
@@ -210,6 +211,25 @@ module GwtSftInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'save reach flows to budget file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_istrand = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_MASS', & ! tag name
+    'ISTRAND', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'activate stranded mass', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -856,6 +876,7 @@ module GwtSftInputModule
     gwtsft_iprconc, &
     gwtsft_iprflow, &
     gwtsft_ipakcb, &
+    gwtsft_istrand, &
     gwtsft_conc_filerec, &
     gwtsft_options_concentration, &
     gwtsft_concfile, &

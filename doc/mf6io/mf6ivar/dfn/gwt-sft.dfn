@@ -77,6 +77,15 @@ longname save reach flows to budget file
 description REPLACE save_flows {'{#1}': 'reach'}
 
 block options
+name stranded_mass
+type keyword
+reader urword
+optional true
+longname activate stranded mass
+description is a text keyword to indicate that the solute of a reach that goes dry will be held until the reach rewets.  A reach goes dry when its volume falls to zero and the only water that leaves it is evaporation, which carries no solute; its solute is then held, as the salts that an evaporating water body leaves behind are, instead of remaining in a reach with no water.  The held mass is returned as the reach rewets, in proportion to the volume it regains relative to the volume of water that the held mass was dissolved in, and all of it is returned once that volume is regained.  The held mass is reported as the STRANDED term of the package budget.
+mf6internal istrand
+
+block options
 name concentration_filerecord
 type record concentration fileout concfile
 shape
