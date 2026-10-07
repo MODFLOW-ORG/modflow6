@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "basic"
-description = "Continuous observations written to a comma-separated value file with the DIGITS option were not written with the E character when the exponent had three digits (for example, 0.100000000000-119 instead of 0.100000000000E-119), which is valid Fortran but cannot be read by most post-processing tools. These values are now written with the E character, and an exponent written in E form now has at least three digits."
+description = "Continuous observations written to a comma-separated value file with the DIGITS option were not written with the E character when the exponent had three digits (for example, 0.100000000000-119 instead of 0.100000000000E-119), which is valid Fortran but cannot be read by most post-processing tools. These values are now written with the E character, and every exponent is now written with three digits (for example, 0.100000000000E-004 instead of 0.100000000000E-04)."
