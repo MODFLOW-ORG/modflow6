@@ -913,6 +913,11 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
+    !    for stranded observation type.
+    call this%obs%StoreObsType('stranded', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
     !    for constant observation type.
     call this%obs%StoreObsType('constant', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
