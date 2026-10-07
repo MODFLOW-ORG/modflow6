@@ -6,12 +6,14 @@ Cases:
   - lake          : a lake on an impermeable bed evaporates dry and is refilled
                     by rainfall; all of its solute is held while it is dry and
                     is returned in proportion to the volume regained, relative
-                    to its largest volume before it went dry.
+                    to its largest volume before it went dry. The option is
+                    given in LKT, in MST (which turns it on in LKT), or both.
   - lake_nooption : the same lake without the option cannot be solved once the
                     lake has no water (xfail).
   - reach         : the inflow to three reaches stops, so they go dry, and then
                     resumes with clean water; the solute of each reach is held
-                    and returned when the reach refills.
+                    and returned when the reach refills. The option is given in
+                    SFT, in MST, or both.
   - energy        : the option is an error for the LKE Package (xfail).
 """
 
@@ -19,9 +21,12 @@ import re
 
 import flopy
 import numpy as np
+import pytest
 from framework import TestFramework
 
 cinit = 100.0
+# where the STRANDED_MASS option is given: the package, MST, or both
+option_sources = ["package", "mst", "both"]
 
 
 def add_ims(sim, fname):
@@ -64,7 +69,7 @@ def add_gwf(sim, nlay, botm, idomain):
     return gwf
 
 
-def add_gwt(sim, nlay, botm, idomain):
+def add_gwt(sim, nlay, botm, idomain, mst_strand=False):
     gwt = flopy.mf6.ModflowGwt(sim, modelname="gwt", save_flows=True)
     sim.register_ims_package(add_ims(sim, "gwt.ims"), ["gwt"])
     flopy.mf6.ModflowGwtdis(
@@ -79,7 +84,7 @@ def add_gwt(sim, nlay, botm, idomain):
         idomain=idomain,
     )
     flopy.mf6.ModflowGwtic(gwt, strt=0.0)
-    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3)
+    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3, stranded_mass=mst_strand)
     flopy.mf6.ModflowGwtadv(gwt)
     flopy.mf6.ModflowGwtssm(gwt)
     flopy.mf6.ModflowGwtoc(
@@ -92,7 +97,7 @@ def add_gwt(sim, nlay, botm, idomain):
     return gwt
 
 
-def lake_model(ws, strand):
+def lake_model(ws, strand, mst_strand=False):
     """A lake that evaporates dry over the second period and refills in the
     fourth, on an impermeable bed so that it loses water only to evaporation."""
     sim = flopy.mf6.MFSimulation(sim_name="lake", sim_ws=ws, exe_name="mf6")
@@ -117,13 +122,12 @@ def lake_model(ws, strand):
         },
         budget_filerecord="gwf.lak.bud",
     )
-    gwt = add_gwt(sim, 2, botm, idomain)
+    gwt = add_gwt(sim, 2, botm, idomain, mst_strand)
     kwargs = {}
     if strand:
-        kwargs.update(
-            stranded_mass=True,
-            observations={"lkt.obs.csv": [("held", "stranded", 1)]},
-        )
+        kwargs.update(stranded_mass=True)
+    if strand or mst_strand:
+        kwargs.update(observations={"lkt.obs.csv": [("held", "stranded", 1)]})
     flopy.mf6.ModflowGwtlkt(
         gwt,
         flow_package_name="LAK-1",
@@ -137,7 +141,7 @@ def lake_model(ws, strand):
     return sim
 
 
-def reach_model(ws, strand):
+def reach_model(ws, strand, mst_strand=False):
     """Three reaches whose inflow stops in the second period, so that they go
     dry, and resumes with clean water in the third."""
     sim = flopy.mf6.MFSimulation(sim_name="reach", sim_ws=ws, exe_name="mf6")
@@ -166,7 +170,7 @@ def reach_model(ws, strand):
         },
         budget_filerecord="gwf.sfr.bud",
     )
-    gwt = add_gwt(sim, 1, botm, idomain)
+    gwt = add_gwt(sim, 1, botm, idomain, mst_strand)
     flopy.mf6.ModflowGwtsft(
         gwt,
         flow_package_name="SFR-1",
@@ -204,13 +208,27 @@ def assert_package_budget_closes(ws, pname):
     assert np.all(disc < 1e-2), f"{pname} budget does not close {disc}"
 
 
-def test_lake(function_tmpdir, targets):
+def assert_option_source(ws, pname, source):
+    text = (ws / "gwt.lst").read_text()
+    # MST notes in the listing that it turned the option on in the package
+    note = "STRANDED_MASS IS ACTIVE IN THE MST PACKAGE" in text
+    assert note == (source == "mst"), f"note in the listing {note} for {source}"
+    held = re.search(rf"{pname} BUDGET.*?STRANDED", text, re.S) is not None
+    assert held, f"no STRANDED term in the {pname} budget"
+    # the model budget holds stranded mass only when MST has the option
+    model = "STORAGE-STRANDED" in text
+    assert model == (source != "package"), f"model STORAGE-STRANDED {model}"
+
+
+@pytest.mark.parametrize("source", option_sources)
+def test_lake(function_tmpdir, targets, source):
     def build(test):
-        return lake_model(test.workspace, True)
+        return lake_model(test.workspace, source != "mst", source != "package")
 
     def check(test):
         ws = test.workspace
         assert_package_budget_closes(ws, "LKT-1")
+        assert_option_source(ws, "LKT-1", source)
         vol, c, held = feature_series(
             ws, "gwf.lak.bud", "gwt.lkt.bud", "gwt.lkt.conc", True
         )
@@ -267,13 +285,15 @@ def test_lake_nooption(function_tmpdir, targets):
     ).run()
 
 
-def test_reach(function_tmpdir, targets):
+@pytest.mark.parametrize("source", option_sources)
+def test_reach(function_tmpdir, targets, source):
     def build(test):
-        return reach_model(test.workspace, True)
+        return reach_model(test.workspace, source != "mst", source != "package")
 
     def check(test):
         ws = test.workspace
         assert_package_budget_closes(ws, "SFT-1")
+        assert_option_source(ws, "SFT-1", source)
         vol, c, held = feature_series(
             ws, "gwf.sfr.bud", "gwt.sft.bud", "gwt.sft.conc", True
         )
