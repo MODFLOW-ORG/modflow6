@@ -1,7 +1,7 @@
 name: Pull request policy
 on:
   # pull_request_target runs in the base repository so fork pull requests can
-  # be commented on and closed. The pull request code is never checked out.
+  # be commented on. The pull request code is never checked out.
   pull_request_target:
     types: [opened, reopened, edited]
 permissions: {}
@@ -9,61 +9,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 jobs:
-  open-limit:
-    name: Limit open pull requests
-    if: github.event.action != 'edited' && github.event.pull_request.user.type != 'Bot'
-    runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
-    steps:
-      - uses: actions/github-script@v9
-        with:
-          script: |
-            const pr = context.payload.pull_request;
-            const author = pr.user.login;
-            const { owner, repo } = context.repo;
-
-            // maintainers are not limited
-            try {
-              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
-                owner, repo, username: author,
-              });
-              if (['admin', 'maintain', 'write'].includes(data.permission)) {
-                core.info(`${author} has ${data.permission} access; not limited`);
-                return;
-              }
-            } catch (error) {
-              // fail open so a maintainer's pull request is never closed
-              core.warning(`permission lookup failed for ${author}: ${error.message}`);
-              return;
-            }
-
-            const pulls = await github.paginate(github.rest.pulls.list, {
-              owner, repo, state: 'open', per_page: 100,
-            });
-            const others = pulls.filter(
-              (p) => p.user.login === author && p.number !== pr.number
-            );
-            if (others.length === 0) {
-              return;
-            }
-
-            const list = others.map((p) => `- #${p.number}`).join('\n');
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: pr.number,
-              body:
-                `Thank you for the contribution. Outside contributors may have ` +
-                `one open pull request at a time, and you already have:\n\n` +
-                `${list}\n\n` +
-                `This pull request has been closed. Reopen it once the open ` +
-                `pull request is merged or closed.`,
-            });
-            await github.rest.pulls.update({
-              owner, repo, pull_number: pr.number, state: 'closed',
-            });
-            core.setFailed(`${author} already has an open pull request`);
-
   linked-issue:
     name: Check linked issue
     if: github.event.pull_request.user.type != 'Bot'
@@ -204,22 +149,30 @@ jobs:
             const marker = '<!-- pr-policy-template -->';
             const heading = 'Checklist of items for pull request';
 
+            // a chore, such as a dependency or lock file update, is titled
+            // "chore: ..." or "chore(scope): ..." and needs no template
+            const chore = /^chore(\([^)]*\))?!?:/i.test((pr.title || '').trim());
+
             const problems = [];
-            if (body.includes('Replace this paragraph with a written description')) {
-              problems.push('Replace the placeholder paragraph with a description of the pull request.');
-            }
-            const index = body.indexOf(heading);
-            if (index < 0) {
-              problems.push(`Keep the "${heading}" section from the template.`);
+            if (chore) {
+              core.info('chore pull request; template not required');
             } else {
-              if (body.slice(0, index).trim().length === 0) {
-                problems.push('Add a description above the checklist.');
+              if (body.includes('Replace this paragraph with a written description')) {
+                problems.push('Replace the placeholder paragraph with a description of the pull request.');
               }
-              if (!/-\s*\[[xX]\]\s*Replaced section above/.test(body)) {
-                problems.push('Check "Replaced section above with description of pull request".');
-              }
-              if (!/-\s*\[[xX]\]\s*Removed checklist items not relevant/.test(body)) {
-                problems.push('Check "Removed checklist items not relevant to this pull request" after removing items that do not apply.');
+              const index = body.indexOf(heading);
+              if (index < 0) {
+                problems.push(`Keep the "${heading}" section from the template.`);
+              } else {
+                if (body.slice(0, index).trim().length === 0) {
+                  problems.push('Add a description above the checklist.');
+                }
+                if (!/-\s*\[[xX]\]\s*Replaced section above/.test(body)) {
+                  problems.push('Check "Replaced section above with description of pull request".');
+                }
+                if (!/-\s*\[[xX]\]\s*Removed checklist items not relevant/.test(body)) {
+                  problems.push('Check "Removed checklist items not relevant to this pull request" after removing items that do not apply.');
+                }
               }
             }
 

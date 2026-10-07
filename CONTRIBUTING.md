@@ -97,8 +97,7 @@ pixi run prepare-pull-request
 
 Pull requests are checked automatically when they are opened or edited.
 
-- **Follow the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md).** Replace the placeholder paragraph with a description of the change, check the items you completed, and delete the rest. The "Removed checklist items not relevant to this pull request" item stays and is checked. A description that does not follow the template fails the check and a comment lists what to fix; the check runs again when the description is edited.
-- **Have one pull request open at a time.** Contributors without write access to the repository may have one open pull request. A second pull request is closed with a comment linking the open one; reopen it once the open one is merged or closed.
+- **Follow the [pull request template](./.github/PULL_REQUEST_TEMPLATE.md).** Replace the placeholder paragraph with a description of the change, check the items you completed, and delete the rest. The "Removed checklist items not relevant to this pull request" item stays and is checked. A description that does not follow the template fails the check and a comment lists what to fix; the check runs again when the description is edited. A chore, a pull request titled `chore: ...` or `chore(scope): ...`, does not need the template.
 - **Address an accepted issue.** Contributors without write access to the repository must open an issue before a pull request, and wait for a maintainer to accept it by assigning it a milestone. The pull request names the issue on the "Closed issue #xxxx" or "Referenced issue or pull request #xxxx" line of the template, or with a closing keyword such as "Closes #1234". A pull request without a linked issue that has a milestone fails the check and a comment says what is missing; the check runs again when the description is edited.
 - **Support performance claims with timings.** A pull request that claims a change is faster must report run times before and after the change for a model in the pull request or the test suite.
 
@@ -148,6 +147,7 @@ The general structure of a commit message is:
 
 Must be one of the following:
 
+- **chore**: Maintenance that does not change the program, its tests, or its documentation, such as dependency or lock file updates
 - **ci**: CI configuration files or scripts
 - **docs**: Online or PDF documentation
 - **feat**: New features
