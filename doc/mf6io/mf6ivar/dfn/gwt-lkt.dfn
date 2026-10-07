@@ -82,7 +82,7 @@ type keyword
 reader urword
 optional true
 longname activate stranded mass
-description is a text keyword to indicate that the solute of a lake that goes dry will be held until the lake rewets.  A lake goes dry when its volume falls to zero and the only water that leaves it is evaporation, which carries no solute; its solute is then held, as the salts that an evaporating water body leaves behind are, instead of remaining in a lake with no water.  The held mass is returned as the lake rewets, in proportion to the volume it regains relative to the volume of water that the held mass was dissolved in, and all of it is returned once that volume is regained.  The held mass is reported as the STRANDED term of the package budget.
+description is a text keyword to indicate that the solute of a lake that goes dry will be held until the lake rewets.  A lake goes dry when its volume falls to zero and the only water that leaves it is evaporation, which carries no solute; its solute is then held, as the salts that an evaporating water body leaves behind are, instead of remaining in a lake with no water.  The held mass is returned as the lake rewets, in proportion to the volume it regains relative to the largest volume it held since it was last dry, and all of it is returned once the lake regains that volume.  The held mass is reported as the STRANDED term of the package budget.
 mf6internal istrand
 
 block options

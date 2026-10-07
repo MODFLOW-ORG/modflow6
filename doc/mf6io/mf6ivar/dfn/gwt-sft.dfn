@@ -82,7 +82,7 @@ type keyword
 reader urword
 optional true
 longname activate stranded mass
-description is a text keyword to indicate that the solute of a reach that goes dry will be held until the reach rewets.  A reach goes dry when its volume falls to zero and the only water that leaves it is evaporation, which carries no solute; its solute is then held, as the salts that an evaporating water body leaves behind are, instead of remaining in a reach with no water.  The held mass is returned as the reach rewets, in proportion to the volume it regains relative to the volume of water that the held mass was dissolved in, and all of it is returned once that volume is regained.  The held mass is reported as the STRANDED term of the package budget.
+description is a text keyword to indicate that the solute of a reach that goes dry will be held until the reach rewets.  A reach goes dry when its volume falls to zero and no water that carries solute leaves it, as when evaporation removes the last of its water or, if the SFR Package does not route water through reach storage, when its inflow stops; its solute is then held, as the salts that an evaporating water body leaves behind are, instead of remaining in a reach with no water.  The held mass is returned as the reach rewets, in proportion to the volume it regains relative to the largest volume it held since it was last dry, and all of it is returned once the reach regains that volume.  The held mass is reported as the STRANDED term of the package budget.
 mf6internal istrand
 
 block options
