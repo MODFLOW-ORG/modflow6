@@ -118,7 +118,8 @@ module TspAptModule
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
     integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
-    real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< water volume the held mass came from
+    real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume a feature must regain to return all of its held mass
+    real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
     real(DP), dimension(:), pointer, contiguous :: strandk => null() !< rate coefficient for mass moved to the held mass
     real(DP), dimension(:), pointer, contiguous :: strandret => null() !< rate at which held mass returns to the feature
     real(DP), dimension(:), pointer, contiguous :: qstrand => null() !< net mass flux between the feature and the held mass
@@ -1198,12 +1199,14 @@ contains
     if (this%istrand /= 0) nstrand = this%ncv
     call mem_allocate(this%strandmass, nstrand, 'STRANDMASS', this%memoryPath)
     call mem_allocate(this%strandvol, nstrand, 'STRANDVOL', this%memoryPath)
+    call mem_allocate(this%strandvmax, nstrand, 'STRANDVMAX', this%memoryPath)
     call mem_allocate(this%strandk, nstrand, 'STRANDK', this%memoryPath)
     call mem_allocate(this%strandret, nstrand, 'STRANDRET', this%memoryPath)
     call mem_allocate(this%qstrand, nstrand, 'QSTRAND', this%memoryPath)
     do n = 1, nstrand
       this%strandmass(n) = DZERO
       this%strandvol(n) = DZERO
+      this%strandvmax(n) = DZERO
       this%strandk(n) = DZERO
       this%strandret(n) = DZERO
       this%qstrand(n) = DZERO
@@ -1245,6 +1248,7 @@ contains
     call mem_deallocate(this%qmfrommvr)
     call mem_deallocate(this%strandmass)
     call mem_deallocate(this%strandvol)
+    call mem_deallocate(this%strandvmax)
     call mem_deallocate(this%strandk)
     call mem_deallocate(this%strandret)
     call mem_deallocate(this%qstrand)
@@ -1799,7 +1803,7 @@ contains
   !!
   !! A feature holds its mass when its volume falls to zero and no outflow
   !! carries solute away. The held mass returns in proportion to the volume the
-  !! feature regains, relative to the water volume the mass came from.
+  !! feature regains, relative to its largest volume since it was last dry.
   !<
   subroutine apt_strand_coef(this)
     ! -- modules
@@ -1862,6 +1866,9 @@ contains
   end subroutine apt_strand_coef
 
   !> @brief Update the held mass of each feature at the end of a time step
+  !!
+  !! The volume to regain is the largest volume of the feature since it was
+  !! last dry.
   !<
   subroutine apt_strand_update(this)
     ! -- modules
@@ -1870,18 +1877,29 @@ contains
     class(TspAptType) :: this
     ! -- local
     integer(I4B) :: n
-    real(DP) :: v0, v1, held, returned
+    real(DP) :: v0, v1, vwater, held, returned
     !
     do n = 1, this%ncv
       held = this%strandk(n) * this%xnewpak(n)
       returned = this%strandret(n)
       this%qstrand(n) = returned - held
-      if (held > DZERO) then
-        this%strandmass(n) = this%strandmass(n) + held * delt
-        this%strandvol(n) = this%strandvol(n) + &
-                            this%strandk(n) / this%eqnsclfac * delt
-      else if (returned > DZERO) then
+      v0 = DZERO
+      v1 = DZERO
+      if (this%iboundpak(n) > 0) then
         call this%apt_get_volumes(n, v1, v0, delt)
+      end if
+      if (held > DZERO) then
+        !
+        ! -- the feature goes dry, so the volume to regain is its largest
+        !    volume since it was last dry
+        vwater = this%strandk(n) / this%eqnsclfac * delt
+        this%strandmass(n) = this%strandmass(n) + held * delt
+        this%strandvol(n) = max(this%strandvol(n), this%strandvmax(n), vwater)
+        this%strandvmax(n) = DZERO
+      else
+        this%strandvmax(n) = max(this%strandvmax(n), v0, v1)
+      end if
+      if (returned > DZERO) then
         this%strandvol(n) = this%strandvol(n) - (v1 - v0)
         this%strandmass(n) = this%strandmass(n) - returned * delt
         if (this%strandvol(n) <= DZERO) then
