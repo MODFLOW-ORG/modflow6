@@ -1004,7 +1004,10 @@ contains
       if (qss /= DZERO) then
         vold = vnew + qss * delt
       else
-        if (vnew == DZERO) then
+        !
+        ! -- a reach that goes dry keeps the volume of the previous time step
+        !    with the STRANDED_MASS option, so its solute can be held
+        if (vnew == DZERO .and. this%istrand == 0) then
           vold = DZERO
         else
           vold = this%vold(icv)

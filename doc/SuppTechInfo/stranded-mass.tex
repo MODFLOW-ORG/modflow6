@@ -177,6 +177,21 @@ The reservoirs keep their mass while the cell is inactive (fig.~\ref{fig:strande
 	\end{center}
 \end{figure}
 
+\subsection{Lakes and Stream Reaches}
+
+The Lake Transport (LKT) and Streamflow Transport (SFT) Packages calculate the solute mass of a lake or reach from its volume of water, which the Lake (LAK) and Streamflow Routing (SFR) Packages provide at the end of each time step; where SFR does not route water through reach storage, SFT uses the volume of the reach at the end of the previous time step as the volume at the start of the next. When a lake or reach loses the last of its water and the only water it loses is evaporation, which carries no solute, its solute has no water left to be in. Without the STRANDED\_MASS option of the LKT and SFT Packages, the transport solution of a lake that evaporates dry cannot be found, and the solute of a reach that goes dry is discarded without appearing in the budget of the package. With the option, the solute is held, as the salts that an evaporating water body leaves behind are, and is returned when the lake or reach rewets.
+
+A lake or reach goes dry over a time step when its volume at the end of the time step is zero and no water that carries solute leaves it: there is no seepage to the aquifer, no flow through an outlet or to the next reach, no withdrawal, and no transfer by the Water Mover (MVR) Package, so that evaporation is the only loss. Its solute is then moved to its held mass,
+
+\begin{equation}
+\label{eqn:strandapt}
+\Delta M_{st} = C \left ( V_0 + V_{in} \right ) ,
+\end{equation}
+
+\noindent where $C$ is the concentration of the lake or reach ($M/L^3$), $V_0$ is its volume at the start of the time step ($L^3$), and $V_{in}$ is the volume of water that entered it during the time step ($L^3$). The concentration of the dry lake or reach is that of the water it lost to evaporation, and all of its solute is held. As the lake or reach rewets, the held mass is returned in proportion to the volume that it regains relative to the volume $V_0 + V_{in}$ that the held mass came from, as in equation~\ref{eqn:strandreturn} with that volume in place of the drained fraction, and all of it is returned once that volume is regained. The held mass is reported as the STRANDED term of the package budget and as the stranded observation, and the option is not available for energy transport.
+
+A lake on an impermeable bed that holds 10,000 cubic meters (m$^3$) of water at 100 g/m$^3$ and evaporates dry over 5 \si{\day} shows the effect. Without the option, the transport solution fails in the time step in which the lake loses the last of its water. With the option, all 1,000,000 \si{\gram} of solute is held while the lake is dry, three quarters of it is returned when the refilling lake regains 1,500 of the 2,000 m$^3$ that it held at the start of the time step in which it went dry, and the rest is returned in the next time step. The sum of the solute in the lake and the held mass is 1,000,000 \si{\gram} in every time step, and the percent discrepancy of the LKT budget is 0.00 in every time step.
+
 \subsection{Assessment}
 
 The formulation conserves mass by construction. The mobile domain loses exactly the mass that the reservoirs gain and gains exactly the mass that they lose, so the sum of the mobile and stranded mass changes only through decay and the flows across the boundaries of the model. No mass is averaged in from neighboring cells, adjusted, or discarded, so a discrepancy in the model budget would indicate an error in the program rather than a modeling choice. The approaches available in MT3D-USGS \citep{mt3dusgs} do not have this property: a cell that rewets is assigned either an inverse-distance-weighted average of the concentrations of its neighbors, which creates mass, or a concentration of zero, which destroys it.
