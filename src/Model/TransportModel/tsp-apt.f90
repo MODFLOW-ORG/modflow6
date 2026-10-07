@@ -36,8 +36,9 @@
 module TspAptModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, DONE, DEP20, LENFTYPE, LINELENGTH, &
+  use ConstantsModule, only: DZERO, DONE, DEM10, DEP20, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPACKAGENAME, NAMEDBOUNDFLAG, &
+                             LENBUDTXT, &
                              DNODATA, TABLEFT, TABCENTER, TABRIGHT, &
                              TABSTRING, TABUCSTRING, TABINTEGER, TABREAL, &
                              LENAUXNAME, LENVARNAME, MNORMAL
@@ -115,6 +116,12 @@ module TspAptModule
     integer(I4B), pointer :: nconcbudssm => null() !< number of concbudssm terms (columns)
     real(DP), dimension(:, :), pointer, contiguous :: concbudssm => null() !< user specified concentrations (or temperatures) for flow terms
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
+    integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry
+    real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
+    real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< water volume the held mass came from
+    real(DP), dimension(:), pointer, contiguous :: strandk => null() !< rate coefficient for mass moved to the held mass
+    real(DP), dimension(:), pointer, contiguous :: strandret => null() !< rate at which held mass returns to the feature
+    real(DP), dimension(:), pointer, contiguous :: qstrand => null() !< net mass flux between the feature and the held mass
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
     character(len=LENVARNAME) :: depvartype = '' !< stores string identifying dependent variable type, depending on model type
     character(len=LENVARNAME) :: depvarunit = '' !< "mass" or "energy"
@@ -134,6 +141,8 @@ module TspAptModule
 
     procedure :: set_pointers => apt_set_pointers
     procedure :: bnd_ac => apt_ac
+    procedure :: apt_strand_coef
+    procedure :: apt_strand_update
     procedure :: bnd_mc => apt_mc
     procedure :: bnd_ar => apt_ar
     procedure :: bnd_rp => apt_rp
@@ -750,6 +759,18 @@ contains
       rhs(iloc) = rhs(iloc) + rhsval
     end do
     !
+    ! -- mass moved to the held mass of a feature that goes dry, and the held
+    !    mass returned as the feature rewets
+    if (this%istrand /= 0) then
+      call this%apt_strand_coef()
+      do n = 1, this%ncv
+        iloc = this%idxlocnode(n)
+        iposd = this%idxpakdiag(n)
+        call matrix_sln%add_value_pos(iposd, -this%strandk(n))
+        rhs(iloc) = rhs(iloc) - this%strandret(n)
+      end do
+    end if
+    !
     ! -- add to mover contribution
     if (this%idxbudtmvr /= 0) then
       do j = 1, this%flowbudptr%budterm(this%idxbudtmvr)%nlist
@@ -903,6 +924,11 @@ contains
       this%qsto(n) = rrate
     end do
     !
+    ! -- update the held mass of each feature from the converged solution
+    if (this%istrand /= 0) then
+      call this%apt_strand_update()
+    end if
+    !
     ! -- Copy concentrations (or temperatures) into the flow package auxiliary variable
     call this%apt_copy2flowp()
     !
@@ -1037,6 +1063,7 @@ contains
     call mem_allocate(this%nconcbudssm, 'NCONCBUDSSM', this%memoryPath)
     call mem_allocate(this%idxprepak, 'IDXPREPAK', this%memoryPath)
     call mem_allocate(this%idxlastpak, 'IDXLASTPAK', this%memoryPath)
+    call mem_allocate(this%istrand, 'ISTRAND', this%memoryPath)
     !
     ! -- Initialize
     this%iauxfpconc = 0
@@ -1056,6 +1083,7 @@ contains
     this%nconcbudssm = 0
     this%idxprepak = 0
     this%idxlastpak = 0
+    this%istrand = 0
     !
     ! -- set this package as causing asymmetric matrix terms
     this%iasym = 1
@@ -1129,6 +1157,7 @@ contains
     class(TspAptType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n
+    integer(I4B) :: nstrand
     !
     ! -- call standard BndExtType allocate arrays
     call this%BndExtType%allocate_arrays()
@@ -1164,6 +1193,22 @@ contains
     ! -- mass (or energy) added from the mover transport package
     call mem_allocate(this%qmfrommvr, this%ncv, 'QMFROMMVR', this%memoryPath)
     !
+    ! -- mass held for features that go dry, only with the STRANDED_MASS option
+    nstrand = 0
+    if (this%istrand /= 0) nstrand = this%ncv
+    call mem_allocate(this%strandmass, nstrand, 'STRANDMASS', this%memoryPath)
+    call mem_allocate(this%strandvol, nstrand, 'STRANDVOL', this%memoryPath)
+    call mem_allocate(this%strandk, nstrand, 'STRANDK', this%memoryPath)
+    call mem_allocate(this%strandret, nstrand, 'STRANDRET', this%memoryPath)
+    call mem_allocate(this%qstrand, nstrand, 'QSTRAND', this%memoryPath)
+    do n = 1, nstrand
+      this%strandmass(n) = DZERO
+      this%strandvol(n) = DZERO
+      this%strandk(n) = DZERO
+      this%strandret(n) = DZERO
+      this%qstrand(n) = DZERO
+    end do
+    !
     ! -- initialize arrays
     do n = 1, this%ncv
       this%status(n) = 'ACTIVE'
@@ -1198,6 +1243,11 @@ contains
     call mem_deallocate(this%concbudssm)
     nullify (this%concfeat) ! input-context-owned alias, not package-allocated
     call mem_deallocate(this%qmfrommvr)
+    call mem_deallocate(this%strandmass)
+    call mem_deallocate(this%strandvol)
+    call mem_deallocate(this%strandk)
+    call mem_deallocate(this%strandret)
+    call mem_deallocate(this%qstrand)
     deallocate (this%status)
     deallocate (this%featname)
     !
@@ -1242,6 +1292,7 @@ contains
     call mem_deallocate(this%nconcbudssm)
     call mem_deallocate(this%idxprepak)
     call mem_deallocate(this%idxlastpak)
+    call mem_deallocate(this%istrand)
     !
     ! -- deallocate scalars in BndExtType
     call this%BndExtType%bnd_da()
@@ -1297,6 +1348,14 @@ contains
       write (this%iout, '(4x,a)') &
         'SIMULATED CONCENTRATIONS WILL BE COPIED INTO THE FLOW PACKAGE &
         &AUXILIARY VARIABLE WITH THE NAME '//trim(adjustl(this%cauxfpconc))
+    end if
+    !
+    ! -- ISTRAND (DFN: stranded_mass)
+    call mem_set_value(this%istrand, 'ISTRAND', this%input_mempath, found)
+    if (found) then
+      write (this%iout, '(4x,a)') &
+        trim(adjustl(this%text))//' WILL HOLD THE MASS OF A FEATURE THAT &
+        &GOES DRY AND RETURN IT WHEN THE FEATURE REWETS.'
     end if
     !
     ! -- DEV_NONEXPANDING_MATRIX is intentionally not sourced: this
@@ -1736,6 +1795,103 @@ contains
     end if
   end subroutine apt_get_volumes
 
+  !> @brief Rates of mass moved to and returned from the held mass
+  !!
+  !! A feature holds its mass when its volume falls to zero and no outflow
+  !! carries solute away. The held mass returns in proportion to the volume the
+  !! feature regains, relative to the water volume the mass came from.
+  !<
+  subroutine apt_strand_coef(this)
+    ! -- modules
+    use TdisModule, only: delt
+    ! -- dummy
+    class(TspAptType) :: this
+    ! -- local
+    integer(I4B) :: i, j, n
+    real(DP) :: q, v0, v1, vwater, f
+    real(DP), dimension(:), allocatable :: qin, qout
+    character(len=LENBUDTXT) :: flowtype
+    !
+    ! -- water entering each feature, and water leaving it that carries solute;
+    !    evaporation leaves the solute behind
+    allocate (qin(this%ncv), qout(this%ncv))
+    do n = 1, this%ncv
+      qin(n) = DZERO
+      qout(n) = DZERO
+    end do
+    do i = 1, this%flowbudptr%nbudterm
+      if (i == this%idxbudsto) cycle
+      flowtype = adjustl(this%flowbudptr%budterm(i)%flowtype)
+      if (flowtype == 'EVAPORATION' .or. flowtype == 'AUXILIARY' .or. &
+          flowtype == 'CONSTANT') cycle
+      do j = 1, this%flowbudptr%budterm(i)%nlist
+        n = this%flowbudptr%budterm(i)%id1(j)
+        q = this%flowbudptr%budterm(i)%flow(j)
+        if (q > DZERO) then
+          qin(n) = qin(n) + q
+        else
+          qout(n) = qout(n) - q
+        end if
+      end do
+    end do
+    !
+    do n = 1, this%ncv
+      this%strandk(n) = DZERO
+      this%strandret(n) = DZERO
+      if (this%iboundpak(n) <= 0) cycle
+      call this%apt_get_volumes(n, v1, v0, delt)
+      vwater = v0 + qin(n) * delt
+      !
+      ! -- the feature goes dry and its solute has no water to leave with, so
+      !    its mass moves to the held mass at the rate of its water volume
+      if (v1 <= DEM10 * v0 .and. vwater > DZERO .and. &
+          qout(n) * delt <= DEM10 * vwater) then
+        this%strandk(n) = vwater / delt * this%eqnsclfac
+        !
+        ! -- the feature regains water, so the held mass returns in proportion
+      else if (this%strandmass(n) > DZERO .and. v1 > v0) then
+        if (this%strandvol(n) > DZERO) then
+          f = min((v1 - v0) / this%strandvol(n), DONE)
+        else
+          f = DONE
+        end if
+        this%strandret(n) = f * this%strandmass(n) / delt
+      end if
+    end do
+    deallocate (qin, qout)
+  end subroutine apt_strand_coef
+
+  !> @brief Update the held mass of each feature at the end of a time step
+  !<
+  subroutine apt_strand_update(this)
+    ! -- modules
+    use TdisModule, only: delt
+    ! -- dummy
+    class(TspAptType) :: this
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: v0, v1, held, returned
+    !
+    do n = 1, this%ncv
+      held = this%strandk(n) * this%xnewpak(n)
+      returned = this%strandret(n)
+      this%qstrand(n) = returned - held
+      if (held > DZERO) then
+        this%strandmass(n) = this%strandmass(n) + held * delt
+        this%strandvol(n) = this%strandvol(n) + &
+                            this%strandk(n) / this%eqnsclfac * delt
+      else if (returned > DZERO) then
+        call this%apt_get_volumes(n, v1, v0, delt)
+        this%strandvol(n) = this%strandvol(n) - (v1 - v0)
+        this%strandmass(n) = this%strandmass(n) - returned * delt
+        if (this%strandvol(n) <= DZERO) then
+          this%strandvol(n) = DZERO
+          this%strandmass(n) = DZERO
+        end if
+      end if
+    end do
+  end subroutine apt_strand_update
+
   !> @brief Function to return the number of budget terms just for this package
   !!
   !! This function must be overridden.
@@ -1793,6 +1949,9 @@ contains
     !
     ! -- add terms for the specific package
     nbudterm = nbudterm + this%pak_get_nbudterms()
+    !
+    ! -- add one for the held mass if the STRANDED_MASS option is active
+    if (this%istrand /= 0) nbudterm = nbudterm + 1
     !
     ! -- add for mover terms and auxiliary
     if (this%idxbudtmvr /= 0) nbudterm = nbudterm + 1
@@ -1871,6 +2030,21 @@ contains
                                              this%packName, &
                                              maxlist, .false., .false., &
                                              naux, auxtxt)
+    if (this%istrand /= 0) then
+      !
+      ! -- mass moved to and returned from the held mass, with the held mass
+      text = '        STRANDED'
+      idx = idx + 1
+      maxlist = this%ncv
+      naux = 1
+      call this%budobj%budterm(idx)%initialize(text, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               this%name_model, &
+                                               this%packName, &
+                                               maxlist, .false., .false., &
+                                               naux, auxtxt)
+    end if
     if (this%idxbudtmvr /= 0) then
       !
       ! --
@@ -2037,6 +2211,20 @@ contains
       call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
     end do
     deallocate (auxvartmp)
+    !
+    ! -- STRANDED
+    if (this%istrand /= 0) then
+      idx = idx + 1
+      call this%budobj%budterm(idx)%reset(this%ncv)
+      allocate (auxvartmp(1))
+      do n1 = 1, this%ncv
+        auxvartmp(1) = this%strandmass(n1)
+        q = this%qstrand(n1)
+        call this%budobj%budterm(idx)%update_term(n1, n1, q, auxvartmp)
+        call this%apt_accumulate_ccterm(n1, q, ccratin, ccratout)
+      end do
+      deallocate (auxvartmp)
+    end if
     !
     ! -- TO MOVER
     if (this%idxbudtmvr /= 0) then
@@ -2544,6 +2732,15 @@ contains
           end if
         case ('STORAGE')
           call this%rp_obs_byfeature(obsrv)
+        case ('STRANDED')
+          if (this%istrand == 0) then
+            write (errmsg, '(5a)') &
+              'Observation ', trim(obsrv%Name), ' in package ', &
+              trim(this%packName), &
+              ' requires the STRANDED_MASS option.'
+            call store_error(errmsg)
+          end if
+          call this%rp_obs_byfeature(obsrv)
         case ('CONSTANT')
           call this%rp_obs_byfeature(obsrv)
         case ('FROM-MVR')
@@ -2623,6 +2820,10 @@ contains
           case ('STORAGE')
             if (this%iboundpak(jj) /= 0) then
               v = this%qsto(jj)
+            end if
+          case ('STRANDED')
+            if (this%iboundpak(jj) /= 0) then
+              v = this%qstrand(jj)
             end if
           case ('CONSTANT')
             if (this%iboundpak(jj) /= 0) then

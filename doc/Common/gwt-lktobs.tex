@@ -2,6 +2,7 @@
 LKT & concentration & ifno or boundname & -- & Lake concentration. If boundname is specified, boundname must be unique for each lake. \\
 LKT & flow-ja-face & ifno or boundname & ifno or -- & Mass flow between two lakes connected by an outlet.  If more than one outlet is used to connect the same two lakes, then the mass flow for only the first outlet can be observed.  If a boundname is specified for ID1, then the result is the total mass flow for all outlets for a lake. If a boundname is specified for ID1 then ID2 is not used.\\
 LKT & storage & ifno or boundname & -- & Simulated mass storage flow rate for a lake or group of lakes. \\
+LKT & stranded & ifno or boundname & -- & Simulated mass flow rate between a lake or group of lakes and the mass it holds while dry, negative when mass is held and positive when it is returned. Available only with the STRANDED\_MASS option. \\
 LKT & constant & ifno or boundname & -- & Simulated mass constant-flow rate for a lake or group of lakes. \\
 LKT & from-mvr & ifno or boundname & -- & Simulated mass inflow into a lake or group of lakes from the MVT package. Mass inflow is calculated as the product of provider concentration and the mover flow rate. \\
 LKT & to-mvr & outletno or boundname & -- & Mass outflow from a lake outlet, a lake, or a group of lakes that is available for the MVR package. If boundname is not specified for ID, then the outflow available for the MVR package from a specific lake outlet is observed. In this case, ID is the outlet number, which must be between 1 and NOUTLETS. \\
