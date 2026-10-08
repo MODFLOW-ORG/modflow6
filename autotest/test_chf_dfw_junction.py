@@ -78,9 +78,7 @@ def _sim(name, workspace):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=workspace
     )
-    flopy.mf6.ModflowTdis(
-        sim, nper=1, perioddata=[(1.0, 1, 1.0)], time_units="SECONDS"
-    )
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)], time_units="SECONDS")
     flopy.mf6.ModflowIms(sim, print_option="summary", **_IMS)
     return sim
 
@@ -124,18 +122,28 @@ def _build_confluence(test, name, with_jnc):
         [2, 0.5, 2, 3, 2],
     ]
     flopy.mf6.ModflowChfdisv1D(
-        chf, nodes=3, nvert=4, width=10.0, bottom=[2.0, 1.0, 0.0],
-        idomain=1, vertices=vertices, cell1d=cell1d,
+        chf,
+        nodes=3,
+        nvert=4,
+        width=10.0,
+        bottom=[2.0, 1.0, 0.0],
+        idomain=1,
+        vertices=vertices,
+        cell1d=cell1d,
     )
     flopy.mf6.ModflowChfsto(chf, save_flows=True, steady_state={0: True})
     _add_common(chf, name, strt=[3.0, 2.0, 0.5], with_jnc=with_jnc)
     flopy.mf6.ModflowChfflw(
-        chf, maxbound=2, print_flows=True,
+        chf,
+        maxbound=2,
+        print_flows=True,
         stress_period_data=[(0, 3.0), (1, 1.0)],
     )
     # ZDG outlet: (cellid, idcxs, width, slope, rough)
     flopy.mf6.ModflowChfzdg(
-        chf, maxbound=1, print_flows=True,
+        chf,
+        maxbound=1,
+        print_flows=True,
         stress_period_data=[(2, 0, 10.0, 0.001, 0.03)],
     )
     return sim, None
@@ -163,8 +171,14 @@ def _build_straight(name, workspace, with_jnc):
     vertices = [[0, 0.0, 0.0], [1, 100.0, 0.0], [2, 200.0, 0.0]]
     cell1d = [[0, 0.5, 2, 0, 1], [1, 0.5, 2, 1, 2]]
     flopy.mf6.ModflowChfdisv1D(
-        chf, nodes=2, nvert=3, width=10.0, bottom=[1.0, 0.0],
-        idomain=1, vertices=vertices, cell1d=cell1d,
+        chf,
+        nodes=2,
+        nvert=3,
+        width=10.0,
+        bottom=[1.0, 0.0],
+        idomain=1,
+        vertices=vertices,
+        cell1d=cell1d,
     )
     flopy.mf6.ModflowChfsto(chf, save_flows=True, steady_state={0: True})
     _add_common(chf, name, strt=[2.0, 1.0], with_jnc=with_jnc)
@@ -172,7 +186,9 @@ def _build_straight(name, workspace, with_jnc):
         chf, maxbound=1, print_flows=True, stress_period_data=[(0, 2.0)]
     )
     flopy.mf6.ModflowChfzdg(
-        chf, maxbound=1, print_flows=True,
+        chf,
+        maxbound=1,
+        print_flows=True,
         stress_period_data=[(1, 0, 10.0, 0.01, 0.03)],
     )
     return sim
@@ -216,9 +232,7 @@ def _flowja_offdiag(test, name):
     """
     from flopy.mf6.utils.binarygrid_util import MfGrdFile
 
-    bud = flopy.utils.binaryfile.CellBudgetFile(
-        str(test.workspace / f"{name}.bud")
-    )
+    bud = flopy.utils.binaryfile.CellBudgetFile(str(test.workspace / f"{name}.bud"))
     fja = bud.get_data(text="FLOW-JA-FACE")[-1].flatten()
 
     grb = MfGrdFile(str(test.workspace / f"{name}.disv1d.grb"))
@@ -239,17 +253,14 @@ def _budget_discrepancy(test, name):
 
     lst = (test.workspace / f"{name}.lst").read_text()
     vals = [
-        abs(float(x))
-        for x in re.findall(r"PERCENT DISCREPANCY\s*=\s*([-\d.E+]+)", lst)
+        abs(float(x)) for x in re.findall(r"PERCENT DISCREPANCY\s*=\s*([-\d.E+]+)", lst)
     ]
     return max(vals) if vals else float("nan")
 
 
 def _flw_zdg_totals(test, name):
     """Total FLW inflow and ZDG outflow from the budget file."""
-    bud = flopy.utils.binaryfile.CellBudgetFile(
-        str(test.workspace / f"{name}.bud")
-    )
+    bud = flopy.utils.binaryfile.CellBudgetFile(str(test.workspace / f"{name}.bud"))
     qflw = bud.get_data(text="FLW")[-1]
     qzdg = bud.get_data(text="ZDG")[-1]
     flw_in = sum(float(r["q"]) for r in qflw if float(r["q"]) > 0.0)
@@ -281,9 +292,7 @@ def check_mb(test):
 def check_off(test):
     name = cases[1]
     # junctions are off, so none should be detected
-    assert _njunctions(test, name) == 0, (
-        "JNC6 omitted: no junction should be detected"
-    )
+    assert _njunctions(test, name) == 0, "JNC6 omitted: no junction should be detected"
     # with no junction the reaches remain directly coupled through the grid, so
     # at least one reach-reach off-diagonal flow is nonzero (the coupling that
     # an active junction masks)
