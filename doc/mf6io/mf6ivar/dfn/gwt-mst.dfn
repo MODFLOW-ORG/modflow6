@@ -79,6 +79,74 @@ longname file keyword
 description name of the binary output file to write stranded mass information.  Writing this file is the way to obtain the stranded mass of a single cell over time; like the sorbate concentration, stranded mass is not available through the Observation (OBS) utility.
 
 block options
+name stranded_aq_filerecord
+type record stranded_aq fileout strandedaqfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal strandaq_rec
+
+block options
+name stranded_aq
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_aq keyword
+description keyword to specify that record corresponds to the aqueous stranded mass.
+
+block options
+name strandedaqfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the aqueous stranded mass of each cell.  The file can be used to give STRANDED\_AQUEOUS for a simulation that continues from this one.
+
+block options
+name stranded_srb_filerecord
+type record stranded_srb fileout strandedsrbfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal strandsrb_rec
+
+block options
+name stranded_srb
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_srb keyword
+description keyword to specify that record corresponds to the sorbed stranded mass.
+
+block options
+name strandedsrbfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the sorbed stranded mass of each cell.  The file can be used to give STRANDED\_SORBED for a simulation that continues from this one.
+
+block options
 name sorbate_filerecord
 type record sorbate fileout sorbatefile
 shape
@@ -209,3 +277,24 @@ optional true
 longname second sorption parameter
 description is the exponent for the Freundlich isotherm and the sorption capacity for the Langmuir isotherm.  sp2 is not required unless the SORPTION keyword is specified in the options block.  If the SORPTION keyword is not specified in the options block, sp2 will have no effect on simulation results. 
 
+block griddata
+name stranded_aqueous
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial stranded aqueous mass
+description is the mass of solute held in the drained part of each cell at the start of the simulation, from the water retained there, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY.  The STRANDED\_MASS option must be specified, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_aqueous is not specified, no aqueous mass is stranded at the start of the simulation.
+
+block griddata
+name stranded_sorbed
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial stranded sorbed mass
+description is the sorbed mass of solute held in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY\_SORBED.  The STRANDED\_MASS and SORPTION options must be specified, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_sorbed is not specified, no sorbed mass is stranded at the start of the simulation.

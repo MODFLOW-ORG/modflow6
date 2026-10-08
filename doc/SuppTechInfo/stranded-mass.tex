@@ -97,6 +97,10 @@ A transport model that reads the flows saved by a separate flow simulation does 
 
 A cell whose water table falls below its bottom is inactive for transport until it is rewet. Its reservoirs are not emptied: the mass they hold decays at the rate given for its phase and is returned when the cell is rewet, in proportion to the part of the drained interval that resaturates. The saturation of the cell is recorded while it is inactive, so the time step in which it becomes active again is treated as rewetting. Without that record, the saturation from before the cell went dry would stand, and a cell that returns wetter than it was when it went dry, but not full, would appear to have drained further and would strand mass instead of returning it.
 
+\subsubsection{Stranded mass at the start of a simulation}
+
+A simulation can begin with mass already stranded, given for each cell as an aqueous and a sorbed mass. The mass is taken to be held in the part of the cell that is drained at the start, so the drained fraction of equation~\ref{eqn:strandreturn} starts at $F = 1 - S_{w,0}$, where $S_{w,0}$ is the saturation implied by the starting heads (dimensionless), and the mass returns as that part resaturates. A cell that starts fully saturated has no drained part and cannot hold stranded mass. Giving the aqueous and sorbed stranded mass at the end of one simulation, with its concentrations, to the next continues the first simulation in every cell whose stranded mass is held in the part of the cell drained at the end of the first, which includes every cell that started the first simulation saturated.
+
 \subsubsection{Solute left behind by evapotranspiration}
 
 A sink that carries no solute removes water from a cell and leaves its solute behind. Evapotranspiration is the usual example: given a mixed (AUXMIXED) concentration of zero in the Source and Sink Mixing (SSM) Package, it removes water without solute, as evaporation does. Without the option, all of that solute stays in the water of the cell. Where evapotranspiration drains a cell, and particularly where its extinction depth reaches below the cell so that it continues to draw water through a cell that is nearly dry, the same solute is concentrated into a volume of water that approaches zero, and the concentration grows without bound. The budget of the model is unaffected, because no mass is created or lost, so nothing in the budget reveals the problem, and in a cell that the Newton formulation keeps active at a small saturation the transport solution can fail.
@@ -241,7 +245,7 @@ The option is intended for simulations in which the water table moves through ce
 
 Alternative treatments of the sorbed mass of a cell whose water table moves are compared by Bedekar and others (V. Bedekar, S.S. Papadopulos \& Associates, Inc., written communication, 2021). MT3D-USGS \citep{mt3dusgs} revised the storage formulation of MT3DMS so that the sorbed part of the storage term is accumulated in a reservoir for the cell rather than released to the water that remains, and is returned when the cell rewets in proportion to the share of the unsaturated volume of the cell that resaturates; the earlier formulation remains available through the LEGACY99STORAGE keyword of the Basic Transport Package. The sorbed half of the formulation described in this chapter is the same idea expressed in the terms of the MODFLOW~6 transport models.
 
-The formulation described here differs in four respects.
+The formulation described here differs in five respects.
 
 \begin{itemize}
 
@@ -250,6 +254,8 @@ The formulation described here differs in four respects.
 \item \textbf{The stranded mass decays.} Mass held out of the mobile domain by MT3D-USGS is inert for as long as it is held, so a cell that stays dry for a long time returns the mass it started with. Here each reservoir decays at the rate given for its phase, which matters when the period between drainage and rewetting is long relative to the half-life.
 
 \item \textbf{The share that returns is measured relative to the drained interval.} MT3D-USGS returns the reservoir in proportion to the share of the unsaturated volume of the cell that resaturates, so the mass held back from a small fall of the water table is spread over the whole unsaturated part of the cell. Bedekar and others (written communication, 2021) note that this underestimates the mass returned when the water table moves through only a small part of a cell. Here the share is measured relative to the drained fraction $F$ of equation~\ref{eqn:strandreturn}, the part of the cell that drained while the mass was held. A cell that drains from a saturation of 0.5 to 0.3 and rewets to 0.4 recovers half of its stranded mass here and one seventh of it in MT3D-USGS.
+
+\item \textbf{Stranded mass can be given at the start of a simulation.} MT3D-USGS begins every simulation with an empty reservoir, so a simulation cannot continue one that ended with mass held back.
 
 \item \textbf{The behavior is optional.} MT3D-USGS applies its formulation unless the legacy formulation is requested, whereas the formulation described here is active only when the STRANDED\_MASS option is specified, so existing simulations are unaffected.
 

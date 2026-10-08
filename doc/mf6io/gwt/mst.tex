@@ -21,6 +21,8 @@ The saturation of a cell at the end of the previous time step is needed to deter
 
 No mass is stranded or returned in a cell while the Constant Concentration (CNC) Package holds its concentration, since the cell then has no storage term; mass already held for the cell stays held and decays.
 
+Stranded mass is zero at the start of a simulation unless it is given with the STRANDED\_AQUEOUS and STRANDED\_SORBED arrays, as a mass for each cell.  That mass is held in the part of the cell that is drained at the start of the simulation, one minus the saturation from the starting heads, and is returned as that part resaturates; a cell that starts fully saturated cannot hold stranded mass.  When flows are read from a budget file, the saturation the simulation starts from is taken from the first time step, which is exact only if the water table does not move during it.  The STRANDED\_AQ and STRANDED\_SRB FILEOUT options write the aqueous and sorbed stranded mass to separate binary files, so that a simulation can continue from the concentrations and stranded mass at the end of another.
+
 The STRANDED\_MASS option cannot be used together with the Immobile Storage and Transfer (IST) Package.  An immobile domain also scales its mass by the saturation of the cell, so it would return its solute to the mobile domain on drainage while the mobile domain held its own mass out, and the two domains would be inconsistent with one another.  The option should also not be used together with the Unsaturated Zone Transport (UZT) Package, which represents the drained part of a cell explicitly.
 
 \vspace{5mm}

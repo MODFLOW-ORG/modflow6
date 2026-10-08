@@ -88,8 +88,11 @@ module GwtMstModule
     ! -- stranded mass
     integer(I4B), pointer :: istrand => null() !< stranded mass active flag
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
+    integer(I4B), pointer :: ioutstrandaq => null() !< unit number for aqueous stranded mass output
+    integer(I4B), pointer :: ioutstrandsrb => null() !< unit number for sorbed stranded mass output
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     logical :: satold_valid = .false. !< the stored saturation of the previous time step can be used
+    logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
     logical :: strand_stepped = .false. !< the stranded mass of a time step has been calculated
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
@@ -125,6 +128,7 @@ module GwtMstModule
     procedure :: mst_cq_strand
     procedure :: mst_ad
     procedure, private :: mst_held_grow
+    procedure, private :: mst_held_initial
     procedure :: mst_calc_stranded
     procedure :: mst_ot_bdsummary
     procedure :: mst_calc_csrb
@@ -203,17 +207,21 @@ contains
     ! -- Allocate arrays
     call this%allocate_arrays(dis%nodes)
     !
+    ! -- Create the stranded mass reservoirs if the option is active, before
+    !    the data block, which can give the mass they hold at the start
+    if (this%istrand /= IZERO) then
+      allocate (this%strand)
+      call this%strand%init(this%name_model, 'MST-STRND', dis%nodes)
+    end if
+    !
     ! -- source the data block
     call this%source_data()
     !
     ! -- Create isotherm object if sorption is active
     this%isotherm => create_isotherm(this%isrb, this%distcoef, this%sp2)
     !
-    ! -- Create the stranded mass reservoirs if the option is active
+    ! -- Create the stranded mass budget if the option is active
     if (this%istrand /= IZERO) then
-      allocate (this%strand)
-      call this%strand%init(this%name_model, 'MST-STRND', dis%nodes)
-
       call budget_cr(this%strandbudget, this%memoryPath)
       call this%strandbudget%budget_df(NBDITEMS_STRAND, 'MASS', 'M', &
                                        bdzone=this%packName)
@@ -332,6 +340,7 @@ contains
     !
     tled = DONE / delt
     call this%mst_solute_free()
+    if (this%held_pending) call this%mst_held_initial(delt)
     !
     do n = 1, this%dis%nodes
       !
@@ -392,6 +401,43 @@ contains
       end if
     end do
   end subroutine mst_fc_strand
+
+  !> @brief Set the held fraction of the initial stranded mass
+  !!
+  !! Initial stranded mass is held in the part of the cell that is drained at
+  !! the start of the simulation, so it returns as that part resaturates.
+  !<
+  subroutine mst_held_initial(this, delt)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    real(DP), intent(in) :: delt !< length of the time step
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: sat0
+    character(len=LINELENGTH) :: cellid
+    !
+    do n = 1, this%dis%nodes
+      if (this%strand%total(n) <= DZERO) cycle
+      sat0 = this%mst_satold(n, delt)
+      if (sat0 >= DONE - DEM6) then
+        call this%dis%noder_to_string(n, cellid)
+        write (errmsg, '(a)') 'Cell '//trim(adjustl(cellid))//' holds &
+          &initial stranded mass but is fully saturated at the start of the &
+          &simulation, so it has no drained part to hold it in.'
+        call store_error(errmsg)
+      end if
+      if (this%strand%stranded_aqueous(n) > DZERO) then
+        this%strand%held_aq(n) = max(DONE - sat0, DZERO)
+      end if
+      if (this%strand%stranded_sorbed(n) > DZERO) then
+        this%strand%held_srb(n) = max(DONE - sat0, DZERO)
+      end if
+    end do
+    this%held_pending = .false.
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine mst_held_initial
 
   !> @brief Water leaving each cell through sinks that carry no solute
   !<
@@ -1542,6 +1588,25 @@ contains
                                  this%ioutstranded, '        STRANDED', &
                                  cdatafmp, nvaluesp, nwidthp, editdesc, dinact)
     end if
+    !
+    ! -- each reservoir in its own file, so that a later simulation can start
+    !    from them with STRANDED_AQUEOUS and STRANDED_SORBED
+    if (this%ioutstrandaq /= 0 .and. idvsave /= 0) then
+      iprint = 0
+      dinact = DHNOFLO
+      call this%dis%record_array(this%strand%stranded_aqueous, this%iout, &
+                                 iprint, this%ioutstrandaq, &
+                                 '  STRAND-AQUEOUS', cdatafmp, nvaluesp, &
+                                 nwidthp, editdesc, dinact)
+    end if
+    if (this%ioutstrandsrb /= 0 .and. idvsave /= 0) then
+      iprint = 0
+      dinact = DHNOFLO
+      call this%dis%record_array(this%strand%stranded_sorbed, this%iout, &
+                                 iprint, this%ioutstrandsrb, &
+                                 '   STRAND-SORBED', cdatafmp, nvaluesp, &
+                                 nwidthp, editdesc, dinact)
+    end if
 
   end subroutine mst_ot_dv
 
@@ -1620,6 +1685,8 @@ contains
       call mem_deallocate(this%ratedcys)
       call mem_deallocate(this%istrand)
       call mem_deallocate(this%ioutstranded)
+      call mem_deallocate(this%ioutstrandaq)
+      call mem_deallocate(this%ioutstrandsrb)
       call mem_deallocate(this%cstrand)
       this%ibound => null()
       this%fmi => null()
@@ -1668,6 +1735,8 @@ contains
     call mem_allocate(this%idcy, 'IDCY', this%memoryPath)
     call mem_allocate(this%istrand, 'ISTRAND', this%memoryPath)
     call mem_allocate(this%ioutstranded, 'IOUTSTRANDED', this%memoryPath)
+    call mem_allocate(this%ioutstrandaq, 'IOUTSTRANDAQ', this%memoryPath)
+    call mem_allocate(this%ioutstrandsrb, 'IOUTSTRANDSRB', this%memoryPath)
     !
     ! -- Initialize
     this%isrb = IZERO
@@ -1675,6 +1744,8 @@ contains
     this%idcy = IZERO
     this%istrand = IZERO
     this%ioutstranded = 0
+    this%ioutstrandaq = 0
+    this%ioutstrandsrb = 0
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays for package
@@ -1795,6 +1866,8 @@ contains
       &[character(len=LENVARNAME) :: 'LINEAR', 'FREUNDLICH', 'LANGMUIR']
     character(len=LINELENGTH) :: fname
     character(len=LINELENGTH) :: strandfname
+    character(len=LINELENGTH) :: strandaqfname
+    character(len=LINELENGTH) :: strandsrbfname
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
@@ -1811,6 +1884,10 @@ contains
                        found%istrand)
     call mem_set_value(strandfname, 'STRANDEDFILE', this%input_mempath, &
                        found%strandedfile)
+    call mem_set_value(strandaqfname, 'STRANDEDAQFILE', this%input_mempath, &
+                       found%strandedaqfile)
+    call mem_set_value(strandsrbfname, 'STRANDEDSRBFILE', this%input_mempath, &
+                       found%strandedsrbfile)
 
     ! -- found side effects
     if (found%save_flows) this%ipakcb = -1
@@ -1840,21 +1917,42 @@ contains
       call openfile(this%ioutstranded, this%iout, strandfname, 'DATA(BINARY)', &
                     form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
+    if (found%strandedaqfile .or. found%strandedsrbfile) then
+      if (this%istrand == IZERO) then
+        call store_error('STRANDED_AQ or STRANDED_SRB FILEOUT was specified &
+                         &but the STRANDED_MASS keyword was not specified.')
+        call store_error_filename(this%input_fname)
+      end if
+    end if
+    if (found%strandedaqfile) then
+      this%ioutstrandaq = getunit()
+      call openfile(this%ioutstrandaq, this%iout, strandaqfname, &
+                    'DATA(BINARY)', form, access, 'REPLACE', mode_opt=MNORMAL)
+    end if
+    if (found%strandedsrbfile) then
+      this%ioutstrandsrb = getunit()
+      call openfile(this%ioutstrandsrb, this%iout, strandsrbfname, &
+                    'DATA(BINARY)', form, access, 'REPLACE', mode_opt=MNORMAL)
+    end if
     !
     ! -- log options
     if (this%iout > 0) then
-      call this%log_options(found, fname, strandfname)
+      call this%log_options(found, fname, strandfname, strandaqfname, &
+                            strandsrbfname)
     end if
   end subroutine source_options
 
   !> @brief Log user options to list file
   !<
-  subroutine log_options(this, found, sorbate_fname, stranded_fname)
+  subroutine log_options(this, found, sorbate_fname, stranded_fname, &
+                         strandaq_fname, strandsrb_fname)
     use GwtMstInputModule, only: GwtMstParamFoundType
     class(GwTMstType) :: this
     type(GwtMstParamFoundType), intent(in) :: found
     character(len=*), intent(in) :: sorbate_fname
     character(len=*), intent(in) :: stranded_fname
+    character(len=*), intent(in) :: strandaq_fname
+    character(len=*), intent(in) :: strandsrb_fname
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
       "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
@@ -1905,6 +2003,14 @@ contains
     if (found%strandedfile) then
       write (this%iout, fmtfileout) &
         'STRANDED', stranded_fname, this%ioutstranded
+    end if
+    if (found%strandedaqfile) then
+      write (this%iout, fmtfileout) &
+        'STRANDED_AQ', strandaq_fname, this%ioutstrandaq
+    end if
+    if (found%strandedsrbfile) then
+      write (this%iout, fmtfileout) &
+        'STRANDED_SRB', strandsrb_fname, this%ioutstrandsrb
     end if
     write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
   end subroutine log_options
@@ -1970,6 +2076,19 @@ contains
                        found%distcoef)
     call mem_set_value(this%sp2, 'SP2', this%input_mempath, map, &
                        found%sp2)
+    !
+    ! -- initial stranded mass, read into the reservoirs
+    if (this%istrand /= IZERO) then
+      call mem_set_value(this%strand%stranded_aqueous, 'STRANDED_AQUEOUS', &
+                         this%input_mempath, map, found%stranded_aqueous)
+      call mem_set_value(this%strand%stranded_sorbed, 'STRANDED_SORBED', &
+                         this%input_mempath, map, found%stranded_sorbed)
+    else
+      call get_isize('STRANDED_AQUEOUS', this%input_mempath, asize)
+      found%stranded_aqueous = (asize > 0)
+      call get_isize('STRANDED_SORBED', this%input_mempath, asize)
+      found%stranded_sorbed = (asize > 0)
+    end if
 
     ! -- log options
     if (this%iout > 0) then
@@ -2065,6 +2184,31 @@ contains
       end if
     end if
 
+    ! -- Check the initial stranded mass
+    if (found%stranded_aqueous .or. found%stranded_sorbed) then
+      if (this%istrand == IZERO) then
+        write (errmsg, '(a)') 'STRANDED_AQUEOUS or STRANDED_SORBED was &
+          &specified but the STRANDED_MASS keyword was not specified.'
+        call store_error(errmsg)
+      else
+        if (found%stranded_sorbed .and. this%isrb == SORPTION_OFF) then
+          write (errmsg, '(a)') 'STRANDED_SORBED was specified but sorption &
+            &is not active.  Specify SORPTION in the OPTIONS block.'
+          call store_error(errmsg)
+        end if
+        do n = 1, this%dis%nodes
+          if (this%strand%stranded_aqueous(n) < DZERO .or. &
+              this%strand%stranded_sorbed(n) < DZERO) then
+            write (errmsg, '(a)') 'STRANDED_AQUEOUS and STRANDED_SORBED &
+              &cannot be negative.'
+            call store_error(errmsg)
+            exit
+          end if
+        end do
+        this%held_pending = .true.
+      end if
+    end if
+
     ! -- terminate if errors
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
@@ -2101,6 +2245,14 @@ contains
     end if
     if (found%sp2) then
       write (this%iout, '(4x,a)') 'SECOND SORPTION PARAM set from input file'
+    end if
+    if (found%stranded_aqueous) then
+      write (this%iout, '(4x,a)') 'INITIAL STRANDED AQUEOUS MASS set from &
+        &input file'
+    end if
+    if (found%stranded_sorbed) then
+      write (this%iout, '(4x,a)') 'INITIAL STRANDED SORBED MASS set from &
+        &input file'
     end if
     write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
   end subroutine log_data
