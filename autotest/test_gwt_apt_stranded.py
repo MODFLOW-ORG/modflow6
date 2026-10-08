@@ -376,7 +376,8 @@ def test_energy(function_tmpdir, targets):
 
     def check(test):
         listing = " ".join((test.workspace / "mfsim.lst").read_text().split())
-        assert "STRANDED_MASS is not supported for energy transport" in listing
+        # LKE has no STRANDED_MASS option, so the keyword is not recognized
+        assert 'tag not found: "STRANDED_MASS"' in listing
 
     TestFramework(
         name="energy",
