@@ -899,10 +899,11 @@ contains
     daq = DZERO
     dsrb = DZERO
     if (decay_strand) then
-      lambda_aq = DZERO
+      ! -- first-order decay requires DECAY, and with sorption DECAY_SORBED;
+      !    without sorption the sorbed reservoir is empty
+      lambda_aq = this%decay(n)
       lambda_srb = DZERO
-      if (size(this%decay) > 1) lambda_aq = this%decay(n)
-      if (size(this%decay_sorbed) > 1) lambda_srb = this%decay_sorbed(n)
+      if (this%isrb /= SORPTION_OFF) lambda_srb = this%decay_sorbed(n)
       daq = decay_amount(this%strand%stranded_aqueous(n), lambda_aq, delt)
       dsrb = decay_amount(this%strand%stranded_sorbed(n), lambda_srb, delt)
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - daq
