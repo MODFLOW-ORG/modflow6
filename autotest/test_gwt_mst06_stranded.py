@@ -16,6 +16,9 @@ Cases:
   - isotherm    : with a Freundlich or Langmuir isotherm, the mass held out of
                   the mobile domain over a drainage step is the sorbate of the
                   part of the cell that drained, and all of it returns.
+
+Every case runs with the standard and the Newton formulation of the flow
+model; the cell never drains below its bottom, so the results are the same.
 """
 
 import os
@@ -55,7 +58,7 @@ heads = {
 }
 
 
-def get_model(name, ws, hds, strand, sorb, isotherm=None):
+def get_model(name, ws, hds, strand, sorb, isotherm=None, newton=True):
     nper = len(hds)
     sim = flopy.mf6.MFSimulation(
         sim_name=name, version="mf6", exe_name="mf6", sim_ws=ws
@@ -74,7 +77,10 @@ def get_model(name, ws, hds, strand, sorb, isotherm=None):
         filename=f"{gwfname}.ims",
     )
     gwf = flopy.mf6.ModflowGwf(
-        sim, modelname=gwfname, save_flows=True, newtonoptions="NEWTON"
+        sim,
+        modelname=gwfname,
+        save_flows=True,
+        newtonoptions="NEWTON" if newton else None,
     )
     sim.register_ims_package(imsgwf, [gwfname])
     flopy.mf6.ModflowGwfdis(
@@ -141,15 +147,20 @@ def get_model(name, ws, hds, strand, sorb, isotherm=None):
     return sim
 
 
-def build_models(idx, test):
+def build_models(idx, test, newton):
     name = cases[idx]
     sorb = name != "mst06_noop"
-    sim = get_model(name, test.workspace, heads[name], True, sorb)
+    sim = get_model(name, test.workspace, heads[name], True, sorb, newton=newton)
     mc = None
     if name == "mst06_noop":
         # the same model with the stranded mass option off
         mc = get_model(
-            name, os.path.join(test.workspace, "mf6"), heads[name], False, sorb
+            name,
+            os.path.join(test.workspace, "mf6"),
+            heads[name],
+            False,
+            sorb,
+            newton=newton,
         )
     return sim, mc
 
@@ -246,7 +257,8 @@ def check_output(idx, test):
         )
 
 
-def test_first_time_step(function_tmpdir, targets):
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
+def test_first_time_step(function_tmpdir, targets, newton):
     """Mass is stranded from the first time step.
 
     The saturation the simulation starts from is supplied by the flow model, so
@@ -261,7 +273,7 @@ def test_first_time_step(function_tmpdir, targets):
     for tag, hds in (("lead", lead), ("nolead", nolead)):
         ws = function_tmpdir / tag
         ws.mkdir()
-        sim = get_model(f"mst06_{tag}", ws, hds, True, True)
+        sim = get_model(f"mst06_{tag}", ws, hds, True, True, newton=newton)
         sim.exe_name = exe
         sim.write_simulation(silent=True)
         success, buff = sim.run_simulation(silent=True)
@@ -286,13 +298,14 @@ def test_first_time_step(function_tmpdir, targets):
     assert first > 0.0, "no mass was stranded during the first time step"
 
 
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, newton):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t),
+        build=lambda t: build_models(idx, t, newton),
         check=lambda t: check_output(idx, t),
     )
     test.run()
@@ -311,13 +324,14 @@ isotherms = {
 }
 
 
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
 @pytest.mark.parametrize("isotherm", list(isotherms))
-def test_isotherm(function_tmpdir, targets, isotherm):
+def test_isotherm(function_tmpdir, targets, isotherm, newton):
     options, sorbate = isotherms[isotherm]
     name = f"mst06_{isotherm[:4]}"
 
     def build(test):
-        return get_model(name, test.workspace, cycle, True, True, options)
+        return get_model(name, test.workspace, cycle, True, True, options, newton)
 
     def check(test):
         ws = test.workspace
