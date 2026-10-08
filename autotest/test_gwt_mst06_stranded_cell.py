@@ -26,6 +26,9 @@ Cases:
   - rise_above     : the cell starts partly saturated, drains, and rises above
                      its starting level into material that never drained; no
                      mass is created.
+  - decay          : sorbed mass stranded by pumping decays at the sorbed
+                     rate while the cell stays drained, as an exact
+                     exponential.
 """
 
 import os
@@ -337,6 +340,42 @@ def test_rise_above(function_tmpdir, targets):
         initial = (porosity + rhobkd) * 0.5 * vcell * cinit
         assert np.isclose(mass[-1], initial - pumped, rtol=1e-6), (
             f"mass {mass[-1]} expected {initial - pumped}"
+        )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_decay(function_tmpdir, targets):
+    # pump for 2 d, then leave the cell drained for 10 d
+    lam, lam_srb = 0.05, 0.02
+    periods = [(2.0, [(-25.0, 0.0)]), (10.0, [(0.0, 0.0)])]
+
+    def build(test):
+        return get_model(
+            test.workspace,
+            periods,
+            10,
+            porosity,
+            True,
+            mst_kwargs={
+                "first_order_decay": True,
+                "decay": lam,
+                "decay_sorbed": lam_srb,
+            },
+        )
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        times, _, _, _, stranded, _ = results(ws, True)
+        # the specific yield equals the porosity, so only sorbed mass is
+        # stranded, and it decays at the sorbed rate once the cell stops
+        # draining
+        held = times > 2.0
+        expected = stranded[~held][-1] * np.exp(-lam_srb * (times[held] - 2.0))
+        assert stranded[~held][-1] > 0.0, "no mass was stranded"
+        assert np.allclose(stranded[held], expected, rtol=1e-10), (
+            f"stranded {stranded[held]} expected {expected}"
         )
 
     run_framework(function_tmpdir, targets, build, check)
