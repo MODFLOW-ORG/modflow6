@@ -10,6 +10,10 @@ Cases:
               returns it when the cell is rewet.
   - decay   : the same, except that the reservoir decays while the cell is dry,
               at the rate given for its phase.
+
+Each case runs with the standard formulation, in which the drained cell is
+inactive for transport and rewet by the flow model, and with the Newton
+formulation, in which it stays active at a saturation of zero.
 """
 
 import flopy
@@ -34,7 +38,7 @@ nper = len(heads)
 DRY = -1.0e29
 
 
-def build_model(ws, exe, decay):
+def build_model(ws, exe, decay, newton):
     sim = flopy.mf6.MFSimulation(sim_name="d", sim_ws=str(ws), exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(perlen, 1, 1.0)] * nper)
     solver = {
@@ -46,7 +50,20 @@ def build_model(ws, exe, decay):
         "inner_maximum": 300,
     }
 
-    gwf = flopy.mf6.ModflowGwf(sim, modelname="f", save_flows=True)
+    gwf = flopy.mf6.ModflowGwf(
+        sim,
+        modelname="f",
+        save_flows=True,
+        newtonoptions="NEWTON" if newton else None,
+    )
+    # rewetting is not used with the Newton formulation, which keeps the cell
+    # active when it drains
+    rewet = {}
+    if not newton:
+        rewet = {
+            "rewet_record": [("WETFCT", 1.0, "IWETIT", 1, "IHDWET", 0)],
+            "wetdry": 1.0,
+        }
     sim.register_ims_package(
         flopy.mf6.ModflowIms(sim, filename="f.ims", **solver), ["f"]
     )
@@ -61,8 +78,7 @@ def build_model(ws, exe, decay):
         save_saturation=True,
         icelltype=1,
         k=50.0,
-        rewet_record=[("WETFCT", 1.0, "IWETIT", 1, "IHDWET", 0)],
-        wetdry=1.0,
+        **rewet,
     )
     flopy.mf6.ModflowGwfsto(
         gwf, iconvert=1, ss=0.0, sy=sy, transient={0: True}, save_flows=True
@@ -116,10 +132,11 @@ def build_model(ws, exe, decay):
     return sim
 
 
+@pytest.mark.parametrize("newton", [False, True], ids=["standard", "newton"])
 @pytest.mark.parametrize("decay", [False, True])
-def test_stranded_dry_cell(function_tmpdir, targets, decay):
+def test_stranded_dry_cell(function_tmpdir, targets, decay, newton):
     ws = function_tmpdir
-    sim = build_model(ws, str(targets["mf6"]), decay)
+    sim = build_model(ws, str(targets["mf6"]), decay, newton)
     success, buff = sim.run_simulation(silent=True)
     assert success, f"simulation failed\n{buff}"
 
@@ -130,7 +147,9 @@ def test_stranded_dry_cell(function_tmpdir, targets, decay):
     head = np.array([hf.get_data(totim=t)[0, 0, 0] for t in times])
     st = np.array([sf.get_data(totim=t)[0, 0, 0] for t in times])
 
-    dry = head < DRY
+    # the drained cell is flagged dry with the standard formulation, and has a
+    # head at or below its bottom with the Newton formulation
+    dry = head < DRY if not newton else head <= botm[0]
     assert dry.any(), "the cell never went dry, so this tests nothing"
     assert not dry[-1], "the cell never came back, so the return is not tested"
 
@@ -138,17 +157,26 @@ def test_stranded_dry_cell(function_tmpdir, targets, decay):
     first, last = idry[0], idry[-1]
     assert st[first - 1] > 0.0, "nothing was stranded before the cell went dry"
 
+    # with the standard formulation the cell is inactive from the step in
+    # which it goes dry; with the Newton formulation it stays active, so that
+    # step strands what remained in it and the reservoir is held from its end
+    if newton:
+        ref, steps = first, idry[1:]
+    else:
+        ref, steps = first - 1, idry
+    assert len(steps) > 0, "the cell was not dry long enough to test"
+
     # the reservoir is held through the dry period, decaying only if the
     # solute decays
-    held = st[idry]
+    held = st[steps]
     if decay:
-        expected = st[first - 1] * np.exp(-lam * perlen * np.arange(1, len(idry) + 1))
+        expected = st[ref] * np.exp(-lam * perlen * np.arange(1, len(steps) + 1))
         assert np.allclose(held, expected, rtol=1e-6), (
             f"stranded mass did not decay at the given rate while the cell was "
             f"dry: {held} against {expected}"
         )
     else:
-        assert np.allclose(held, st[first - 1], rtol=1e-9), (
+        assert np.allclose(held, st[ref], rtol=1e-9), (
             f"stranded mass changed while the cell was dry: {held}"
         )
 
@@ -157,9 +185,18 @@ def test_stranded_dry_cell(function_tmpdir, targets, decay):
         "the cell was rewet but its stranded mass grew, so the step was read "
         f"as drainage: {held[-1]} then {st[last + 1]}"
     )
-    # and the reservoir empties once the cell is full again
-    assert np.isclose(st[-1], 0.0, atol=st.max() * 1e-4), (
-        f"the reservoir did not empty after the cell was rewet, {st[-1]} remains"
+    # the mass returns in proportion to the part of the drained interval that
+    # resaturates, relative to the part drained when the cell stopped draining,
+    # so what remains at the end is the share of that part still unsaturated,
+    # less decay. The saturation is the one the flow model used.
+    cbc = flopy.utils.CellBudgetFile(ws / "f.cbc", precision="double")
+    sat = np.array([r["sat"][r["node"] == 1][0] for r in cbc.get_data(text="DATA-SAT")])
+    drained = 1.0 - sat[ref]
+    expected = st[last] * max(drained - sat[-1], 0.0) / drained
+    if decay:
+        expected *= np.exp(-lam * perlen * (len(st) - 1 - last))
+    assert np.isclose(st[-1], expected, rtol=1e-6, atol=st.max() * 1e-9), (
+        f"stranded mass after the cell was rewet {st[-1]} expected {expected}"
     )
 
 
