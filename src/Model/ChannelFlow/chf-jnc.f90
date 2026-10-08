@@ -535,6 +535,33 @@ contains
     cond = DZERO
     if (dx > DPREC) then
 
+      ! TODO(jnc-depth): the half-cell conductance between a reach and a
+      ! junction always computes depth using the reach's own bottom,
+      ! regardless of which side is upstream.  But when the junction is upstream
+      ! (stage_j > stage_r) the junction should lend its own depth, as the
+      ! upstream reach would in the reach-reach case (SwfDfwType%get_cond,
+      ! icentral==0).  The junction currently has no bottom of its own.
+      ! To match the reach-reach case, a junction connecting two reaches,
+      ! A and B, must be assigned the bottom of reach B when calculating the
+      ! half-cell conductance for reach A (and vice versa).  Generalizing to a
+      ! multi-reach junction, the junction must be assigned the bottom of one of
+      ! the reaches other than A.  Note that this implies that a static junction
+      ! bottom (e.g., user-specified or min/max over all connected reaches)
+      ! cannot work in general.
+      !   One possibility is a "most-upstream" rule: when the junction is
+      ! upstream of reach A, use the bottom of whichever other reach connected
+      ! to this junction currently has the highest stage.  (For an unconverged
+      ! solution, a junction might be upstream of all of its reaches, in which
+      ! case this could more properly be called a "least-downstream" rule.) This
+      ! selection is always well-defined (no empty-set/fallback case needed)
+      ! and reduces exactly to the selection in the reach-reach case.
+      !   This selection makes q_rk jump discontinuously when the most-
+      ! upstream reach changes, if bottoms differ.  This is not a new class of
+      ! issue, since get_cond's icentral==0 is subject to the same kind of
+      ! discontinuity.  But a multi-reach junction may flip more often, so
+      ! Newton convergence at junctions might be worse in practice.  If so,
+      ! consider a "smooth" assignment (e.g. weighted by relative stage).
+
       ! depth with upstream weighting (use the higher of reach/junction stage)
       if (stage_r >= stage_j) then
         depth = stage_r - this%disv1d%bot(ireach)
