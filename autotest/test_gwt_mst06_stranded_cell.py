@@ -29,6 +29,12 @@ Cases:
   - decay          : sorbed mass stranded by pumping decays at the sorbed
                      rate while the cell stays drained, as an exact
                      exponential.
+
+The cases run with the Newton formulation of the flow model. The dilution and
+rise_above cases, which start below the top of the cell, also run with the
+standard formulation and give the same results; the others start at or above
+the top of a cell drained only by a well, and the standard formulation dries
+that cell in the first time step.
 """
 
 import os
@@ -62,6 +68,7 @@ def get_model(
     strand=True,
     mst_kwargs=None,
     transport=True,
+    newton=True,
 ):
     """Single cell drained and rewetted by wells, with a GWF-GWT exchange.
 
@@ -88,7 +95,10 @@ def get_model(
         )
 
     gwf = flopy.mf6.ModflowGwf(
-        sim, modelname="gwf", save_flows=True, newtonoptions="NEWTON"
+        sim,
+        modelname="gwf",
+        save_flows=True,
+        newtonoptions="NEWTON" if newton else None,
     )
     sim.register_ims_package(add_ims("gwf.ims"), ["gwf"])
     flopy.mf6.ModflowGwfdis(
@@ -243,7 +253,8 @@ def test_retained(function_tmpdir, targets, nstp):
     run_framework(function_tmpdir, targets, build, check)
 
 
-def test_dilution(function_tmpdir, targets):
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
+def test_dilution(function_tmpdir, targets, newton):
     """Stranded mass converges to the analytical solution with the time step.
 
     A well removes 50 m3/d while another injects 25 m3/d of clean water, so the
@@ -263,7 +274,7 @@ def test_dilution(function_tmpdir, targets):
     errors = []
     for nstp in (4, 16, 64):
         ws = function_tmpdir / f"nstp{nstp}"
-        sim = get_model(ws, periods, nstp, porosity, True, strt=s0 * top)
+        sim = get_model(ws, periods, nstp, porosity, True, strt=s0 * top, newton=newton)
         sim.exe_name = exe
         sim.write_simulation(silent=True)
         success, buff = sim.run_simulation(silent=True)
@@ -288,7 +299,13 @@ def test_confined_start(function_tmpdir, targets, nstp):
 
     def build(test):
         return get_model(
-            test.workspace, periods, nstp, sy, True, strt=top + 2.0, ss=1.0e-3
+            test.workspace,
+            periods,
+            nstp,
+            sy,
+            True,
+            strt=top + 2.0,
+            ss=1.0e-3,
         )
 
     def check(test):
@@ -318,13 +335,16 @@ def test_confined_start(function_tmpdir, targets, nstp):
     run_framework(function_tmpdir, targets, build, check)
 
 
-def test_rise_above(function_tmpdir, targets):
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
+def test_rise_above(function_tmpdir, targets, newton):
     # the cell starts half saturated, drains to 0.3, and rises to 0.9
     nstp = 4
     periods = [(1.0, [(-20.0, 0.0)]), (1.0, [(60.0, 0.0)])]
 
     def build(test):
-        return get_model(test.workspace, periods, nstp, porosity, True, strt=5.0)
+        return get_model(
+            test.workspace, periods, nstp, porosity, True, strt=5.0, newton=newton
+        )
 
     def check(test):
         ws = test.workspace
