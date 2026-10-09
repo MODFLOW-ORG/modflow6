@@ -922,7 +922,10 @@ contains
       !    model solved in the same simulation, and cannot be recovered from a
       !    budget file, whose first record is the end of the first time step
       if (.not. this%satold_valid .and. .not. this%warned_firststep) then
-        if (abs(sat_new - this%fmi%gwfsatold(n, delt)) > DEM6) then
+        !
+        ! -- the water table moved if water was released to or taken from
+        !    specific yield storage, which leaves out specific storage
+        if (abs(released) > DEM6 * vcell) then
           write (warnmsg, '(a)') 'The water table moved during the first time &
             &step and the saturation the simulation started from was not &
             &available, so no mass was stranded then. The saturation is &
