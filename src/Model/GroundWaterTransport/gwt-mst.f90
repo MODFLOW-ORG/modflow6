@@ -750,7 +750,7 @@ contains
     !
     ! -- stranded mass
     if (this%istrand /= IZERO) then
-      call this%mst_cq_strand(nodes, cnew, flowja)
+      call this%mst_cq_strand(nodes, cnew, cold, flowja)
     end if
     !
     ! -- calculate csrb
@@ -763,7 +763,7 @@ contains
   !!
   !!  The reservoirs are updated from the quantities reported to the budget.
   !<
-  subroutine mst_cq_strand(this, nodes, cnew, flowja)
+  subroutine mst_cq_strand(this, nodes, cnew, cold, flowja)
     ! -- modules
     use TdisModule, only: delt
     use StrandedMassModule, only: strand_rate_sorbed, return_fraction, &
@@ -772,6 +772,7 @@ contains
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
     real(DP), intent(in), dimension(nodes) :: cnew !< concentration at end of this time step
+    real(DP), intent(in), dimension(nodes) :: cold !< concentration at end of last time step
     real(DP), dimension(:), contiguous, intent(inout) :: flowja !< flow between two connected control volumes
     ! -- local
     integer(I4B) :: n, idiag
@@ -811,10 +812,41 @@ contains
       !    saturation at the value from before the cell went dry makes a cell
       !    that comes back wetter than that look as though it had drained.
       if (this%ibound(n) <= 0) then
+        !
+        ! -- a cell that becomes inactive during this time step drains the
+        !    rest of the way, and nothing in the flow solution carries its
+        !    solute out, so the solute of that part, at the concentration the
+        !    time step started with, is held as well; the mobile domain
+        !    releases it from storage, so the model budget closes
+        maq = DZERO
+        msrb = DZERO
+        sat_new = this%fmi%gwfsat(n)
+        sat_old = this%mst_satold_strand(n)
+        if (sat_old > sat_new) then
+          ds = sat_old - sat_new
+          vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+          released = DZERO
+          if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
+          maq = retained_volume(ds, vcell, this%thetam(n), released) * cold(n)
+          this%ratesto(n) = this%ratesto(n) + maq * tled
+          if (this%isrb /= SORPTION_OFF) then
+            volfracm = this%get_volfracm(n)
+            msrb = strand_rate_sorbed(ds, vcell, volfracm, this%bulk_density(n), &
+                                      this%isotherm%value(cold, n), delt) * delt
+            this%ratesrb(n) = this%ratesrb(n) + msrb * tled
+          end if
+          this%strand%held(n) = this%strand%held(n) + ds
+          this%strand%stranded_aqueous(n) = &
+            this%strand%stranded_aqueous(n) + maq
+          this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
+          rate = -(maq + msrb) * tled
+          this%strand%ratestrand(n) = rate
+          call accumulate_strandterm(this%budterm_strand, 5, -rate)
+        end if
         call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
-        call accumulate_strandterm(this%budterm_strand, 1, daq * tled)
-        call accumulate_strandterm(this%budterm_strand, 2, dsrb * tled)
-        this%strand%sat_new(n) = this%fmi%gwfsat(n)
+        call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
+        call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
+        this%strand%sat_new(n) = sat_new
         cycle
       end if
       !
