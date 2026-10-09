@@ -815,18 +815,36 @@ contains
       !    active again is seen as the rewetting it is.  Leaving the stored
       !    saturation at the value from before the cell went dry makes a cell
       !    that comes back wetter than that look as though it had drained.
+      !    A constant concentration cell has no storage term, so no mass is
+      !    stranded or returned while the concentration is held.
       if (this%ibound(n) <= 0) then
-        !
-        ! -- a cell that becomes inactive during this time step drains the
-        !    rest of the way, and nothing in the flow solution carries its
-        !    solute out, so the solute of that part, at the concentration the
-        !    time step started with, is held as well; the mobile domain
-        !    releases it from storage, so the model budget closes
         maq = DZERO
         msrb = DZERO
         sat_new = this%fmi%gwfsat(n)
         sat_old = this%mst_satold_strand(n)
-        if (sat_old > sat_new) then
+        !
+        ! -- the flow model reports no storage for a cell that goes dry, so
+        !    whether it drained during the first time step cannot be told
+        !    from a budget file
+        if (this%ibound(n) == 0 .and. .not. this%satold_valid .and. &
+            .not. this%warned_firststep) then
+          write (warnmsg, '(a)') 'At least one cell was dry at the end of &
+            &the first time step and the saturation the simulation started &
+            &from was not available, so no mass was stranded if the cell &
+            &drained then. The saturation is supplied by a flow model solved &
+            &in the same simulation; a transport model that reads its flows &
+            &from a file should begin with a stress period during which the &
+            &water table does not move.'
+          call store_warning(warnmsg)
+          this%warned_firststep = .true.
+        end if
+        !
+        ! -- a cell that becomes dry during this time step drains the rest
+        !    of the way, and nothing in the flow solution carries its solute
+        !    out, so the solute of that part, at the concentration the time
+        !    step started with, is held as well; the mobile domain releases
+        !    it from storage, so the model budget closes
+        if (this%ibound(n) == 0 .and. sat_old > sat_new) then
           ds = sat_old - sat_new
           vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
           released = DZERO
