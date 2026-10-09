@@ -91,7 +91,7 @@ The changes in saturation in equations~\ref{eqn:strandretained} through~\ref{eqn
 
 Mass is stranded from the first time step. When the flow model is solved in the same simulation, the saturation at the start of the simulation is calculated from the initial heads in the same way that the flow model calculates it for convertible cells, confined cells, and the Newton formulation, so a simulation that begins with a large change in the water table needs no initial stress period with a stationary water table.
 
-A transport model that reads the flows saved by a separate flow simulation does not have the saturation at the start of the simulation, because the saved flows begin at the end of the first time step. Such a simulation strands no mass during the first time step and writes a warning to the simulation listing file if the water table moved; it should begin with a short stress period during which the water table does not move.
+A transport model that reads the flows saved by a separate flow simulation does not have the saturation at the start of the simulation, because the saved flows begin at the end of the first time step. Such a simulation strands no mass during the first time step and writes a warning to the simulation listing file if the water table moved or a cell was dry at the end of the time step, since the saved flows do not show whether that cell drained; it should begin with a short stress period during which the water table does not move.
 
 \subsubsection{Cells that drain completely}
 
