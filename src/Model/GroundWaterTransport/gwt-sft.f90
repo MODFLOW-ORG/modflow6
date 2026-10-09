@@ -648,6 +648,7 @@ contains
   !<
   subroutine sft_ad(this)
     ! modules
+    use SimVariablesModule, only: iFailedStepRetry
     ! dummy
     class(GwtSftType) :: this
     ! local
@@ -658,10 +659,13 @@ contains
     call this%BndExtType%bnd_ad()
     call this%apt_ad_resync()
 
-    ! update vold
-    do n = 1, this%ncv
-      this%vold(n) = this%vnew(n)
-    end do
+    ! update vold, unless this time step is repeated, when vnew is the
+    ! volume the failed attempt ended with
+    if (iFailedStepRetry == 0) then
+      do n = 1, this%ncv
+        this%vold(n) = this%vnew(n)
+      end do
+    end if
 
   end subroutine sft_ad
 

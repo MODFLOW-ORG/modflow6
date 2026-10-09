@@ -14,6 +14,16 @@ Cases:
                     resumes with clean water; the solute of each reach is held
                     and returned when the reach refills. The option is given in
                     SFT, in MST, or both.
+  - lake_retry    : the same lake, with adaptive time steps and a transport
+                    solution allowed one outer iteration, so that the first
+                    time step of the refill fails and is repeated with a
+                    shorter length; the held mass starts again from where the
+                    time step began, so the solute is still conserved.
+  - reach_retry   : the same reaches, with adaptive time steps and a
+                    transport solution allowed one outer iteration, so that
+                    time steps, including the first of the refill, fail and are
+                    repeated with shorter lengths; each reach refills from no
+                    volume and returns all of its held mass.
   - energy        : the option is an error for the LKE Package (xfail).
 """
 
@@ -268,6 +278,53 @@ def test_lake(function_tmpdir, targets, source):
     ).run()
 
 
+def test_lake_retry(function_tmpdir, targets):
+    def build(test):
+        sim = lake_model(test.workspace, True)
+        # a last 1-d period follows the refill, so that the repeated time step
+        # is not in the last period of the simulation
+        tdis = sim.get_package("tdis")
+        tdis.nper.set_data(5)
+        tdis.perioddata.set_data([(10.0, 10, 1.0)] * 4 + [(1.0, 1, 1.0)])
+        # the refill period starts with a single 10-d time step, and a step
+        # that fails is repeated with a quarter of its length
+        tdis.ats.initialize(
+            maxats=1,
+            perioddata=[(3, 10.0, 1.0e-3, 10.0, 1.0, 4.0)],
+            filename="lake.ats",
+        )
+        # one outer iteration converges only if the lake concentration changes
+        # by less than 420 g/m3: the 10-d step returns all of the held mass
+        # into 15,000 m3 and fails, and the 2.5-d step returns 37.5 percent of
+        # it into 3,750 m3 and converges
+        ims = sim.get_solution_package("gwt.ims")
+        ims.outer_maximum.set_data(1)
+        ims.outer_dvclose.set_data(420.0)
+        return sim
+
+    def check(test):
+        ws = test.workspace
+        listing = (ws / "mfsim.lst").read_text()
+        assert "Failed solution for step" in listing, "no time step was repeated"
+        assert_package_budget_closes(ws, "LKT-1")
+        vol, c, held = feature_series(
+            ws, "gwf.lak.bud", "gwt.lkt.bud", "gwt.lkt.conc", True
+        )
+        vol, c, held = vol[:, 0], c[:, 0], held[:, 0]
+        mass0 = 10000.0 * cinit
+        total = vol * c + held
+        assert np.allclose(total, mass0, rtol=1e-6), f"mass not conserved {total}"
+        assert np.isclose(held[-1], 0.0, atol=1e-6), f"held at the end {held[-1]}"
+
+    TestFramework(
+        name="lake",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+    ).run()
+
+
 def test_lake_nooption(function_tmpdir, targets):
     def build(test):
         return lake_model(test.workspace, False)
@@ -308,6 +365,58 @@ def test_reach(function_tmpdir, targets, source):
         # each reach refills to its largest volume before it went dry, so all
         # of it returns in the first time step of the third period
         assert np.allclose(held[10], 0.0, atol=1e-6), f"held after refill {held[10]}"
+
+    TestFramework(
+        name="reach",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+    ).run()
+
+
+def test_reach_retry(function_tmpdir, targets):
+    def build(test):
+        sim = reach_model(test.workspace, True)
+        # a last 1-d period follows the refill, so that a repeated time step
+        # is not in the last period of the simulation
+        tdis = sim.get_package("tdis")
+        tdis.nper.set_data(4)
+        tdis.perioddata.set_data([(5.0, 5, 1.0)] * 3 + [(1.0, 1, 1.0)])
+        # each period starts with a single 5-d time step, and a step that
+        # fails is repeated with a quarter of its length
+        tdis.ats.initialize(
+            maxats=3,
+            perioddata=[(k, 5.0, 1.0e-3, 5.0, 1.0, 4.0) for k in range(3)],
+            filename="reach.ats",
+        )
+        # one outer iteration converges only if the concentration of a reach
+        # changes by less than 1 g/m3, so the long time steps fail, including
+        # the first of the refill
+        ims = sim.get_solution_package("gwt.ims")
+        ims.outer_maximum.set_data(1)
+        ims.outer_dvclose.set_data(1.0)
+        return sim
+
+    def check(test):
+        ws = test.workspace
+        listing = (ws / "mfsim.lst").read_text()
+        assert "Failed solution for step 1 and period 3" in listing, (
+            "the first time step of the refill was not repeated"
+        )
+        assert_package_budget_closes(ws, "SFT-1")
+        vol, c, held = feature_series(
+            ws, "gwf.sfr.bud", "gwt.sft.bud", "gwt.sft.conc", True
+        )
+        dry = np.all(vol == 0.0, axis=1)
+        assert dry.any(), "the reaches did not go dry"
+        assert np.all(held[dry] > 0.0), "no mass was held while the reaches were dry"
+        # each reach regains its whole volume in the first time step after the
+        # inflow resumes, from no volume, and returns all of its held mass
+        refilled = np.flatnonzero(dry)[-1] + 1
+        assert np.allclose(held[refilled], 0.0, atol=1e-6), (
+            f"held after the refill {held[refilled]}"
+        )
 
     TestFramework(
         name="reach",
