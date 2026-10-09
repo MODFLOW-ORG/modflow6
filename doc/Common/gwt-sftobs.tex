@@ -2,6 +2,7 @@
 SFT & concentration & ifno or boundname & -- & Reach concentration. If boundname is specified, boundname must be unique for each reach. \\
 SFT & flow-ja-face & ifno or boundname & ifno or -- & Mass flow between two reaches.  If a boundname is specified for ID1, then the result is the total mass flow for all reaches. If a boundname is specified for ID1 then ID2 is not used.\\
 SFT & storage & ifno or boundname & -- & Simulated mass storage flow rate for a reach or group of reaches. \\
+SFT & stranded & ifno or boundname & -- & Simulated mass flow rate between a reach or group of reaches and the mass it holds while dry, negative when mass is held and positive when it is returned. Available only with the STRANDED\_MASS option. \\
 SFT & constant & ifno or boundname & -- & Simulated mass constant-flow rate for a reach or group of reaches. \\
 SFT & from-mvr & ifno or boundname & -- & Simulated mass inflow into a reach or group of reaches from the MVT package. Mass inflow is calculated as the product of provider concentration and the mover flow rate. \\
 SFT & to-mvr & ifno or boundname & -- & Mass outflow from a reach, or a group of reaches that is available for the MVR package. If boundname is not specified for ID, then the outflow available for the MVR package from a specific reach is observed. \\

@@ -648,6 +648,7 @@ contains
   !<
   subroutine sft_ad(this)
     ! modules
+    use SimVariablesModule, only: iFailedStepRetry
     ! dummy
     class(GwtSftType) :: this
     ! local
@@ -658,10 +659,13 @@ contains
     call this%BndExtType%bnd_ad()
     call this%apt_ad_resync()
 
-    ! update vold
-    do n = 1, this%ncv
-      this%vold(n) = this%vnew(n)
-    end do
+    ! update vold, unless this time step is repeated, when vnew is the
+    ! volume the failed attempt ended with
+    if (iFailedStepRetry == 0) then
+      do n = 1, this%ncv
+        this%vold(n) = this%vnew(n)
+      end do
+    end if
 
   end subroutine sft_ad
 
@@ -873,6 +877,11 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
+    !    for stranded observation type.
+    call this%obs%StoreObsType('stranded', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
     !    for constant observation type.
     call this%obs%StoreObsType('constant', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
@@ -999,7 +1008,10 @@ contains
       if (qss /= DZERO) then
         vold = vnew + qss * delt
       else
-        if (vnew == DZERO) then
+        !
+        ! -- a reach that goes dry keeps the volume of the previous time step
+        !    with the STRANDED_MASS option, so its solute can be held
+        if (vnew == DZERO .and. this%istrand == 0) then
           vold = DZERO
         else
           vold = this%vold(icv)

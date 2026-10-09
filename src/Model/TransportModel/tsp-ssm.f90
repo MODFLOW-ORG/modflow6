@@ -54,6 +54,7 @@ module TspSsmModule
     procedure :: ssm_rp
     procedure :: ssm_ad
     procedure :: ssm_fc
+    procedure :: ssm_solute_free
     procedure :: ssm_cq
     procedure :: ssm_bd
     procedure :: ssm_ot_flow
@@ -420,6 +421,42 @@ contains
       !
     end do
   end subroutine ssm_fc
+
+  !> @brief Water leaving each cell through sinks that carry no solute
+  !!
+  !! A sink with a mixed (AUXMIXED) concentration below the concentration of
+  !! the cell, such as evapotranspiration, removes water and leaves its solute
+  !! behind in the cell.
+  !<
+  subroutine ssm_solute_free(this, qfree)
+    ! -- dummy
+    class(TspSsmType) :: this
+    real(DP), dimension(:), intent(inout) :: qfree !< water leaving each cell without solute
+    ! -- local
+    logical(LGP) :: lauxmixed
+    integer(I4B) :: ip, i, n
+    integer(I4B) :: nbound
+    real(DP) :: qbnd, ctmp
+    !
+    do n = 1, this%dis%nodes
+      qfree(n) = DZERO
+    end do
+    do ip = 1, this%fmi%nflowpack
+      if (this%fmi%iatp(ip) /= 0) cycle
+      nbound = this%fmi%gwfpackages(ip)%nbound
+      do i = 1, nbound
+        n = this%fmi%gwfpackages(ip)%nodelist(i)
+        if (n <= 0) cycle
+        if (this%ibound(n) <= 0) cycle
+        qbnd = this%fmi%gwfpackages(ip)%get_flow(i)
+        if (qbnd >= DZERO) cycle
+        call this%get_ssm_conc(ip, i, nbound, ctmp, lauxmixed)
+        if (lauxmixed .and. ctmp < this%cnew(n)) then
+          qfree(n) = qfree(n) - qbnd
+        end if
+      end do
+    end do
+  end subroutine ssm_solute_free
 
   !> @ brief Calculate flow
   !!

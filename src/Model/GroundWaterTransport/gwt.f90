@@ -7,7 +7,7 @@
 
 module GwtModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENFTYPE, LENMEMPATH, DZERO, DONE, &
                              LENPAKLOC, LENVARNAME, LENPACKAGETYPE, &
                              DNODATA, LINELENGTH
@@ -17,6 +17,7 @@ module GwtModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwtDspModule, only: GwtDspType
   use GwtMstModule, only: GwtMstType
+  use TspAptModule, only: TspAptType
   use BudgetModule, only: BudgetType
   use TransportModelModule
   use MatrixBaseModule
@@ -56,6 +57,7 @@ module GwtModule
     procedure :: model_bd => gwt_bd
     procedure :: tsp_ot_flow => gwt_ot_flow
     procedure :: tsp_ot_dv => gwt_ot_dv
+    procedure :: tsp_ot_bdsummary => gwt_ot_bdsummary
     procedure :: model_da => gwt_da
     procedure :: model_bdentry => gwt_bdentry
     procedure :: allocate_scalars
@@ -146,10 +148,13 @@ contains
   subroutine gwt_df(this)
     ! -- modules
     use SimModule, only: store_error
+    use MemoryManagerExtModule, only: mem_set_value
     ! -- dummy
     class(GwtModelType) :: this
     ! -- local
     integer(I4B) :: ip
+    integer(I4B), pointer :: istrand
+    logical(LGP) :: found
     class(BndType), pointer :: packobj
     !
     ! -- Define packages and utility objects
@@ -180,6 +185,28 @@ contains
     !
     ! -- Allocate model arrays, now that neq and nja are assigned
     call this%allocate_arrays()
+    !
+    ! -- stranded mass in the MST Package also holds the solute of a lake or
+    !    stream reach that goes dry, so it is set before they are defined
+    if (this%inmst > 0) then
+      allocate (istrand)
+      istrand = 0
+      ! -- the input is kept for MST, which reads it again
+      call mem_set_value(istrand, 'ISTRAND', this%mst%input_mempath, found, &
+                         release=.false.)
+      if (istrand /= 0) then
+        do ip = 1, this%bndlist%Count()
+          packobj => GetBndFromList(this%bndlist, ip)
+          select type (packobj)
+          class is (TspAptType)
+            if (packobj%filtyp == 'LKT' .or. packobj%filtyp == 'SFT') then
+              call packobj%apt_strand_from_mst()
+            end if
+          end select
+        end do
+      end if
+      deallocate (istrand)
+    end if
     !
     ! -- Define packages and assign iout for time series managers
     do ip = 1, this%bndlist%Count()
@@ -250,6 +277,8 @@ contains
   subroutine gwt_ar(this)
     ! -- modules
     use ConstantsModule, only: DHNOFLO
+    use SimModule, only: store_warning
+    use SimVariablesModule, only: warnmsg
     ! -- dummy
     class(GwtModelType) :: this
     ! -- locals
@@ -290,6 +319,34 @@ contains
       ! -- Read and allocate package
       call packobj%bnd_ar()
     end do
+    !
+    ! -- Stranded mass holds solute in the drained part of a cell, and
+    !    unsaturated zone transport moves solute through it, so a cell that
+    !    has both is represented twice.  UZF covers only part of a model in
+    !    many simulations, and stranded mass is meaningful in the rest of it,
+    !    so this is reported rather than refused.
+    if (this%inmst > 0) then
+      if (this%mst%istrand /= 0) then
+        !
+        ! -- stranded mass also holds the solute that sinks such as
+        !    evapotranspiration leave behind in the drained part of a cell
+        if (this%inssm > 0) this%mst%ssm => this%ssm
+        do ip = 1, this%bndlist%Count()
+          packobj => GetBndFromList(this%bndlist, ip)
+          if (packobj%filtyp == 'UZT') then
+            write (warnmsg, '(a)') 'STRANDED_MASS is active in the MST &
+              &Package and the UZT Package is active in the same model. Both &
+              &represent the part of a cell that the water table has drained, &
+              &so a cell that is in both carries its solute twice, and the &
+              &two do not agree: UZT carries no sorbed phase and no decay, &
+              &whereas stranded mass carries both. STRANDED_MASS is intended &
+              &for simulations that do not represent the unsaturated zone.'
+            call store_warning(warnmsg)
+            exit
+          end if
+        end do
+      end if
+    end if
   end subroutine gwt_ar
 
   !> @brief GWT Model Read and Prepare
@@ -382,6 +439,9 @@ contains
     !
     ! -- Advance fmi
     call this%fmi%fmi_ad(this%x)
+    !
+    ! -- Advance the stranded mass reservoirs
+    if (this%inmst > 0) call this%mst%mst_ad()
     !
     ! -- Advance
     if (this%indsp > 0) call this%dsp%dsp_ad()
@@ -603,6 +663,24 @@ contains
     call this%TransportModelType%tsp_ot_dv(idvsave, idvprint, ipflag)
 
   end subroutine gwt_ot_dv
+
+  !> @brief Print GWT budget summaries
+  !<
+  subroutine gwt_ot_bdsummary(this, ibudfl, ipflag)
+    use TdisModule, only: kstp, kper
+    class(GwtModelType) :: this
+    integer(I4B), intent(in) :: ibudfl
+    integer(I4B), intent(inout) :: ipflag
+
+    ! stranded mass reservoirs are their own budget zone
+    if (this%inmst > 0) then
+      call this%mst%mst_ot_bdsummary(kstp, kper, this%iout, ibudfl)
+    end if
+
+    ! call general transport model budget summary routines
+    call this%TransportModelType%tsp_ot_bdsummary(ibudfl, ipflag)
+
+  end subroutine gwt_ot_bdsummary
 
   !> @brief Deallocate
   !!

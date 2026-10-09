@@ -21,6 +21,7 @@ module GwtLktInputModule
     logical :: iprconc = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
+    logical :: istrand = .false.
     logical :: conc_filerec = .false.
     logical :: options_concentration = .false.
     logical :: concfile = .false.
@@ -210,6 +211,25 @@ module GwtLktInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'save lake flows to budget file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_istrand = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_MASS', & ! tag name
+    'ISTRAND', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'activate stranded mass', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -856,6 +876,7 @@ module GwtLktInputModule
     gwtlkt_iprconc, &
     gwtlkt_iprflow, &
     gwtlkt_ipakcb, &
+    gwtlkt_istrand, &
     gwtlkt_conc_filerec, &
     gwtlkt_options_concentration, &
     gwtlkt_concfile, &
