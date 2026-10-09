@@ -24,10 +24,12 @@ module StrandedMassModule
     integer(I4B), pointer :: nodes => null() !< number of cells
     real(DP), dimension(:), pointer, contiguous :: stranded_aqueous => null() !< mass stranded from residual water
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed => null() !< mass stranded from the solid phase
-    real(DP), dimension(:), pointer, contiguous :: held => null() !< drained fraction of the cell that the reservoirs represent
+    real(DP), dimension(:), pointer, contiguous :: held_aq => null() !< drained fraction of the cell that the aqueous reservoir represents
+    real(DP), dimension(:), pointer, contiguous :: held_srb => null() !< drained fraction of the cell that the sorbed reservoir represents
     real(DP), dimension(:), pointer, contiguous :: stranded_aqueous0 => null() !< mass stranded from residual water at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed0 => null() !< mass stranded from the solid phase at the start of the time step
-    real(DP), dimension(:), pointer, contiguous :: held0 => null() !< drained fraction at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: held_aq0 => null() !< aqueous drained fraction at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: held_srb0 => null() !< sorbed drained fraction at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation at the end of the previous time step
     real(DP), dimension(:), pointer, contiguous :: sat_new => null() !< saturation at the end of the time step
     real(DP), dimension(:), pointer, contiguous :: ratestrand => null() !< mobile-side transfer rate, positive on return
@@ -37,7 +39,6 @@ module StrandedMassModule
     procedure :: init => strand_init
     procedure :: da => strand_da
     procedure :: total => strand_total
-    procedure :: total0 => strand_total0
     procedure :: advance => strand_advance
     procedure :: restore => strand_restore
   end type StrandedMassType
@@ -62,13 +63,14 @@ contains
                       this%memoryPath)
     call mem_allocate(this%stranded_sorbed, nodes, 'STRANDED_SORBED', &
                       this%memoryPath)
-    call mem_allocate(this%held, nodes, 'HELD_FRACTION', this%memoryPath)
+    call mem_allocate(this%held_aq, nodes, 'HELD_AQ', this%memoryPath)
+    call mem_allocate(this%held_srb, nodes, 'HELD_SRB', this%memoryPath)
     call mem_allocate(this%stranded_aqueous0, nodes, 'STRANDED_AQ0', &
                       this%memoryPath)
     call mem_allocate(this%stranded_sorbed0, nodes, 'STRANDED_SRB0', &
                       this%memoryPath)
-    call mem_allocate(this%held0, nodes, 'HELD0', &
-                      this%memoryPath)
+    call mem_allocate(this%held_aq0, nodes, 'HELD_AQ0', this%memoryPath)
+    call mem_allocate(this%held_srb0, nodes, 'HELD_SRB0', this%memoryPath)
     call mem_allocate(this%sat_old, nodes, 'SAT_OLD', this%memoryPath)
     call mem_allocate(this%sat_new, nodes, 'SAT_NEW', this%memoryPath)
     call mem_allocate(this%ratestrand, nodes, 'RATESTRAND', this%memoryPath)
@@ -80,10 +82,12 @@ contains
     do n = 1, nodes
       this%stranded_aqueous(n) = DZERO
       this%stranded_sorbed(n) = DZERO
-      this%held(n) = DZERO
+      this%held_aq(n) = DZERO
+      this%held_srb(n) = DZERO
       this%stranded_aqueous0(n) = DZERO
       this%stranded_sorbed0(n) = DZERO
-      this%held0(n) = DZERO
+      this%held_aq0(n) = DZERO
+      this%held_srb0(n) = DZERO
       this%sat_old(n) = DNODATA
       this%sat_new(n) = DNODATA
       this%ratestrand(n) = DZERO
@@ -99,10 +103,12 @@ contains
 
     call mem_deallocate(this%stranded_aqueous)
     call mem_deallocate(this%stranded_sorbed)
-    call mem_deallocate(this%held)
+    call mem_deallocate(this%held_aq)
+    call mem_deallocate(this%held_srb)
     call mem_deallocate(this%stranded_aqueous0)
     call mem_deallocate(this%stranded_sorbed0)
-    call mem_deallocate(this%held0)
+    call mem_deallocate(this%held_aq0)
+    call mem_deallocate(this%held_srb0)
     call mem_deallocate(this%sat_old)
     call mem_deallocate(this%sat_new)
     call mem_deallocate(this%ratestrand)
@@ -121,16 +127,6 @@ contains
     mass = this%stranded_aqueous(n) + this%stranded_sorbed(n)
   end function strand_total
 
-  !> @brief Stranded mass held in cell n at the start of the time step
-  !<
-  function strand_total0(this, n) result(mass)
-    class(StrandedMassType) :: this
-    integer(I4B), intent(in) :: n !< cell number
-    real(DP) :: mass
-
-    mass = this%stranded_aqueous0(n) + this%stranded_sorbed0(n)
-  end function strand_total0
-
   !> @brief Start a new time step from the end of the one just completed
   !<
   subroutine strand_advance(this)
@@ -140,7 +136,8 @@ contains
     do n = 1, this%nodes
       this%stranded_aqueous0(n) = this%stranded_aqueous(n)
       this%stranded_sorbed0(n) = this%stranded_sorbed(n)
-      this%held0(n) = this%held(n)
+      this%held_aq0(n) = this%held_aq(n)
+      this%held_srb0(n) = this%held_srb(n)
       if (this%sat_new(n) /= DNODATA) this%sat_old(n) = this%sat_new(n)
     end do
   end subroutine strand_advance
@@ -154,7 +151,8 @@ contains
     do n = 1, this%nodes
       this%stranded_aqueous(n) = this%stranded_aqueous0(n)
       this%stranded_sorbed(n) = this%stranded_sorbed0(n)
-      this%held(n) = this%held0(n)
+      this%held_aq(n) = this%held_aq0(n)
+      this%held_srb(n) = this%held_srb0(n)
     end do
   end subroutine strand_restore
 
@@ -195,7 +193,7 @@ contains
   !<
   pure function return_fraction(dw, held) result(f)
     real(DP), intent(in) :: dw !< increase in saturation over the step
-    real(DP), intent(in) :: held !< drained fraction the reservoirs represent
+    real(DP), intent(in) :: held !< drained fraction the reservoir represents
     real(DP) :: f
 
     if (dw <= DZERO .or. held <= DZERO) then
