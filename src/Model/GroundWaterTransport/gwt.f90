@@ -410,6 +410,9 @@ contains
     ! -- Advance fmi
     call this%fmi%fmi_ad(this%x)
     !
+    ! -- Advance the stranded mass reservoirs
+    if (this%inmst > 0) call this%mst%mst_ad()
+    !
     ! -- Advance
     if (this%indsp > 0) call this%dsp%dsp_ad()
     if (this%inssm > 0) call this%ssm%ssm_ad()

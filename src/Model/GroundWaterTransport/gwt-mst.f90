@@ -90,6 +90,7 @@ module GwtMstModule
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     logical :: satold_valid = .false. !< the stored saturation of the previous time step can be used
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
+    logical :: strand_stepped = .false. !< the stranded mass of a time step has been calculated
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
@@ -118,6 +119,7 @@ module GwtMstModule
     procedure :: mst_cq_srb
     procedure :: mst_cq_dcy_srb
     procedure :: mst_cq_strand
+    procedure :: mst_ad
     procedure :: mst_calc_stranded
     procedure :: mst_ot_bdsummary
     procedure :: mst_calc_csrb
@@ -369,8 +371,8 @@ contains
         !    volume holds returns as a mass source, which is known from the
         !    previous time step and so is explicit
         dw = sat_new - sat_old
-        swtpdt = return_fraction(dw, this%strand%held(n))
-        rrhs = -this%strand%total(n) * swtpdt * tled
+        swtpdt = return_fraction(dw, this%strand%held0(n))
+        rrhs = -this%strand%total0(n) * swtpdt * tled
         rhs(n) = rhs(n) + rrhs
       end if
     end do
@@ -797,6 +799,12 @@ contains
       this%strand%ratedcystrand(n) = DZERO
       this%strand%ratedcystrands(n) = DZERO
       !
+      ! -- every pass through a time step starts from the reservoirs the
+      !    previous time step ended with, so repeating it changes nothing
+      this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous0(n)
+      this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed0(n)
+      this%strand%held(n) = this%strand%held0(n)
+      !
       ! -- an inactive cell keeps the mass its reservoirs hold, and records
       !    the saturation it now has, so that the step in which it becomes
       !    active again is seen as the rewetting it is.  Leaving the stored
@@ -806,7 +814,7 @@ contains
         call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
         call accumulate_strandterm(this%budterm_strand, 1, daq * tled)
         call accumulate_strandterm(this%budterm_strand, 2, dsrb * tled)
-        this%strand%sat_old(n) = this%fmi%gwfsat(n)
+        this%strand%sat_new(n) = this%fmi%gwfsat(n)
         cycle
       end if
       !
@@ -876,7 +884,7 @@ contains
       call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
       !
       ! -- remember where the water table was, for the next time step
-      this%strand%sat_old(n) = sat_new
+      this%strand%sat_new(n) = sat_new
       !
       ! -- the saturation the simulation started from is supplied by a flow
       !    model solved in the same simulation, and cannot be recovered from a
@@ -895,9 +903,31 @@ contains
       end if
     end do
     !
-    ! -- every cell now carries the saturation it ended this time step with
-    this%satold_valid = .true.
+    ! -- the saturation each cell ends this time step with is stored, and
+    !    becomes the previous saturation when the next time step starts
+    this%strand_stepped = .true.
   end subroutine mst_cq_strand
+
+  !> @ brief Advance the stranded mass reservoirs to a new time step
+  !!
+  !! Every pass through a time step starts from the reservoirs the previous
+  !! time step ended with, and a time step that is repeated starts from them
+  !! again, as the IST Package does for its immobile concentration.
+  !<
+  subroutine mst_ad(this)
+    ! -- modules
+    use SimVariablesModule, only: iFailedStepRetry
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    !
+    if (this%istrand == IZERO) return
+    if (iFailedStepRetry == 0) then
+      call this%strand%advance()
+      if (this%strand_stepped) this%satold_valid = .true.
+    else
+      call this%strand%restore()
+    end if
+  end subroutine mst_ad
 
   !> @ brief Decay the stranded mass reservoirs of one cell
   !!
