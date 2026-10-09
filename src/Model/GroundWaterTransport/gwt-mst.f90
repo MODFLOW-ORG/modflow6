@@ -431,6 +431,8 @@ contains
       if (this%strand%stranded_sorbed(n) > DZERO) then
         this%strand%held_srb(n) = max(DONE - sat0, DZERO)
       end if
+      this%strand%held_aq0(n) = this%strand%held_aq(n)
+      this%strand%held_srb0(n) = this%strand%held_srb(n)
     end do
     this%held_pending = .false.
     if (count_errors() > 0) then
@@ -2203,6 +2205,12 @@ contains
             call store_error(errmsg)
             exit
           end if
+        end do
+        !
+        ! -- the initial mass is also where the first time step starts from
+        do n = 1, this%dis%nodes
+          this%strand%stranded_aqueous0(n) = this%strand%stranded_aqueous(n)
+          this%strand%stranded_sorbed0(n) = this%strand%stranded_sorbed(n)
         end do
         this%held_pending = .true.
       end if
