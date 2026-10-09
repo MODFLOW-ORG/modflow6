@@ -13,7 +13,9 @@ Cases:
 
 Each case runs with the standard formulation, in which the drained cell is
 inactive for transport and rewet by the flow model, and with the Newton
-formulation, in which it stays active at a saturation of zero.
+formulation, in which it stays active at a saturation of zero. With the
+standard formulation, the solute still in the cell when it goes dry is held
+with the rest, and the model budget reports it as released from storage.
 """
 
 import flopy
@@ -157,14 +159,38 @@ def test_stranded_dry_cell(function_tmpdir, targets, decay, newton):
     first, last = idry[0], idry[-1]
     assert st[first - 1] > 0.0, "nothing was stranded before the cell went dry"
 
-    # with the standard formulation the cell is inactive from the step in
-    # which it goes dry; with the Newton formulation it stays active, so that
-    # step strands what remained in it and the reservoir is held from its end
-    if newton:
-        ref, steps = first, idry[1:]
-    else:
-        ref, steps = first - 1, idry
+    # the step in which the cell goes dry strands what remained in it, and the
+    # reservoir is held from the end of that step
+    ref, steps = first, idry[1:]
     assert len(steps) > 0, "the cell was not dry long enough to test"
+    if not newton:
+        # with the standard formulation the cell is inactive at the end of that
+        # step, so nothing carried its solute out, and all of the water and
+        # sorbate it held at the start of the step is stranded
+        cf = flopy.utils.HeadFile(ws / "t.ucn", text="CONCENTRATION")
+        conc = np.array([cf.get_data(totim=t)[0, 0, 0] for t in times])
+        cbc = flopy.utils.CellBudgetFile(ws / "f.cbc", precision="double")
+        sats = [r["sat"][r["node"] == 1][0] for r in cbc.get_data(text="DATA-SAT")]
+        vcell = delr * delc * (top - botm[0])
+        added = (porosity + rhob * kd) * sats[first - 1] * vcell * conc[first - 1]
+        expected = st[first - 1] + added
+        if decay:
+            expected *= np.exp(-lam * perlen)
+        assert np.isclose(st[first], expected, rtol=1e-6), (
+            f"stranded when the cell went dry {st[first]} expected {expected}"
+        )
+    # the mass the cell held is moved, not lost, so the model budget closes
+    disc = []
+    model_budget = False
+    for line in (ws / "t.lst").read_text().splitlines():
+        if "BUDGET FOR ENTIRE MODEL" in line:
+            model_budget = True
+        elif "PERCENT DISCREPANCY" in line and model_budget:
+            disc.append(float(line.replace("PERCENT DISCREPANCY =", " ").split()[0]))
+            model_budget = False
+    # the first period does not drain, so its discrepancy is a ratio of two
+    # numbers near zero and carries no information
+    assert np.allclose(disc[1:], 0.0, atol=1e-2), f"model budget {disc}"
 
     # the reservoir is held through the dry period, decaying only if the
     # solute decays
