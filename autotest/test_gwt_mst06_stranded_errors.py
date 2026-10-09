@@ -12,11 +12,12 @@ Cases:
   - sy_above_porosity : a specific yield greater than the porosity runs and warns
                         that no solute is held back from residual water.
   - fmi_first_step    : a transport model that reads its flows from files, with
-                        a water table that moves in the first time step, runs and
-                        warns that no mass was stranded then.
+                        a water table that moves in the first time step, runs,
+                        warns that no mass was stranded then, and strands none.
 """
 
 import flopy
+import numpy as np
 import pytest
 from framework import TestFramework
 from test_gwt_mst06_stranded_cell import cinit, get_model, paper, porosity
@@ -146,6 +147,7 @@ def test_fmi_first_step(function_tmpdir, targets, lead):
         bulk_density=1500.0,
         distcoef=1.0e-4,
         stranded_mass=True,
+        stranded_filerecord=[("gwt.strand.bin",)],
     )
     flopy.mf6.ModflowGwtfmi(
         gwt,
@@ -155,7 +157,12 @@ def test_fmi_first_step(function_tmpdir, targets, lead):
         ],
     )
     flopy.mf6.ModflowGwtssm(gwt, sources=[["WEL-1", "AUX", "CONCENTRATION"]])
-    flopy.mf6.ModflowGwtoc(gwt, concentration_filerecord="gwt.ucn")
+    # stranded mass is written with the concentration
+    flopy.mf6.ModflowGwtoc(
+        gwt,
+        concentration_filerecord="gwt.ucn",
+        saverecord=[("CONCENTRATION", "ALL")],
+    )
     sim.write_simulation(silent=True)
     success, buff = sim.run_simulation(silent=True)
     assert success, f"transport simulation failed\n{buff}"
@@ -165,3 +172,11 @@ def test_fmi_first_step(function_tmpdir, targets, lead):
         "a warning was expected only without the leading stress period, "
         f"lead={lead} warned={warned}"
     )
+    # the saturation the first time step starts from is not in the budget
+    # file, so no mass is stranded during it; the leading period makes the
+    # drainage happen in the second time step, where mass is stranded
+    sf = flopy.utils.HeadFile(ws / "gwt.strand.bin", text="STRANDED")
+    stranded = np.array([sf.get_data(totim=t).ravel()[0] for t in sf.get_times()])
+    assert stranded[0] == 0.0, f"mass was stranded in the first time step: {stranded}"
+    if lead:
+        assert stranded[1] > 0.0, f"no mass was stranded after the lead: {stranded}"
