@@ -32,12 +32,14 @@ Cases:
   - partial        : the cell drains from a saturation of 0.5 to 0.3 and
                      rewets to 0.4, so exactly half of the drained interval
                      resaturates and half of the stranded mass returns.
+  - tiny_rewet     : the cell drains by 1e-7 of its thickness and rewets by
+                     the same amount, and all of the mass stranded returns.
 
 The cases run with the Newton formulation of the flow model. The dilution,
-rise_above, and partial cases, which start below the top of the cell, also run
-with the standard formulation and give the same results; the others start at or above
-the top of a cell drained only by a well, and the standard formulation dries
-that cell in the first time step.
+rise_above, partial, and tiny_rewet cases, which start below the top of the
+cell, also run with the standard formulation and give the same results; the
+others start at or above the top of a cell drained only by a well, and the
+standard formulation dries that cell in the first time step.
 """
 
 import os
@@ -428,6 +430,29 @@ def test_partial(function_tmpdir, targets, newton, nstp):
         # whether in one time step or several
         assert np.isclose(stranded[-1], 0.5 * stranded[mid], rtol=1e-9), (
             f"stranded {stranded[-1]} expected half of {stranded[mid]}"
+        )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
+def test_tiny_rewet(function_tmpdir, targets, newton):
+    # 1e-5 m3 drains 1e-7 of the thickness of a cell holding 100 m3 of
+    # drainable water, and the same volume rewets it
+    periods = [(1.0, [(-1.0e-5, 0.0)]), (1.0, [(1.0e-5, 0.0)])]
+
+    def build(test):
+        return get_model(
+            test.workspace, periods, 1, porosity, True, strt=5.0, newton=newton
+        )
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        _, _, _, _, stranded, _ = results(ws, True)
+        assert stranded[0] > 0.0, "no mass was stranded"
+        assert np.isclose(stranded[-1], 0.0, atol=stranded[0] * 1e-6), (
+            f"{stranded[-1]} of {stranded[0]} did not return"
         )
 
     run_framework(function_tmpdir, targets, build, check)

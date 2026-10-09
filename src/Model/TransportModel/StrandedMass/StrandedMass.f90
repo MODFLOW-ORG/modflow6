@@ -5,7 +5,7 @@
 module StrandedMassModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, DEM6, DNODATA, LENMEMPATH
+  use ConstantsModule, only: DZERO, DONE, DNODATA, LENMEMPATH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryHelperModule, only: create_mem_path
 
@@ -132,18 +132,19 @@ contains
   !> @brief Share of the reservoirs returned by rewetting
   !!
   !! The share of the drained part of the cell that rewets, so that a full
-  !! cycle returns exactly what it stranded.
+  !! cycle returns exactly what it stranded, however small the drained part.
   !<
   pure function return_fraction(dw, held) result(f)
     real(DP), intent(in) :: dw !< increase in saturation over the step
     real(DP), intent(in) :: held !< drained fraction the reservoirs represent
     real(DP) :: f
 
-    if (held < DEM6 .or. dw <= DZERO) then
+    if (dw <= DZERO) then
       f = DZERO
+    else if (dw >= held) then
+      f = DONE
     else
       f = dw / held
-      if (f > DONE) f = DONE
     end if
   end function return_fraction
 
