@@ -340,7 +340,7 @@ contains
     !
     tled = DONE / delt
     call this%mst_solute_free()
-    if (this%held_pending) call this%mst_held_initial(delt)
+    if (this%held_pending) call this%mst_held_initial()
     !
     do n = 1, this%dis%nodes
       !
@@ -407,10 +407,9 @@ contains
   !! Initial stranded mass is held in the part of the cell that is drained at
   !! the start of the simulation, so it returns as that part resaturates.
   !<
-  subroutine mst_held_initial(this, delt)
+  subroutine mst_held_initial(this)
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
-    real(DP), intent(in) :: delt !< length of the time step
     ! -- local
     integer(I4B) :: n
     real(DP) :: sat0
@@ -418,7 +417,7 @@ contains
     !
     do n = 1, this%dis%nodes
       if (this%strand%total(n) <= DZERO) cycle
-      sat0 = this%mst_satold(n, delt)
+      sat0 = this%mst_satold_strand(n)
       if (sat0 >= DONE - DEM6) then
         call this%dis%noder_to_string(n, cellid)
         write (errmsg, '(a)') 'Cell '//trim(adjustl(cellid))//' holds &
