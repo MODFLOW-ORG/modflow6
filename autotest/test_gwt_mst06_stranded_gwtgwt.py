@@ -9,7 +9,9 @@ and the checks below hold on one process or on two.
 
 Cases:
   - mst06_gwtgwt : the budget of each model closes, both models strand mass,
-                   and both reservoirs empty when the row is saturated again.
+                   both reservoirs empty when the row is saturated again, and
+                   the concentration and stranded mass of every cell match the
+                   same row simulated as a single model.
 """
 
 import flopy
@@ -45,12 +47,12 @@ def add_solver(sim, filename):
     )
 
 
-def add_gwf(sim, name, chd):
+def add_gwf(sim, name, chd, n=ncol):
     gwf = flopy.mf6.ModflowGwf(
         sim, modelname=name, save_flows=True, newtonoptions="NEWTON"
     )
     flopy.mf6.ModflowGwfdis(
-        gwf, nlay=1, nrow=1, ncol=ncol, delr=delr, delc=delc, top=top, botm=botm
+        gwf, nlay=1, nrow=1, ncol=n, delr=delr, delc=delc, top=top, botm=botm
     )
     flopy.mf6.ModflowGwfic(gwf, strt=top)
     flopy.mf6.ModflowGwfnpf(
@@ -68,7 +70,7 @@ def add_gwf(sim, name, chd):
         flopy.mf6.ModflowGwfchd(
             gwf,
             stress_period_data={
-                k: [[(0, 0, ncol - 1), h, 0.0]] for k, h in enumerate(heads)
+                k: [[(0, 0, n - 1), h, 0.0]] for k, h in enumerate(heads)
             },
             auxiliary="CONCENTRATION",
             pname="CHD-1",
@@ -83,10 +85,10 @@ def add_gwf(sim, name, chd):
     return gwf
 
 
-def add_gwt(sim, name, chd):
+def add_gwt(sim, name, chd, n=ncol):
     gwt = flopy.mf6.ModflowGwt(sim, modelname=name, save_flows=True)
     flopy.mf6.ModflowGwtdis(
-        gwt, nlay=1, nrow=1, ncol=ncol, delr=delr, delc=delc, top=top, botm=botm
+        gwt, nlay=1, nrow=1, ncol=n, delr=delr, delc=delc, top=top, botm=botm
     )
     flopy.mf6.ModflowGwtic(gwt, strt=cinit)
     flopy.mf6.ModflowGwtadv(gwt)
@@ -134,6 +136,9 @@ def build_models(idx, test):
         exgmnamea="fl",
         exgmnameb="fr",
         auxiliary=["ANGLDEGX", "CDIST"],
+        # the flow between the models uses the Newton formulation, as the flow
+        # within each model does
+        newton=True,
         filename="flfr.gwfgwf",
     )
 
@@ -162,6 +167,29 @@ def build_models(idx, test):
             filename=f"{f}{t}.gwfgwt",
         )
     return sim, None
+
+
+def run_single(ws, exe):
+    """The same row of cells as a single flow and a single transport model."""
+    sim = flopy.mf6.MFSimulation(sim_name="single", exe_name=exe, sim_ws=ws)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=nper, perioddata=perioddata)
+    add_gwf(sim, "f", True, n=2 * ncol)
+    sim.register_ims_package(add_solver(sim, "f.ims"), ["f"])
+    add_gwt(sim, "t", True, n=2 * ncol)
+    sim.register_ims_package(add_solver(sim, "t.ims"), ["t"])
+    flopy.mf6.ModflowGwfgwt(sim, exgtype="GWF6-GWT6", exgmnamea="f", exgmnameb="t")
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"single model simulation failed\n{buff}"
+
+
+def row(ws, names, ext, text):
+    """Values of the whole row over time, joining the models from left to right."""
+    out = []
+    for name in names:
+        f = flopy.utils.HeadFile(ws / f"{name}.{ext}", text=text)
+        out.append(np.array([f.get_data(totim=t).ravel() for t in f.get_times()]))
+    return np.concatenate(out, axis=1)
 
 
 def discrepancies(ws, name):
@@ -195,6 +223,19 @@ def check_output(idx, test):
         # the row is saturated again at the end, so the reservoirs are empty
         assert np.isclose(st[-1], 0.0, atol=st.max() * 1e-3), (
             f"the reservoirs of {name} did not empty, {st[-1]} of {st.max()} remains"
+        )
+
+    # nothing about stranded mass crosses the exchange, so every cell matches
+    # the same row simulated as a single model
+    single = ws / "single"
+    run_single(single, str(test.targets["mf6"]))
+    for ext, text in (("ucn", "CONCENTRATION"), ("strand.bin", "STRANDED")):
+        split = row(ws, ("tl", "tr"), ext, text)
+        whole = row(single, ("t",), ext, text)
+        assert split.shape == whole.shape, f"{split.shape} vs {whole.shape}"
+        assert np.allclose(split, whole, rtol=1e-9, atol=1e-9 * np.abs(whole).max()), (
+            f"{text} of the split row differs from the single model by "
+            f"{np.abs(split - whole).max()}"
         )
 
 
