@@ -14,9 +14,11 @@ Cases:
   - fmi_first_step    : a transport model that reads its flows from files, with
                         a water table that moves in the first time step, runs,
                         warns that no mass was stranded then, and strands none;
-                        a leading period in which the water table is still, or
-                        a cell whose head stays above its top while specific
-                        storage releases water, writes no warning.
+                        so does a cell that the standard formulation dries in
+                        the first time step, for which the flow model saves no
+                        storage; a leading period in which the water table is
+                        still, or a cell whose head stays above its top while
+                        specific storage releases water, writes no warning.
 """
 
 import flopy
@@ -114,28 +116,39 @@ def test_sy_above_porosity(function_tmpdir, targets):
     run_framework(function_tmpdir, targets, build, check)
 
 
-# the first stress period of each case, the starting head, and the specific
-# storage; only in the first case does the water table move in the first step
+# the first stress period of each case, the starting head, the specific
+# storage, and whether the flow model uses the Newton formulation; only in the
+# moved and dry cases does the water table move in the first step
 first_step_cases = {
-    "moved": ([], 10.0, 0.0),
-    "lead": ([(1.0, [(0.0, 0.0)])], 10.0, 0.0),
+    "moved": ([], 10.0, 0.0, True),
+    # the standard formulation dries the cell in the first time step
+    "dry": ([], 10.0, 0.0, False),
+    "lead": ([(1.0, [(0.0, 0.0)])], 10.0, 0.0, True),
     # 1 m3/d lowers the head from 15 to 14 m through specific storage, above
     # the 10 m top of the cell
-    "confined": ([(1.0, [(-1.0, 0.0)])], 15.0, 1.0e-3),
+    "confined": ([(1.0, [(-1.0, 0.0)])], 15.0, 1.0e-3, True),
 }
 
 
 @pytest.mark.parametrize("case", list(first_step_cases))
 def test_fmi_first_step(function_tmpdir, targets, case):
     """A warning is written only when the water table moves in the first step."""
-    lead, strt, ss = first_step_cases[case]
+    lead, strt, ss, newton = first_step_cases[case]
     exe = str(targets["mf6"])
     periods = lead + paper
 
     # the flow model alone, writing the head and budget files
     flow_ws = function_tmpdir / "flow"
     sim = get_model(
-        flow_ws, periods, 1, porosity, True, strt=strt, ss=ss, transport=False
+        flow_ws,
+        periods,
+        1,
+        porosity,
+        True,
+        strt=strt,
+        ss=ss,
+        transport=False,
+        newton=newton,
     )
     sim.exe_name = exe
     sim.write_simulation(silent=True)
@@ -184,8 +197,12 @@ def test_fmi_first_step(function_tmpdir, targets, case):
     success, buff = sim.run_simulation(silent=True)
     assert success, f"transport simulation failed\n{buff}"
 
-    warned = "The water table moved during the first time step" in listing_text(ws)
-    assert warned == (case == "moved"), (
+    text = listing_text(ws)
+    warned = (
+        "The water table moved during the first time step" in text
+        or "At least one cell was dry at the end of the first time step" in text
+    )
+    assert warned == (case in ("moved", "dry")), (
         f"a warning was expected only when the water table moved, {case=} {warned=}"
     )
     # the saturation the first time step starts from is not in the budget

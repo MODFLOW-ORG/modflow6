@@ -37,6 +37,14 @@ Cases:
   - thickstrt      : a confined cell whose saturated thickness is set by the
                      starting head with THICKSTRT never drains, and no mass
                      is stranded, including in the first time step.
+  - zero_then_solute: a cell without solute drains from a saturation of 1.0 to
+                     0.5, gains solute, drains to 0.4, and rewets to 0.5; the
+                     first drainage holds nothing, so all of the mass held by
+                     the second returns.
+  - cnc            : the paper case with the concentration held by the CNC
+                     Package while the cell drains; no mass is stranded, and
+                     the clean water injected after the CNC is removed dilutes
+                     the cell to 50 g/m3.
 
 The cases run with the Newton formulation of the flow model. The dilution,
 rise_above, partial, and tiny_rewet cases, which start below the top of the
@@ -45,10 +53,6 @@ others start at or above the top of a cell drained only by a well, and the
 standard formulation dries that cell in the first time step. The thickstrt
 case uses THICKSTRT, which applies to the standard formulation, and runs with
 it alone.
-  - zero_then_solute: a cell without solute drains from a saturation of 1.0 to
-                     0.5, gains solute, drains to 0.4, and rewets to 0.5; the
-                     first drainage holds nothing, so all of the mass held by
-                     the second returns.
 """
 
 import os
@@ -527,5 +531,29 @@ def test_zero_then_solute(function_tmpdir, targets):
         assert np.isclose(stranded[3], 0.0, atol=stranded[2] * 1e-9), (
             f"{stranded[3]} of {stranded[2]} did not return"
         )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_cnc(function_tmpdir, targets):
+    def build(test):
+        sim = get_model(test.workspace, paper, 1, porosity, True)
+        gwt = sim.get_model("gwt")
+        # the concentration is held while the cell drains, and released for
+        # the refill
+        flopy.mf6.ModflowGwtcnc(
+            gwt, stress_period_data={0: [[(0, 0, 0), cinit]], 1: []}
+        )
+        return sim
+
+    def check(test):
+        # no solute enters or leaves the cell after the CNC is removed, so the
+        # budget terms are round-off and the mass is checked through the
+        # concentration instead
+        _, _, sat, conc, stranded, _ = results(test.workspace, True)
+        assert np.allclose(sat, [0.5, 1.0]), f"saturation {sat}"
+        assert np.allclose(stranded, 0.0), f"mass stranded at a CNC cell {stranded}"
+        # half of the cell is refilled with clean water, and nothing returns
+        assert np.isclose(conc[-1], 0.5 * cinit), f"concentration {conc}"
 
     run_framework(function_tmpdir, targets, build, check)
