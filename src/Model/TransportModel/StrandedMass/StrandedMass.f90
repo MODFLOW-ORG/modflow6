@@ -139,7 +139,7 @@ contains
     real(DP), intent(in) :: held !< drained fraction the reservoirs represent
     real(DP) :: f
 
-    if (dw <= DZERO) then
+    if (dw <= DZERO .or. held <= DZERO) then
       f = DZERO
     else if (dw >= held) then
       f = DONE
