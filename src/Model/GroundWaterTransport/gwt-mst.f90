@@ -120,6 +120,7 @@ module GwtMstModule
     procedure :: mst_cq_dcy_srb
     procedure :: mst_cq_strand
     procedure :: mst_ad
+    procedure, private :: mst_held_grow
     procedure :: mst_calc_stranded
     procedure :: mst_ot_bdsummary
     procedure :: mst_calc_csrb
@@ -324,7 +325,6 @@ contains
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw
     real(DP) :: vret, released
-    real(DP) :: swtpdt
     !
     tled = DONE / delt
     !
@@ -372,8 +372,10 @@ contains
         !    volume holds returns as a mass source, which is known from the
         !    previous time step and so is explicit
         dw = sat_new - sat_old
-        swtpdt = return_fraction(dw, this%strand%held0(n))
-        rrhs = -this%strand%total0(n) * swtpdt * tled
+        rrhs = -(this%strand%stranded_aqueous0(n) * &
+                 return_fraction(dw, this%strand%held_aq0(n)) + &
+                 this%strand%stranded_sorbed0(n) * &
+                 return_fraction(dw, this%strand%held_srb0(n))) * tled
         rhs(n) = rhs(n) + rrhs
       end if
     end do
@@ -781,7 +783,7 @@ contains
     real(DP) :: maq, msrb
     real(DP) :: daq, dsrb
     real(DP) :: vcell, volfracm, rhobm
-    real(DP) :: sat_new, sat_old, ds, dw, f
+    real(DP) :: sat_new, sat_old, ds, dw
     real(DP) :: released, vdrain
     logical :: decay_strand
     !
@@ -805,7 +807,8 @@ contains
       !    previous time step ended with, so repeating it changes nothing
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous0(n)
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed0(n)
-      this%strand%held(n) = this%strand%held0(n)
+      this%strand%held_aq(n) = this%strand%held_aq0(n)
+      this%strand%held_srb(n) = this%strand%held_srb0(n)
       !
       ! -- an inactive cell keeps the mass its reservoirs hold, and records
       !    the saturation it now has, so that the step in which it becomes
@@ -836,7 +839,7 @@ contains
                                       this%isotherm%value(cold, n), delt) * delt
             this%ratesrb(n) = this%ratesrb(n) + msrb * tled
           end if
-          this%strand%held(n) = this%strand%held(n) + ds
+          call this%mst_held_grow(n, ds, maq, msrb)
           this%strand%stranded_aqueous(n) = &
             this%strand%stranded_aqueous(n) + maq
           this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
@@ -887,15 +890,17 @@ contains
           msrb = strand_rate_sorbed(ds, vcell, volfracm, rhobm, &
                                     this%isotherm%value(cnew, n), delt) * delt
         end if
-        this%strand%held(n) = this%strand%held(n) + ds
+        call this%mst_held_grow(n, ds, maq, msrb)
       else if (sat_new > sat_old) then
         !
         ! -- rewetting, mass returns to the mobile domain
         dw = sat_new - sat_old
-        f = return_fraction(dw, this%strand%held(n))
-        maq = -this%strand%stranded_aqueous(n) * f
-        msrb = -this%strand%stranded_sorbed(n) * f
-        this%strand%held(n) = max(this%strand%held(n) - dw, DZERO)
+        maq = -this%strand%stranded_aqueous(n) * &
+              return_fraction(dw, this%strand%held_aq(n))
+        msrb = -this%strand%stranded_sorbed(n) * &
+               return_fraction(dw, this%strand%held_srb(n))
+        this%strand%held_aq(n) = max(this%strand%held_aq(n) - dw, DZERO)
+        this%strand%held_srb(n) = max(this%strand%held_srb(n) - dw, DZERO)
       end if
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
@@ -943,6 +948,24 @@ contains
     !    becomes the previous saturation when the next time step starts
     this%strand_stepped = .true.
   end subroutine mst_cq_strand
+
+  !> @ brief Extend the drained fraction of each reservoir that gains mass
+  !!
+  !! The mass held is spread over the part of the cell that drained while it
+  !! was added, so a drainage that adds nothing to a reservoir does not
+  !! extend the part that reservoir represents.
+  !<
+  subroutine mst_held_grow(this, n, ds, maq, msrb)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    real(DP), intent(in) :: ds !< decrease in saturation over the step
+    real(DP), intent(in) :: maq !< mass added to the aqueous reservoir
+    real(DP), intent(in) :: msrb !< mass added to the sorbed reservoir
+    !
+    if (maq > DZERO) this%strand%held_aq(n) = this%strand%held_aq(n) + ds
+    if (msrb > DZERO) this%strand%held_srb(n) = this%strand%held_srb(n) + ds
+  end subroutine mst_held_grow
 
   !> @ brief Advance the stranded mass reservoirs to a new time step
   !!
