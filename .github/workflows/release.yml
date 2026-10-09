@@ -139,10 +139,16 @@ jobs:
         with:
           pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
+          environments: ${{ matrix.extended && 'default fp4' || 'default' }}
 
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
+
+      - name: Custom pixi install (fp4)
+        if: matrix.extended
+        working-directory: modflow6
+        run: pixi run -e fp4 install
 
       - name: Set version number
         id: set_version
@@ -319,6 +325,8 @@ jobs:
       - name: Build and test binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && inputs.run_tests
         uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          pixi-environment: fp4
         env:
           RELEASEMODE: ${{ inputs.releasemode }}
           MARKERS: ${{ steps.set_markers.outputs.markers }}

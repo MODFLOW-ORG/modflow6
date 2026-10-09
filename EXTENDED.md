@@ -188,6 +188,34 @@ $ pytest --netcdf test_netcdf_gwe_cnd.py
 
 Running without the `--parallel` and `--netcdf` flags will simply skip these tests.
 
+### NetCDF input tests with flopy4
+
+The `test_netcdf_*` tests that use a `Comparison.FP4_*` comparison have [flopy4](https://github.com/modflowpy/pyphoenix-project) re-write the test's simulation with NetCDF package input, run it, and compare it to the ASCII run. flopy4 is installed only in the `fp4` pixi environment, which adds it, and the dependencies it brings, to the default environment. Outside `fp4` these tests are skipped, or fail in CI.
+
+Set up the environment and FloPy in it:
+
+```
+$ pixi run -e fp4 install
+$ pixi run -e fp4 update-flopy
+```
+
+Run the NetCDF tests (extra arguments are passed to pytest):
+
+```
+$ pixi run test-netcdf
+$ pixi run test-netcdf -k test_netcdf_gwf_rch01
+```
+
+To test a local flopy4 checkout, install it over the pinned version:
+
+```
+$ pixi run install-flopy4-local /path/to/flopy4
+```
+
+An explicit `pixi install` restores the pinned flopy4 (and FloPy), so re-run these afterwards.
+
+The flopy4 commit is pinned in `pixi.toml`. When updating it, keep `modflow-devtools` at the commit that flopy4 pins, in both its `pypi-dependencies` entry and `pypi-options.dependency-overrides`, and update the lock file.
+
 ## Debugging
 
 The most straightforward way to debug a parallel simulation is to start a run and have it pause to attach the debugger(s). Make sure that the MODFLOW executable was compiled with `-Ddebug=true`. In parallel mode the program uses the PETSc solver and a configuration file `.petscrc` should be present in the same folder as the simulation's `mfsim.nam`. In that PETSc resource file, you should add the following option:

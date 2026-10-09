@@ -46,7 +46,7 @@ xugrid = ">=0.14"
 xmipy = ">=1.4.0"
 
 [pypi-dependencies]
-modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
+modflow-devtools = { git = "https://github.com/MODFLOW-ORG/modflow-devtools.git", rev = "8fb5dd848088f755285c9de46a54e4b47d47fd0a", extras = ["test", "dfn", "models"] }
 
 # os-specific dependencies
 [target.win-64.dependencies]
@@ -141,9 +141,19 @@ builddir = "echo _builddir_win-64"
 # environments for documentation and extended build testing
 [environments]
 rtd = { features = ["rtd"], solve-group = "default" }
+fp4 = { features = ["fp4"], solve-group = "default" }
 gcc-extended-build = { features = ["gcc-extended-build"] }
 
 # Features
+[feature.fp4.pypi-dependencies]
+# flopy4, and through it its dependencies, for the flopy4 NetCDF input tests
+flopy4 = { git = "https://github.com/modflowpy/pyphoenix-project.git", rev = "4f0b8159d7e5f30a8711f56a3c724ec433373e1f" }
+
+[feature.fp4.tasks]
+# install a local flopy4 checkout over the pinned one: install-flopy4-local <path>
+install-flopy4-local = "pip install --disable-pip-version-check --no-deps -e"
+test-netcdf = { cmd = "pytest -v --durations 0 --netcdf -k test_netcdf", cwd = "autotest" }
+
 [feature.rtd.dependencies]
 numpy = ">=2.2.6,<3"
 bmipy = "*"
@@ -196,3 +206,7 @@ gcc-extended-build-update = { depends-on = [
     "gcc-extended-build-update-pc-files",
 ] }
 
+
+[pypi-options.dependency-overrides]
+# flopy4 requires devtools from git without a commit; use the pinned one
+modflow-devtools = { git = "https://github.com/MODFLOW-ORG/modflow-devtools.git", rev = "8fb5dd848088f755285c9de46a54e4b47d47fd0a", extras = ["test", "dfn", "models"] }

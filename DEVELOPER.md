@@ -287,6 +287,10 @@ The `mfpymake` package can build MODFLOW 6 and related programs and artifacts (e
 
 Like MODFLOW 6, `flopy` is modular &mdash; for each MODFLOW 6 package there is generally a corresponding `flopy` package. Packages are generated dynamically from DFN files stored in this repository under `doc/mf6io/mf6ivar/dfn`.
 
+#### `flopy4`
+
+[`flopy4`](https://github.com/modflowpy/pyphoenix-project) is used by the NetCDF input tests, which re-write test simulations with NetCDF input and compare them to the ASCII runs. It is installed only in the separate `fp4` pixi environment; see [EXTENDED.md](EXTENDED.md#netcdf-input-tests-with-flopy4).
+
 #### `modflow-devtools`
 
 The tests use a set of shared fixtures and utilities provided by the [`modflow-devtools`](https://github.com/MODFLOW-ORG/modflow-devtools) package.

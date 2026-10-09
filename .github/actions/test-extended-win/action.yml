@@ -1,6 +1,10 @@
 
 name: Test extended MF6 (Windows)
 description: Build and test extended MODFLOW 6 on Windows
+inputs:
+  pixi-environment:
+    description: pixi environment to build and test in
+    default: default
 runs:
   using: "composite"
   steps:
@@ -11,7 +15,7 @@ runs:
       working-directory: modflow6
       shell: cmd
       run: |
-        set "cmd=pixi run update-flopy --dfnpath doc\mf6io\mf6ivar\dfn"
+        set "cmd=pixi run -e ${{ inputs.pixi-environment }} update-flopy --dfnpath doc\mf6io\mf6ivar\dfn"
         if "%RELEASEMODE%"=="true" (
           set "cmd=%cmd% --releasemode"
         )
@@ -22,7 +26,7 @@ runs:
       shell: cmd
       env:
         GITHUB_TOKEN: ${{ github.token }}
-      run: pixi run get-exes
+      run: pixi run -e ${{ inputs.pixi-environment }} get-exes
 
     - name: Convert unix2dos
       shell: cmd
@@ -35,5 +39,6 @@ runs:
         REPOS_PATH: ${{ github.workspace }}
         MARKERS: ${{ env.MARKERS }}
         FILTERS: ${{ env.FILTERS }}
+        PIXI_ENV: ${{ inputs.pixi-environment }}
       run: |
         "%ONEAPI_ROOT%\setvars.bat" intel64 vs2022 && "%TEMP%\test_modflow6_extended.bat"

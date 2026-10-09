@@ -9,6 +9,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from test_gwf_disv import cases
 
@@ -317,5 +318,45 @@ def test_mf6model(idx, name, function_tmpdir, targets, gridded_input, wkt_mode):
         check=lambda t: check_output(idx, t, gridded_input, wkt_mode),
         cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
         compare=None,
+    )
+    test.run()
+
+
+@pytest.mark.netcdf
+@pytest.mark.parametrize(
+    "idx, name",
+    list(enumerate(cases)),
+)
+@pytest.mark.parametrize("compare", [Comparison.FP4_LAYERED])
+def test_mf6model_fp4(idx, name, function_tmpdir, targets, compare):
+    """The base test re-written by flopy4 with NetCDF input matches the ASCII run."""
+    from test_gwf_disv import build_models as build
+    from test_gwf_disv import check_output as check
+
+    def build_with_oc(test):
+        # save heads and budgets so the two runs' outputs are compared
+        sim, _ = build(idx, test)
+        gwf = sim.get_model()
+        gwf.name_file.save_flows = True
+        flopy.mf6.ModflowGwfoc(
+            gwf,
+            head_filerecord=f"{name}.hds",
+            budget_filerecord=f"{name}.cbc",
+            saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+        )
+        return sim, None
+
+    def check_both(test):
+        check(idx, test)
+        test.workspace = test.workspace / compare.value
+        check(idx, test)
+
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        build=build_with_oc,
+        check=check_both,
+        targets=targets,
+        compare=compare,
     )
     test.run()

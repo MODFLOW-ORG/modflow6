@@ -50,7 +50,7 @@ contains
   subroutine add_package_var(modeltype, modelname, nc_vars, input_name, varid, &
                              iout)
     use InputOutputModule, only: lowcase, upcase
-    use MemoryHelperModule, only: split_mem_address, split_mem_path
+    use MemoryHelperModule, only: split_mem_path, memPathSeparator
     use SourceCommonModule, only: idm_subcomponent_type
     use SourceCommonModule, only: idm_subcomponent_name
     character(len=*), intent(in) :: modeltype
@@ -62,12 +62,13 @@ contains
     character(len=NETCDF_ATTR_STRLEN) :: input_str
     character(len=LENCOMPONENTNAME) :: c_name, sc_name
     character(len=LINELENGTH) :: mempath, varname
-    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux
+    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux, idx
     logical(LGP) :: success
 
     ! initialize
     layer = -1
     iaux = -1
+    mempath = ''
     varname = ''
     c_name = ''
     sc_name = ''
@@ -75,8 +76,14 @@ contains
     ! process mf6_input attribute
     if (nf90_get_att(nc_vars%ncid, varid, 'modflow_input', &
                      input_str) == NF90_NOERR) then
-      ! mf6_input should provide a memory address
-      call split_mem_address(input_str, mempath, varname, success)
+      ! modflow_input is "<model>/<package>/<tagname>"; a tag name can be
+      ! longer than a memory variable name, so split on the last separator
+      idx = index(input_str, memPathSeparator, back=.true.)
+      success = (idx > 1 .and. idx < len_trim(input_str))
+      if (success) then
+        mempath = input_str(:idx - 1)
+        varname = input_str(idx + 1:)
+      end if
 
       if (success) then
         ! split the mempath

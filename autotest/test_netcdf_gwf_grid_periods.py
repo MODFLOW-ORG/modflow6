@@ -1,12 +1,13 @@
 """
-NetCDF input version of test_gwf_vsc01: flopy4 re-writes the simulations with
-NetCDF package arrays, and the run is compared to the ASCII run and re-checked.
+NetCDF input version of test_gwf_grid_periods: flopy4 re-writes the simulation
+with NetCDF package arrays, and the run is compared to the ASCII run and
+re-checked.
 """
 
 import pytest
 from compare import Comparison
 from framework import TestFramework
-from test_gwf_vsc01 import cases
+from test_gwf_grid_periods import cases
 
 
 @pytest.mark.netcdf
@@ -17,13 +18,13 @@ from test_gwf_vsc01 import cases
 @pytest.mark.parametrize("compare", [Comparison.FP4_STRUCTURED, Comparison.FP4_LAYERED])
 def test_mf6model_fp4(idx, name, function_tmpdir, targets, compare):
     """The base test re-written by flopy4 with NetCDF input matches the ASCII run."""
-    from test_gwf_vsc01 import build_models as build
-    from test_gwf_vsc01 import check_output, check_outputs
+    from test_gwf_grid_periods import build_models as build
+    from test_gwf_grid_periods import check_output as check
 
     def check_both(test):
-        check_outputs(idx, test)
-        check_output(idx, test.workspace / compare.value)
-        check_output(idx, test.workspace / compare.value / "mf6", array_input=True)
+        check(idx, test)
+        test.workspace = test.workspace / compare.value
+        check(idx, test)
 
     test = TestFramework(
         name=name,
