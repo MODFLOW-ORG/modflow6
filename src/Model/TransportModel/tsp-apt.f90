@@ -120,6 +120,9 @@ module TspAptModule
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
     real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume a feature must regain to return all of its held mass
     real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
+    real(DP), dimension(:), pointer, contiguous :: strandmass0 => null() !< held mass at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: strandvol0 => null() !< volume to regain at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: strandvmax0 => null() !< largest volume since dry at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: strandk => null() !< rate coefficient for mass moved to the held mass
     real(DP), dimension(:), pointer, contiguous :: strandret => null() !< rate at which held mass returns to the feature
     real(DP), dimension(:), pointer, contiguous :: qstrand => null() !< net mass flux between the feature and the held mass
@@ -638,6 +641,24 @@ contains
           this%xnewpak(n) = this%concfeat(n)
         end if
       end do
+    end if
+    !
+    ! -- the held mass of a new time step starts from the end of the last one,
+    !    and a repeated time step starts from it again
+    if (this%istrand /= 0) then
+      if (iFailedStepRetry == 0) then
+        do n = 1, this%ncv
+          this%strandmass0(n) = this%strandmass(n)
+          this%strandvol0(n) = this%strandvol(n)
+          this%strandvmax0(n) = this%strandvmax(n)
+        end do
+      else
+        do n = 1, this%ncv
+          this%strandmass(n) = this%strandmass0(n)
+          this%strandvol(n) = this%strandvol0(n)
+          this%strandvmax(n) = this%strandvmax0(n)
+        end do
+      end if
     end if
     !
     ! -- run package-specific checks
@@ -1207,6 +1228,11 @@ contains
     call mem_allocate(this%strandmass, nstrand, 'STRANDMASS', this%memoryPath)
     call mem_allocate(this%strandvol, nstrand, 'STRANDVOL', this%memoryPath)
     call mem_allocate(this%strandvmax, nstrand, 'STRANDVMAX', this%memoryPath)
+    call mem_allocate(this%strandmass0, nstrand, 'STRANDMASS0', &
+                      this%memoryPath)
+    call mem_allocate(this%strandvol0, nstrand, 'STRANDVOL0', this%memoryPath)
+    call mem_allocate(this%strandvmax0, nstrand, 'STRANDVMAX0', &
+                      this%memoryPath)
     call mem_allocate(this%strandk, nstrand, 'STRANDK', this%memoryPath)
     call mem_allocate(this%strandret, nstrand, 'STRANDRET', this%memoryPath)
     call mem_allocate(this%qstrand, nstrand, 'QSTRAND', this%memoryPath)
@@ -1214,6 +1240,9 @@ contains
       this%strandmass(n) = DZERO
       this%strandvol(n) = DZERO
       this%strandvmax(n) = DZERO
+      this%strandmass0(n) = DZERO
+      this%strandvol0(n) = DZERO
+      this%strandvmax0(n) = DZERO
       this%strandk(n) = DZERO
       this%strandret(n) = DZERO
       this%qstrand(n) = DZERO
@@ -1256,6 +1285,9 @@ contains
     call mem_deallocate(this%strandmass)
     call mem_deallocate(this%strandvol)
     call mem_deallocate(this%strandvmax)
+    call mem_deallocate(this%strandmass0)
+    call mem_deallocate(this%strandvol0)
+    call mem_deallocate(this%strandvmax0)
     call mem_deallocate(this%strandk)
     call mem_deallocate(this%strandret)
     call mem_deallocate(this%qstrand)
@@ -1870,13 +1902,13 @@ contains
         this%strandk(n) = vwater / delt * this%eqnsclfac
         !
         ! -- the feature regains water, so the held mass returns in proportion
-      else if (this%strandmass(n) > DZERO .and. v1 > v0) then
-        if (this%strandvol(n) > DZERO) then
-          f = min((v1 - v0) / this%strandvol(n), DONE)
+      else if (this%strandmass0(n) > DZERO .and. v1 > v0) then
+        if (this%strandvol0(n) > DZERO) then
+          f = min((v1 - v0) / this%strandvol0(n), DONE)
         else
           f = DONE
         end if
-        this%strandret(n) = f * this%strandmass(n) / delt
+        this%strandret(n) = f * this%strandmass0(n) / delt
       end if
     end do
     deallocate (qin, qout)
@@ -1897,6 +1929,12 @@ contains
     real(DP) :: v0, v1, vwater, held, returned
     !
     do n = 1, this%ncv
+      !
+      ! -- every pass through a time step starts from the held mass the
+      !    previous time step ended with
+      this%strandmass(n) = this%strandmass0(n)
+      this%strandvol(n) = this%strandvol0(n)
+      this%strandvmax(n) = this%strandvmax0(n)
       held = this%strandk(n) * this%xnewpak(n)
       returned = this%strandret(n)
       this%qstrand(n) = returned - held
