@@ -47,11 +47,14 @@ def draw_cell(ax, x, wt, label):
     )
     ax.plot([x, x + W], [wt, wt], color="black", lw=1.0, zorder=5)
 
-    # sorbate held on the solid aquifer material, scattered over the whole cell
+    # sorbate held on the solid aquifer material; without the option the
+    # sorbed mass of a cell is scaled by the saturation, so only the saturated
+    # part of the cell holds sorbate
     rng = np.random.default_rng(SEED)
     xs = rng.uniform(x + 0.18, x + W - 0.18, NDOT)
     ys = rng.uniform(YB + 0.18, YT - 0.18, NDOT)
-    ax.plot(xs, ys, marker="o", ms=2.2, color=SOLID, ls="none", zorder=6)
+    wet = ys < wt - 0.12
+    ax.plot(xs[wet], ys[wet], marker="o", ms=2.2, color=SOLID, ls="none", zorder=6)
 
     ax.text(x + W / 2.0, YT + 0.25, label, ha="center", va="bottom", fontsize=7)
 
