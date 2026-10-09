@@ -232,7 +232,8 @@ contains
       if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then
         write (errmsg, '(a)') 'STRANDED_MASS is active but the STO-SY flow &
           &term was not found in the budget file read by the FMI Package. &
-          &Add SAVE_FLOWS to the STO Package of the flow model and rerun it. &
+          &Add SAVE_FLOWS to the STO Package or the name file of the flow &
+          &model and rerun it. &
           &If the flow model does not use specific yield, no cell drains and &
           &the option has no effect, so remove STRANDED_MASS.'
         call store_error(errmsg)
