@@ -29,10 +29,13 @@ Cases:
   - decay          : sorbed mass stranded by pumping decays at the sorbed
                      rate while the cell stays drained, as an exact
                      exponential.
+  - partial        : the cell drains from a saturation of 0.5 to 0.3 and
+                     rewets to 0.4, so exactly half of the drained interval
+                     resaturates and half of the stranded mass returns.
 
-The cases run with the Newton formulation of the flow model. The dilution and
-rise_above cases, which start below the top of the cell, also run with the
-standard formulation and give the same results; the others start at or above
+The cases run with the Newton formulation of the flow model. The dilution,
+rise_above, and partial cases, which start below the top of the cell, also run
+with the standard formulation and give the same results; the others start at or above
 the top of a cell drained only by a well, and the standard formulation dries
 that cell in the first time step.
 """
@@ -396,6 +399,35 @@ def test_decay(function_tmpdir, targets):
         assert stranded[~held][-1] > 0.0, "no mass was stranded"
         assert np.allclose(stranded[held], expected, rtol=1e-10), (
             f"stranded {stranded[held]} expected {expected}"
+        )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+@pytest.mark.parametrize("nstp", [1, 4])
+@pytest.mark.parametrize("newton", [True, False], ids=["newton", "standard"])
+def test_partial(function_tmpdir, targets, newton, nstp):
+    # pump 20 m3 to drain the cell from 0.5 to 0.3, then inject 10 m3 of clean
+    # water to rewet it to 0.4
+    periods = [(1.0, [(-20.0, 0.0)]), (1.0, [(10.0, 0.0)])]
+
+    def build(test):
+        return get_model(
+            test.workspace, periods, nstp, porosity, True, strt=5.0, newton=newton
+        )
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        _, _, sat, _, stranded, _ = results(ws, True)
+        mid = nstp - 1
+        assert np.isclose(sat[mid], 0.3), f"saturation after pumping {sat[mid]}"
+        assert np.isclose(sat[-1], 0.4), f"saturation after injection {sat[-1]}"
+        assert stranded[mid] > 0.0, "no mass was stranded"
+        # the mass is held in the 0.2 that drained, and 0.1 of it resaturates,
+        # whether in one time step or several
+        assert np.isclose(stranded[-1], 0.5 * stranded[mid], rtol=1e-9), (
+            f"stranded {stranded[-1]} expected half of {stranded[mid]}"
         )
 
     run_framework(function_tmpdir, targets, build, check)
