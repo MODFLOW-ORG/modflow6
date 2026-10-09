@@ -1,0 +1,209 @@
+name: Pull request policy
+on:
+  # pull_request_target runs in the base repository so fork pull requests can
+  # be commented on. The pull request code is never checked out.
+  pull_request_target:
+    types: [opened, reopened, edited]
+permissions: {}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+jobs:
+  linked-issue:
+    name: Check linked issue
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const author = pr.user.login;
+            const { owner, repo } = context.repo;
+            const marker = '<!-- pr-policy-linked-issue -->';
+
+            // maintainers are not required to link an issue
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner, repo, username: author,
+              });
+              if (['admin', 'maintain', 'write'].includes(data.permission)) {
+                core.info(`${author} has ${data.permission} access; not required`);
+                return;
+              }
+            } catch (error) {
+              core.warning(`permission lookup failed for ${author}: ${error.message}`);
+              return;
+            }
+
+            // issues named on the template's issue lines or with a closing
+            // keyword such as "Closes #1234"
+            const body = (pr.body || '')
+              .replace(/\r\n/g, '\n')
+              .replace(/<!--[\s\S]*?-->/g, '');
+            const numbers = new Set();
+            for (const m of body.matchAll(/(?:Closed issue|Referenced issue or pull request)\s+#(\d+)/gi)) {
+              numbers.add(Number(m[1]));
+            }
+            const result = await github.graphql(
+              `query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  pullRequest(number: $number) {
+                    closingIssuesReferences(first: 25) {
+                      nodes { number repository { nameWithOwner } }
+                    }
+                  }
+                }
+              }`,
+              { owner, repo, number: pr.number }
+            );
+            for (const node of result.repository.pullRequest.closingIssuesReferences.nodes) {
+              if (node.repository.nameWithOwner.toLowerCase() === `${owner}/${repo}`.toLowerCase()) {
+                numbers.add(node.number);
+              }
+            }
+
+            // an issue is accepted once a maintainer assigns it a milestone
+            const issues = [];
+            for (const number of numbers) {
+              try {
+                const { data } = await github.rest.issues.get({
+                  owner, repo, issue_number: number,
+                });
+                if (!data.pull_request) {
+                  issues.push(data);
+                }
+              } catch (error) {
+                core.info(`#${number} not found: ${error.message}`);
+              }
+            }
+            const accepted = issues.filter((i) => i.milestone);
+
+            const problems = [];
+            if (issues.length === 0) {
+              problems.push(
+                'Link the issue this pull request addresses, on the "Closed issue #xxxx" ' +
+                'line of the template or with a closing keyword such as "Closes #1234". ' +
+                'Contributors without write access must open an issue before a pull request.'
+              );
+            } else if (accepted.length === 0) {
+              const list = issues.map((i) => `#${i.number}`).join(', ');
+              problems.push(
+                `No linked issue (${list}) has a milestone yet. A maintainer ` +
+                `assigns a milestone once an issue is accepted; edit the description ` +
+                `after that and the check will run again.`
+              );
+            }
+
+            // one comment per pull request, updated or removed as the body changes
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body.includes(marker));
+
+            if (problems.length === 0) {
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner, repo, comment_id: existing.id,
+                });
+              }
+              return;
+            }
+
+            const message =
+              `${marker}\n` +
+              `Pull requests from contributors without write access must address an ` +
+              `issue that a maintainer has accepted by assigning it a milestone. See ` +
+              `[pull requests](https://github.com/${owner}/${repo}/blob/develop/CONTRIBUTING.md#pull-requests).\n\n` +
+              problems.map((p) => `- ${p}`).join('\n');
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body: message,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pr.number, body: message,
+              });
+            }
+            core.setFailed(problems.join(' '));
+
+  template:
+    name: Check pull request template
+    if: github.event.pull_request.user.type != 'Bot'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            // HTML comments are hidden, so they do not count as content
+            const body = (pr.body || '')
+              .replace(/\r\n/g, '\n')
+              .replace(/<!--[\s\S]*?-->/g, '');
+            const marker = '<!-- pr-policy-template -->';
+            const heading = 'Checklist of items for pull request';
+
+            // a chore, such as a dependency or lock file update, is titled
+            // "chore: ..." or "chore(scope): ..." and needs no template
+            const chore = /^chore(\([^)]*\))?!?:/i.test((pr.title || '').trim());
+
+            const problems = [];
+            if (chore) {
+              core.info('chore pull request; template not required');
+            } else {
+              if (body.includes('Replace this paragraph with a written description')) {
+                problems.push('Replace the placeholder paragraph with a description of the pull request.');
+              }
+              const index = body.indexOf(heading);
+              if (index < 0) {
+                problems.push(`Keep the "${heading}" section from the template.`);
+              } else {
+                if (body.slice(0, index).trim().length === 0) {
+                  problems.push('Add a description above the checklist.');
+                }
+                if (!/-\s*\[[xX]\]\s*Replaced section above/.test(body)) {
+                  problems.push('Check "Replaced section above with description of pull request".');
+                }
+                if (!/-\s*\[[xX]\]\s*Removed checklist items not relevant/.test(body)) {
+                  problems.push('Check "Removed checklist items not relevant to this pull request" after removing items that do not apply.');
+                }
+              }
+            }
+
+            // one comment per pull request, updated or removed as the body changes
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: pr.number, per_page: 100,
+            });
+            const existing = comments.find((c) => c.body.includes(marker));
+
+            if (problems.length === 0) {
+              if (existing) {
+                await github.rest.issues.deleteComment({
+                  owner, repo, comment_id: existing.id,
+                });
+              }
+              return;
+            }
+
+            const message =
+              `${marker}\n` +
+              `This pull request does not follow the ` +
+              `[pull request template](https://github.com/${owner}/${repo}/blob/develop/.github/PULL_REQUEST_TEMPLATE.md). ` +
+              `Edit the description to fix the following and the check will run again.\n\n` +
+              problems.map((p) => `- ${p}`).join('\n');
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner, repo, comment_id: existing.id, body: message,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: pr.number, body: message,
+              });
+            }
+            core.setFailed(problems.join(' '));

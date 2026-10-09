@@ -18,7 +18,7 @@ This repository contains branches of ongoing MODFLOW 6 development.  The two mai
 * `master`: the state of the MODFLOW 6 repository corresponding to the last official USGS release
 * `develop`: the current development version of the MODFLOW 6 program
 
-The `develop` branch is under active and frequent updates by the MODFLOW development team and other interested contributors.  We follow a fork and pull request workflow and require that pull requests pass our test suite before they are considered a possible candidate to merge into `develop`. The `master` branch is only updated immediately prior to each new release.
+The `develop` branch is under active and frequent updates by the MODFLOW development team and other interested contributors.  We follow a fork and pull request workflow and require that pull requests pass our test suite before they are considered a possible candidate to merge into `develop`. Contributors without write access to the repository open an issue first; see [pull requests](./CONTRIBUTING.md#pull-requests) for the pull request policy. The `master` branch is only updated immediately prior to each new release.
 
 This repository may contain other branches with various levels of development code; however, these branches may be merged into develop or deleted without notice.
 
