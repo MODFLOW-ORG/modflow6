@@ -10,6 +10,8 @@ module GwfModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwfIcModule, only: GwfIcType
   use GwfNpfModule, only: GwfNpfType
+  use ConductanceProviderModule, only: ConductanceProviderType
+  use GwfUzrModule, only: GwfUzrType
   use Xt3dModule, only: Xt3dType
   use GwfBuyModule, only: GwfBuyType
   use GwfVscModule, only: GwfVscType
@@ -37,6 +39,8 @@ module GwfModule
 
     type(GwfIcType), pointer :: ic => null() ! initial conditions package
     type(GwfNpfType), pointer :: npf => null() ! node property flow package
+    class(ConductanceProviderType), pointer :: cond_provider => null() ! directional effective-K provider (NPF-backed)
+    type(GwfUzrType), pointer :: uzr => null() ! Richards flow package
     type(Xt3dType), pointer :: xt3d => null() ! xt3d option for npf
     type(GwfBuyType), pointer :: buy => null() ! buoyancy package
     type(GwfVscType), pointer :: vsc => null() ! viscosity package
@@ -51,6 +55,7 @@ module GwfModule
     integer(I4B), pointer :: inic => null() ! IC enabled flag
     integer(I4B), pointer :: inoc => null() ! unit number OC
     integer(I4B), pointer :: innpf => null() ! NPF enabled flag
+    integer(I4B), pointer :: inuzr => null() ! UZR enabled flag
     integer(I4B), pointer :: inbuy => null() ! unit number BUY
     integer(I4B), pointer :: invsc => null() ! unit number VSC
     integer(I4B), pointer :: insto => null() ! STO enabled flag
@@ -107,7 +112,7 @@ module GwfModule
   integer(I4B), parameter :: GWF_NBASEPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NBASEPKG) :: GWF_BASEPKG
   data GWF_BASEPKG/'DIS6 ', 'DISV6', 'DISU6', '     ', '     ', & !  5
-                  &'NPF6 ', 'BUY6 ', 'VSC6 ', 'GNC6 ', '     ', & ! 10
+                  &'NPF6 ', 'UZR6 ', 'BUY6 ', 'VSC6 ', 'GNC6 ', & ! 10
                   &'HFB6 ', 'STO6 ', 'IC6  ', 'CSUB6', '     ', & ! 15
                   &'MVR6 ', 'OC6  ', 'OBS6 ', '     ', '     ', & ! 20
                   &30*'     '/ ! 50
@@ -120,7 +125,7 @@ module GwfModule
   integer(I4B), parameter :: GWF_NMULTIPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NMULTIPKG) :: GWF_MULTIPKG
   data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', '     ', & !  5
-                   &'RCH6 ', 'EVT6 ', 'CHD6 ', '     ', '     ', & ! 10
+                   &'SGD6 ', 'RCH6 ', 'EVT6 ', 'CHD6 ', 'SPG6 ', & ! 10
                    &'MAW6 ', 'SFR6 ', 'LAK6 ', 'UZF6 ', 'API6 ', & ! 15
                    &35*'     '/ ! 50
 
@@ -225,6 +230,7 @@ contains
     ! -- Define packages and utility objects
     call this%dis%dis_df()
     call this%npf%npf_df(this%dis, this%xt3d, this%ingnc, this%invsc)
+    if (this%inuzr > 0) call this%uzr%uzr_df(this%dis, this%npf, this%sto)
     call this%oc%oc_df()
     call this%budget%budget_df(NIUNIT_GWF, 'VOLUME', 'L**3')
     if (this%inbuy > 0) call this%buy%buy_df(this%dis)
@@ -315,6 +321,9 @@ contains
   !!
   !<
   subroutine gwf_ar(this)
+    ! -- modules
+    use NpfConductanceProviderModule, only: create_npf_conductance_provider
+    use SgdModule, only: SgdType
     ! -- dummy
     class(GwfModelType) :: this
     ! -- locals
@@ -330,12 +339,18 @@ contains
     if (this%inhfb > 0) call this%hfb%hfb_ar(this%ibound, this%xt3d, this%dis, &
                                              this%invsc, this%vsc)
     if (this%insto > 0) call this%sto%sto_ar(this%dis, this%ibound)
+    if (this%inuzr > 0) call this%uzr%uzr_ar(this%dis, this%npf, this%sto)
     if (this%incsub > 0) call this%csub%csub_ar(this%dis, this%ibound)
     if (this%inmvr > 0) call this%mvr%mvr_ar()
     if (this%inobs > 0) call this%obs%gwf_obs_ar(this%ic, this%x, this%flowja)
     !
     ! -- Call dis_ar to write binary grid file
     call this%dis%dis_ar(this%npf%icelltype)
+    !
+    ! -- expose NPF directional effective-K through the abstract provider
+    if (this%innpf > 0) then
+      call create_npf_conductance_provider(this%cond_provider, this%npf)
+    end if
     !
     ! -- set up output control
     call this%oc%oc_ar(this%x, this%dis, this%npf%hnoflo)
@@ -350,6 +365,13 @@ contains
       call packobj%bnd_ar()
       if (this%inbuy > 0) call this%buy%buy_ar_bnd(packobj, this%x)
       if (this%invsc > 0) call this%vsc%vsc_ar_bnd(packobj)
+      ! -- hand the directional effective-K provider to packages that need it
+      if (associated(this%cond_provider)) then
+        select type (packobj)
+        type is (SgdType)
+          packobj%cond_provider => this%cond_provider
+        end select
+      end if
     end do
   end subroutine gwf_ar
 
@@ -760,6 +782,7 @@ contains
       this%flowja(i) = DZERO
     end do
     if (this%innpf > 0) call this%npf%npf_cq(this%x, this%flowja)
+    if (this%inuzr > 0) call this%uzr%uzr_cq(this%x)
     if (this%inbuy > 0) call this%buy%buy_cq(this%x, this%flowja)
     if (this%inhfb > 0) call this%hfb%hfb_cq(this%x, this%flowja)
     if (this%ingnc > 0) call this%gnc%gnc_cq(this%flowja)
@@ -968,21 +991,28 @@ contains
     integer(I4B), intent(inout) :: ipflag
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
-    !
-    ! -- Save compaction to binary file
-    if (this%incsub > 0) call this%csub%csub_ot_dv(idvsave, idvprint)
-    !
-    ! -- save density to binary file
+
+    ! Save saturation and pressure head to binary file
+    if (this%inuzr > 0) then
+      call this%uzr%uzr_ot_dv(idvsave)
+    end if
+
+    ! Save compaction to binary file
+    if (this%incsub > 0) then
+      call this%csub%csub_ot_dv(idvsave, idvprint)
+    end if
+
+    ! save density to binary file
     if (this%inbuy > 0) then
       call this%buy%buy_ot_dv(idvsave)
     end if
-    !
-    ! -- save viscosity to binary file
+
+    ! save viscosity to binary file
     if (this%invsc > 0) then
       call this%vsc%vsc_ot_dv(idvsave)
     end if
-    !
-    ! -- Print advanced package dependent variables
+
+    ! Print advanced package dependent variables
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_dv(idvsave, idvprint)
@@ -1081,7 +1111,9 @@ contains
     ! -- Internal flow packages deallocate
     call this%dis%dis_da()
     call this%ic%ic_da()
+    if (associated(this%cond_provider)) deallocate (this%cond_provider)
     call this%npf%npf_da()
+    call this%uzr%uzr_da()
     call this%xt3d%xt3d_da()
     call this%buy%buy_da()
     call this%vsc%vsc_da()
@@ -1098,6 +1130,7 @@ contains
     deallocate (this%dis)
     deallocate (this%ic)
     deallocate (this%npf)
+    deallocate (this%uzr)
     deallocate (this%xt3d)
     deallocate (this%buy)
     deallocate (this%vsc)
@@ -1122,6 +1155,7 @@ contains
     call mem_deallocate(this%inoc)
     call mem_deallocate(this%inobs)
     call mem_deallocate(this%innpf)
+    call mem_deallocate(this%inuzr)
     call mem_deallocate(this%inbuy)
     call mem_deallocate(this%invsc)
     call mem_deallocate(this%insto)
@@ -1201,6 +1235,7 @@ contains
     call mem_allocate(this%inic, 'INIC', this%memoryPath)
     call mem_allocate(this%inoc, 'INOC', this%memoryPath)
     call mem_allocate(this%innpf, 'INNPF', this%memoryPath)
+    call mem_allocate(this%inuzr, 'INUZR', this%memoryPath)
     call mem_allocate(this%inbuy, 'INBUY', this%memoryPath)
     call mem_allocate(this%invsc, 'INVSC', this%memoryPath)
     call mem_allocate(this%insto, 'INSTO', this%memoryPath)
@@ -1215,6 +1250,7 @@ contains
     this%inic = 0
     this%inoc = 0
     this%innpf = 0
+    this%inuzr = 0
     this%inbuy = 0
     this%invsc = 0
     this%insto = 0
@@ -1243,6 +1279,8 @@ contains
     use DrnModule, only: drn_create
     use RivModule, only: riv_create
     use GhbModule, only: ghb_create
+    use SgdModule, only: sgd_create
+    use SpgModule, only: spg_create
     use RchModule, only: rch_create
     use EvtModule, only: evt_create
     use MawModule, only: maw_create
@@ -1280,6 +1318,12 @@ contains
                       pakname, mempath)
     case ('GHB6')
       call ghb_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
+    case ('SGD6')
+      call sgd_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                      pakname, mempath)
+    case ('SPG6')
+      call spg_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
     case ('RCH6')
       call rch_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
@@ -1437,6 +1481,7 @@ contains
     use DisvModule, only: disv_cr
     use DisuModule, only: disu_cr
     use GwfNpfModule, only: npf_cr
+    use GwfUzrModule, only: uzr_cr
     use Xt3dModule, only: xt3d_cr
     use GwfBuyModule, only: buy_cr
     use GwfVscModule, only: vsc_cr
@@ -1468,6 +1513,7 @@ contains
     character(len=LENMEMPATH) :: mempathbuy = ''
     character(len=LENMEMPATH) :: mempathcsub = ''
     character(len=LENMEMPATH) :: mempathhfb = ''
+    character(len=LENMEMPATH) :: mempathuzr = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
     character(len=LENMEMPATH) :: mempathoc = ''
@@ -1505,6 +1551,9 @@ contains
       case ('NPF6')
         this%innpf = 1
         mempathnpf = mempath
+      case ('UZR6')
+        this%inuzr = 1
+        mempathuzr = mempath
       case ('BUY6')
         this%inbuy = 1
         mempathbuy = mempath
@@ -1534,7 +1583,7 @@ contains
         this%inobs = inunit
       case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
             'EVT6', 'API6', 'CHD6', 'MAW6', 'SFR6', &
-            'LAK6', 'UZF6')
+            'LAK6', 'UZF6', 'SGD6', 'SPG6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
       case default
@@ -1544,6 +1593,7 @@ contains
     !
     ! -- Create packages that are tied directly to model
     call npf_cr(this%npf, this%name, mempathnpf, this%innpf, this%iout)
+    call uzr_cr(this%uzr, this%name, mempathuzr, this%inuzr, this%iout)
     call xt3d_cr(this%xt3d, this%name, this%innpf, this%iout)
     call buy_cr(this%buy, this%name, mempathbuy, this%inbuy, this%iout)
     call vsc_cr(this%vsc, this%name, mempathvsc, this%invsc, this%iout)

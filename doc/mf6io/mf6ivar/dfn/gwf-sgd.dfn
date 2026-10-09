@@ -1,0 +1,157 @@
+# --------------------- gwf sgd options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Groundwater Flow'}
+
+block options
+name boundnames
+type keyword
+shape
+reader urword
+optional true
+longname
+description REPLACE boundnames {'{#1}': 'specified gradient boundary'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'specified gradient boundary'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print boundary flow to listing file
+description REPLACE print_flows {'{#1}': 'specified gradient boundary'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save boundary flows to budget file
+description REPLACE save_flows {'{#1}': 'specified gradient boundary'}
+mf6internal ipakcb
+
+
+# --------------------- gwf sgd dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of specified gradient cells
+description REPLACE maxbound {'{#1}': 'specified gradient boundary'}
+
+
+# --------------------- gwf sgd period ---------------------
+
+block period
+name iper
+type integer
+block_variable True
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name stress_period_data
+type recarray cellid gradx grady gradz hwva aux boundname
+shape (maxbound)
+reader urword
+longname
+description
+mf6internal spd
+
+block period
+name cellid
+type integer
+shape (ncelldim)
+tagged false
+in_record true
+reader urword
+longname cell identifier
+description REPLACE cellid {}
+
+block period
+name gradx
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname specified gradient x component
+description is the x component of the specified hydraulic gradient at the boundary.  The gradient points in the direction of flow (equal to the negative of the hydraulic head gradient).  For a free-drainage (unit vertical gradient) boundary GRADX is 0.0, GRADY is 0.0, and GRADZ is -1.0.
+
+block period
+name grady
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname specified gradient y component
+description is the y component of the specified hydraulic gradient at the boundary.  The gradient points in the direction of flow (equal to the negative of the hydraulic head gradient).
+
+block period
+name gradz
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname specified gradient z component
+description is the z component of the specified hydraulic gradient at the boundary.  The gradient points in the direction of flow (equal to the negative of the hydraulic head gradient).  A value of -1.0 (with GRADX and GRADY equal to 0.0) imposes a downward unit gradient, i.e. free drainage.
+
+block period
+name hwva
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname boundary face area
+description is the area of the boundary face across which the specified gradient flux is applied.
+
+block period
+name aux
+type double precision
+in_record true
+tagged false
+shape (naux)
+reader urword
+optional true
+longname auxiliary variables
+description REPLACE aux {'{#1}': 'specified gradient boundary'}
+mf6internal auxvar
+
+block period
+name boundname
+type string
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname specified gradient boundary name
+description REPLACE boundname {'{#1}': 'specified gradient'}

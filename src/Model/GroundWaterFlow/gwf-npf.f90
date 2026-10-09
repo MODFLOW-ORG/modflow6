@@ -72,6 +72,7 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
     real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
+    real(DP), dimension(:), pointer, contiguous :: dkrdh => null() !< head derivative of relative permeability; 0 unless an unsaturated flow formulation populates it
     real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
     real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
@@ -132,6 +133,7 @@ module GwfNpfModule
     procedure :: allocate_scalars
     procedure :: rewet_check
     procedure :: hy_eff
+    procedure :: calc_eff_hy
     procedure :: calc_spdis
     procedure :: sav_spdis
     procedure :: sav_sat
@@ -1278,6 +1280,7 @@ contains
     call mem_deallocate(this%k22)
     call mem_deallocate(this%k33)
     call mem_deallocate(this%krel)
+    call mem_deallocate(this%dkrdh)
     call mem_deallocate(this%k11input)
     call mem_deallocate(this%k22input)
     call mem_deallocate(this%k33input)
@@ -1447,6 +1450,7 @@ contains
     call mem_allocate(this%icelltype, ncells, 'ICELLTYPE', this%memoryPath)
     call mem_allocate(this%k11, ncells, 'K11', this%memoryPath)
     call mem_allocate(this%krel, ncells, 'KREL', this%memoryPath)
+    call mem_allocate(this%dkrdh, ncells, 'DKRDH', this%memoryPath)
     call mem_allocate(this%sat, ncells, 'SAT', this%memoryPath)
     call mem_allocate(this%condsat, njas, 'CONDSAT', this%memoryPath)
     !
@@ -1500,6 +1504,7 @@ contains
       this%wetdry(n) = DZERO
       this%nodekchange(n) = DZERO
       this%krel(n) = DONE
+      this%dkrdh(n) = DZERO
     end do
     !
     ! -- allocate variable names
@@ -2680,6 +2685,20 @@ contains
       !
     end if
   end function hy_eff
+
+  !> @brief Effective hydraulic conductivity of cell n along the unit
+  !! direction vg, resolving anisotropy. Connection-agnostic wrapper over
+  !! hy_eff for external callers (e.g. a boundary package with a known face
+  !< normal); hy_eff ignores the neighbor/ipos arguments when vg is supplied.
+  function calc_eff_hy(this, n, ihc, vg) result(hy)
+    class(GwfNpfType) :: this
+    integer(I4B), intent(in) :: n !< reduced node number
+    integer(I4B), intent(in) :: ihc !< horizontal connection flag
+    real(DP), dimension(3), intent(in) :: vg !< unit direction vector
+    real(DP) :: hy
+
+    hy = this%hy_eff(n, n, ihc, vg=vg)
+  end function calc_eff_hy
 
   !> @brief Calculate the 3 components of specific discharge at the cell center
   !<
