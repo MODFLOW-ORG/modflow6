@@ -34,12 +34,17 @@ Cases:
                      resaturates and half of the stranded mass returns.
   - tiny_rewet     : the cell drains by 1e-7 of its thickness and rewets by
                      the same amount, and all of the mass stranded returns.
+  - thickstrt      : a confined cell whose saturated thickness is set by the
+                     starting head with THICKSTRT never drains, and no mass
+                     is stranded, including in the first time step.
 
 The cases run with the Newton formulation of the flow model. The dilution,
 rise_above, partial, and tiny_rewet cases, which start below the top of the
 cell, also run with the standard formulation and give the same results; the
 others start at or above the top of a cell drained only by a well, and the
-standard formulation dries that cell in the first time step.
+standard formulation dries that cell in the first time step. The thickstrt
+case uses THICKSTRT, which applies to the standard formulation, and runs with
+it alone.
 """
 
 import os
@@ -74,6 +79,7 @@ def get_model(
     mst_kwargs=None,
     transport=True,
     newton=True,
+    thickstrt=False,
 ):
     """Single cell drained and rewetted by wells, with a GWF-GWT exchange.
 
@@ -112,15 +118,20 @@ def get_model(
     flopy.mf6.ModflowGwfic(gwf, strt=strt)
     # specific discharge and saturation are read by FMI when transport runs
     # in a separate simulation
+    # with THICKSTRT, a negative ICELLTYPE makes the cell confined, with the
+    # saturated thickness given by the starting head
     flopy.mf6.ModflowGwfnpf(
         gwf,
-        icelltype=1,
+        icelltype=-1 if thickstrt else 1,
+        thickstrt=thickstrt,
         k=10.0,
         save_flows=True,
         save_specific_discharge=True,
         save_saturation=True,
     )
-    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=ss, sy=sy, transient={0: True})
+    flopy.mf6.ModflowGwfsto(
+        gwf, iconvert=0 if thickstrt else 1, ss=ss, sy=sy, transient={0: True}
+    )
     flopy.mf6.ModflowGwfwel(
         gwf,
         stress_period_data={
@@ -454,5 +465,32 @@ def test_tiny_rewet(function_tmpdir, targets, newton):
         assert np.isclose(stranded[-1], 0.0, atol=stranded[0] * 1e-6), (
             f"{stranded[-1]} of {stranded[0]} did not return"
         )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_thickstrt(function_tmpdir, targets):
+    # a confined cell, half saturated by THICKSTRT, with no stresses
+    periods = [(2.0, [(0.0, 0.0)])]
+
+    def build(test):
+        return get_model(
+            test.workspace,
+            periods,
+            2,
+            porosity,
+            True,
+            strt=5.0,
+            ss=1.0e-5,
+            newton=False,
+            thickstrt=True,
+        )
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        _, _, _, conc, stranded, _ = results(ws, True)
+        assert np.allclose(stranded, 0.0), f"mass was stranded: {stranded}"
+        assert np.allclose(conc, cinit), f"concentration changed: {conc}"
 
     run_framework(function_tmpdir, targets, build, check)
