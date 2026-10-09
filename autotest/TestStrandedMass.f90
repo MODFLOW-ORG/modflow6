@@ -26,6 +26,8 @@ contains
                 new_unittest("return_fraction_dry", test_return_fraction_dry), &
                 new_unittest("return_fraction_full", &
                              test_return_fraction_full), &
+                new_unittest("return_fraction_small", &
+                             test_return_fraction_small), &
                 new_unittest("return_empty_reservoir", &
                              test_return_empty_reservoir), &
                 new_unittest("decay_amount", test_decay_amount), &
@@ -133,6 +135,24 @@ contains
     call check(error, return_fraction(DONE, held) == DONE)
     if (allocated(error)) return
   end subroutine test_return_fraction_full
+
+  !> @brief Mass held from a very small drainage returns in full
+  !!
+  !! Rewetting by as much as the cell drained returns all of it, however
+  !! small the drained fraction, so no mass is left that cannot return.
+  !<
+  subroutine test_return_fraction_small(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: held
+
+    held = 1.0e-9_DP
+    call check(error, return_fraction(held, held) == DONE)
+    if (allocated(error)) return
+    call check(error, return_fraction(2.0_DP * held, held) == DONE)
+    if (allocated(error)) return
+    call check(error, is_close(return_fraction(0.5_DP * held, held), 0.5_DP))
+    if (allocated(error)) return
+  end subroutine test_return_fraction_small
 
   !> @brief An empty reservoir returns zero, never a negative mass
   !<
