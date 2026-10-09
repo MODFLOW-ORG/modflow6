@@ -48,7 +48,7 @@ The concentrations in equation~\ref{eqn:strandrate} are those at the end of the 
 
 \subsubsection{Rewetting}
 
-The stranded mass is taken to be distributed uniformly through the part of the cell that drained while the mass was held. A cell carries, in addition to its stranded mass, the accumulated drained fraction $F$ that the stranded mass represents; $F$ increases by $\Delta S_w$ each time the cell drains and decreases by the increase in saturation each time the cell rewets. Over a time step in which the saturation increases by $\Delta S_w'$, the mass returned to the mobile domain from each reservoir is
+The mass in each reservoir is taken to be distributed uniformly through the part of the cell that drained while mass was added to it. Each reservoir carries, in addition to its mass, the accumulated drained fraction $F$ that its mass represents; $F$ increases by $\Delta S_w$ each time the cell drains and mass is added to the reservoir, and decreases by the increase in saturation each time the cell rewets. A drainage that adds nothing to a reservoir, because the water held no solute or, for the aqueous reservoir, because no water was retained, does not extend the part that the reservoir represents, so mass held by a later drainage returns as soon as the part it came from rewets. Over a time step in which the saturation increases by $\Delta S_w'$, the mass returned to the mobile domain from each reservoir is
 
 \begin{equation}
 \label{eqn:strandreturn}

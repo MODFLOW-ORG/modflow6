@@ -45,6 +45,10 @@ others start at or above the top of a cell drained only by a well, and the
 standard formulation dries that cell in the first time step. The thickstrt
 case uses THICKSTRT, which applies to the standard formulation, and runs with
 it alone.
+  - zero_then_solute: a cell without solute drains from a saturation of 1.0 to
+                     0.5, gains solute, drains to 0.4, and rewets to 0.5; the
+                     first drainage holds nothing, so all of the mass held by
+                     the second returns.
 """
 
 import os
@@ -80,6 +84,7 @@ def get_model(
     transport=True,
     newton=True,
     thickstrt=False,
+    c0=cinit,
 ):
     """Single cell drained and rewetted by wells, with a GWF-GWT exchange.
 
@@ -155,7 +160,7 @@ def get_model(
     flopy.mf6.ModflowGwtdis(
         gwt, nrow=1, ncol=1, delr=delr, delc=delc, top=top, botm=botm
     )
-    flopy.mf6.ModflowGwtic(gwt, strt=cinit)
+    flopy.mf6.ModflowGwtic(gwt, strt=c0)
     kwargs = {"porosity": porosity, "save_flows": True}
     if sorb:
         kwargs.update(sorption="linear", bulk_density=rhob, distcoef=kd)
@@ -492,5 +497,35 @@ def test_thickstrt(function_tmpdir, targets):
         _, _, _, conc, stranded, _ = results(ws, True)
         assert np.allclose(stranded, 0.0), f"mass was stranded: {stranded}"
         assert np.allclose(conc, cinit), f"concentration changed: {conc}"
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_zero_then_solute(function_tmpdir, targets):
+    periods = [
+        # pump 50 m3 of water without solute, from a saturation of 1.0 to 0.5
+        (2.0, [(-25.0, 0.0)]),
+        # replace the water with water at 100 g/m3 without moving the head
+        (2.0, [(-25.0, 0.0), (25.0, 100.0)]),
+        # pump 10 m3, from 0.5 to 0.4
+        (1.0, [(-10.0, 0.0)]),
+        # inject 10 m3 of clean water, from 0.4 back to 0.5
+        (1.0, [(10.0, 0.0)]),
+    ]
+
+    def build(test):
+        return get_model(test.workspace, periods, 1, porosity, True, c0=0.0)
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        _, _, sat, _, stranded, _ = results(ws, True)
+        assert np.allclose(sat, [0.5, 0.5, 0.4, 0.5]), f"saturation {sat}"
+        assert np.isclose(stranded[1], 0.0), f"stranded without solute {stranded}"
+        assert stranded[2] > 0.0, f"no mass was stranded with solute {stranded}"
+        # the mass came from the interval that rewets, so all of it returns
+        assert np.isclose(stranded[3], 0.0, atol=stranded[2] * 1e-9), (
+            f"{stranded[3]} of {stranded[2]} did not return"
+        )
 
     run_framework(function_tmpdir, targets, build, check)
