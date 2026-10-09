@@ -571,7 +571,6 @@ contains
     real(DP) :: satn
     !
     do n = 1, this%dis%nodes
-      satn = DONE
       if (this%icelltype(n) /= 0) then
         !
         ! -- a convertible cell that is inactive at the start, such as one
@@ -582,6 +581,11 @@ contains
         else
           call this%thksat(n, this%ic%strt(n), satn)
         end if
+      else
+        !
+        ! -- a confined cell is saturated, unless THICKSTRT sets its
+        !    saturated thickness from the starting head
+        satn = this%calc_initial_sat(n)
       end if
       sat(n) = satn
     end do
