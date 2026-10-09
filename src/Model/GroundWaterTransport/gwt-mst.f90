@@ -107,6 +107,7 @@ module GwtMstModule
     procedure :: mst_fc_sto
     procedure :: mst_vold
     procedure :: mst_satold
+    procedure :: mst_satold_strand
     procedure :: mst_fc_dcy
     procedure :: mst_fc_srb
     procedure :: mst_fc_dcy_srb
@@ -334,7 +335,7 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold(n, delt)
+      sat_old = this%mst_satold_strand(n)
       released = DZERO
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
@@ -396,6 +397,26 @@ contains
     end if
     sat_old = this%fmi%gwfsatold(n, delt)
   end function mst_satold
+
+  !> @ brief Saturation at the end of the previous time step for stranded mass
+  !!
+  !!  Before a previous saturation is stored, which happens when flows are
+  !!  read from a budget file, the current saturation is used, so that no mass
+  !!  is stranded or returned during the first time step.
+  !<
+  function mst_satold_strand(this, n) result(sat_old)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    ! -- return
+    real(DP) :: sat_old
+
+    if (this%strand%sat_old(n) /= DNODATA) then
+      sat_old = this%strand%sat_old(n)
+    else
+      sat_old = this%fmi%gwfsat(n)
+    end if
+  end function mst_satold_strand
 
   !> @ brief Water volume of a cell at the end of the previous time step
   !!
@@ -794,7 +815,7 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold(n, delt)
+      sat_old = this%mst_satold_strand(n)
       released = DZERO
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
@@ -861,7 +882,7 @@ contains
       !    model solved in the same simulation, and cannot be recovered from a
       !    budget file, whose first record is the end of the first time step
       if (.not. this%satold_valid .and. .not. this%warned_firststep) then
-        if (abs(sat_new - sat_old) > DEM6) then
+        if (abs(sat_new - this%fmi%gwfsatold(n, delt)) > DEM6) then
           write (warnmsg, '(a)') 'The water table moved during the first time &
             &step and the saturation the simulation started from was not &
             &available, so no mass was stranded then. The saturation is &
