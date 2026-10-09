@@ -54,6 +54,8 @@ OBS6 & Observations Option \\
 \normalsize
 \end{table}
 
+\noindent Note: The CHD6, WEL6, DRN6, RIV6, and GHB6 package types each support both list-based and grid array-based input.  Grid array-based input is activated by specifying the READARRAYGRID option within the package input file.  Similarly, the RCH6 and EVT6 package types support both list-based and layer array-based input, activated by specifying the READASARRAYS option.  The package type (Ftype) specified in the name file does not change based on the input form used.
+
 \vspace{5mm}
 \subsubsection{Example Input File}
 \lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-nam-example.dat}
