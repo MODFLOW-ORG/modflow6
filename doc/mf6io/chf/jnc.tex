@@ -1,0 +1,22 @@
+Input to the Channel Junction (JNC) Package is read from the file that has type ``JNC6'' in the Name File.  Only one JNC Package can be specified for a CHF model.
+
+A junction is a location where two or more reaches meet at a shared Discretization by Vertices in One Dimension (DISV1D) vertex.  Without the JNC Package, the reaches that meet at such a location are coupled to one another by independent pairwise connections.  Because each pairwise connection is evaluated on its own, this representation can produce spurious ``backflow,'' in which one reach simultaneously discharges to a low-stage reach and receives flow from a third reach at the same location.  The JNC Package replaces the pairwise reach-to-reach coupling at each junction with a single, explicit junction node that has its own stage.  Flow between a reach and the junction is computed from a half-cell conductance consistent with the Diffusive Wave (DFW) Package, and the junction stage is obtained by enforcing continuity (the net flow into the junction is zero; the junction has no storage).
+
+Junctions are detected automatically from the DISV1D grid: every vertex shared by two or more reaches becomes a junction.  The user does not list individual junctions.  The JNC Package is activated simply by including a JNC6 entry in the CHF Name File; if no JNC6 entry is present, no junction processing is performed and the reaches remain pairwise-connected.  The JNC Package requires a DISV1D discretization.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/chf-jnc-options.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/chf-jnc-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/chf-jnc-example.dat}

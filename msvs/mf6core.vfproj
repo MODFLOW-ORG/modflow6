@@ -188,6 +188,7 @@
 				<File RelativePath="..\src\Idm\chf-pcpidm.f90"/>
 				<File RelativePath="..\src\Idm\chf-stoidm.f90"/>
 				<File RelativePath="..\src\Idm\chf-zdgidm.f90"/>
+				<File RelativePath="..\src\Idm\chf-jncidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-chfgwfidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-gwegweidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-gwfgweidm.f90"/>
@@ -305,6 +306,7 @@
 			<Filter Name="Model">
 				<Filter Name="ChannelFlow">
 					<File RelativePath="..\src\Model\ChannelFlow\chf.f90"/>
+					<File RelativePath="..\src\Model\ChannelFlow\chf-jnc.f90"/>
 				</Filter>
 				<Filter Name="Connection">
 					<File RelativePath="..\src\Model\Connection\CellWithNbrs.f90"/>

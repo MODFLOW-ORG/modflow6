@@ -1,0 +1,10 @@
+# --------------------- chf jnc options ---------------------
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname keyword to save junction flows
+description keyword to indicate that junction flow terms will be written to the file specified with ``BUDGET SAVE FILE'' in Output Control.
+mf6internal ipakcb

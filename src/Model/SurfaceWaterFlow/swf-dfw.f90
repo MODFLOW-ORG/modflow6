@@ -108,7 +108,7 @@ module SwfDfwModule
     procedure :: qcalc
     procedure :: get_cond
     procedure :: get_cond_swr
-    procedure :: get_cond_n
+    procedure, public :: get_cond_n
     procedure :: get_flow_area_nm
     procedure :: calc_velocity
     procedure :: sav_velocity
@@ -759,6 +759,30 @@ contains
       depth_m = stage_m - this%dis%bot(m)
 
       ! assign gradients
+      !
+      ! TODO(dfw-halfcell-gradient): Possible change, under review.
+      ! The two half-cells each use their OWN local cell properties but
+      ! the SAME gradient, computed over the full center-to-center distance.
+      ! This is not equivalent to each half using its own local gradient, so
+      ! it is not strictly equivalent to using the harmonic-mean conductance
+      ! of two locally-consistent half-cells.
+      !   However, this shared-gradient approach has an advantage.  Computing
+      ! the local half-cell gradients would require the IMPLICIT junction
+      ! stage h_j, which satisfies a nonlinear equation cn(h_j)*(h_j-h_n) =
+      ! cm(h_j)*(h_m-h_j), since the half-cell conductances cn and cm depend
+      ! on h_j.  Solving this directly within each conductance evaluation
+      ! would require a nested root-find that could get expensive.  The shared
+      ! gradient sidesteps this by avoiding h_j altogether, at the cost
+      ! of the inconsistency above.
+      !   A cheaper way to get h_j without a nested solve is to evaluate
+      ! the half-cell conductances using an h_j lagged by one outer iteration,
+      ! then solve the linearized equation for a new h_j to use in calculating
+      ! the half-cell gradients.  This h_j is exact provided the outer Newton
+      ! iterations converge.  When no lagged value is available, a reasonable
+      ! initial guess for h_j might be a distance-weighted interpolation
+      ! between the reach centers, which is essentially what the current
+      ! shared-gradient approach is assuming.
+      !
       if (this%is2d == 0) then
         dhds_n = abs(stage_m - stage_n) / (cln + clm)
         dhds_m = dhds_n
@@ -1139,6 +1163,7 @@ contains
 
     do n = 1, this%dis%nodes
       do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        if (this%dis%con%mask(ipos) == 0) cycle
         m = this%dis%con%ja(ipos)
         if (m < n) cycle
         qnm = this%qcalc(n, m, stage(n), stage(m), ipos)
