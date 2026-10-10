@@ -46,12 +46,12 @@ longname number of contributing factors
 description is the number of contributing factors.
 
 
-# --------------------- gwf gncdata period ---------------------
+# --------------------- gwf gncdata ---------------------
 
 block gncdata
 name gncdata
 type recarray cellidn cellidm cellidsj alphasj
-shape (maxbound)
+shape (numgnc)
 reader urword
 longname
 description
@@ -59,7 +59,7 @@ description
 block gncdata
 name cellidn
 type integer
-shape
+shape (ncelldim)
 tagged false
 in_record true
 reader urword
@@ -70,7 +70,7 @@ numeric_index true
 block gncdata
 name cellidm
 type integer
-shape
+shape (ncelldim)
 tagged false
 in_record true
 reader urword

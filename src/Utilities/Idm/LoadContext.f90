@@ -196,6 +196,9 @@ contains
           this%mf6_input%subcomponent_type /= 'STO') then
         this%set_mshape = .true.
       end if
+    case ('EXCHANGE')
+      ! exchange subpackage (e.g. GNC, MVR); no model shape
+      this%set_scalars = .true.
     case default
       errmsg = 'LoadContext unrecognized load_scope for mempath: '// &
                trim(this%mf6_input%mempath)
