@@ -1,0 +1,3 @@
+section = "features"
+subsection = "netcdf"
+description = "Structured NetCDF export of a rotated grid (ANGROT not 0) can now encode its true real-world position: when a valid WKT2 coordinate reference system is supplied via the NCF utility package's CRS\\_WKT option, MODFLOW 6 wraps it in a CF-compliant derived CRS that GIS tools resolve to correct position and shape through ordinary reprojection. Also adds a cell-center elevation coordinate, CF-1.13 cell\\_methods on output variables, and CF-standard numeric grid\\_mapping parameters for ArcGIS's classic NetCDF connector."

@@ -50,7 +50,7 @@ contains
   subroutine add_package_var(modeltype, modelname, nc_vars, input_name, varid, &
                              iout)
     use InputOutputModule, only: lowcase, upcase
-    use MemoryHelperModule, only: split_mem_address, split_mem_path
+    use MemoryHelperModule, only: split_mem_path, memPathSeparator
     use SourceCommonModule, only: idm_subcomponent_type
     use SourceCommonModule, only: idm_subcomponent_name
     character(len=*), intent(in) :: modeltype
@@ -62,12 +62,13 @@ contains
     character(len=NETCDF_ATTR_STRLEN) :: input_str
     character(len=LENCOMPONENTNAME) :: c_name, sc_name
     character(len=LINELENGTH) :: mempath, varname
-    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux
+    integer(I4B) :: layer, iaux, mf6_layer, mf6_iaux, idx
     logical(LGP) :: success
 
     ! initialize
     layer = -1
     iaux = -1
+    mempath = ''
     varname = ''
     c_name = ''
     sc_name = ''
@@ -75,8 +76,14 @@ contains
     ! process mf6_input attribute
     if (nf90_get_att(nc_vars%ncid, varid, 'modflow_input', &
                      input_str) == NF90_NOERR) then
-      ! mf6_input should provide a memory address
-      call split_mem_address(input_str, mempath, varname, success)
+      ! modflow_input is "<model>/<package>/<tagname>"; a tag name can be
+      ! longer than a memory variable name, so split on the last separator
+      idx = index(input_str, memPathSeparator, back=.true.)
+      success = (idx > 1 .and. idx < len_trim(input_str))
+      if (success) then
+        mempath = input_str(:idx - 1)
+        varname = input_str(idx + 1:)
+      end if
 
       if (success) then
         ! split the mempath
@@ -119,6 +126,7 @@ contains
     character(len=*), intent(in) :: nc_fname
     integer(I4B), intent(in) :: ncid
     character(len=NETCDF_ATTR_STRLEN) :: grid, mesh, nctype
+    integer(I4B) :: mesh_ierr
 
     ! initialize grid
     grid = ''
@@ -129,8 +137,13 @@ contains
     if (nf90_get_att(ncid, NF90_GLOBAL, "modflow_grid", &
                      grid) == NF90_NOERR) then
       call upcase(grid)
-      if (nf90_get_att(ncid, NF90_GLOBAL, "mesh", &
-                       mesh) == NF90_NOERR) then
+      mesh_ierr = nf90_get_att(ncid, NF90_GLOBAL, "modflow_mesh", mesh)
+      if (mesh_ierr /= NF90_NOERR) then
+        ! fall back to the legacy unprefixed name for files written by
+        ! older MF6 versions
+        mesh_ierr = nf90_get_att(ncid, NF90_GLOBAL, "mesh", mesh)
+      end if
+      if (mesh_ierr == NF90_NOERR) then
         call upcase(mesh)
         if (mesh == 'LAYERED') then
           nctype = 'LAYERED MESH'
@@ -142,7 +155,7 @@ contains
       else if (grid == 'STRUCTURED') then
         nctype = 'STRUCTURED'
       else if (grid == 'VERTEX' .or. grid == 'LAYERED MESH') then
-        warnmsg = 'Verify "modflow_grid" and "mesh" global &
+        warnmsg = 'Verify "modflow_grid" and "modflow_mesh" global &
                   &attributes in file: '//trim(nc_fname)
         call store_warning(warnmsg)
         nctype = 'LAYERED MESH'
