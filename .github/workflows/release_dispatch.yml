@@ -194,16 +194,109 @@ jobs:
             echo "for $VERSION to the release history in doc/ReleaseNotes/ReleaseNotes.tex on $BRANCH."
             exit 1
           fi
+  prepare:
+    name: Prepare release
+    # skipped for rc/dry runs: they're never merged to master, so there's no
+    # need to pin the build to a single prepared commit. build/docs/dist keep
+    # applying update_version themselves for these, as they do today.
+    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
+    needs: set_options
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash -l {0}
+    outputs:
+      sha: ${{ steps.prepare.outputs.sha }}
+    steps:
+      - name: Checkout modflow6
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          ref: ${{ needs.set_options.outputs.branch }}
+
+      - name: Setup Micromamba
+        uses: mamba-org/setup-micromamba@v3
+        with:
+          environment-file: environment.yml
+          cache-downloads: true
+          cache-environment: true
+
+      - name: Update version and release history
+        id: prepare
+        working-directory: distribution
+        env:
+          # empty if workflow was triggered by pushing a release branch
+          DOI: ${{ inputs.doi }}
+          DATE: ${{ needs.set_options.outputs.date }}
+        run: |
+          ver="${{ needs.set_options.outputs.version }}"
+
+          # if the branch tip is already a prepare commit for this version (a retry
+          # of a previously prepared release, e.g. after a failed build), reuse its
+          # date so the regenerated files match and no new commit is needed below --
+          # avoids piling up a bot commit per retry in master's history once merged
+          date="$DATE"
+          if git log -1 --format=%s | grep -qF "ci(release): update version to $ver"; then
+            date=$(git log -1 --format=%cd --date=format:%F)
+            echo "reusing date $date from the existing prepare commit for $ver"
+          fi
+
+          # update version files
+          args=(-v "$ver" --date "$date")
+          # approve will be empty if workflow was triggered by pushing a release branch
+          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
+            args+=(--releasemode)
+          fi
+          python update_version.py "${args[@]}"
+
+          # add the release to the release history, using the DOI if provided
+          args=(-v "$ver" --date "$date")
+          if [[ -n "$DOI" ]]; then
+            args+=(--doi "$DOI")
+          fi
+          python ../doc/ReleaseNotes/release_history.py "${args[@]}"
+
+          # lint version.f90
+          fprettify -c ../.fprettify.yaml ../src/Utilities/version.f90
+
+          git config core.sharedRepository true
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          # doc/version.py always changes (it embeds the exact run time, down to
+          # the second, in a comment), so ignore it when deciding whether there's
+          # anything real to commit
+          if git diff --cached --quiet -- . ':(exclude)doc/version.py'; then
+            echo "no real changes since the last prepare commit for $ver, reusing it"
+          else
+            git commit -m "ci(release): update version to $ver"
+            git push origin "HEAD:refs/heads/${{ needs.set_options.outputs.branch }}"
+          fi
+
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
   make_dist:
     name: Make distribution
     uses: MODFLOW-ORG/modflow6/.github/workflows/release.yml@develop
-    needs: set_options
+    needs:
+      - set_options
+      - prepare
+    # prepare is skipped (not failed) for rc/dry runs, so tolerate that explicitly
+    if: |
+      always() &&
+      needs.set_options.result == 'success' &&
+      (needs.prepare.result == 'success' || needs.prepare.result == 'skipped')
     with:
       # If the workflow is manually triggered, the maintainer must manually set approve=true to approve a release.
       # If triggered by pushing a release branch, the release is approved if the branch name doesn't contain "rc".
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
-      branch: ${{ needs.set_options.outputs.branch }}
+      # the SHA prepare committed to, when it ran; otherwise (rc/dry run) the release
+      # branch itself, since each job applies update_version on its own in that case
+      branch: ${{ needs.prepare.outputs.sha || needs.set_options.outputs.branch }}
       # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
       releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || github.event_name != 'workflow_dispatch' }}
@@ -212,10 +305,10 @@ jobs:
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == true) || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == true) || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
-      # If triggered by pushing a release branch there is no input. A patch release reuses the previous DOI,
-      # and for a new minor release the release history row must already be on the branch.
-      doi: ${{ inputs.doi }}
-      # the same date for all jobs, so timestamps and the release history agree
+      # false when prepare already committed version metadata; true (rc/dry run) when
+      # each build/docs/dist job still needs to apply it itself
+      update_version: ${{ needs.prepare.result != 'success' }}
+      # the same date for all jobs, so timestamps agree. only used when update_version is true
       date: ${{ needs.set_options.outputs.date }}
   pr:
     name: Draft release PR
@@ -225,60 +318,8 @@ jobs:
       - make_dist
     runs-on: ubuntu-22.04
     permissions:
-      contents: write
       pull-requests: write
-    defaults:
-      run:
-        shell: bash -l {0}
     steps:
-      - name: Checkout modflow6
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/modflow6
-          ref: ${{ github.ref }}
-
-      - name: Setup Micromamba
-        uses: mamba-org/setup-micromamba@v3
-        with:
-          environment-file: environment.yml
-          cache-downloads: true
-          cache-environment: true
-
-      - name: Update version
-        working-directory: distribution
-        env:
-          # empty if workflow was triggered by pushing a release branch
-          DOI: ${{ inputs.doi }}
-          DATE: ${{ needs.set_options.outputs.date }}
-        run: |
-          # update version files
-          ver="${{ needs.set_options.outputs.version }}"
-          args=(-v "$ver" --date "$DATE")
-          # approve will be empty if workflow was triggered by pushing a release branch
-          # todo: pull approve into set_options job/output?
-          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
-            args+=(--releasemode)
-          fi
-          python update_version.py "${args[@]}"
-
-          # add the release to the release history, using the DOI if provided
-          args=(-v "$ver" --date "$DATE")
-          if [[ -n "$DOI" ]]; then
-            args+=(--doi "$DOI")
-          fi
-          python ../doc/ReleaseNotes/release_history.py "${args[@]}"
-
-          # lint version.f90
-          fprettify -c ../.fprettify.yaml ../src/Utilities/version.f90
-          
-          # commit and push
-          git config core.sharedRepository true
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "ci(release): update version to $ver"
-          git push origin "${{ github.ref }}"
-
       - name: Create pull request
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -286,12 +327,12 @@ jobs:
           ver="${{ needs.set_options.outputs.version }}"
           body='
           # MODFLOW '$ver' release
-          
+
           The release can be approved by merging this PR into `master`. Merging rather than squashing is necessary to preserve the commit history.
-          
+
           When this PR is merged, a final job will be triggered to draft a tagged GitHub release, then upload assets (OS distributions and release notes).
           '
-          gh pr create -B "master" -H "${{ github.ref }}" --title "Release $ver" --draft --body "$body"
+          gh pr create -B "master" -H "${{ needs.set_options.outputs.branch }}" -R "${{ github.repository }}" --title "Release $ver" --draft --body "$body"
 
   release:
     name: Draft release
