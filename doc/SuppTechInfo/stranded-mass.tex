@@ -95,7 +95,9 @@ A transport model that reads the flows saved by a separate flow simulation does 
 
 \subsubsection{Cells that drain completely}
 
-A cell whose water table falls below its bottom is inactive for transport until it is rewet. Its reservoirs are not emptied: the mass they hold decays at the rate given for its phase and is returned when the cell is rewet, in proportion to the part of the drained interval that resaturates. The saturation of the cell is recorded while it is inactive, so the time step in which it becomes active again is treated as rewetting. Without that record, the saturation from before the cell went dry would stand, and a cell that returns wetter than it was when it went dry, but not full, would appear to have drained further and would strand mass instead of returning it.
+A cell whose water table falls below its bottom is inactive for transport until it is rewet. No flow carries solute out of the part of the cell that drains during the time step in which it goes dry, so the solute of the retained water and the sorbate of that part, at the concentrations the time step started with, are held as well, and the model budget reports them as released from storage. Its reservoirs are not emptied while it is inactive: the mass they hold decays at the rate given for its phase and is returned when the cell is rewet, in proportion to the part of the drained interval that resaturates. The saturation of the cell is recorded while it is inactive, so the time step in which it becomes active again is treated as rewetting. Without that record, the saturation from before the cell went dry would stand, and a cell that returns wetter than it was when it went dry, but not full, would appear to have drained further and would strand mass instead of returning it.
+
+A cell whose concentration is held by the Constant Concentration (CNC) Package has no storage term and strands no mass. Mass that its reservoirs held before the concentration was fixed is returned as the water table rises, as in any other cell, and leaves the cell through the constant concentration.
 
 \subsection{Extension to Immobile Domains}
 
@@ -167,7 +169,7 @@ Without stranded mass, the sign of the error depends on the specific yield relat
 
 The cell of the preceding examples never empties, and a cell that does is treated differently, so a second example lowers the water table below the bottom of the cell and raises it again (fig.~\ref{fig:strandedmassdry}). The cell is the upper of three layers, is 10 \si{\meter} thick, and is drained by a constant head in the lowest layer of the column beside it; the properties are those of the first example, and the first-order rate, where decay is active, is 0.01 \si{\per\day}. The cell is inactive for transport for four of the nine stress periods and has no head and no concentration during them, which is shown as a gap in figures~\ref{fig:strandedmassdry}\textit{A} and~\ref{fig:strandedmassdry}\textit{B}.
 
-The reservoirs keep their mass while the cell is inactive (fig.~\ref{fig:strandedmassdry}\textit{C}). Without decay the stranded mass is unchanged at 2,176 \si{\kilo\gram}, and with decay it falls from 1,572 to 1,165 \si{\kilo\gram}, the first-order decay of a mass that otherwise does not change. Both are returned when the cell is rewet, and both reservoirs are empty once the cell is saturated again, because the time step that reactivates the cell is treated as rewetting.
+The reservoirs keep their mass while the cell is inactive (fig.~\ref{fig:strandedmassdry}\textit{C}). Without decay the stranded mass is unchanged at 3,547 \si{\kilo\gram}, and with decay it falls from 2,668 to 1,977 \si{\kilo\gram}, the first-order decay of a mass that otherwise does not change. Both are returned when the cell is rewet, and both reservoirs are empty once the cell is saturated again, because the time step that reactivates the cell is treated as rewetting.
 
 \begin{figure}[!ht]
 	\begin{center}
