@@ -7,10 +7,12 @@ Cases:
                         (xfail).
   - fileout           : STRANDED FILEOUT without STRANDED_MASS is an error
                         (xfail).
-  - zero_order        : zero-order decay runs and warns that stranded mass does
-                        not decay.
-  - sy_above_porosity : a specific yield greater than the porosity runs and warns
-                        that no solute is held back from residual water.
+  - zero_order        : zero-order decay runs, warns that stranded mass does not
+                        decay, and the stranded mass stays constant while the
+                        cell stays drained.
+  - sy_above_porosity : a specific yield greater than the porosity runs, warns
+                        that no solute is held back from residual water, and
+                        strands sorbed mass alone.
   - fmi_first_step    : a transport model that reads its flows from files, with
                         a water table that moves in the first time step, runs,
                         warns that no mass was stranded then, and strands none;
@@ -25,7 +27,16 @@ import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
-from test_gwt_mst06_stranded_cell import cinit, get_model, paper, porosity
+from test_gwt_mst06_stranded_cell import (
+    assert_budget_closes,
+    cinit,
+    get_model,
+    held_mass,
+    paper,
+    porosity,
+    results,
+    strand_budget,
+)
 
 
 def listing_text(ws):
@@ -82,10 +93,13 @@ def test_fileout(function_tmpdir, targets):
 
 
 def test_zero_order(function_tmpdir, targets):
+    # pump for 2 d, then leave the cell drained for 2 d
+    periods = [(2.0, [(-25.0, 0.0)]), (2.0, [(0.0, 0.0)])]
+
     def build(test):
         return get_model(
             test.workspace,
-            paper,
+            periods,
             1,
             porosity,
             True,
@@ -97,8 +111,13 @@ def test_zero_order(function_tmpdir, targets):
         )
 
     def check(test):
-        assert "Zero-order decay is active with STRANDED_MASS" in listing_text(
-            test.workspace
+        ws = test.workspace
+        assert "Zero-order decay is active with STRANDED_MASS" in listing_text(ws)
+        assert_budget_closes(ws)
+        stranded = results(ws, True)[4]
+        assert stranded[0] > 0.0, f"no mass was stranded {stranded}"
+        assert np.isclose(stranded[1], stranded[0], rtol=1e-12, atol=0.0), (
+            f"stranded mass decayed {stranded}"
         )
 
     run_framework(function_tmpdir, targets, build, check)
@@ -109,9 +128,15 @@ def test_sy_above_porosity(function_tmpdir, targets):
         return get_model(test.workspace, paper, 1, 1.5 * porosity, True)
 
     def check(test):
-        assert "Specific yield is greater than the mobile porosity" in listing_text(
-            test.workspace
-        )
+        ws = test.workspace
+        assert "Specific yield is greater than the mobile porosity" in listing_text(ws)
+        assert_budget_closes(ws)
+        # at the end of the pumping, nothing was held from residual water
+        strand, _ = strand_budget(ws)
+        aq = held_mass(strand, "AQUEOUS")
+        srb = held_mass(strand, "SORBED")
+        assert aq[0] == 0.0, f"aqueous mass was stranded {aq}"
+        assert srb[0] > 0.0, f"no sorbed mass was stranded {srb}"
 
     run_framework(function_tmpdir, targets, build, check)
 
