@@ -18,9 +18,9 @@ Cases:
              water; only the solute that the mixing of evapotranspiration does
              not carry out of the cell is left behind and deposited.
   - restart: a simulation started from the concentration and the deposit
-             (STRANDED_DEP FILEOUT, STRANDED_DEPOSIT) that another wrote at the
+             (STRANDED_ET FILEOUT, STRANDED_ET_SOLUTE) that another wrote at the
              end of the deposition ends where a single simulation does.
-  - errors : STRANDED_DEPOSIT without STRANDED_MASS, and a negative deposit,
+  - errors : STRANDED_ET_SOLUTE without STRANDED_MASS, and a negative deposit,
              are errors (xfail).
 """
 
@@ -243,7 +243,7 @@ def test_restart(function_tmpdir, targets):
     exe = str(targets["mf6"])
     deposit = (500.0, 50, et_max, 0.0, q_et / area, 0.0)
     flush = (300.0, 30, 0.0, 0.0, q_et / area, -q_et)
-    dep_out = {"stranded_dep_filerecord": [("gwt.dep.bin",)]}
+    dep_out = {"stranded_et_filerecord": [("gwt.et.bin",)]}
 
     def run(ws, periods, **kwargs):
         sim = get_model(ws, periods, **kwargs)
@@ -256,7 +256,7 @@ def test_restart(function_tmpdir, targets):
     run(function_tmpdir / "full", [deposit, flush], mst_kwargs=dep_out)
     run(function_tmpdir / "first", [deposit], mst_kwargs=dep_out)
     _, c1 = series(function_tmpdir / "first", "gwt.ucn", "CONCENTRATION")
-    _, d1 = series(function_tmpdir / "first", "gwt.dep.bin", "STRAND-DEPOSIT")
+    _, d1 = series(function_tmpdir / "first", "gwt.et.bin", "STRAND-ET")
     assert d1[-1] > 0.0, f"no solute was deposited {d1}"
 
     # the second half, started from what the first half wrote
@@ -264,7 +264,7 @@ def test_restart(function_tmpdir, targets):
         function_tmpdir / "second",
         [flush],
         c0=c1[-1],
-        mst_kwargs={"stranded_deposit": d1[-1]},
+        mst_kwargs={"stranded_et_solute": d1[-1]},
     )
     for fname, text in (
         ("gwt.ucn", "CONCENTRATION"),
@@ -276,7 +276,7 @@ def test_restart(function_tmpdir, targets):
             f"{text} {second[-1]} after a restart, {full[-1]} without"
         )
     # the deposit file holds the deposit alone, which is all that is stranded
-    _, dfull = series(function_tmpdir / "full", "gwt.dep.bin", "STRAND-DEPOSIT")
+    _, dfull = series(function_tmpdir / "full", "gwt.et.bin", "STRAND-ET")
     _, sfull = series(function_tmpdir / "full", "gwt.strand.bin", "STRANDED")
     assert np.allclose(dfull, sfull), "the deposit is not the stranded mass"
 
@@ -285,13 +285,13 @@ deposit_errors = {
     "nostrand": (
         False,
         10.0,
-        "STRANDED_AQUEOUS, STRANDED_SORBED, or STRANDED_DEPOSIT was specified "
+        "STRANDED_AQUEOUS, STRANDED_SORBED, or STRANDED_ET_SOLUTE was specified "
         "but the STRANDED_MASS keyword was not specified",
     ),
     "negative": (
         True,
         -10.0,
-        "STRANDED_AQUEOUS, STRANDED_SORBED, and STRANDED_DEPOSIT cannot be negative",
+        "STRANDED_AQUEOUS, STRANDED_SORBED, and STRANDED_ET_SOLUTE cannot be negative",
     ),
 }
 
@@ -306,7 +306,7 @@ def test_errors(function_tmpdir, targets, case):
             test.workspace,
             periods,
             strand=strand,
-            mst_kwargs={"stranded_deposit": value},
+            mst_kwargs={"stranded_et_solute": value},
         )
 
     def check(test):
