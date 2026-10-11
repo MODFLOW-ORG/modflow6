@@ -422,37 +422,56 @@ contains
     end do
   end subroutine ssm_fc
 
-  !> @brief Water leaving each cell through sinks that carry no solute
+  !> @brief Sinks that leave solute behind, and recharge, in each cell
   !!
   !! A sink with a mixed (AUXMIXED) concentration below the concentration of
-  !! the cell, such as evapotranspiration, removes water and leaves its solute
-  !! behind in the cell.
+  !! the cell, such as evapotranspiration, removes water and leaves part of its
+  !! solute behind in the cell; recharge is the flow from RCH Packages.
   !<
-  subroutine ssm_solute_free(this, qfree)
+  subroutine ssm_solute_free(this, qfree, cqfree, qrch)
     ! -- dummy
     class(TspSsmType) :: this
-    real(DP), dimension(:), intent(inout) :: qfree !< water leaving each cell without solute
+    real(DP), dimension(:), intent(inout) :: qfree !< water leaving each cell through sinks that leave solute behind
+    real(DP), dimension(:), intent(inout) :: cqfree !< solute that the mixing of those sinks carries out of each cell
+    real(DP), dimension(:), intent(inout) :: qrch !< recharge entering each cell
     ! -- local
     logical(LGP) :: lauxmixed
     integer(I4B) :: ip, i, n
     integer(I4B) :: nbound
-    real(DP) :: qbnd, ctmp
+    real(DP) :: qbnd, ctmp, rate
+    character(len=LENPACKAGENAME) :: budtxt
     !
     do n = 1, this%dis%nodes
       qfree(n) = DZERO
+      cqfree(n) = DZERO
+      qrch(n) = DZERO
     end do
     do ip = 1, this%fmi%nflowpack
       if (this%fmi%iatp(ip) /= 0) cycle
+      budtxt = adjustl(this%fmi%gwfpackages(ip)%budtxt)
       nbound = this%fmi%gwfpackages(ip)%nbound
       do i = 1, nbound
         n = this%fmi%gwfpackages(ip)%nodelist(i)
         if (n <= 0) cycle
         if (this%ibound(n) <= 0) cycle
         qbnd = this%fmi%gwfpackages(ip)%get_flow(i)
-        if (qbnd >= DZERO) cycle
+        !
+        ! -- recharge passes through the drained part of the cell
+        if (qbnd > DZERO) then
+          if (budtxt == 'RCH' .or. budtxt == 'RCHA') then
+            qrch(n) = qrch(n) + qbnd
+          end if
+          cycle
+        end if
+        if (qbnd == DZERO) cycle
+        !
+        ! -- a sink at a mixed concentration below that of the cell leaves
+        !    behind the solute that the mixing does not carry out
         call this%get_ssm_conc(ip, i, nbound, ctmp, lauxmixed)
         if (lauxmixed .and. ctmp < this%cnew(n)) then
+          call this%ssm_term(ip, i, rrate=rate)
           qfree(n) = qfree(n) - qbnd
+          cqfree(n) = cqfree(n) - rate
         end if
       end do
     end do

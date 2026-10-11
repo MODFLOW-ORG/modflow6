@@ -8,8 +8,9 @@ cell whose water table moves. With the option, mass held out of the mobile
 domain is returned when the cell rewets, so the solutions do not depend on the
 length of the time step except where the concentration changes while the cell
 drains. Every case that checks the budget also checks that the budget of the
-stranded mass closes, matches the STORAGE-STRANDED term of the model budget,
-and accounts for the stranded mass written to the binary file.
+stranded mass closes, that its transfers match the STORAGE-STRANDED term of the
+model budget, and that it accounts for the stranded mass written to the binary
+file.
 
 Cases:
   - paper          : pump 25 m3/d for 2 d and inject clean water for 2 d, with
@@ -220,6 +221,12 @@ def held_mass(cum, phase):
     return (cum[f"STORAGE-{phase}_OUT"] - cum[f"STORAGE-{phase}_IN"]).to_numpy()
 
 
+def net_in(cum, term):
+    """Net mass that a stranded mass budget term carries into the reservoirs."""
+    col_in = f"{term}_IN" if f"{term}_IN" in cum else term
+    return cum[col_in] - cum[f"{term}_OUT"]
+
+
 def assert_budget_closes(ws):
     """The transport model budget and the stranded mass budget close.
 
@@ -245,14 +252,27 @@ def assert_budget_closes(ws):
         f"stranded mass budget does not close {strand['PERCENT_DISCREPANCY']}"
     )
     # mass leaving the mobile domain is mass entering the stranded mass
-    tol = {"rtol": 1e-5, "atol": 1e-2}
-    to_strand = strand["MOBILE-DOMAIN"] - strand["MOBILE-DOMAIN_OUT"]
+    # the listing file carries about seven significant digits, so a net
+    # transfer between large gross terms is known only to a part in a million
+    # of those terms
+    terms = ("MOBILE-DOMAIN", "ET-DEPOSIT", "RECHARGE-FLUSH")
+    gross = sum(
+        strand[c].to_numpy().max()
+        for t in terms
+        for c in (f"{t}_IN" if f"{t}_IN" in strand else t, f"{t}_OUT")
+    )
+    tol = {"rtol": 1e-5, "atol": max(1e-2, 1e-6 * gross)}
+    to_strand = sum(net_in(strand, t) for t in terms)
     from_mobile = model["STORAGE-STRANDED_OUT"] - model["STORAGE-STRANDED_IN"]
     assert np.allclose(to_strand, from_mobile, **tol), (
         f"stranded mass gained {to_strand.to_numpy()} and the mobile domain "
         f"lost {from_mobile.to_numpy()}"
     )
-    held = held_mass(strand, "AQUEOUS") + held_mass(strand, "SORBED")
+    held = (
+        held_mass(strand, "AQUEOUS")
+        + held_mass(strand, "SORBED")
+        + held_mass(strand, "ET")
+    )
     sf = flopy.utils.HeadFile(os.path.join(ws, "gwt.strand.bin"), text="STRANDED")
     saved = np.array([sf.get_data(totim=t).ravel()[0] for t in strand.index])
     assert np.allclose(held, saved, **tol), (
