@@ -7,7 +7,9 @@ Bedekar and others (written communication) to compare treatments of sorbed mass 
 cell whose water table moves. With the option, mass held out of the mobile
 domain is returned when the cell rewets, so the solutions do not depend on the
 length of the time step except where the concentration changes while the cell
-drains.
+drains. Every case that checks the budget also checks that the budget of the
+stranded mass closes, matches the STORAGE-STRANDED term of the model budget,
+and accounts for the stranded mass written to the binary file.
 
 Cases:
   - paper          : pump 25 m3/d for 2 d and inject clean water for 2 d, with
@@ -26,9 +28,10 @@ Cases:
   - rise_above     : the cell starts partly saturated, drains, and rises above
                      its starting level into material that never drained; no
                      mass is created.
-  - decay          : sorbed mass stranded by pumping decays at the sorbed
-                     rate while the cell stays drained, as an exact
-                     exponential.
+  - decay          : with half the specific yield, so that both phases are
+                     stranded, the aqueous and sorbed mass decay at their own
+                     rates while the cell stays drained, as exact
+                     exponentials.
   - partial        : the cell drains from a saturation of 0.5 to 0.3 and
                      rewets to 0.4, so exactly half of the drained interval
                      resaturates and half of the stranded mass returns.
@@ -199,8 +202,27 @@ def results(ws, sorb):
     return times, head, sat, conc, stranded, mobile + stranded
 
 
+def strand_budget(ws):
+    """Cumulative budgets of the stranded mass and of the transport model."""
+    lst = os.path.join(ws, "gwt.lst")
+    budgets = []
+    for key in ("MASS BUDGET FOR MST", "MASS BUDGET FOR ENTIRE MODEL"):
+        lb = flopy.utils.Mf6ListBudget(lst, budgetkey=key)
+        budgets.append(lb.get_dataframes(diff=False, start_datetime=None)[1])
+    return budgets
+
+
+def held_mass(cum, phase):
+    """Mass of one phase in the stranded mass, from its cumulative storage."""
+    return (cum[f"STORAGE-{phase}_OUT"] - cum[f"STORAGE-{phase}_IN"]).to_numpy()
+
+
 def assert_budget_closes(ws):
-    """Cumulative percent discrepancies of the transport model budget are zero."""
+    """The transport model budget and the stranded mass budget close.
+
+    The stranded mass budget also has to agree with the STORAGE-STRANDED term of
+    the model budget and with the stranded mass written to the binary file.
+    """
     disc = []
     model_budget = False
     with open(os.path.join(ws, "gwt.lst")) as f:
@@ -214,6 +236,25 @@ def assert_budget_closes(ws):
                 model_budget = False
     assert disc, "no model budget found in gwt.lst"
     assert np.allclose(disc, 0.0, atol=1e-2), f"model budget does not close {disc}"
+
+    strand, model = strand_budget(ws)
+    assert np.allclose(strand["PERCENT_DISCREPANCY"], 0.0, atol=1e-2), (
+        f"stranded mass budget does not close {strand['PERCENT_DISCREPANCY']}"
+    )
+    # mass leaving the mobile domain is mass entering the stranded mass
+    tol = {"rtol": 1e-5, "atol": 1e-2}
+    to_strand = strand["MOBILE-DOMAIN"] - strand["MOBILE-DOMAIN_OUT"]
+    from_mobile = model["STORAGE-STRANDED_OUT"] - model["STORAGE-STRANDED_IN"]
+    assert np.allclose(to_strand, from_mobile, **tol), (
+        f"stranded mass gained {to_strand.to_numpy()} and the mobile domain "
+        f"lost {from_mobile.to_numpy()}"
+    )
+    held = held_mass(strand, "AQUEOUS") + held_mass(strand, "SORBED")
+    sf = flopy.utils.HeadFile(os.path.join(ws, "gwt.strand.bin"), text="STRANDED")
+    saved = np.array([sf.get_data(totim=t).ravel()[0] for t in strand.index])
+    assert np.allclose(held, saved, **tol), (
+        f"the stranded mass budget holds {held} and the file {saved}"
+    )
 
 
 def run_framework(function_tmpdir, targets, build, check):
@@ -391,16 +432,18 @@ def test_rise_above(function_tmpdir, targets, newton):
 
 
 def test_decay(function_tmpdir, targets):
-    # pump for 2 d, then leave the cell drained for 10 d
+    # pump for 1 d, from a saturation of 1.0 to 0.5, then leave the cell
+    # drained for 10 d
     lam, lam_srb = 0.05, 0.02
-    periods = [(2.0, [(-25.0, 0.0)]), (10.0, [(0.0, 0.0)])]
+    sy = 0.5 * porosity
+    periods = [(1.0, [(-25.0, 0.0)]), (10.0, [(0.0, 0.0)])]
 
     def build(test):
         return get_model(
             test.workspace,
             periods,
             10,
-            porosity,
+            sy,
             True,
             mst_kwargs={
                 "first_order_decay": True,
@@ -412,15 +455,23 @@ def test_decay(function_tmpdir, targets):
     def check(test):
         ws = test.workspace
         assert_budget_closes(ws)
-        times, _, _, _, stranded, _ = results(ws, True)
-        # the specific yield equals the porosity, so only sorbed mass is
-        # stranded, and it decays at the sorbed rate once the cell stops
-        # draining
-        held = times > 2.0
-        expected = stranded[~held][-1] * np.exp(-lam_srb * (times[held] - 2.0))
-        assert stranded[~held][-1] > 0.0, "no mass was stranded"
-        assert np.allclose(stranded[held], expected, rtol=1e-10), (
-            f"stranded {stranded[held]} expected {expected}"
+        strand, _ = strand_budget(ws)
+        times = strand.index.to_numpy()
+        aq = held_mass(strand, "AQUEOUS")
+        srb = held_mass(strand, "SORBED")
+        # without decay, the drained half of the cell would strand 2,500 g
+        # from the water retained against drainage and 7,500 g of sorbed
+        # mass; a day of decay, in the cell and in the stranded mass, removes
+        # a few percent of each
+        assert 0.95 < aq[0] / 2500.0 < 1.0, f"aqueous mass stranded {aq[0]}"
+        assert 0.95 < srb[0] / 7500.0 < 1.0, f"sorbed mass stranded {srb[0]}"
+        # each phase decays at its own rate once the cell stops draining
+        dt = times[-1] - times[0]
+        assert np.isclose(aq[-1], aq[0] * np.exp(-lam * dt), rtol=1e-5), (
+            f"aqueous {aq} expected {aq[0] * np.exp(-lam * dt)}"
+        )
+        assert np.isclose(srb[-1], srb[0] * np.exp(-lam_srb * dt), rtol=1e-5), (
+            f"sorbed {srb} expected {srb[0] * np.exp(-lam_srb * dt)}"
         )
 
     run_framework(function_tmpdir, targets, build, check)

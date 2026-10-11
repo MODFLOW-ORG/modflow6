@@ -1,12 +1,12 @@
 module TestStrandedMass
 
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: DZERO, DONE, DHALF, DTWO
+  use ConstantsModule, only: DZERO, DONE, DHALF, DTWO, DNODATA
   use MathUtilModule, only: is_close
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
-  use StrandedMassModule, only: strand_rate_sorbed, retained_volume, &
-                                return_fraction, decay_amount
+  use StrandedMassModule, only: StrandedMassType, strand_rate_sorbed, &
+                                retained_volume, return_fraction, decay_amount
 
   implicit none
   private
@@ -32,7 +32,8 @@ contains
                              test_return_empty_reservoir), &
                 new_unittest("decay_amount", test_decay_amount), &
                 new_unittest("strand_return_inverse", &
-                             test_strand_return_inverse) &
+                             test_strand_return_inverse), &
+                new_unittest("advance_restore", test_advance_restore) &
                 ]
   end subroutine collect_strandedmass
 
@@ -236,5 +237,50 @@ contains
     call check(error, is_close(returned, stranded * 0.3_DP / ds))
     if (allocated(error)) return
   end subroutine test_strand_return_inverse
+
+  !> @brief A repeated time step starts from the reservoirs the last one ended with
+  !<
+  subroutine test_advance_restore(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(StrandedMassType) :: strand
+
+    call strand%init('TESTSTRAND', 'MST-STRND', 2)
+    !
+    ! -- the end of a time step; the second cell has no new saturation
+    strand%stranded_aqueous(1) = 1.0_DP
+    strand%stranded_sorbed(1) = 2.0_DP
+    strand%held_aq(1) = 0.3_DP
+    strand%held_srb(1) = 0.4_DP
+    strand%sat_new(1) = 0.6_DP
+    strand%sat_old(2) = 0.8_DP
+    call strand%advance()
+    call check(error, strand%stranded_aqueous0(1) == 1.0_DP .and. &
+               strand%stranded_sorbed0(1) == 2.0_DP .and. &
+               strand%held_aq0(1) == 0.3_DP .and. &
+               strand%held_srb0(1) == 0.4_DP, &
+               'advance did not store the reservoirs')
+    if (allocated(error)) return
+    call check(error, strand%sat_old(1) == 0.6_DP .and. &
+               strand%sat_old(2) == 0.8_DP .and. &
+               strand%sat_new(2) == DNODATA, &
+               'advance did not keep the saturation of each cell')
+    if (allocated(error)) return
+    !
+    ! -- a time step that fails changes the reservoirs and is repeated
+    strand%stranded_aqueous(1) = 5.0_DP
+    strand%stranded_sorbed(1) = 6.0_DP
+    strand%held_aq(1) = 0.7_DP
+    strand%held_srb(1) = 0.8_DP
+    call strand%restore()
+    call check(error, strand%stranded_aqueous(1) == 1.0_DP .and. &
+               strand%stranded_sorbed(1) == 2.0_DP .and. &
+               strand%held_aq(1) == 0.3_DP .and. &
+               strand%held_srb(1) == 0.4_DP, &
+               'restore did not return the reservoirs to the start of the step')
+    if (allocated(error)) return
+    call check(error, strand%sat_old(1) == 0.6_DP, &
+               'restore changed the saturation of the previous time step')
+    call strand%da()
+  end subroutine test_advance_restore
 
 end module TestStrandedMass

@@ -1527,7 +1527,7 @@ contains
   !<
   subroutine mst_ot_bdsummary(this, kstp, kper, iout, ibudfl)
     ! -- modules
-    use TdisModule, only: delt, totim
+    use TdisModule, only: delt
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: kstp !< time step number
@@ -1546,7 +1546,6 @@ contains
     if (ibudfl /= 0) then
       call this%strandbudget%budget_ot(kstp, kper, iout)
     end if
-    call this%strandbudget%writecsv(totim)
   end subroutine mst_ot_bdsummary
 
   !> @ brief Deallocate
