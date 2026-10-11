@@ -27,9 +27,9 @@ module GwtMstInputModule
     logical :: strandsrb_rec = .false.
     logical :: stranded_srb = .false.
     logical :: strandedsrbfile = .false.
-    logical :: stranddep_rec = .false.
-    logical :: stranded_dep = .false.
-    logical :: strandeddepfile = .false.
+    logical :: strandet_rec = .false.
+    logical :: stranded_et = .false.
+    logical :: strandedetfile = .false.
     logical :: sorbate_rec = .false.
     logical :: sorbate = .false.
     logical :: fileout = .false.
@@ -44,7 +44,7 @@ module GwtMstInputModule
     logical :: sp2 = .false.
     logical :: stranded_aqueous = .false.
     logical :: stranded_sorbed = .false.
-    logical :: stranded_deposit = .false.
+    logical :: stranded_etsol = .false.
   end type GwtMstParamFoundType
 
   logical :: gwt_mst_multi_package = .false.
@@ -323,14 +323,14 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_stranddep_rec = InputParamDefinitionType &
+    gwtmst_strandet_rec = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'MST', & ! subcomponent
     'OPTIONS', & ! block
-    'STRANDED_DEP_FILERECORD', & ! tag name
-    'STRANDDEP_REC', & ! fortran variable
-    'RECORD STRANDED_DEP FILEOUT STRANDEDDEPFILE', & ! type
+    'STRANDED_ET_FILERECORD', & ! tag name
+    'STRANDET_REC', & ! fortran variable
+    'RECORD STRANDED_ET FILEOUT STRANDEDETFILE', & ! type
     '', & ! shape
     '', & ! longname
     .false., & ! required
@@ -342,16 +342,16 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_stranded_dep = InputParamDefinitionType &
+    gwtmst_stranded_et = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'MST', & ! subcomponent
     'OPTIONS', & ! block
-    'STRANDED_DEP', & ! tag name
-    'STRANDED_DEP', & ! fortran variable
+    'STRANDED_ET', & ! tag name
+    'STRANDED_ET', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'stranded_dep keyword', & ! longname
+    'stranded_et keyword', & ! longname
     .true., & ! required
     .false., & ! developmode
     .true., & ! multi-record
@@ -361,13 +361,13 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_strandeddepfile = InputParamDefinitionType &
+    gwtmst_strandedetfile = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'MST', & ! subcomponent
     'OPTIONS', & ! block
-    'STRANDEDDEPFILE', & ! tag name
-    'STRANDEDDEPFILE', & ! fortran variable
+    'STRANDEDETFILE', & ! tag name
+    'STRANDEDETFILE', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
     'file keyword', & ! longname
@@ -646,13 +646,13 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_stranded_deposit = InputParamDefinitionType &
+    gwtmst_stranded_etsol = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'MST', & ! subcomponent
     'GRIDDATA', & ! block
-    'STRANDED_DEPOSIT', & ! tag name
-    'STRANDED_DEPOSIT', & ! fortran variable
+    'STRANDED_ET_SOLUTE', & ! tag name
+    'STRANDED_ETSOL', & ! fortran variable
     'DOUBLE1D', & ! type
     'NODES', & ! shape
     'initial solute deposited by evapotranspiration', & ! longname
@@ -681,9 +681,9 @@ module GwtMstInputModule
     gwtmst_strandsrb_rec, &
     gwtmst_stranded_srb, &
     gwtmst_strandedsrbfile, &
-    gwtmst_stranddep_rec, &
-    gwtmst_stranded_dep, &
-    gwtmst_strandeddepfile, &
+    gwtmst_strandet_rec, &
+    gwtmst_stranded_et, &
+    gwtmst_strandedetfile, &
     gwtmst_sorbate_rec, &
     gwtmst_sorbate, &
     gwtmst_fileout, &
@@ -698,7 +698,7 @@ module GwtMstInputModule
     gwtmst_sp2, &
     gwtmst_stranded_aqueous, &
     gwtmst_stranded_sorbed, &
-    gwtmst_stranded_deposit &
+    gwtmst_stranded_etsol &
     ]
 
   type(InputParamDefinitionType), parameter :: &

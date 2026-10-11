@@ -92,7 +92,7 @@ module GwtMstModule
     integer(I4B), pointer :: ioutstranded => null() !< unit number for stranded mass output
     integer(I4B), pointer :: ioutstrandaq => null() !< unit number for aqueous stranded mass output
     integer(I4B), pointer :: ioutstrandsrb => null() !< unit number for sorbed stranded mass output
-    integer(I4B), pointer :: ioutstranddep => null() !< unit number for output of the solute deposited by evapotranspiration
+    integer(I4B), pointer :: ioutstrandet => null() !< unit number for output of the solute deposited by evapotranspiration
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     logical :: satold_valid = .false. !< the stored saturation of the previous time step can be used
     logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
@@ -1652,7 +1652,7 @@ contains
     !
     ! -- each reservoir in its own file, so that a later simulation can start
     !    from them with STRANDED_AQUEOUS, STRANDED_SORBED, and
-    !    STRANDED_DEPOSIT
+    !    STRANDED_ET_SOLUTE
     if (this%ioutstrandaq /= 0 .and. idvsave /= 0) then
       iprint = 0
       dinact = DHNOFLO
@@ -1669,12 +1669,12 @@ contains
                                  '   STRAND-SORBED', cdatafmp, nvaluesp, &
                                  nwidthp, editdesc, dinact)
     end if
-    if (this%ioutstranddep /= 0 .and. idvsave /= 0) then
+    if (this%ioutstrandet /= 0 .and. idvsave /= 0) then
       iprint = 0
       dinact = DHNOFLO
       call this%dis%record_array(this%strand%stranded_et, this%iout, &
-                                 iprint, this%ioutstranddep, &
-                                 '  STRAND-DEPOSIT', cdatafmp, nvaluesp, &
+                                 iprint, this%ioutstrandet, &
+                                 '       STRAND-ET', cdatafmp, nvaluesp, &
                                  nwidthp, editdesc, dinact)
     end if
 
@@ -1755,7 +1755,7 @@ contains
       call mem_deallocate(this%ioutstranded)
       call mem_deallocate(this%ioutstrandaq)
       call mem_deallocate(this%ioutstrandsrb)
-      call mem_deallocate(this%ioutstranddep)
+      call mem_deallocate(this%ioutstrandet)
       call mem_deallocate(this%cstrand)
       this%ibound => null()
       this%fmi => null()
@@ -1808,7 +1808,7 @@ contains
     call mem_allocate(this%ioutstranded, 'IOUTSTRANDED', this%memoryPath)
     call mem_allocate(this%ioutstrandaq, 'IOUTSTRANDAQ', this%memoryPath)
     call mem_allocate(this%ioutstrandsrb, 'IOUTSTRANDSRB', this%memoryPath)
-    call mem_allocate(this%ioutstranddep, 'IOUTSTRANDDEP', this%memoryPath)
+    call mem_allocate(this%ioutstrandet, 'IOUTSTRANDET', this%memoryPath)
     !
     ! -- Initialize
     this%isrb = IZERO
@@ -1818,7 +1818,7 @@ contains
     this%ioutstranded = 0
     this%ioutstrandaq = 0
     this%ioutstrandsrb = 0
-    this%ioutstranddep = 0
+    this%ioutstrandet = 0
   end subroutine allocate_scalars
 
   !> @ brief Allocate arrays for package
@@ -1941,7 +1941,7 @@ contains
     character(len=LINELENGTH) :: strandfname
     character(len=LINELENGTH) :: strandaqfname
     character(len=LINELENGTH) :: strandsrbfname
-    character(len=LINELENGTH) :: stranddepfname
+    character(len=LINELENGTH) :: strandetfname
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
@@ -1962,8 +1962,8 @@ contains
                        found%strandedaqfile)
     call mem_set_value(strandsrbfname, 'STRANDEDSRBFILE', this%input_mempath, &
                        found%strandedsrbfile)
-    call mem_set_value(stranddepfname, 'STRANDEDDEPFILE', this%input_mempath, &
-                       found%strandeddepfile)
+    call mem_set_value(strandetfname, 'STRANDEDETFILE', this%input_mempath, &
+                       found%strandedetfile)
 
     ! -- found side effects
     if (found%save_flows) this%ipakcb = -1
@@ -1994,9 +1994,9 @@ contains
                     form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
     if (found%strandedaqfile .or. found%strandedsrbfile .or. &
-        found%strandeddepfile) then
+        found%strandedetfile) then
       if (this%istrand == IZERO) then
-        call store_error('STRANDED_AQ, STRANDED_SRB, or STRANDED_DEP FILEOUT &
+        call store_error('STRANDED_AQ, STRANDED_SRB, or STRANDED_ET FILEOUT &
                          &was specified but the STRANDED_MASS keyword was not &
                          &specified.')
         call store_error_filename(this%input_fname)
@@ -2012,23 +2012,23 @@ contains
       call openfile(this%ioutstrandsrb, this%iout, strandsrbfname, &
                     'DATA(BINARY)', form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
-    if (found%strandeddepfile) then
-      this%ioutstranddep = getunit()
-      call openfile(this%ioutstranddep, this%iout, stranddepfname, &
+    if (found%strandedetfile) then
+      this%ioutstrandet = getunit()
+      call openfile(this%ioutstrandet, this%iout, strandetfname, &
                     'DATA(BINARY)', form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
     !
     ! -- log options
     if (this%iout > 0) then
       call this%log_options(found, fname, strandfname, strandaqfname, &
-                            strandsrbfname, stranddepfname)
+                            strandsrbfname, strandetfname)
     end if
   end subroutine source_options
 
   !> @brief Log user options to list file
   !<
   subroutine log_options(this, found, sorbate_fname, stranded_fname, &
-                         strandaq_fname, strandsrb_fname, stranddep_fname)
+                         strandaq_fname, strandsrb_fname, strandet_fname)
     use GwtMstInputModule, only: GwtMstParamFoundType
     class(GwTMstType) :: this
     type(GwtMstParamFoundType), intent(in) :: found
@@ -2036,7 +2036,7 @@ contains
     character(len=*), intent(in) :: stranded_fname
     character(len=*), intent(in) :: strandaq_fname
     character(len=*), intent(in) :: strandsrb_fname
-    character(len=*), intent(in) :: stranddep_fname
+    character(len=*), intent(in) :: strandet_fname
     ! -- formats
     character(len=*), parameter :: fmtisvflow = &
       "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
@@ -2096,9 +2096,9 @@ contains
       write (this%iout, fmtfileout) &
         'STRANDED_SRB', strandsrb_fname, this%ioutstrandsrb
     end if
-    if (found%strandeddepfile) then
+    if (found%strandedetfile) then
       write (this%iout, fmtfileout) &
-        'STRANDED_DEP', stranddep_fname, this%ioutstranddep
+        'STRANDED_ET', strandet_fname, this%ioutstrandet
     end if
     write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
   end subroutine log_options
@@ -2171,15 +2171,15 @@ contains
                          this%input_mempath, map, found%stranded_aqueous)
       call mem_set_value(this%strand%stranded_sorbed, 'STRANDED_SORBED', &
                          this%input_mempath, map, found%stranded_sorbed)
-      call mem_set_value(this%strand%stranded_et, 'STRANDED_DEPOSIT', &
-                         this%input_mempath, map, found%stranded_deposit)
+      call mem_set_value(this%strand%stranded_et, 'STRANDED_ETSOL', &
+                         this%input_mempath, map, found%stranded_etsol)
     else
       call get_isize('STRANDED_AQUEOUS', this%input_mempath, asize)
       found%stranded_aqueous = (asize > 0)
       call get_isize('STRANDED_SORBED', this%input_mempath, asize)
       found%stranded_sorbed = (asize > 0)
-      call get_isize('STRANDED_DEPOSIT', this%input_mempath, asize)
-      found%stranded_deposit = (asize > 0)
+      call get_isize('STRANDED_ETSOL', this%input_mempath, asize)
+      found%stranded_etsol = (asize > 0)
     end if
 
     ! -- log options
@@ -2278,10 +2278,10 @@ contains
 
     ! -- Check the initial stranded mass
     if (found%stranded_aqueous .or. found%stranded_sorbed .or. &
-        found%stranded_deposit) then
+        found%stranded_etsol) then
       if (this%istrand == IZERO) then
         write (errmsg, '(a)') 'STRANDED_AQUEOUS, STRANDED_SORBED, or &
-          &STRANDED_DEPOSIT was specified but the STRANDED_MASS keyword was &
+          &STRANDED_ET_SOLUTE was specified but the STRANDED_MASS keyword was &
           &not specified.'
         call store_error(errmsg)
       else
@@ -2295,7 +2295,7 @@ contains
               this%strand%stranded_sorbed(n) < DZERO .or. &
               this%strand%stranded_et(n) < DZERO) then
             write (errmsg, '(a)') 'STRANDED_AQUEOUS, STRANDED_SORBED, and &
-              &STRANDED_DEPOSIT cannot be negative.'
+              &STRANDED_ET_SOLUTE cannot be negative.'
             call store_error(errmsg)
             exit
           end if
@@ -2356,8 +2356,8 @@ contains
       write (this%iout, '(4x,a)') 'INITIAL STRANDED SORBED MASS set from &
         &input file'
     end if
-    if (found%stranded_deposit) then
-      write (this%iout, '(4x,a)') 'INITIAL DEPOSITED SOLUTE set from &
+    if (found%stranded_etsol) then
+      write (this%iout, '(4x,a)') 'INITIAL STRANDED ET SOLUTE set from &
         &input file'
     end if
     write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
