@@ -39,10 +39,12 @@ module GwtMstModule
   ! -- budget of the stranded mass reservoirs, which is reported separately
   !    because decay of stranded mass never passes through the concentration
   !    equation
-  integer(I4B), parameter :: NBDITEMS_STRAND = 5
+  integer(I4B), parameter :: NBDITEMS_STRAND = 9
   character(len=LENBUDTXT), dimension(NBDITEMS_STRAND) :: budtxt_strand
   data budtxt_strand/' STORAGE-AQUEOUS', '  STORAGE-SORBED', &
-    '   DECAY-AQUEOUS', '    DECAY-SORBED', '   MOBILE-DOMAIN'/
+    '   DECAY-AQUEOUS', '    DECAY-SORBED', '   MOBILE-DOMAIN', &
+    '      STORAGE-ET', '        DECAY-ET', '      ET-DEPOSIT', &
+    '  RECHARGE-FLUSH'/
 
   !> @brief Enumerator that defines the decay options
   !<
@@ -104,6 +106,8 @@ module GwtMstModule
     type(TspFmiType), pointer :: fmi => null() !< pointer to fmi object
     type(TspSsmType), pointer :: ssm => null() !< pointer to ssm object, for sinks that leave solute behind
     real(DP), dimension(:), allocatable :: qfree !< water leaving each cell through sinks that leave solute behind
+    real(DP), dimension(:), allocatable :: cqfree !< solute that those sinks carry out of each cell
+    real(DP), dimension(:), allocatable :: qrch !< recharge entering each cell
 
   contains
 
@@ -321,7 +325,8 @@ contains
   subroutine mst_fc_strand(this, nodes, nja, matrix_sln, idxglo, rhs, cnew)
     ! -- modules
     use TdisModule, only: delt
-    use StrandedMassModule, only: return_fraction, retained_volume
+    use StrandedMassModule, only: return_fraction, retained_volume, &
+                                  flush_fraction, deposit_fraction
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer, intent(in) :: nodes !< number of nodes
@@ -336,7 +341,7 @@ contains
     real(DP) :: hhcof, rrhs
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw
-    real(DP) :: vret, released
+    real(DP) :: vret, released, fret, mret, vdrained, gdep
     !
     tled = DONE / delt
     call this%mst_solute_free()
@@ -357,11 +362,27 @@ contains
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
       ! -- a sink that carries no solute, such as evapotranspiration, leaves
-      !    its solute behind; the share in the drained part of the cell is
-      !    held as deposited solute rather than added to the water
+      !    solute behind; the share in the drained part of the cell is
+      !    deposited there rather than added to the water.  Recharge flushes
+      !    the drained pore volume, including part of what is deposited during
+      !    the time step.
+      vdrained = this%thetam(n) * (DONE - sat_new) * vcell
+      gdep = (DONE - sat_new) * deposit_fraction(this%qrch(n), delt, vdrained)
       idiag = this%dis%con%ia(n)
-      call matrix_sln%add_value_pos(idxglo(idiag), &
-                                    -(DONE - sat_new) * this%qfree(n))
+      call matrix_sln%add_value_pos(idxglo(idiag), -gdep * this%qfree(n))
+      rhs(n) = rhs(n) - gdep * this%cqfree(n)
+      !
+      ! -- deposited solute returns as the water table rises into it and as
+      !    recharge flushes it, from the mass the time step started with, so
+      !    the return is explicit
+      fret = DZERO
+      if (sat_new > sat_old) then
+        fret = return_fraction(sat_new - sat_old, this%strand%held_et0(n))
+      end if
+      mret = this%strand%stranded_et0(n) * &
+             (fret + (DONE - fret) * &
+              flush_fraction(this%qrch(n), delt, vdrained))
+      rhs(n) = rhs(n) - mret * tled
       !
       if (sat_new < sat_old) then
         !
@@ -448,12 +469,18 @@ contains
     ! -- local
     integer(I4B) :: n
     !
-    if (.not. allocated(this%qfree)) allocate (this%qfree(this%dis%nodes))
+    if (.not. allocated(this%qfree)) then
+      allocate (this%qfree(this%dis%nodes))
+      allocate (this%cqfree(this%dis%nodes))
+      allocate (this%qrch(this%dis%nodes))
+    end if
     if (associated(this%ssm)) then
-      call this%ssm%ssm_solute_free(this%qfree)
+      call this%ssm%ssm_solute_free(this%qfree, this%cqfree, this%qrch)
     else
       do n = 1, this%dis%nodes
         this%qfree(n) = DZERO
+        this%cqfree(n) = DZERO
+        this%qrch(n) = DZERO
       end do
     end if
   end subroutine mst_solute_free
@@ -847,7 +874,8 @@ contains
     ! -- modules
     use TdisModule, only: delt
     use StrandedMassModule, only: strand_rate_sorbed, return_fraction, &
-                                  retained_volume
+                                  retained_volume, flush_fraction, &
+                                  deposit_fraction
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     integer(I4B), intent(in) :: nodes !< number of nodes
@@ -858,10 +886,11 @@ contains
     integer(I4B) :: n, idiag
     real(DP) :: rate, tled
     real(DP) :: maq, msrb
-    real(DP) :: daq, dsrb
+    real(DP) :: daq, dsrb, det
     real(DP) :: vcell, volfracm, rhobm
     real(DP) :: sat_new, sat_old, ds, dw
-    real(DP) :: released, vdrain, mfree
+    real(DP) :: released, vdrain
+    real(DP) :: mdep, mret, mflush, met, fret, vdrained
     logical :: decay_strand
     !
     tled = DONE / delt
@@ -887,6 +916,8 @@ contains
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed0(n)
       this%strand%held_aq(n) = this%strand%held_aq0(n)
       this%strand%held_srb(n) = this%strand%held_srb0(n)
+      this%strand%stranded_et(n) = this%strand%stranded_et0(n)
+      this%strand%held_et(n) = this%strand%held_et0(n)
       !
       ! -- a dry cell keeps the mass its reservoirs hold, and records the
       !    saturation it now has, so that the step in which it becomes active
@@ -940,9 +971,10 @@ contains
           this%strand%ratestrand(n) = rate
           call accumulate_strandterm(this%budterm_strand, 5, -rate)
         end if
-        call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
+        call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb, det)
         call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
         call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
+        call accumulate_strandterm(this%budterm_strand, 6, det * tled)
         this%strand%sat_new(n) = sat_new
         cycle
       end if
@@ -960,6 +992,7 @@ contains
       !    negative when mass returns to the mobile domain
       maq = DZERO
       msrb = DZERO
+      fret = DZERO
       if (sat_new < sat_old .and. this%ibound(n) > 0) then
         !
         ! -- draining, mass leaves the mobile domain; a constant concentration
@@ -995,34 +1028,49 @@ contains
                return_fraction(dw, this%strand%held_srb(n))
         this%strand%held_aq(n) = max(this%strand%held_aq(n) - dw, DZERO)
         this%strand%held_srb(n) = max(this%strand%held_srb(n) - dw, DZERO)
-      end if
-      !
-      ! -- solute left behind by sinks that carry no solute, held in the
-      !    drained part of the cell, which it is returned from on rewetting
-      mfree = (DONE - sat_new) * this%qfree(n) * cnew(n) * delt
-      if (mfree > DZERO) then
-        maq = maq + mfree
-        this%strand%held_aq(n) = max(this%strand%held_aq(n), DONE - sat_new)
+        fret = return_fraction(dw, this%strand%held_et(n))
+        this%strand%held_et(n) = max(this%strand%held_et(n) - dw, DZERO)
       end if
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
       !
+      ! -- a sink that carries no solute, such as evapotranspiration, leaves
+      !    solute behind; the share in the drained part of the cell is
+      !    deposited there, returns as the water table rises into it, and is
+      !    flushed by recharge passing through the drained pore volume
+      vdrained = this%thetam(n) * (DONE - sat_new) * vcell
+      mdep = (DONE - sat_new) * &
+             deposit_fraction(this%qrch(n), delt, vdrained) * &
+             (this%qfree(n) * cnew(n) - this%cqfree(n)) * delt
+      mret = this%strand%stranded_et(n) * fret
+      mflush = (this%strand%stranded_et(n) - mret) * &
+               flush_fraction(this%qrch(n), delt, vdrained)
+      if (mdep > DZERO) then
+        this%strand%held_et(n) = max(this%strand%held_et(n), DONE - sat_new)
+      end if
+      met = mdep - mret - mflush
+      this%strand%stranded_et(n) = this%strand%stranded_et(n) + met
+      !
       ! -- the mobile domain gains what the reservoirs lose; in a constant
       !    concentration cell the CNC Package takes it out again
-      rate = -(maq + msrb) * tled
+      rate = -(maq + msrb + met) * tled
       this%strand%ratestrand(n) = rate
       idiag = this%dis%con%ia(n)
       flowja(idiag) = flowja(idiag) + rate
-      call accumulate_strandterm(this%budterm_strand, 5, -rate)
+      call accumulate_strandterm(this%budterm_strand, 5, &
+                                 (maq + msrb - mret) * tled)
+      call accumulate_strandterm(this%budterm_strand, 8, mdep * tled)
+      call accumulate_strandterm(this%budterm_strand, 9, -mflush * tled)
       !
       ! -- decay of the reservoirs, which leaves the simulation entirely and
       !    so is reported here rather than in the model budget
-      call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb)
+      call this%mst_decay_strand(n, delt, tled, decay_strand, daq, dsrb, det)
       !
       ! -- storage is what the transfer and the decay leave behind, so the
       !    reservoir budget closes by construction
       call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
       call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
+      call accumulate_strandterm(this%budterm_strand, 6, -(met - det) * tled)
       !
       ! -- remember where the water table was, for the next time step
       this%strand%sat_new(n) = sat_new
@@ -1095,7 +1143,8 @@ contains
   !!
   !!  Reservoirs decay whether or not the cell is active.
   !<
-  subroutine mst_decay_strand(this, n, delt, tled, decay_strand, daq, dsrb)
+  subroutine mst_decay_strand(this, n, delt, tled, decay_strand, daq, dsrb, &
+                              det)
     ! -- modules
     use StrandedMassModule, only: decay_amount
     ! -- dummy
@@ -1106,11 +1155,13 @@ contains
     logical, intent(in) :: decay_strand !< stranded mass decays
     real(DP), intent(out) :: daq !< mass lost from the aqueous reservoir
     real(DP), intent(out) :: dsrb !< mass lost from the sorbed reservoir
+    real(DP), intent(out) :: det !< mass lost from the evapotranspiration reservoir
     ! -- local
     real(DP) :: lambda_aq, lambda_srb
     !
     daq = DZERO
     dsrb = DZERO
+    det = DZERO
     if (decay_strand) then
       ! -- first-order decay requires DECAY, and with sorption DECAY_SORBED;
       !    without sorption the sorbed reservoir is empty
@@ -1121,11 +1172,16 @@ contains
       dsrb = decay_amount(this%strand%stranded_sorbed(n), lambda_srb, delt)
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) - daq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) - dsrb
-      this%strand%ratedcystrand(n) = -daq * tled
+      !
+      ! -- solute deposited by evapotranspiration decays as the aqueous phase
+      det = decay_amount(this%strand%stranded_et(n), lambda_aq, delt)
+      this%strand%stranded_et(n) = this%strand%stranded_et(n) - det
+      this%strand%ratedcystrand(n) = -(daq + det) * tled
       this%strand%ratedcystrands(n) = -dsrb * tled
     end if
     call accumulate_strandterm(this%budterm_strand, 3, -daq * tled)
     call accumulate_strandterm(this%budterm_strand, 4, -dsrb * tled)
+    call accumulate_strandterm(this%budterm_strand, 7, -det * tled)
   end subroutine mst_decay_strand
 
   !> @ brief Accumulate an in or out rate into a reservoir budget term
@@ -1619,8 +1675,7 @@ contains
     integer(I4B) :: n
 
     do n = 1, this%dis%nodes
-      this%cstrand(n) = this%strand%stranded_aqueous(n) + &
-                        this%strand%stranded_sorbed(n)
+      this%cstrand(n) = this%strand%total(n)
     end do
   end subroutine mst_calc_stranded
 
@@ -1691,6 +1746,8 @@ contains
       this%fmi => null()
       this%ssm => null()
       if (allocated(this%qfree)) deallocate (this%qfree)
+      if (allocated(this%cqfree)) deallocate (this%cqfree)
+      if (allocated(this%qrch)) deallocate (this%qrch)
     end if
     !
     ! -- Scalars

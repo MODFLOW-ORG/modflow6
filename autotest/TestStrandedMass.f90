@@ -6,7 +6,8 @@ module TestStrandedMass
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use StrandedMassModule, only: StrandedMassType, strand_rate_sorbed, &
-                                retained_volume, return_fraction, decay_amount
+                                retained_volume, return_fraction, decay_amount, &
+                                flush_fraction, deposit_fraction
 
   implicit none
   private
@@ -33,7 +34,8 @@ contains
                 new_unittest("decay_amount", test_decay_amount), &
                 new_unittest("strand_return_inverse", &
                              test_strand_return_inverse), &
-                new_unittest("advance_restore", test_advance_restore) &
+                new_unittest("advance_restore", test_advance_restore), &
+                new_unittest("flush_fraction", test_flush_fraction) &
                 ]
   end subroutine collect_strandedmass
 
@@ -251,6 +253,8 @@ contains
     strand%stranded_sorbed(1) = 2.0_DP
     strand%held_aq(1) = 0.3_DP
     strand%held_srb(1) = 0.4_DP
+    strand%stranded_et(1) = 3.0_DP
+    strand%held_et(1) = 0.5_DP
     strand%sat_new(1) = 0.6_DP
     strand%sat_old(2) = 0.8_DP
     call strand%advance()
@@ -271,16 +275,57 @@ contains
     strand%stranded_sorbed(1) = 6.0_DP
     strand%held_aq(1) = 0.7_DP
     strand%held_srb(1) = 0.8_DP
+    strand%stranded_et(1) = 7.0_DP
+    strand%held_et(1) = 0.9_DP
     call strand%restore()
     call check(error, strand%stranded_aqueous(1) == 1.0_DP .and. &
                strand%stranded_sorbed(1) == 2.0_DP .and. &
                strand%held_aq(1) == 0.3_DP .and. &
-               strand%held_srb(1) == 0.4_DP, &
+               strand%held_srb(1) == 0.4_DP .and. &
+               strand%stranded_et(1) == 3.0_DP .and. &
+               strand%held_et(1) == 0.5_DP, &
                'restore did not return the reservoirs to the start of the step')
     if (allocated(error)) return
     call check(error, strand%sat_old(1) == 0.6_DP, &
                'restore changed the saturation of the previous time step')
     call strand%da()
   end subroutine test_advance_restore
+
+  !> @brief Recharge flushes a deposit as a well-mixed volume
+  !<
+  subroutine test_flush_fraction(error)
+    type(error_type), allocatable, intent(out) :: error
+    real(DP) :: x, f, g
+
+    ! -- without recharge nothing is flushed and all of a deposit stays
+    call check(error, flush_fraction(DZERO, 10.0_DP, 150.0_DP) == DZERO)
+    if (allocated(error)) return
+    call check(error, deposit_fraction(DZERO, 10.0_DP, 150.0_DP) == DONE)
+    if (allocated(error)) return
+    !
+    ! -- a cell with no drained pore volume keeps nothing
+    call check(error, flush_fraction(5.0_DP, 10.0_DP, DZERO) == DONE)
+    if (allocated(error)) return
+    call check(error, deposit_fraction(5.0_DP, 10.0_DP, DZERO) == DZERO)
+    if (allocated(error)) return
+    !
+    ! -- at steady state the deposit retained over a time step, g x, equals
+    !    the share of the deposit flushed, f, for any length of time step
+    x = 5.0_DP * 10.0_DP / 150.0_DP
+    f = flush_fraction(5.0_DP, 10.0_DP, 150.0_DP)
+    g = deposit_fraction(5.0_DP, 10.0_DP, 150.0_DP)
+    call check(error, is_close(f, DONE - exp(-x)), &
+               'flush fraction '//to_string(f))
+    if (allocated(error)) return
+    call check(error, is_close(g * x, f), &
+               'deposit fraction '//to_string(g))
+    if (allocated(error)) return
+    !
+    ! -- a very small flush keeps nearly all of the deposit, without the
+    !    loss of precision of the full expression
+    g = deposit_fraction(1.0e-12_DP, 1.0_DP, 1.0_DP)
+    call check(error, is_close(g, DONE - 0.5e-12_DP), &
+               'small deposit fraction '//to_string(g))
+  end subroutine test_flush_fraction
 
 end module TestStrandedMass
