@@ -810,14 +810,12 @@ contains
       this%strand%held_aq(n) = this%strand%held_aq0(n)
       this%strand%held_srb(n) = this%strand%held_srb0(n)
       !
-      ! -- an inactive cell keeps the mass its reservoirs hold, and records
-      !    the saturation it now has, so that the step in which it becomes
-      !    active again is seen as the rewetting it is.  Leaving the stored
+      ! -- a dry cell keeps the mass its reservoirs hold, and records the
+      !    saturation it now has, so that the step in which it becomes active
+      !    again is seen as the rewetting it is.  Leaving the stored
       !    saturation at the value from before the cell went dry makes a cell
       !    that comes back wetter than that look as though it had drained.
-      !    A constant concentration cell has no storage term, so no mass is
-      !    stranded or returned while the concentration is held.
-      if (this%ibound(n) <= 0) then
+      if (this%ibound(n) == 0) then
         maq = DZERO
         msrb = DZERO
         sat_new = this%fmi%gwfsat(n)
@@ -826,8 +824,7 @@ contains
         ! -- the flow model reports no storage for a cell that goes dry, so
         !    whether it drained during the first time step cannot be told
         !    from a budget file
-        if (this%ibound(n) == 0 .and. .not. this%satold_valid .and. &
-            .not. this%warned_firststep) then
+        if (.not. this%satold_valid .and. .not. this%warned_firststep) then
           write (warnmsg, '(a)') 'At least one cell was dry at the end of &
             &the first time step and the saturation the simulation started &
             &from was not available, so no mass was stranded if the cell &
@@ -844,7 +841,7 @@ contains
         !    out, so the solute of that part, at the concentration the time
         !    step started with, is held as well; the mobile domain releases
         !    it from storage, so the model budget closes
-        if (this%ibound(n) == 0 .and. sat_old > sat_new) then
+        if (sat_old > sat_new) then
           ds = sat_old - sat_new
           vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
           released = DZERO
@@ -885,9 +882,10 @@ contains
       !    negative when mass returns to the mobile domain
       maq = DZERO
       msrb = DZERO
-      if (sat_new < sat_old) then
+      if (sat_new < sat_old .and. this%ibound(n) > 0) then
         !
-        ! -- draining, mass leaves the mobile domain
+        ! -- draining, mass leaves the mobile domain; a constant concentration
+        !    cell has no storage term, so it strands nothing
         ds = sat_old - sat_new
         !
         ! -- the flow model cannot drain more water than the mobile domain
@@ -923,7 +921,8 @@ contains
       this%strand%stranded_aqueous(n) = this%strand%stranded_aqueous(n) + maq
       this%strand%stranded_sorbed(n) = this%strand%stranded_sorbed(n) + msrb
       !
-      ! -- the mobile domain gains what the reservoirs lose
+      ! -- the mobile domain gains what the reservoirs lose; in a constant
+      !    concentration cell the CNC Package takes it out again
       rate = -(maq + msrb) * tled
       this%strand%ratestrand(n) = rate
       idiag = this%dis%con%ia(n)
