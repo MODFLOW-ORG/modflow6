@@ -147,6 +147,40 @@ longname file keyword
 description name of the binary output file to write the sorbed stranded mass of each cell.  The file can be used to give STRANDED\_SORBED for a simulation that continues from this one.
 
 block options
+name stranded_dep_filerecord
+type record stranded_dep fileout strandeddepfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal stranddep_rec
+
+block options
+name stranded_dep
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_dep keyword
+description keyword to specify that record corresponds to the solute that evapotranspiration has deposited in the drained part of each cell.
+
+block options
+name strandeddepfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the solute that evapotranspiration has deposited in the drained part of each cell.  The file can be used to give STRANDED\_DEPOSIT for a simulation that continues from this one.
+
+block options
 name sorbate_filerecord
 type record sorbate fileout sorbatefile
 shape
@@ -298,3 +332,14 @@ layered true
 netcdf true
 longname initial stranded sorbed mass
 description is the sorbed mass of solute held in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY\_SORBED.  The STRANDED\_MASS and SORPTION options must be specified, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_sorbed is not specified, no sorbed mass is stranded at the start of the simulation.
+
+block griddata
+name stranded_deposit
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial solute deposited by evapotranspiration
+description is the solute that evapotranspiration has deposited in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and as recharge from the Recharge (RCH) Package flushes the drained part of the cell, and decays at the rate given by DECAY.  The STRANDED\_MASS option must be specified, and a cell that is fully saturated at the start of the simulation cannot hold deposited solute.  If stranded\_deposit is not specified, no solute is deposited at the start of the simulation.
