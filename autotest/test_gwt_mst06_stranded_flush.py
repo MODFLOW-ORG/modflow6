@@ -17,6 +17,11 @@ Cases:
   - et_conc: evapotranspiration at 20 g/m3, balanced by a well injecting clean
              water; only the solute that the mixing of evapotranspiration does
              not carry out of the cell is left behind and deposited.
+  - restart: a simulation started from the concentration and the deposit
+             (STRANDED_DEP FILEOUT, STRANDED_DEPOSIT) that another wrote at the
+             end of the deposition ends where a single simulation does.
+  - errors : STRANDED_DEPOSIT without STRANDED_MASS, and a negative deposit,
+             are errors (xfail).
 """
 
 import flopy
@@ -45,7 +50,7 @@ q_et = et_max * area * (strt - (top - (top - botm))) / (top - botm)
 vdrained = porosity * (1.0 - sat) * vcell
 
 
-def get_model(ws, periods):
+def get_model(ws, periods, c0=cinit, strand=True, mst_kwargs=None):
     """Single cell with evapotranspiration, recharge, and a well.
 
     Each period is (length, number of time steps, maximum evapotranspiration
@@ -110,14 +115,13 @@ def get_model(ws, periods):
     flopy.mf6.ModflowGwtdis(
         gwt, nrow=1, ncol=1, delr=delr, delc=delc, top=top, botm=botm
     )
-    flopy.mf6.ModflowGwtic(gwt, strt=cinit)
-    flopy.mf6.ModflowGwtmst(
-        gwt,
-        porosity=porosity,
-        save_flows=True,
-        stranded_mass=True,
-        stranded_filerecord=[("gwt.strand.bin",)],
-    )
+    flopy.mf6.ModflowGwtic(gwt, strt=c0)
+    kwargs = {"porosity": porosity, "save_flows": True}
+    if strand:
+        kwargs.update(stranded_mass=True, stranded_filerecord=[("gwt.strand.bin",)])
+    if mst_kwargs is not None:
+        kwargs.update(mst_kwargs)
+    flopy.mf6.ModflowGwtmst(gwt, **kwargs)
     flopy.mf6.ModflowGwtssm(
         gwt,
         sources=[
@@ -233,3 +237,87 @@ def test_et_conc(function_tmpdir, targets):
         assert deposit.min() > 0.0, f"deposit {deposit}"
 
     run_framework(function_tmpdir, targets, build, check)
+
+
+def test_restart(function_tmpdir, targets):
+    exe = str(targets["mf6"])
+    deposit = (500.0, 50, et_max, 0.0, q_et / area, 0.0)
+    flush = (300.0, 30, 0.0, 0.0, q_et / area, -q_et)
+    dep_out = {"stranded_dep_filerecord": [("gwt.dep.bin",)]}
+
+    def run(ws, periods, **kwargs):
+        sim = get_model(ws, periods, **kwargs)
+        sim.exe_name = exe
+        sim.write_simulation(silent=True)
+        success, buff = sim.run_simulation(silent=True)
+        assert success, f"simulation in {ws} failed\n{buff}"
+
+    # one simulation over both halves, and the first half alone
+    run(function_tmpdir / "full", [deposit, flush], mst_kwargs=dep_out)
+    run(function_tmpdir / "first", [deposit], mst_kwargs=dep_out)
+    _, c1 = series(function_tmpdir / "first", "gwt.ucn", "CONCENTRATION")
+    _, d1 = series(function_tmpdir / "first", "gwt.dep.bin", "STRAND-DEPOSIT")
+    assert d1[-1] > 0.0, f"no solute was deposited {d1}"
+
+    # the second half, started from what the first half wrote
+    run(
+        function_tmpdir / "second",
+        [flush],
+        c0=c1[-1],
+        mst_kwargs={"stranded_deposit": d1[-1]},
+    )
+    for fname, text in (
+        ("gwt.ucn", "CONCENTRATION"),
+        ("gwt.strand.bin", "STRANDED"),
+    ):
+        _, full = series(function_tmpdir / "full", fname, text)
+        _, second = series(function_tmpdir / "second", fname, text)
+        assert np.allclose(second[-1], full[-1], rtol=1e-8), (
+            f"{text} {second[-1]} after a restart, {full[-1]} without"
+        )
+    # the deposit file holds the deposit alone, which is all that is stranded
+    _, dfull = series(function_tmpdir / "full", "gwt.dep.bin", "STRAND-DEPOSIT")
+    _, sfull = series(function_tmpdir / "full", "gwt.strand.bin", "STRANDED")
+    assert np.allclose(dfull, sfull), "the deposit is not the stranded mass"
+
+
+deposit_errors = {
+    "nostrand": (
+        False,
+        10.0,
+        "STRANDED_AQUEOUS, STRANDED_SORBED, or STRANDED_DEPOSIT was specified "
+        "but the STRANDED_MASS keyword was not specified",
+    ),
+    "negative": (
+        True,
+        -10.0,
+        "STRANDED_AQUEOUS, STRANDED_SORBED, and STRANDED_DEPOSIT cannot be negative",
+    ),
+}
+
+
+@pytest.mark.parametrize("case", list(deposit_errors))
+def test_errors(function_tmpdir, targets, case):
+    strand, value, message = deposit_errors[case]
+    periods = [(10.0, 1, et_max, 0.0, 0.0, q_et)]
+
+    def build(test):
+        return get_model(
+            test.workspace,
+            periods,
+            strand=strand,
+            mst_kwargs={"stranded_deposit": value},
+        )
+
+    def check(test):
+        text = " ".join((test.workspace / "mfsim.lst").read_text().split())
+        assert message in text, f"expected {message!r}"
+
+    TestFramework(
+        name="flush",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+        xfail=True,
+    ).run()
