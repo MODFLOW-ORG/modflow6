@@ -48,6 +48,9 @@ Cases:
                      Package while the cell drains; no mass is stranded, and
                      the clean water injected after the CNC is removed dilutes
                      the cell to 50 g/m3.
+  - cnc_rewet      : the paper case with the concentration held by the CNC
+                     Package while the cell rewets; the 7,500 g stranded by
+                     the pumping returns and leaves through the CNC Package.
 
 The cases run with the Newton formulation of the flow model. The dilution,
 rise_above, partial, and tiny_rewet cases, which start below the top of the
@@ -606,5 +609,34 @@ def test_cnc(function_tmpdir, targets):
         assert np.allclose(stranded, 0.0), f"mass stranded at a CNC cell {stranded}"
         # half of the cell is refilled with clean water, and nothing returns
         assert np.isclose(conc[-1], 0.5 * cinit), f"concentration {conc}"
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_cnc_rewet(function_tmpdir, targets):
+    def build(test):
+        sim = get_model(test.workspace, paper, 1, porosity, True)
+        gwt = sim.get_model("gwt")
+        # the concentration is held only while the cell rewets
+        flopy.mf6.ModflowGwtcnc(
+            gwt,
+            stress_period_data={1: [[(0, 0, 0), cinit]]},
+            save_flows=True,
+        )
+        return sim
+
+    def check(test):
+        ws = test.workspace
+        assert_budget_closes(ws)
+        _, _, sat, conc, stranded, _ = results(ws, True)
+        assert np.allclose(sat, [0.5, 1.0]), f"saturation {sat}"
+        assert np.isclose(stranded[0], 7500.0), f"stranded {stranded}"
+        assert np.isclose(stranded[1], 0.0, atol=1e-6), f"stranded {stranded}"
+        assert np.isclose(conc[-1], cinit), f"concentration {conc}"
+        # the cell has no neighbors, so all that leaves through the CNC
+        # Package is the mass that returned
+        _, model = strand_budget(ws)
+        cnc_out = model["CNC_OUT"].to_numpy()[-1] - model["CNC_IN"].to_numpy()[-1]
+        assert np.isclose(cnc_out, 7500.0, rtol=1e-5), f"CNC removed {cnc_out}"
 
     run_framework(function_tmpdir, targets, build, check)
