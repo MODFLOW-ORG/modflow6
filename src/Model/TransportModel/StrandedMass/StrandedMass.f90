@@ -13,7 +13,7 @@ module StrandedMassModule
   private
   public :: StrandedMassType
   public :: strand_rate_sorbed, retained_volume
-  public :: return_fraction, decay_amount
+  public :: return_fraction, decay_amount, flush_fraction, deposit_fraction
 
   !> @brief Stranded mass reservoirs for one transport domain
   !!
@@ -26,10 +26,14 @@ module StrandedMassModule
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed => null() !< mass stranded from the solid phase
     real(DP), dimension(:), pointer, contiguous :: held_aq => null() !< drained fraction of the cell that the aqueous reservoir represents
     real(DP), dimension(:), pointer, contiguous :: held_srb => null() !< drained fraction of the cell that the sorbed reservoir represents
+    real(DP), dimension(:), pointer, contiguous :: stranded_et => null() !< solute left in the drained part of the cell by evapotranspiration
+    real(DP), dimension(:), pointer, contiguous :: held_et => null() !< drained fraction of the cell that the evapotranspiration reservoir represents
     real(DP), dimension(:), pointer, contiguous :: stranded_aqueous0 => null() !< mass stranded from residual water at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: stranded_sorbed0 => null() !< mass stranded from the solid phase at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: held_aq0 => null() !< aqueous drained fraction at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: held_srb0 => null() !< sorbed drained fraction at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: stranded_et0 => null() !< evapotranspiration reservoir at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: held_et0 => null() !< evapotranspiration drained fraction at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation at the end of the previous time step
     real(DP), dimension(:), pointer, contiguous :: sat_new => null() !< saturation at the end of the time step
     real(DP), dimension(:), pointer, contiguous :: ratestrand => null() !< mobile-side transfer rate, positive on return
@@ -71,6 +75,10 @@ contains
                       this%memoryPath)
     call mem_allocate(this%held_aq0, nodes, 'HELD_AQ0', this%memoryPath)
     call mem_allocate(this%held_srb0, nodes, 'HELD_SRB0', this%memoryPath)
+    call mem_allocate(this%stranded_et, nodes, 'STRANDED_ET', this%memoryPath)
+    call mem_allocate(this%held_et, nodes, 'HELD_ET', this%memoryPath)
+    call mem_allocate(this%stranded_et0, nodes, 'STRANDED_ET0', this%memoryPath)
+    call mem_allocate(this%held_et0, nodes, 'HELD_ET0', this%memoryPath)
     call mem_allocate(this%sat_old, nodes, 'SAT_OLD', this%memoryPath)
     call mem_allocate(this%sat_new, nodes, 'SAT_NEW', this%memoryPath)
     call mem_allocate(this%ratestrand, nodes, 'RATESTRAND', this%memoryPath)
@@ -88,6 +96,10 @@ contains
       this%stranded_sorbed0(n) = DZERO
       this%held_aq0(n) = DZERO
       this%held_srb0(n) = DZERO
+      this%stranded_et(n) = DZERO
+      this%held_et(n) = DZERO
+      this%stranded_et0(n) = DZERO
+      this%held_et0(n) = DZERO
       this%sat_old(n) = DNODATA
       this%sat_new(n) = DNODATA
       this%ratestrand(n) = DZERO
@@ -109,6 +121,10 @@ contains
     call mem_deallocate(this%stranded_sorbed0)
     call mem_deallocate(this%held_aq0)
     call mem_deallocate(this%held_srb0)
+    call mem_deallocate(this%stranded_et)
+    call mem_deallocate(this%held_et)
+    call mem_deallocate(this%stranded_et0)
+    call mem_deallocate(this%held_et0)
     call mem_deallocate(this%sat_old)
     call mem_deallocate(this%sat_new)
     call mem_deallocate(this%ratestrand)
@@ -124,7 +140,8 @@ contains
     integer(I4B), intent(in) :: n !< cell number
     real(DP) :: mass
 
-    mass = this%stranded_aqueous(n) + this%stranded_sorbed(n)
+    mass = this%stranded_aqueous(n) + this%stranded_sorbed(n) + &
+           this%stranded_et(n)
   end function strand_total
 
   !> @brief Start a new time step from the end of the one just completed
@@ -138,6 +155,8 @@ contains
       this%stranded_sorbed0(n) = this%stranded_sorbed(n)
       this%held_aq0(n) = this%held_aq(n)
       this%held_srb0(n) = this%held_srb(n)
+      this%stranded_et0(n) = this%stranded_et(n)
+      this%held_et0(n) = this%held_et(n)
       if (this%sat_new(n) /= DNODATA) this%sat_old(n) = this%sat_new(n)
     end do
   end subroutine strand_advance
@@ -153,6 +172,8 @@ contains
       this%stranded_sorbed(n) = this%stranded_sorbed0(n)
       this%held_aq(n) = this%held_aq0(n)
       this%held_srb(n) = this%held_srb0(n)
+      this%stranded_et(n) = this%stranded_et0(n)
+      this%held_et(n) = this%held_et0(n)
     end do
   end subroutine strand_restore
 
@@ -221,5 +242,52 @@ contains
       amount = mass * (DONE - exp(-lambda * delt))
     end if
   end function decay_amount
+
+  !> @brief Fraction of a reservoir that recharge flushes over a time step
+  !!
+  !! Recharge passing through the drained part of the cell flushes it as a
+  !! well-mixed volume, so the fraction does not depend on the time step.
+  !<
+  pure function flush_fraction(qrch, delt, vdrained) result(f)
+    real(DP), intent(in) :: qrch !< recharge entering the cell
+    real(DP), intent(in) :: delt !< length of the time step
+    real(DP), intent(in) :: vdrained !< drained pore volume of the cell
+    real(DP) :: f
+
+    if (qrch <= DZERO) then
+      f = DZERO
+    else if (vdrained <= DZERO) then
+      f = DONE
+    else
+      f = DONE - exp(-qrch * delt / vdrained)
+    end if
+  end function flush_fraction
+
+  !> @brief Fraction of the solute deposited over a time step that stays
+  !!
+  !! Recharge flushes part of what is deposited during the time step itself,
+  !! which keeps the balance between deposition and flushing independent of
+  !! the length of the time step.
+  !<
+  pure function deposit_fraction(qrch, delt, vdrained) result(g)
+    real(DP), intent(in) :: qrch !< recharge entering the cell
+    real(DP), intent(in) :: delt !< length of the time step
+    real(DP), intent(in) :: vdrained !< drained pore volume of the cell
+    real(DP) :: g
+    real(DP) :: x
+
+    if (qrch <= DZERO) then
+      g = DONE
+    else if (vdrained <= DZERO) then
+      g = DZERO
+    else
+      x = qrch * delt / vdrained
+      if (x < 1.0e-8_DP) then
+        g = DONE - 0.5_DP * x
+      else
+        g = (DONE - exp(-x)) / x
+      end if
+    end if
+  end function deposit_fraction
 
 end module StrandedMassModule
