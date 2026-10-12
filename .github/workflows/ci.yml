@@ -798,10 +798,11 @@ jobs:
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
+          environments: fp4
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e fp4 install
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
@@ -820,6 +821,8 @@ jobs:
       - name: Test extended MF6
         if: runner.os != 'Windows'
         uses: ./modflow6/.github/actions/test-extended
+        with:
+          pixi-environment: fp4
         env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
@@ -827,6 +830,8 @@ jobs:
       - name: Test extended MF6
         if: runner.os == 'Windows'
         uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          pixi-environment: fp4
         env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
