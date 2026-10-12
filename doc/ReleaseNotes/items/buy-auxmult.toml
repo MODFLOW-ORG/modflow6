@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "stress"
+description = "Apply AUXMULTNAME consistently to GHB and RIV buoyancy conductance terms. DRN conductance multipliers are retained through its complete assembled density correction."

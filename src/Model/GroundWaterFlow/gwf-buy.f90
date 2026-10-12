@@ -361,7 +361,7 @@ contains
     case ('DRN')
       !
       ! -- drain
-      call buy_cf_drn(packobj, hnew, this%dense, this%denseref)
+      call buy_cf_drn(packobj, this%dense, this%denseref)
     case ('LAK')
       !
       ! -- lake
@@ -477,12 +477,12 @@ contains
         !
         ! -- boundary head and conductance
         hghb = packobj%bhead(n)
-        cond = packobj%cond(n)
+        cond = packobj%cond_mult(n)
         !
         ! -- calculate HCOF and RHS terms
         call calc_ghb_hcof_rhs_terms(denseref, denseghb, dense(node), &
                                      elevghb, elev(node), hghb, hnew(node), &
-                                     cond, iform, rhsterm, hcofterm)
+                                     cond, 2, rhsterm, hcofterm)
         packobj%hcof(n) = packobj%hcof(n) + hcofterm
         packobj%rhs(n) = packobj%rhs(n) - rhsterm
         !
@@ -585,7 +585,7 @@ contains
         !
         ! -- boundary head and conductance
         hriv = packobj%stage(n)
-        cond = packobj%cond(n)
+        cond = packobj%cond_mult(n)
         rbot = packobj%rbot(n)
         !
         ! -- calculate and add terms depending on whether head is above rbot
@@ -594,7 +594,7 @@ contains
           ! --calculate HCOF and RHS terms, similar to GHB in this case
           call calc_ghb_hcof_rhs_terms(denseref, denseriv, dense(node), &
                                        elevriv, elev(node), hriv, hnew(node), &
-                                       cond, iform, rhsterm, hcofterm)
+                                       cond, 2, rhsterm, hcofterm)
         else
           hcofterm = DZERO
           rhsterm = cond * (denseriv / denseref - DONE) * (hriv - rbot)
@@ -609,23 +609,18 @@ contains
 
   !> @brief Fill drn coefficients
   !<
-  subroutine buy_cf_drn(packobj, hnew, dense, denseref)
+  subroutine buy_cf_drn(packobj, dense, denseref)
     ! -- modules
     use BndModule, only: BndType
     use DrnModule, only: DrnType
     class(BndType), pointer :: packobj
     ! -- dummy
-    real(DP), intent(in), dimension(:) :: hnew
     real(DP), intent(in), dimension(:) :: dense
     real(DP), intent(in) :: denseref
     ! -- local
     integer(I4B) :: n
     integer(I4B) :: node
     real(DP) :: rho
-    real(DP) :: hbnd
-    real(DP) :: cond
-    real(DP) :: hcofterm
-    real(DP) :: rhsterm
     !
     ! -- Process density terms for each DRN
     select type (packobj)
@@ -633,15 +628,13 @@ contains
       do n = 1, packobj%nbound
         node = packobj%nodelist(n)
         if (packobj%ibound(node) <= 0) cycle
-        rho = dense(node)
-        hbnd = packobj%elev(n)
-        cond = packobj%cond(n)
-        if (hnew(node) > hbnd) then
-          hcofterm = -cond * (rho / denseref - DONE)
-          rhsterm = hcofterm * hbnd
-          packobj%hcof(n) = packobj%hcof(n) + hcofterm
-          packobj%rhs(n) = packobj%rhs(n) + rhsterm
-        end if
+        ! -- DRN uses the density of the discharging water. Scale the
+        !    assembled coefficients so AUXMULTNAME, AUXDEPTHNAME, and the
+        !    corresponding discharge elevation apply to the entire flux.
+        rho = dense(node) / denseref
+        packobj%density_ratio(n) = rho
+        packobj%hcof(n) = rho * packobj%hcof(n)
+        packobj%rhs(n) = rho * packobj%rhs(n)
       end do
     end select
   end subroutine buy_cf_drn
