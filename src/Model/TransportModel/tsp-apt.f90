@@ -118,10 +118,10 @@ module TspAptModule
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
     integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry (2 if set by MST)
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
-    real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume a feature must regain to return all of its held mass
+    real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume over which the held mass of a feature is spread
     real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
     real(DP), dimension(:), pointer, contiguous :: strandmass0 => null() !< held mass at the start of the time step
-    real(DP), dimension(:), pointer, contiguous :: strandvol0 => null() !< volume to regain at the start of the time step
+    real(DP), dimension(:), pointer, contiguous :: strandvol0 => null() !< volume of the held mass at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: strandvmax0 => null() !< largest volume since dry at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: strandk => null() !< rate coefficient for mass moved to the held mass
     real(DP), dimension(:), pointer, contiguous :: strandret => null() !< rate at which held mass returns to the feature
@@ -1851,8 +1851,9 @@ contains
   !> @brief Rates of mass moved to and returned from the held mass
   !!
   !! A feature holds its mass when its volume falls to zero and no outflow
-  !! carries solute away. The held mass returns in proportion to the volume the
-  !! feature regains, relative to its largest volume since it was last dry.
+  !! carries solute away. The held mass returns as the feature rises above the
+  !! highest volume it has reached since it went dry, in proportion to the part
+  !! of the volume holding it that the feature regains.
   !<
   subroutine apt_strand_coef(this)
     ! -- modules
@@ -1861,7 +1862,7 @@ contains
     class(TspAptType) :: this
     ! -- local
     integer(I4B) :: i, j, n
-    real(DP) :: q, v0, v1, vwater, f
+    real(DP) :: q, v0, v1, vwater, vlow, f
     real(DP), dimension(:), allocatable :: qin, qout
     character(len=LENBUDTXT) :: flowtype
     !
@@ -1901,10 +1902,14 @@ contains
           qout(n) * delt <= DEM10 * vwater) then
         this%strandk(n) = vwater / delt * this%eqnsclfac
         !
-        ! -- the feature regains water, so the held mass returns in proportion
-      else if (this%strandmass0(n) > DZERO .and. v1 > v0) then
-        if (this%strandvol0(n) > DZERO) then
-          f = min((v1 - v0) / this%strandvol0(n), DONE)
+        ! -- the feature rises above the highest volume it has reached since
+        !    it was last dry, so the held mass spread over the part of its
+        !    volume above that level returns in proportion
+      else if (this%strandmass0(n) > DZERO .and. &
+               v1 > max(v0, this%strandvmax0(n))) then
+        vlow = max(v0, this%strandvmax0(n))
+        if (this%strandvol0(n) > vlow) then
+          f = min((v1 - vlow) / (this%strandvol0(n) - vlow), DONE)
         else
           f = DONE
         end if
@@ -1916,8 +1921,8 @@ contains
 
   !> @brief Update the held mass of each feature at the end of a time step
   !!
-  !! The volume to regain is the largest volume of the feature since it was
-  !! last dry.
+  !! The held mass is spread over the largest volume the feature has held
+  !! since it last held no mass, and is cleared once the feature regains it.
   !<
   subroutine apt_strand_update(this)
     ! -- modules
@@ -1945,8 +1950,8 @@ contains
       end if
       if (held > DZERO) then
         !
-        ! -- the feature goes dry, so the volume to regain is its largest
-        !    volume since it was last dry
+        ! -- the feature goes dry, so the held mass is spread over the largest
+        !    volume it has held, which a later drying does not reduce
         vwater = this%strandk(n) / this%eqnsclfac * delt
         this%strandmass(n) = this%strandmass(n) + held * delt
         this%strandvol(n) = max(this%strandvol(n), this%strandvmax(n), vwater)
@@ -1955,9 +1960,8 @@ contains
         this%strandvmax(n) = max(this%strandvmax(n), v0, v1)
       end if
       if (returned > DZERO) then
-        this%strandvol(n) = this%strandvol(n) - (v1 - v0)
         this%strandmass(n) = this%strandmass(n) - returned * delt
-        if (this%strandvol(n) <= DZERO) then
+        if (v1 >= this%strandvol(n) .or. this%strandmass(n) <= DZERO) then
           this%strandvol(n) = DZERO
           this%strandmass(n) = DZERO
         end if
