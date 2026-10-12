@@ -254,17 +254,17 @@ def assert_budget_closes(ws):
     # mass leaving the mobile domain is mass entering the stranded mass
     # the listing file carries about seven significant digits, so a net
     # transfer between large gross terms is known only to a part in a million
-    # of those terms
+    # of those terms at the same time
     terms = ("MOBILE-DOMAIN", "ET-DEPOSIT", "RECHARGE-FLUSH")
     gross = sum(
-        strand[c].to_numpy().max()
+        strand[c].to_numpy()
         for t in terms
         for c in (f"{t}_IN" if f"{t}_IN" in strand else t, f"{t}_OUT")
     )
-    tol = {"rtol": 1e-5, "atol": max(1e-2, 1e-6 * gross)}
+    atol = np.maximum(1e-2, 1e-6 * gross)
     to_strand = sum(net_in(strand, t) for t in terms)
     from_mobile = model["STORAGE-STRANDED_OUT"] - model["STORAGE-STRANDED_IN"]
-    assert np.allclose(to_strand, from_mobile, **tol), (
+    assert np.all(np.isclose(to_strand, from_mobile, rtol=1e-5, atol=atol)), (
         f"stranded mass gained {to_strand.to_numpy()} and the mobile domain "
         f"lost {from_mobile.to_numpy()}"
     )
@@ -275,7 +275,7 @@ def assert_budget_closes(ws):
     )
     sf = flopy.utils.HeadFile(os.path.join(ws, "gwt.strand.bin"), text="STRANDED")
     saved = np.array([sf.get_data(totim=t).ravel()[0] for t in strand.index])
-    assert np.allclose(held, saved, **tol), (
+    assert np.allclose(held, saved, rtol=1e-5, atol=1e-2), (
         f"the stranded mass budget holds {held} and the file {saved}"
     )
 
