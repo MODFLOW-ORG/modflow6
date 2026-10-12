@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "stress"
+description = "Keep diagonal buoyancy terms for GHB and active RIV boundaries implicit when HHFORMULATION\\_RHS is used. This avoids outer-iteration cycling in weakly anchored variable-density flow models."

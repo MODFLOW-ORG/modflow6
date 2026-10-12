@@ -25,6 +25,7 @@ module DrnModule
 
     real(DP), dimension(:), pointer, contiguous :: elev => null() !< DRN elevation
     real(DP), dimension(:), pointer, contiguous :: cond => null() !< DRN conductance at aquifer interface
+    real(DP), dimension(:), pointer, contiguous :: density_ratio => null() !< frozen BUY relative density
     integer(I4B), pointer :: iauxddrncol => null()
     integer(I4B), pointer :: icubic_scaling => null()
 
@@ -110,6 +111,7 @@ contains
     ! -- arrays
     call mem_deallocate(this%elev, 'ELEV', this%memoryPath)
     call mem_deallocate(this%cond, 'COND', this%memoryPath)
+    call mem_deallocate(this%density_ratio, 'DENSITY_RATIO', this%memoryPath)
   end subroutine drn_da
 
   !> @brief Allocate package scalar members
@@ -148,6 +150,10 @@ contains
     !
     ! -- call base type allocate arrays
     call this%BndExtType%allocate_arrays(nodelist, auxvar)
+    !
+    call mem_allocate(this%density_ratio, this%maxbound, &
+                      'DENSITY_RATIO', this%memoryPath)
+    this%density_ratio = DONE
     !
     ! -- set drn input context pointers
     call mem_setptr(this%elev, 'ELEV', this%input_mempath)
@@ -348,6 +354,9 @@ contains
     real(DP) :: drnbot
     real(DP) :: fact
     !
+    ! -- Reset density on each assembly, including budget reassembly.
+    this%density_ratio = DONE
+    !
     ! -- Return if no drains
     if (this%nbound == 0) return
     !
@@ -388,7 +397,6 @@ contains
     integer(I4B) :: ipos
     real(DP) :: fact
     real(DP) :: drnbot
-    real(DP) :: drncond
     real(DP) :: qdrn
     !
     ! -- packmvrobj fc
@@ -409,8 +417,8 @@ contains
       ! -- If mover is active and this drain is discharging,
       !    store available water (as positive value).
       if (this%imover == 1 .and. fact > DZERO) then
-        drncond = this%cond_mult(i)
-        qdrn = fact * drncond * (this%xnew(n) - drnbot)
+        ! -- Use the assembled flux, including the BUY density correction.
+        qdrn = this%rhs(i) - this%hcof(i) * this%xnew(n)
         call this%pakmvrobj%accumulate_qformvr(i, qdrn)
       end if
     end do
@@ -448,7 +456,7 @@ contains
         end if
         !
         ! -- set local variables for this drain
-        cdrn = this%cond_mult(i)
+        cdrn = this%density_ratio(i) * this%cond_mult(i)
         xnew = this%xnew(node)
         !
         ! -- calculate the drainage depth and the top and bottom of
