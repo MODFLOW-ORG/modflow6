@@ -24,6 +24,12 @@ Cases:
                     time steps, including the first of the refill, fail and are
                     repeated with shorter lengths; each reach refills from no
                     volume and returns all of its held mass.
+  - lake_cycles   : the lake evaporates dry, refills to 2,000 of the 10,000 m3
+                    it held, and then either goes dry again (redry) or falls to
+                    1,000 m3 without going dry (rise_fall) before it refills;
+                    the held mass stays spread over the 10,000 m3, so it is
+                    returned only above the highest volume regained, and all
+                    of it once the lake regains 10,000 m3.
   - energy        : the option is an error for the LKE Package (xfail).
 """
 
@@ -107,11 +113,23 @@ def add_gwt(sim, nlay, botm, idomain, mst_strand=False):
     return gwt
 
 
-def lake_model(ws, strand, mst_strand=False):
-    """A lake that evaporates dry over the second period and refills in the
-    fourth, on an impermeable bed so that it loses water only to evaporation."""
+# the default lake periods: (length, time steps, evaporation, rainfall)
+lake_periods = [
+    (10.0, 10, 0.0, 0.0),
+    (10.0, 10, 0.2, 0.0),
+    (10.0, 10, 0.0, 0.0),
+    (10.0, 10, 0.0, 0.15),
+]
+
+
+def lake_model(ws, strand, mst_strand=False, periods=lake_periods):
+    """A lake on an impermeable bed, so that it loses water only to
+    evaporation; by default it evaporates dry over the second period and
+    refills in the fourth."""
     sim = flopy.mf6.MFSimulation(sim_name="lake", sim_ws=ws, exe_name="mf6")
-    flopy.mf6.ModflowTdis(sim, nper=4, perioddata=[(10.0, 10, 1.0)] * 4)
+    flopy.mf6.ModflowTdis(
+        sim, nper=len(periods), perioddata=[(p[0], p[1], 1.0) for p in periods]
+    )
     idomain = np.ones((2, 1, 3), dtype=int)
     idomain[0, 0, 1] = 0
     botm = [5.0, 0.0]
@@ -125,10 +143,8 @@ def lake_model(ws, strand, mst_strand=False):
         packagedata=[[0, 6.0, 1]],
         connectiondata=[[0, 0, (1, 0, 1), "vertical", 0.0, 0.0, 0.0, 0.0, 0.0]],
         perioddata={
-            0: [[0, "evaporation", 0.0]],
-            1: [[0, "evaporation", 0.2]],
-            2: [[0, "evaporation", 0.0]],
-            3: [[0, "rainfall", 0.15]],
+            k: [[0, "evaporation", p[2]], [0, "rainfall", p[3]]]
+            for k, p in enumerate(periods)
         },
         budget_filerecord="gwf.lak.bud",
     )
@@ -268,6 +284,68 @@ def test_lake(function_tmpdir, targets, source):
         assert np.isclose(obs["HELD"].min(), -mass0 / 1.0, rtol=1e-6), (
             f"stranded observation {obs['HELD'].min()} expected {-mass0}"
         )
+
+    TestFramework(
+        name="lake",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+    ).run()
+
+
+# the lake holds 10,000 m3 over 10,000 m2, so 0.1 m/d is 1,000 m3/d
+lake_cycles = {
+    # evaporates dry, refills to 2,000 m3, evaporates dry again, and refills
+    "redry": [
+        (10.0, 10, 0.0, 0.0),
+        (10.0, 10, 0.2, 0.0),
+        (2.0, 2, 0.0, 0.1),
+        (2.0, 2, 0.1, 0.0),
+        (10.0, 10, 0.0, 0.1),
+    ],
+    # evaporates dry, refills to 2,000 m3, falls to 1,000 m3, and refills
+    "rise_fall": [
+        (10.0, 10, 0.0, 0.0),
+        (10.0, 10, 0.2, 0.0),
+        (2.0, 2, 0.0, 0.1),
+        (1.0, 1, 0.1, 0.0),
+        (9.0, 9, 0.0, 0.1),
+    ],
+}
+
+
+@pytest.mark.parametrize("case", list(lake_cycles))
+def test_lake_cycles(function_tmpdir, targets, case):
+    periods = lake_cycles[case]
+
+    def build(test):
+        return lake_model(test.workspace, True, periods=periods)
+
+    def check(test):
+        ws = test.workspace
+        assert_package_budget_closes(ws, "LKT-1")
+        vol, c, held = feature_series(
+            ws, "gwf.lak.bud", "gwt.lkt.bud", "gwt.lkt.conc", True
+        )
+        vol, c, held = vol[:, 0], c[:, 0], held[:, 0]
+        mass0 = 10000.0 * cinit
+        total = vol * c + held
+        assert np.allclose(total, mass0, rtol=1e-6), f"mass not conserved {total}"
+        # the held mass is spread over the 10,000 m3 the lake held before it
+        # first went dry. A lake that goes dry again holds all of the solute
+        # again, and returns it in proportion to the volume regained from
+        # empty; a lake that only falls returns nothing until it climbs back
+        # above the 2,000 m3 it first regained.
+        refill = np.arange(vol.size) >= vol.size - periods[-1][1]
+        expected = mass0 * (1.0 - vol / 10000.0)
+        if case == "rise_fall":
+            expected = np.minimum(0.8 * mass0, expected)
+        assert np.allclose(held[refill], expected[refill], rtol=1e-6, atol=1e-3), (
+            f"held {held[refill]} expected {expected[refill]}"
+        )
+        assert np.isclose(vol[-1], 10000.0), f"volume {vol[-1]}"
+        assert np.isclose(held[-1], 0.0, atol=1e-3), f"held at the end {held[-1]}"
 
     TestFramework(
         name="lake",
