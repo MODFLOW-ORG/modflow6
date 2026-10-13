@@ -227,26 +227,22 @@ jobs:
         run: |
           ver="${{ needs.set_options.outputs.version }}"
 
-          # if the branch tip is already a prepare commit for this version (a retry
-          # of a previously prepared release, e.g. after a failed build), reuse its
-          # date so the regenerated files match and no new commit is needed below --
-          # avoids piling up a bot commit per retry in master's history once merged
-          date="$DATE"
-          if git log -1 --format=%s | grep -qF "ci(release): update version to $ver"; then
-            date=$(git log -1 --format=%cd --date=format:%F)
-            echo "reusing date $date from the existing prepare commit for $ver"
-          fi
+          # always this run's date, even when retrying a previously prepared release:
+          # a retry is a new build, so it's dated by that build everywhere. A retry on
+          # the same day regenerates the same files, so no new commit is made below
 
           # update version files
-          args=(-v "$ver" --date "$date")
+          args=(-v "$ver" --date "$DATE")
           # approve will be empty if workflow was triggered by pushing a release branch
           if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
             args+=(--releasemode)
           fi
           python update_version.py "${args[@]}"
 
-          # add the release to the release history, using the DOI if provided
-          args=(-v "$ver" --date "$date")
+          # add the release to the release history, using the DOI if provided. If a
+          # row already exists (a retry, or added by hand), update its date and keep
+          # its DOI, so the history and citation agree with the timestamps
+          args=(-v "$ver" --date "$DATE" --update-date)
           if [[ -n "$DOI" ]]; then
             args+=(--doi "$DOI")
           fi

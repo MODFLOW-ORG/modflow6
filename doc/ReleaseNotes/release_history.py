@@ -5,11 +5,13 @@ The table lists the version, date and DOI of each release, e.g.
     6.8.0 & September 2, 2026 & \\url{https://doi.org/10.5066/P1PGE9XW} \\\\
 
 Adding a release appends a row for the version, unless the table already has one,
-in which case it is left as is. The date is today's unless --date is given. The DOI
-is --doi if given, otherwise that of the latest release with the same major and
-minor version: DOIs change with minor releases, not patch releases, so a patch
-release reuses the DOI of the minor release it patches. A new minor release needs
---doi, unless its row was already added by hand.
+in which case it is left as is, or with --update-date only its date is updated. The
+release workflow does this, so a release retried on a later day, which is a new
+build, is dated by that build everywhere. The date is today's unless --date is
+given. The DOI is --doi if given, otherwise that of the latest release with the
+same major and minor version: DOIs change with minor releases, not patch
+releases, so a patch release reuses the DOI of the minor release it patches. A new
+minor release needs --doi, unless its row was already added by hand.
 
 Only release versions (major.minor.patch) are added. Release candidates and
 development versions are skipped.
@@ -92,6 +94,10 @@ def find_release(version: str, path: Path = notes_path) -> tuple[date, str] | No
     return None
 
 
+def _format_date(release_date: date) -> str:
+    return f"{release_date:%B} {release_date.day}, {release_date.year}"
+
+
 def add_release(
     version: str,
     release_date: date,
@@ -132,11 +138,44 @@ def add_release(
 
     if not dry_run:
         text = path.read_text()
-        date_str = f"{release_date:%B} {release_date.day}, {release_date.year}"
-        row = f"{version} & {date_str} & \\url{{{doi}}} \\\\"
+        row = f"{version} & {_format_date(release_date)} & \\url{{{doi}}} \\\\"
         end = rows[-1].end()
         path.write_text(text[:end] + "\n" + row + text[end:])
         print(f"Added release history row to {path}: {row}", file=sys.stderr)
+    return True
+
+
+def update_release_date(
+    version: str,
+    release_date: date,
+    path: Path = notes_path,
+    dry_run: bool = False,
+) -> bool:
+    """
+    Set the date in the table row for the version, keeping its DOI. Returns True if
+    the date changed, False if it already had that date. A ValueError is raised if
+    the table has no row for the version.
+
+    With dry_run, nothing is written, but the same errors are raised.
+    """
+
+    row = next((r for r in _rows(path) if r["version"] == version), None)
+    if row is None:
+        raise ValueError(f"No release history row for {version} in {path}")
+
+    date_str = _format_date(release_date)
+    if row["date"] == date_str:
+        return False
+
+    if not dry_run:
+        text = path.read_text()
+        start, end = row.span("date")
+        path.write_text(text[:start] + date_str + text[end:])
+        print(
+            f"Updated date of release history row for {version} in {path}: "
+            f"{row['date']} -> {date_str}",
+            file=sys.stderr,
+        )
     return True
 
 
@@ -166,6 +205,13 @@ if __name__ == "__main__":
         "release with the same major and minor version.",
     )
     parser.add_argument(
+        "--update-date",
+        default=False,
+        action="store_true",
+        help="If the table already has a row for the version, update its date "
+        "instead of leaving it as is. Its DOI is kept.",
+    )
+    parser.add_argument(
         "--check",
         default=False,
         action="store_true",
@@ -185,19 +231,27 @@ if __name__ == "__main__":
         print(f"{version} is not a release version, skipping", file=sys.stderr)
         sys.exit(0)
 
+    release_date = args.date or date.today()
     try:
         added = add_release(
             version,
-            args.date or date.today(),
+            release_date,
             doi=args.doi,
             path=args.notes,
             dry_run=args.check,
+        )
+        updated = (
+            not added
+            and args.update_date
+            and update_release_date(
+                version, release_date, path=args.notes, dry_run=args.check
+            )
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if not added:
+    if not added and not updated:
         print(f"{args.notes} already has a row for {version}", file=sys.stderr)
     elif args.check:
         print(f"A row for {version} can be added to {args.notes}", file=sys.stderr)

@@ -1,4 +1,7 @@
+import subprocess
+import sys
 from datetime import date
+from pathlib import Path
 
 import pytest
 from release_history import (
@@ -9,7 +12,10 @@ from release_history import (
     latest_release,
     normalize_doi,
     notes_path,
+    update_release_date,
 )
+
+SCRIPT = Path(__file__).parent / "release_history.py"
 
 SAMPLE = r"""\begin{tabular*}{\columnwidth}{l l l}
 6.7.0 & February 6, 2026 & \url{https://doi.org/10.5066/P1IJAXDZ} \\
@@ -114,6 +120,47 @@ def test_add_release_invalid_doi(notes):
     with pytest.raises(ValueError, match="Invalid DOI"):
         add_release("6.9.0", date(2026, 12, 1), doi="oops}", path=notes)
     assert notes.read_text() == SAMPLE
+
+
+def test_update_release_date(notes):
+    assert add_release("6.8.1", date(2026, 9, 21), path=notes)
+    added = notes.read_text()
+
+    # same date: nothing to do
+    assert not update_release_date("6.8.1", date(2026, 9, 21), path=notes)
+    assert notes.read_text() == added
+
+    # dry run: reports the change without making it
+    assert update_release_date("6.8.1", date(2026, 9, 23), path=notes, dry_run=True)
+    assert notes.read_text() == added
+
+    # new date: only that row's date changes, the DOI is kept
+    assert update_release_date("6.8.1", date(2026, 9, 23), path=notes)
+    assert find_release("6.8.1", notes) == (
+        date(2026, 9, 23),
+        "https://doi.org/10.5066/P1PGE9XW",
+    )
+    assert notes.read_text() == added.replace("September 21", "September 23")
+
+
+def test_update_release_date_no_row(notes):
+    with pytest.raises(ValueError, match=r"No release history row for 6\.8\.1"):
+        update_release_date("6.8.1", date(2026, 9, 21), path=notes)
+
+
+@pytest.mark.parametrize("update_date", [False, True])
+def test_cli_existing_row(notes, update_date):
+    def run(day):
+        args = [sys.executable, SCRIPT, "-v", "6.8.1", "--date", f"2026-09-{day}"]
+        args += ["--notes", notes]
+        if update_date:
+            args.append("--update-date")
+        subprocess.run(args, check=True)
+
+    run(21)
+    run(23)
+    expected = date(2026, 9, 23 if update_date else 21)
+    assert find_release("6.8.1", notes)[0] == expected
 
 
 def test_find_release(notes):
