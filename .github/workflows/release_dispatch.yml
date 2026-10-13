@@ -278,9 +278,10 @@ jobs:
     needs:
       - set_options
       - prepare
-    # prepare is skipped (not failed) for rc/dry runs, so tolerate that explicitly
+    # prepare is skipped (not failed) for rc/dry runs, so tolerate that explicitly,
+    # but still respect a cancelled run
     if: |
-      always() &&
+      !cancelled() &&
       needs.set_options.result == 'success' &&
       (needs.prepare.result == 'success' || needs.prepare.result == 'skipped')
     with:
