@@ -4,7 +4,7 @@ on:
   # from this repo or the nightly build repo for dev builds
   workflow_call:
     inputs:
-      branch:
+      ref:
         description: 'Branch, tag or commit SHA to release from. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run.'
         required: true
         type: string
@@ -78,8 +78,14 @@ jobs:
         id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
-          REF: ${{ inputs.branch }}
+          REF: ${{ inputs.ref }}
         run: |
+          # required inputs can still be passed an empty string, e.g. from an
+          # expression whose operands are all empty
+          if [[ -z "$REF" ]]; then
+            echo "::error::The ref input is empty. Pass the branch, tag or commit SHA to release from."
+            exit 1
+          fi
           sha=$(gh api "repos/${{ github.repository_owner }}/modflow6/commits/$REF" --jq .sha)
           echo "resolved $REF to $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"

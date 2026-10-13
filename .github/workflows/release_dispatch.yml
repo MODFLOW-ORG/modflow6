@@ -289,7 +289,7 @@ jobs:
       # the SHA prepare committed to, when it ran; otherwise (rc/dry run) the release
       # branch itself, since each job applies update_version on its own in that case.
       # release.yml resolves a branch name to a SHA once, so all jobs build the same commit
-      branch: ${{ needs.prepare.outputs.sha || needs.set_options.outputs.branch }}
+      ref: ${{ needs.prepare.outputs.sha || needs.set_options.outputs.branch }}
       # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
       releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || github.event_name != 'workflow_dispatch' }}
