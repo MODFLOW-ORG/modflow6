@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       branch:
-        description: 'Branch to release from.'
+        description: 'Branch, tag or commit SHA to release from. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run.'
         required: true
         type: string
       compiler_toolchain:
@@ -53,6 +53,9 @@ on:
         type: boolean
         default: true
     outputs:
+      sha:
+        description: 'Commit SHA the release was built from'
+        value: ${{ jobs.resolve.outputs.sha }}
       version:
         description: 'Version number used for release'
         value: ${{ jobs.build.outputs.version }}
@@ -62,8 +65,27 @@ on:
 env:
   PIXI_BETA_WARNING_OFF: true
 jobs:
+  resolve:
+    name: Resolve commit
+    runs-on: ubuntu-22.04
+    outputs:
+      sha: ${{ steps.resolve.outputs.sha }}
+    steps:
+      # pin the ref to a SHA up front. build, docs and dist each check out
+      # separately, and docs/dist only start after build and tests finish,
+      # so checking out a branch name in each could pick up different commits
+      - name: Resolve ref to commit SHA
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REF: ${{ inputs.branch }}
+        run: |
+          sha=$(gh api "repos/${{ github.repository_owner }}/modflow6/commits/$REF" --jq .sha)
+          echo "resolved $REF to $sha"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
   build:
     name: Build binaries (${{ matrix.os }}, extended=${{ matrix.extended }})
+    needs: resolve
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -110,7 +132,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ inputs.branch }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Checkout modflow6-testmodels
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -435,7 +457,9 @@ jobs:
 
   docs:
     name: Build docs
-    needs: build
+    needs:
+      - resolve
+      - build
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -457,7 +481,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ inputs.branch }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -610,6 +634,7 @@ jobs:
   dist:
     name: Build distribution (${{ matrix.os }})
     needs:
+      - resolve
       - build
       - docs
     runs-on: ${{ matrix.os }}
@@ -640,7 +665,7 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ inputs.branch }}
+          ref: ${{ needs.resolve.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7

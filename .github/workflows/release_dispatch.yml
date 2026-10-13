@@ -172,7 +172,7 @@ jobs:
           VERSION: ${{ steps.set_version.outputs.version }}
           DOI: ${{ inputs.doi }}
         run: |
-          # The release history in the release notes gets a row for the release during the build.
+          # The release history in the release notes gets a row for the release in the prepare job.
           # It reuses the DOI of the previous release with the same major and minor version, so
           # patch releases need no DOI, but a new minor release needs one: either from the doi
           # input, or from a row already on the release branch. Fail now instead of in the build
@@ -191,8 +191,8 @@ jobs:
   prepare:
     name: Prepare release
     # skipped for rc/dry runs: they're never merged to master, so there's no
-    # need to pin the build to a single prepared commit. build/docs/dist keep
-    # applying update_version themselves for these, as they do today.
+    # need to commit release metadata. build/docs/dist keep applying
+    # update_version themselves for these, as they do today.
     if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs: set_options
     runs-on: ubuntu-22.04
@@ -287,7 +287,8 @@ jobs:
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
       # the SHA prepare committed to, when it ran; otherwise (rc/dry run) the release
-      # branch itself, since each job applies update_version on its own in that case
+      # branch itself, since each job applies update_version on its own in that case.
+      # release.yml resolves a branch name to a SHA once, so all jobs build the same commit
       branch: ${{ needs.prepare.outputs.sha || needs.set_options.outputs.branch }}
       # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
       # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
