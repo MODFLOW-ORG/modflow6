@@ -148,7 +148,7 @@ gcc-extended-build = { features = ["gcc-extended-build"] }
 # Features
 [feature.fp4.pypi-dependencies]
 # flopy4, and through it its dependencies, for the flopy4 NetCDF input tests
-flopy4 = { git = "https://github.com/modflowpy/pyphoenix-project.git", rev = "b52e7250c30e7dd2d43dbe4915313a8a31eb0ed6" }
+flopy4 = { git = "https://github.com/modflowpy/pyphoenix-project.git", rev = "e73d059d7263f3e776d76be20804d15e942303bf" }
 
 [feature.fp4.tasks]
 # install a local flopy4 checkout over the pinned one: install-flopy4-local <path>
