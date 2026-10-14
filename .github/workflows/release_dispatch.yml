@@ -190,10 +190,6 @@ jobs:
           fi
   prepare:
     name: Prepare release
-    # skipped for rc/dry runs: they're never merged to master, so there's no
-    # need to commit release metadata. build/docs/dist keep applying
-    # update_version themselves for these, as they do today.
-    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs: set_options
     runs-on: ubuntu-22.04
     permissions:
@@ -232,12 +228,7 @@ jobs:
           # the same day regenerates the same files, so no new commit is made below
 
           # update version files
-          args=(-v "$ver" --date "$DATE")
-          # approve will be empty if workflow was triggered by pushing a release branch
-          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
-            args+=(--releasemode)
-          fi
-          python update_version.py "${args[@]}"
+          python update_version.py -v "$ver" --date "$DATE" --releasemode
 
           # add the release to the release history, using the DOI if provided. If a
           # row already exists (a retry, or added by hand), update its date and keep
@@ -274,32 +265,19 @@ jobs:
     needs:
       - set_options
       - prepare
-    # prepare is skipped (not failed) for rc/dry runs, so tolerate that explicitly,
-    # but still respect a cancelled run
-    if: |
-      !cancelled() &&
-      needs.set_options.result == 'success' &&
-      (needs.prepare.result == 'success' || needs.prepare.result == 'skipped')
     with:
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
-      # the SHA prepare committed to, when it ran; otherwise (rc/dry run) the release
-      # branch itself, since each job applies update_version on its own in that case.
-      # release.yml resolves a branch name to a SHA once, so all jobs build the same commit
-      ref: ${{ needs.prepare.outputs.sha || needs.set_options.outputs.branch }}
-      # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
-      # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || github.event_name != 'workflow_dispatch' }}
+      # the commit prepare made, so every job builds what merges to master
+      ref: ${{ needs.prepare.outputs.sha }}
+      releasemode: true
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == true) || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == true) || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
-      # false when prepare already committed version metadata; true (rc/dry run) when
-      # each build/docs/dist job still needs to apply it itself
-      update_version: ${{ needs.prepare.result != 'success' }}
-      # the same date for all jobs, so timestamps agree. only used when update_version is true
-      date: ${{ needs.set_options.outputs.date }}
+      # prepare already committed the version metadata
+      update_version: false
   pr:
     name: Draft release PR
     needs:
