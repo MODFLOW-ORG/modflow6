@@ -48,7 +48,7 @@ on:
         type: string
         default: ''
       update_version:
-        description: 'Apply update_version.py in each job. Set to false when branch is already a commit with version metadata applied (e.g. by a prepare job in the caller workflow), so each job does not need to reapply and recommit it.'
+        description: 'Apply update_version.py in each job. Set to false when ref is already a commit with version metadata applied (e.g. by a prepare job in the caller workflow), so each job does not need to reapply and recommit it.'
         required: false
         type: boolean
         default: true

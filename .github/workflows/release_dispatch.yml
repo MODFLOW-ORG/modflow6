@@ -290,8 +290,18 @@ jobs:
       - name: Create pull request
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          BRANCH: ${{ needs.set_options.outputs.branch }}
         run: |
           ver="${{ needs.set_options.outputs.version }}"
+
+          # a rerun after the release PR was opened (e.g. to rebuild after pushing a
+          # fix to the release branch) updates that PR's branch, so don't open another
+          existing=$(gh pr list -R "${{ github.repository }}" -B master -H "$BRANCH" --state open --json url --jq '.[0].url // empty')
+          if [[ -n "$existing" ]]; then
+            echo "release PR already exists for $BRANCH: $existing"
+            exit 0
+          fi
+
           body='
           # MODFLOW '$ver' release
 
@@ -299,7 +309,7 @@ jobs:
 
           When this PR is merged, a final job will be triggered to draft a tagged GitHub release, then upload assets (OS distributions and release notes).
           '
-          gh pr create -B "master" -H "${{ needs.set_options.outputs.branch }}" -R "${{ github.repository }}" --title "Release $ver" --draft --body "$body"
+          gh pr create -B "master" -H "$BRANCH" -R "${{ github.repository }}" --title "Release $ver" --draft --body "$body"
 
   release:
     name: Draft release
