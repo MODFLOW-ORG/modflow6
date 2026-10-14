@@ -147,7 +147,7 @@ For hotfix releases, files for features not included in the hotfix must be remov
 
 **Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically by the release workflow, using `doc/ReleaseNotes/release_history.py` (`pixi run add-release-history`). The date is the date the workflow starts, which is also used for build timestamps and the software citation. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
 
-A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). The DOI may be given bare (`10.5066/P1PGE9XW`) or as a link. As a safeguard, a release started without a DOI, or with an invalid one, fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. Release candidate (`rc`) branches are exempt, as no line is added for them. The date and DOI in the release history are also used in the software citation in the drafted GitHub release.
+A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). The DOI may be given bare (`10.5066/P1PGE9XW`) or as a link. As a safeguard, a release started without a DOI, or with an invalid one, fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. The date and DOI in the release history are also used in the software citation in the drafted GitHub release.
 
 ### Release examples repo
 
@@ -155,7 +155,7 @@ MODFLOW 6 [example models](https://github.com/MODFLOW-ORG/modflow6-examples) are
 
 ### Create a release branch
 
-Create a release candidate branch from `develop` or `master`. The branch's name must begin with `v` followed by the version number. For a dry run in which a candidate distribution is built but the release does not proceed, append `rc` to the version string, e.g. `v6.4.0rc`. For an approved release, include *only* the version number.
+Create a release branch from `develop` or `master`. The branch's name must be `v` followed by the version number, e.g. `v6.4.0`.
 
 ```shell
 git checkout develop
@@ -164,13 +164,13 @@ git switch -c v6.4.0
 
 Push the branch to the repository. This triggers the release workflow. 
 
-Pushing a `vX.Y.Z` branch triggers the release workflow for patch releases (`Z` is not 0) and for release candidates (`rc` suffix). A new minor release, `vX.Y.0`, does not trigger on push as it needs its DOI: push the branch, then [dispatch the workflow manually](#workflow-triggers) from it with the `doi` input.
+Pushing a `vX.Y.Z` branch triggers the release workflow for patch releases (`Z` is not 0). A new minor release, `vX.Y.0`, does not trigger on push as it needs its DOI: push the branch, then [dispatch the workflow manually](#workflow-triggers) from it with the `doi` input.
 
 ### Build assets/distributions
 
 GitHub actions runs the release workflow and builds binaries, documentation and distribution archives for supported platforms.
 
-If this is a dry run (branch name ends with `rc`) binaries are built with `IDEVELOPMODE` set to 1, and the workflow ends after uploading artifacts for review. If this is not a dry run, the workflow will continue, drafting a pull request against the `master` branch after the build completes.
+Once the build completes, the workflow drafts a pull request against the `master` branch. Nothing is released until that pull request is merged, so to abandon a release (e.g. if the distributions fail inspection), close the pull request and delete the release branch.
 
 ### Merge release branch to master
 
@@ -362,8 +362,8 @@ The scripts in this directory are used by two GitHub Actions workflows:
 
 The `release.yml` workflow has no triggers of its own, and must be dispatched by `.github/workflows/release_dispatch.yml`, in one of two ways:
 
-- Pushing a branch named `vx.y.z` for a patch release (`z` not 0) or `vx.y.zrc` for a release candidate to the `MODFLOW-ORG/modflow6` repository.
-- Triggering the workflow via GitHub CLI or web UI. This is how to release a new minor version (`vx.y.0`), as it takes the release's DOI as input. Also useful for testing release candidates or verifying the release automation before a final release is made. Dispatch from the release branch, giving its name as the `branch` input. Unlike a push, dispatching starts from defaults suited to development builds, so for an approved release set `releasemode` to true (otherwise no release pull request is drafted) and, for a patch release, `patch` to true.
+- Pushing a branch named `vx.y.z` for a patch release (`z` not 0) to the `MODFLOW-ORG/modflow6` repository.
+- Triggering the workflow via GitHub CLI or web UI. This is how to release a new minor version (`vx.y.0`), as it takes the release's DOI as input. Dispatch from the release branch, giving its name as the `branch` input. For a patch release, set `patch` to true.
 
 The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
 
@@ -371,6 +371,6 @@ This workflow is also used by the [nightly build repository](https://github.com/
 
 ### Testing workflows
 
-The `workflow_dispatch` event is GitHub's mechanism for manually triggering workflows. This can be accomplished from the Actions tab in the GitHub UI. This is a convenient way to test the release procedure and evaluate release candidate distributions.
+The `workflow_dispatch` event is GitHub's mechanism for manually triggering workflows. This can be accomplished from the Actions tab in the GitHub UI. However the release is triggered, it is only made once the drafted release pull request is merged, so a release can be abandoned by closing the pull request and deleting the release branch. Development-mode and release-mode distributions are also built from `develop` by the [nightly build repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build), which is useful for testing changes to `release.yml`.
 
 To dispatch the release workflow, navigate to the Actions tab of this repository. Select the release dispatch workflow. A `Run workflow` button should be visible in an alert at the top of the list of workflow runs. Click the `Run workflow` button, providing suitable values for the inputs.

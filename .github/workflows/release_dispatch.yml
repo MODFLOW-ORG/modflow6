@@ -2,11 +2,10 @@ name: MODFLOW 6 release dispatch
 on:
   push:
     branches:
-      # initial phase of the release procedure is triggered by pushing a release branch, for
-      # a patch release (patch version 1-9, then anything) or a release candidate (ending in
-      # rc). A new minor release, vX.Y.0, needs its DOI as input so is started via dispatch.
+      # initial phase of the release procedure is triggered by pushing a release branch for
+      # a patch release (patch version 1-9, then anything). A new minor release, vX.Y.0,
+      # needs its DOI as input so is started via dispatch.
       - v[0-9]+.[0-9]+.[1-9]*
-      - v[0-9]+.[0-9]+.[0-9]+rc*
       # intermediate phase is triggered by merging the release branch to master
       - master
   # final phase is triggered by promoting/publishing a GitHub release draft to a full release
@@ -32,11 +31,6 @@ on:
         required: false
         type: string
         default: '2021.6'
-      releasemode:
-        description: 'Build a full distribution containing sources, examples, and all documentation. If false, the distribution contains only binaries, mf6io, release notes, and code.json, with binaries built in develop mode, and disclaimers & version strings indicating preliminary/provisional status. If true, a full distribution is created, with binaries built in release mode, and disclaimer language indicating review and approval.'
-        required: false
-        type: boolean
-        default: false
       run_tests:
         description: 'Run tests after building binaries.'
         required: false
@@ -182,7 +176,7 @@ jobs:
           # It reuses the DOI of the previous release with the same major and minor version, so
           # patch releases need no DOI, but a new minor release needs one: either from the doi
           # input, or from a row already on the release branch. Fail now instead of in the build
-          # if there isn't one. Release candidates get no row.
+          # if there isn't one.
           git fetch --depth=1 origin "$BRANCH"
           git show FETCH_HEAD:doc/ReleaseNotes/ReleaseNotes.tex > "$RUNNER_TEMP/ReleaseNotes.tex"
           args=(-v "$VERSION" --check --notes "$RUNNER_TEMP/ReleaseNotes.tex")
@@ -199,14 +193,10 @@ jobs:
     uses: MODFLOW-ORG/modflow6/.github/workflows/release.yml@develop
     needs: set_options
     with:
-      # If the workflow is manually triggered, the maintainer must manually set approve=true to approve a release.
-      # If triggered by pushing a release branch, the release is approved if the branch name doesn't contain "rc".
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
       branch: ${{ needs.set_options.outputs.branch }}
-      # If the workflow is manually triggered, the maintainer must manually set releasemode to true, otherwise the default is false.
-      # If triggered by pushing a release branch, the release is developmode if the branch name contains "rc", otherwise releasemode.
-      releasemode: ${{ (github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || github.event_name != 'workflow_dispatch' }}
+      releasemode: true
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
       # If triggered by pushing a release branch, tests are enabled.
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == true) || github.event_name != 'workflow_dispatch' }}
@@ -219,7 +209,6 @@ jobs:
       date: ${{ needs.set_options.outputs.date }}
   pr:
     name: Draft release PR
-    if: ${{ github.ref_name != 'master' && ((github.event_name == 'workflow_dispatch' && inputs.releasemode == true) || (github.event_name != 'workflow_dispatch' && !contains(github.ref_name, 'rc'))) }}
     needs:
       - set_options
       - make_dist
@@ -253,13 +242,7 @@ jobs:
         run: |
           # update version files
           ver="${{ needs.set_options.outputs.version }}"
-          args=(-v "$ver" --date "$DATE")
-          # approve will be empty if workflow was triggered by pushing a release branch
-          # todo: pull approve into set_options job/output?
-          if [[ ("${{ inputs.releasemode }}" == "true") || ("${{ inputs.releasemode }}" == "") ]]; then
-            args+=(--releasemode)
-          fi
-          python update_version.py "${args[@]}"
+          python update_version.py -v "$ver" --date "$DATE" --releasemode
 
           # add the release to the release history, using the DOI if provided
           args=(-v "$ver" --date "$DATE")
