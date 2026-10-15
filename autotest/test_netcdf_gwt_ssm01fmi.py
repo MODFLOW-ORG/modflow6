@@ -13,6 +13,7 @@ from test_gwt_ssm01fmi import cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

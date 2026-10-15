@@ -55,7 +55,11 @@ OUTPUT_EXT = {
     ".csv",
     ".out",
 }
-FP4_COMPARISONS = (Comparison.FP4_STRUCTURED, Comparison.FP4_LAYERED)
+FP4_COMPARISONS = (
+    Comparison.FP4_STRUCTURED,
+    Comparison.FP4_LAYERED,
+    Comparison.FP4_ASCII,
+)
 
 
 def api_return(success, model_ws) -> tuple[bool, list[str]]:
@@ -195,35 +199,14 @@ def require_flopy4():
         pytest.skip("flopy4 not installed")
 
 
-def write_fp4_netcdf(
-    src: os.PathLike,
-    dst: os.PathLike,
-    netcdf_format: str,
-    sim_dirs: Iterable[os.PathLike] = (".",),
-):
-    """
-    Re-write the simulations in `src` into `dst` with flopy4, with each
-    model's package array input in a NetCDF file.
-
-    Parameters
-    ----------
-    src : path-like
-        Workspace of the test to re-write.
-    dst : path-like
-        Workspace to write to (replaced if it exists).
-    netcdf_format : str
-        "structured" (DIS grids only) or "layered" (UGRID layered mesh).
-    sim_dirs : iterable of path-like
-        Simulation workspaces to re-write, relative to `src`.
-    """
-    from flopy4.mf6 import NetCDFFormat, Simulation
-    from flopy4.mf6.netcdf import NetCDFModel
-    from flopy4.mf6.write_context import WriteContext
-
+def _copy_for_fp4(
+    src: os.PathLike, dst: os.PathLike, sim_dirs: Iterable[os.PathLike]
+) -> list[Path]:
+    """Copy `src` into `dst` (replaced if it exists) for a flopy4 re-write,
+    skipping the simulations' outputs and other comparisons -- this keeps
+    files flopy4 doesn't load (e.g. OBS, TS). Returns `sim_dirs` as paths."""
     src, dst = Path(src), Path(dst)
     sim_dirs = [Path(d) for d in sim_dirs]
-    # copy all but the simulations' outputs and other comparisons; this keeps
-    # files flopy4 doesn't load (e.g. OBS, TS)
     skip_dirs = {c.value for c in Comparison} - {
         d.parts[0] for d in sim_dirs if d.parts
     }
@@ -249,6 +232,36 @@ def write_fp4_netcdf(
     if dst.is_dir():
         shutil.rmtree(dst)
     shutil.copytree(src, dst, ignore=ignore)
+    return sim_dirs
+
+
+def write_fp4_netcdf(
+    src: os.PathLike,
+    dst: os.PathLike,
+    netcdf_format: str,
+    sim_dirs: Iterable[os.PathLike] = (".",),
+):
+    """
+    Re-write the simulations in `src` into `dst` with flopy4, with each
+    model's package array input in a NetCDF file.
+
+    Parameters
+    ----------
+    src : path-like
+        Workspace of the test to re-write.
+    dst : path-like
+        Workspace to write to (replaced if it exists).
+    netcdf_format : str
+        "structured" (DIS grids only) or "layered" (UGRID layered mesh).
+    sim_dirs : iterable of path-like
+        Simulation workspaces to re-write, relative to `src`.
+    """
+    from flopy4.mf6 import NetCDFFormat, Simulation
+    from flopy4.mf6.netcdf import NetCDFModel
+    from flopy4.mf6.write_context import WriteContext
+
+    dst = Path(dst)
+    sim_dirs = _copy_for_fp4(src, dst, sim_dirs)
 
     fmt = NetCDFFormat(netcdf_format)
     for sim_dir in sim_dirs:
@@ -265,6 +278,35 @@ def write_fp4_netcdf(
             )
         with WriteContext(use_netcdf=True):
             sim.write()
+
+
+def write_fp4_ascii(
+    src: os.PathLike,
+    dst: os.PathLike,
+    sim_dirs: Iterable[os.PathLike] = (".",),
+):
+    """
+    Re-write the simulations in `src` into `dst` with flopy4, as plain
+    ASCII input (no NetCDF) -- a baseline check that flopy4 round-trips a
+    model correctly on its own, independent of NetCDF support.
+
+    Parameters
+    ----------
+    src : path-like
+        Workspace of the test to re-write.
+    dst : path-like
+        Workspace to write to (replaced if it exists).
+    sim_dirs : iterable of path-like
+        Simulation workspaces to re-write, relative to `src`.
+    """
+    from flopy4.mf6 import Simulation
+
+    dst = Path(dst)
+    sim_dirs = _copy_for_fp4(src, dst, sim_dirs)
+
+    for sim_dir in sim_dirs:
+        sim = Simulation.load(dst / sim_dir / "mfsim.nam")
+        sim.write()
 
 
 DFN_PATH = Path(__file__).parents[1] / "doc" / "mf6io" / "mf6ivar" / "dfn"
@@ -928,20 +970,26 @@ class TestFramework:
 
                 # run comparison simulation
                 if self.compare in FP4_COMPARISONS:
-                    # the simulation re-written by flopy4 with NetCDF input
+                    # the simulation re-written by flopy4, with or without NetCDF
                     workspace = self.workspace / self.compare.value
                     sim_dirs = self._sim_dirs()
-                    write_fp4_netcdf(
-                        self.workspace,
-                        workspace,
-                        self.compare.value.removeprefix("fp4_"),
-                        sim_dirs,
-                    )
+                    is_ascii = self.compare == Comparison.FP4_ASCII
+                    if is_ascii:
+                        write_fp4_ascii(self.workspace, workspace, sim_dirs)
+                    else:
+                        write_fp4_netcdf(
+                            self.workspace,
+                            workspace,
+                            self.compare.value.removeprefix("fp4_"),
+                            sim_dirs,
+                        )
                     for sim_dir in sim_dirs:
                         sim_ws = workspace / sim_dir
                         success, _ = self._run(sim_ws, self.targets["mf6"])
-                        assert success, f"flopy4 NetCDF simulation failed: {sim_ws}"
-                        check_fp4_netcdf_input(sim_ws)
+                        kind = "ASCII" if is_ascii else "NetCDF"
+                        assert success, f"flopy4 {kind} simulation failed: {sim_ws}"
+                        if not is_ascii:
+                            check_fp4_netcdf_input(sim_ws)
                 elif self.compare.value not in self.targets:
                     warn(
                         f"Couldn't find comparison program '{self.compare}', "

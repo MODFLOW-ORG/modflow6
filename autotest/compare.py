@@ -18,6 +18,8 @@ class Comparison(Enum):
     # the simulation re-written with NetCDF package input by flopy4
     FP4_STRUCTURED = "fp4_structured"
     FP4_LAYERED = "fp4_layered"
+    # the simulation re-written as plain ASCII input by flopy4, no NetCDF
+    FP4_ASCII = "fp4_ascii"
 
 
 EXTTEXT = {

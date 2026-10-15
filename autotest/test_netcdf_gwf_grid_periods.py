@@ -11,6 +11,7 @@ from test_gwf_grid_periods import cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

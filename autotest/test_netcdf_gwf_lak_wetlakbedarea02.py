@@ -13,6 +13,7 @@ from test_gwf_lak_wetlakbedarea02 import cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

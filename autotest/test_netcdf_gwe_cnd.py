@@ -13,6 +13,7 @@ from test_gwe_cnd import cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

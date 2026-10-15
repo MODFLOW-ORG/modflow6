@@ -14,6 +14,7 @@ from test_gwf_vsc03_sfr import cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("compare", [Comparison.FP4_STRUCTURED, Comparison.FP4_LAYERED])
 def test_mf6model_fp4(idx, name, function_tmpdir, targets, compare):

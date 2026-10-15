@@ -15,6 +15,7 @@ from test_gwf_rch01 import build_models, cases
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),
@@ -70,6 +71,7 @@ def check_legacy_mesh_attr(idx, test):
 
 
 @pytest.mark.netcdf
+@pytest.mark.fp4
 def test_mf6model_fp4_legacy_mesh_attr(function_tmpdir, targets):
     """A flopy4-generated NetCDF input file carrying only the legacy
     unprefixed `mesh` global attribute must still be read correctly.
