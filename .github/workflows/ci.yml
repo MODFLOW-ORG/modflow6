@@ -812,11 +812,15 @@ jobs:
 
       - name: Set markers
         id: set_markers
-        run: echo "markers=not large" >> $GITHUB_OUTPUT
+        # marker-based, not a -k name filter: a netcdf/parallel fp4 comparison
+        # can be folded into any base test file, whose name won't match "test_netcdf"/"test_par".
+        # "fp4" is also included so an ascii-only comparison (no netcdf/parallel mark of its
+        # own) still runs somewhere, since no other CI job currently passes --fp4.
+        run: echo "markers=(netcdf or parallel or fp4) and not large" >> $GITHUB_OUTPUT
 
       - name: Set filters
         id: set_filters
-        run: echo "filters=test_par or test_netcdf" >> $GITHUB_OUTPUT
+        run: echo "filters=" >> $GITHUB_OUTPUT
 
       - name: Test extended MF6
         if: runner.os != 'Windows'

@@ -461,6 +461,10 @@ class TestFramework:
     check : callable, optional
         User defined function to evaluate results of the simulation.
         Takes `self` as input. This is a good place for assertions.
+    check_fp4 : callable, optional
+        Function to re-check results after an FP4_COMPARISONS re-run,
+        with `self.workspace` retargeted to the comparison directory.
+        Defaults to `check`, re-used as-is.
     plot: callable, optional
         User defined function to create plots of the results.
     compare: str or Comparison, optional
@@ -498,6 +502,7 @@ class TestFramework:
         api_func: Callable | None = None,
         build: Callable | None = None,
         check: Callable | None = None,
+        check_fp4: Callable | None = None,
         plot: Callable | None = None,
         compare: str | Comparison | None = "auto",
         parallel: bool = False,
@@ -520,6 +525,7 @@ class TestFramework:
         self.targets = targets
         self.build = build
         self.check = check
+        self.check_fp4 = check_fp4
         self.plot = plot
         self.parallel = parallel
         self.ncpus = [ncpus] if isinstance(ncpus, int) else ncpus
@@ -710,12 +716,17 @@ class TestFramework:
                 return False
         return True
 
+    def _filtered_sims(self) -> list[tuple[MFSimulation, int]]:
+        """self.sims zipped with self.ncpus, filtered to MFSimulation instances."""
+        return [
+            (s, n) for s, n in zip(self.sims, self.ncpus) if isinstance(s, MFSimulation)
+        ]
+
     def _sim_dirs(self) -> list[Path]:
         """The test's MF6 simulation workspaces, relative to its own, in run order."""
         dirs = [
             Path(get_workspace(s)).absolute().relative_to(self.workspace)
-            for s in self.sims
-            if isinstance(s, MFSimulation)
+            for s, _ in self._filtered_sims()
         ]
         return dirs or [Path(".")]
 
@@ -973,6 +984,8 @@ class TestFramework:
                     # the simulation re-written by flopy4, with or without NetCDF
                     workspace = self.workspace / self.compare.value
                     sim_dirs = self._sim_dirs()
+                    # ncpus per sim_dir, from the same filtered pairing _sim_dirs() uses
+                    sim_ncpus = [n for _, n in self._filtered_sims()] or self.ncpus[:1]
                     is_ascii = self.compare == Comparison.FP4_ASCII
                     if is_ascii:
                         write_fp4_ascii(self.workspace, workspace, sim_dirs)
@@ -983,9 +996,9 @@ class TestFramework:
                             self.compare.value.removeprefix("fp4_"),
                             sim_dirs,
                         )
-                    for sim_dir in sim_dirs:
+                    for sim_dir, ncpus in zip(sim_dirs, sim_ncpus):
                         sim_ws = workspace / sim_dir
-                        success, _ = self._run(sim_ws, self.targets["mf6"])
+                        success, _ = self._run(sim_ws, self.targets["mf6"], ncpus=ncpus)
                         kind = "ASCII" if is_ascii else "NetCDF"
                         assert success, f"flopy4 {kind} simulation failed: {sim_ws}"
                         if not is_ascii:
@@ -1012,10 +1025,20 @@ class TestFramework:
                 self._compare(self.compare)
 
         # check results, if enabled
-        if self.check:
+        if self.check or self.check_fp4:
             if self.verbose:
                 print("Checking results")
-            self.check(self)
+            if self.check:
+                self.check(self)
+
+            # re-check an FP4_COMPARISONS re-run, against its own workspace,
+            # then restore self.workspace so later steps (e.g. self.plot)
+            # still see the original
+            if self.compare in FP4_COMPARISONS:
+                original_workspace = self.workspace
+                self.workspace = self.workspace / self.compare.value
+                (self.check_fp4 or self.check)(self)
+                self.workspace = original_workspace
 
         # plot results, if enabled
         if self.plot:

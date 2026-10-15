@@ -203,7 +203,7 @@ Run the NetCDF tests (extra arguments are passed to pytest):
 
 ```
 $ pixi run test-netcdf
-$ pixi run test-netcdf -k test_netcdf_gwf_rch01
+$ pixi run test-netcdf -k test_gwf_rch01
 ```
 
 To test a local flopy4 checkout, install it over the pinned version:

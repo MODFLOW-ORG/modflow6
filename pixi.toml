@@ -153,7 +153,9 @@ flopy4 = { git = "https://github.com/modflowpy/pyphoenix-project.git", rev = "0b
 [feature.fp4.tasks]
 # install a local flopy4 checkout over the pinned one: install-flopy4-local <path>
 install-flopy4-local = "pip install --disable-pip-version-check --no-deps -e"
-test-netcdf = { cmd = "pytest -v --durations 0 --netcdf -k test_netcdf", cwd = "autotest" }
+# marker-based, not a -k name filter: a netcdf fp4 comparison can be folded
+# into any base test file, whose name won't match "test_netcdf"
+test-netcdf = { cmd = "pytest -v --durations 0 --netcdf --fp4 -m netcdf", cwd = "autotest" }
 
 [feature.rtd.dependencies]
 numpy = ">=2.2.6,<3"

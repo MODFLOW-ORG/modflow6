@@ -188,7 +188,7 @@ runs:
         MARKERS: ${{ env.MARKERS }}
         FILTERS: ${{ env.FILTERS }}
       run: |
-        cmd="pixi run -e ${{ inputs.pixi-environment }} autotest --parallel --netcdf"
+        cmd="pixi run -e ${{ inputs.pixi-environment }} autotest --parallel --netcdf --fp4"
         if [[ "${{ env.MARKERS }}" != "" ]]; then
           cmd="$cmd -m '$MARKERS'"
         fi

@@ -323,6 +323,14 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             markers="$markers and not developmode"
           fi
+          if [[ "${{ matrix.extended }}" == "true" ]] && [[ "${{ inputs.releasemode }}" != "true" ]]; then
+            # run only parallel/netcdf tests in developmode, run all tests in releasemode.
+            # marker-based, not a -k name filter: a netcdf/parallel fp4 comparison can be
+            # folded into any base test file, whose name won't match "test_netcdf"/"test_par".
+            # "fp4" is also included so an ascii-only comparison (no netcdf/parallel mark of
+            # its own) still runs somewhere, since no other CI job currently passes --fp4.
+            markers="$markers and (netcdf or parallel or fp4)"
+          fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
 
       - name: Set filters
@@ -330,17 +338,9 @@ jobs:
         id: set_filters
         run: |
           filters=""
-          if [[ "${{ matrix.extended }}" == "true" ]] && [[ "${{ inputs.releasemode }}" != "true" ]]; then
-            # run only parallel/extended tests in developmode, run all tests in releasemode
-            filters="test_par or test_netcdf"
-          fi
           # sfr rewet comparison fails on macos
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            if [[ "$filters" != "" ]]; then
-              filters="$filters and not test028_sfr_rewet"
-            else
-              filters="not test028_sfr_rewet"
-            fi
+            filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
 

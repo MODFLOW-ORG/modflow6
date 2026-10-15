@@ -31,9 +31,9 @@ def test_mf6model_fp4(idx, name, function_tmpdir, targets, compare):
     from test_gwf_vsc01 import build_models as build
     from test_gwf_vsc01 import check_output, check_outputs
 
-    def check_both(test):
-        check_outputs(idx, test)
-        list_ws = test.workspace / compare.value
+    def check_fp4(test):
+        # test.workspace is already retargeted to the fp4 comparison dir
+        list_ws = test.workspace
         array_ws = list_ws / "mf6"
         check_output(idx, list_ws)
         check_output(idx, array_ws, array_input=True)
@@ -60,7 +60,8 @@ def test_mf6model_fp4(idx, name, function_tmpdir, targets, compare):
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build(idx, t),
-        check=check_both,
+        check=lambda t: check_outputs(idx, t),
+        check_fp4=check_fp4,
         targets=targets,
         compare=compare,
     )
