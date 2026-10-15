@@ -41,6 +41,7 @@ module TspFmiModule
     real(DP), dimension(:), pointer, contiguous :: flowcorrect => null() !< mass flow correction
     real(DP), dimension(:), pointer, contiguous :: satold => null() !< gwf saturation at the end of the previous time step
     real(DP), dimension(:), pointer, contiguous :: satnew => null() !< gwf saturation at the end of the current time step
+    integer(I4B), pointer :: igwfiss => null() !< gwf steady-state flag, when the flow model is solved in the simulation
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
     type(DataAdvancedPackageType), &
       dimension(:), pointer, contiguous :: datp => null()
@@ -60,6 +61,7 @@ module TspFmiModule
     procedure :: fmi_da => gwtfmi_da
     procedure :: gwfsatold
     procedure :: set_initial_saturation
+    procedure, private :: has_storage_flow
     procedure :: initialize_gwfterms_from_bfr
     procedure :: initialize_gwfterms_from_gwfbndlist
     procedure :: source_options => gwtfmi_source_options
@@ -188,6 +190,14 @@ contains
     do n = 1, this%dis%nodes
       this%satnew(n) = this%gwfsat(n)
     end do
+    !
+    ! -- without storage flow, as in a steady-state period, the saturation
+    !    does not change over the time step
+    if (.not. this%has_storage_flow()) then
+      do n = 1, this%dis%nodes
+        this%satold(n) = this%satnew(n)
+      end do
+    end if
     !
     ! -- set inactive transport cell status
     if (this%idryinactive /= 0) then
@@ -336,6 +346,7 @@ contains
     call mem_deallocate(this%flowcorrect)
     call mem_deallocate(this%satold)
     call mem_deallocate(this%satnew)
+    nullify (this%igwfiss)
     !
     ! -- deallocate transport-specific scalars
     call mem_deallocate(this%iflowerr)
@@ -491,10 +502,8 @@ contains
 
   !> @brief Saturation at the end of the previous time step
   !!
-  !! A cell without storage flow, as in a steady-state period, keeps its
-  !! saturation. Before the first time step of flows read from a file,
-  !! reconstruct it from the specific yield storage flow, taking the specific
-  !! yield as thetam.
+  !! Before the first time step of flows read from a file, reconstruct it
+  !! from the specific yield storage flow, taking the specific yield as thetam.
   !<
   function gwfsatold(this, n, delt, thetam) result(satold)
     ! -- dummy
@@ -505,20 +514,9 @@ contains
     ! -- result
     real(DP) :: satold
     ! -- local
-    logical(LGP) :: lstorage
     real(DP) :: vcell
     !
-    lstorage = .false.
-    if (this%igwfstrgss /= 0) then
-      if (this%gwfstrgss(n) /= DZERO) lstorage = .true.
-    end if
-    if (this%igwfstrgsy /= 0) then
-      if (this%gwfstrgsy(n) /= DZERO) lstorage = .true.
-    end if
-    !
-    if (.not. lstorage) then
-      satold = this%gwfsat(n)
-    else if (this%satold(n) /= DNODATA) then
+    if (this%satold(n) /= DNODATA) then
       satold = this%satold(n)
     else
       satold = this%gwfsat(n)
@@ -543,6 +541,35 @@ contains
       this%satnew(n) = sat(n)
     end do
   end subroutine set_initial_saturation
+
+  !> @brief Determine if the flow model has storage flow
+  !!
+  !! Flows read from a file carry no steady-state flag, so a time step is taken
+  !! as steady state when no cell has storage flow.
+  !<
+  function has_storage_flow(this) result(lstorage)
+    ! -- dummy
+    class(TspFmiType) :: this
+    ! -- result
+    logical(LGP) :: lstorage
+    ! -- local
+    integer(I4B) :: n
+    !
+    lstorage = .false.
+    if (associated(this%igwfiss)) then
+      lstorage = (this%igwfiss == 0)
+      return
+    end if
+    do n = 1, this%dis%nodes
+      if (this%igwfstrgss /= 0) then
+        if (this%gwfstrgss(n) /= DZERO) lstorage = .true.
+      end if
+      if (this%igwfstrgsy /= 0) then
+        if (this%gwfstrgsy(n) /= DZERO) lstorage = .true.
+      end if
+      if (lstorage) exit
+    end do
+  end function has_storage_flow
 
   !> @ brief Source input options for package
   !<

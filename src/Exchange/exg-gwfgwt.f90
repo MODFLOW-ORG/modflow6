@@ -275,6 +275,7 @@ contains
     call gwfmodel%npf%npf_initial_saturation(satinit)
     call gwtmodel%fmi%set_initial_saturation(satinit)
     deallocate (satinit)
+    gwtmodel%fmi%igwfiss => gwfmodel%iss
     !
     gwtmodel%fmi%gwfspdis => gwfmodel%npf%spdis
     call mem_checkin(gwtmodel%fmi%gwfspdis, &
