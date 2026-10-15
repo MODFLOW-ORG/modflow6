@@ -94,6 +94,7 @@ module GwtMstModule
     integer(I4B), pointer :: ioutstrandsrb => null() !< unit number for sorbed stranded mass output
     integer(I4B), pointer :: ioutstrandet => null() !< unit number for output of the solute deposited by evapotranspiration
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
+    logical :: uzt_active = .false. !< the model has a UZT Package, which turns stranded mass off
     logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
@@ -198,6 +199,17 @@ contains
     !
     ! -- Source options
     call this%source_options()
+    !
+    ! -- UZT and stranded mass both represent the drained part of a cell, and
+    !    stranded mass has not been implemented for UZT
+    if (this%istrand /= IZERO .and. this%uzt_active) then
+      this%istrand = IZERO
+      write (warnmsg, '(a)') 'STRANDED_MASS is turned off because the UZT &
+        &Package is active in the same model. Both represent the part of a &
+        &cell that the water table has drained, and stranded mass has not &
+        &been implemented for UZT.'
+      call store_warning(warnmsg)
+    end if
 
     !
     ! -- store pointers to arguments that were passed in
