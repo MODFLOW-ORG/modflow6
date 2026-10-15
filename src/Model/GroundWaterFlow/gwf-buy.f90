@@ -620,8 +620,9 @@ contains
         ! -- DRN uses the density of the discharging water. Scale the
         !    assembled coefficients so AUXMULTNAME, AUXDEPTHNAME, and the
         !    corresponding discharge elevation apply to the entire flux.
+        !    The Newton term for AUXDEPTHNAME in drn_fn is not scaled, so
+        !    the Jacobian is approximate, as for the other density terms.
         rho = dense(node) / denseref
-        packobj%density_ratio(n) = rho
         packobj%hcof(n) = rho * packobj%hcof(n)
         packobj%rhs(n) = rho * packobj%rhs(n)
       end do
