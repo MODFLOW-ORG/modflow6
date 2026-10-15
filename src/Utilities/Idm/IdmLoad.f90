@@ -587,6 +587,8 @@ contains
       intvar = 1
     case ('PRINT_INPUT')
       intvar = 0
+    case ('STRICT')
+      intvar = 0
     case default
       write (errmsg, '(a,a)') &
         'Idm SIMNAM Load default value setting '&

@@ -19,6 +19,7 @@ module SimNamInputModule
     logical :: prprof = .false.
     logical :: maxerrors = .false.
     logical :: print_input = .false.
+    logical :: strict = .false.
     logical :: hpc_filerecord = .false.
     logical :: hpc6 = .false.
     logical :: filein = .false.
@@ -152,6 +153,25 @@ module SimNamInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'print input to listing file', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    simnam_strict = InputParamDefinitionType &
+    ( &
+    'SIM', & ! component
+    'NAM', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRICT', & ! tag name
+    'STRICT', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'strict input checking', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -473,6 +493,7 @@ module SimNamInputModule
     simnam_prprof, &
     simnam_maxerrors, &
     simnam_print_input, &
+    simnam_strict, &
     simnam_hpc_filerecord, &
     simnam_hpc6, &
     simnam_filein, &
