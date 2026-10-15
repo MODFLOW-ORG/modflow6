@@ -16,7 +16,7 @@ def build_models(idx, test):
     sim = flopy.mf6.MFSimulation(sim_name=cases[idx], sim_ws=test.workspace)
     flopy.mf6.ModflowTdis(sim, perioddata=[(1.0, 1, 1.0)])
     grid = dict(nlay=1, nrow=1, ncol=2, top=1.0, botm=0.0, delr=1.0, delc=1.0)
-    for suffix, use_multiplier in [("aux", True), ("direct", False)]:
+    for suffix, use_multiplier in [("mult", True), ("direct", False)]:
         flow, transport = f"flow_{suffix}", f"gwt_{suffix}"
         gwf = flopy.mf6.ModflowGwf(sim, modelname=flow, save_flows=True)
         ims = flopy.mf6.ModflowIms(
@@ -159,7 +159,7 @@ def physical_errors(result, kind, multiplier, concentration):
 def check_output(idx, test):
     kind, multiplier, concentration = settings[idx]
     results = [
-        read_result(test.workspace, suffix, kind) for suffix in ["aux", "direct"]
+        read_result(test.workspace, suffix, kind) for suffix in ["mult", "direct"]
     ]
     for result in results:
         errors = physical_errors(result, kind, multiplier, concentration)

@@ -29,7 +29,7 @@ A GWT Model can be used to calculate concentrations for the advanced stress pack
 \endfoot
 GHB & ELEVATION can be specified as an auxiliary variable.  A DENSITY auxiliary variable or one or more auxiliary variables for calculating density in the equation of state can be specified \\
 RIV & ELEVATION can be specified as an auxiliary variable.  A DENSITY auxiliary variable or one or more auxiliary variables for calculating density in the equation of state can be specified \\
-DRN & The drain formulation assumes that the drain boundary contains water of the same density as the discharging water; auxiliary variables have no effect on the drain calculation  \\
+DRN & The drain formulation assumes that the drain boundary contains water of the same density as the discharging water, so drain discharge is scaled by the relative density of the water in the cell.  ELEVATION and DENSITY auxiliary variables are not used for drains.  The scaling applies to the full drain discharge, including the effects of the AUXMULTNAME and AUXDEPTHNAME options \\
 LAK & Elevation for each lake-aquifer connection is determined based on lake bottom and adjacent cell elevations. A DENSITY auxiliary variable or one or more auxiliary variables for calculating density in the equation of state can be specified \\
 SFR & Elevation for each sfr-aquifer connection is determined based on stream bottom and adjacent cell elevations. A DENSITY auxiliary variable or one or more auxiliary variables for calculating density in the equation of state can be specified \\
 MAW & Elevation for each maw-aquifer connection is determined based on cell elevation. A DENSITY auxiliary variable or one or more auxiliary variables for calculating density in the equation of state can be specified \\

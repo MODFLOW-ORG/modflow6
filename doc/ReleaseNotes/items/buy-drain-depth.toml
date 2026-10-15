@@ -1,3 +1,3 @@
 section = "fixes"
-subsection = "basic"
-description = "Corrected Buoyancy (BUY) Package density scaling of Drain (DRN) Package discharge when AUXMULTNAME or AUXDEPTHNAME is specified. The assembled drain coefficients now retain the density multiplier, including the corresponding Newton derivative and water exported through the Mover (MVR) Package."
+subsection = "stress"
+description = "When the Buoyancy (BUY) Package was active, the density correction for Drain (DRN) Package discharge ignored the AUXMULTNAME and AUXDEPTHNAME options, and the Newton-Raphson term and the water provided to the Water Mover (MVR) Package did not include the density correction. Drain discharge is now scaled by the relative density of the discharging water in all of these cases."
