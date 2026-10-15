@@ -263,7 +263,9 @@ def comparison_figure(fname, tags, caption_tags, legend_ncols=1):
             label, color, ls = LOOKUP[tag]
             ax.plot(times, results[tag][2], color=color, ls=ls, lw=1.2, label=label)
         styles.ylabel(ax=ax, label="Concentration, in grams\nper cubic meter")
-        ax.set_ylim(0.0, 265.0)
+        # headroom above the highest peak keeps the explanation clear of it
+        cmax = max(results[tag][2].max() for tag in tags)
+        ax.set_ylim(0.0, 1.6 * cmax)
         styles.heading(ax=ax, letter="A")
         styles.graph_legend(ax=ax, **legend_kwargs)
 
