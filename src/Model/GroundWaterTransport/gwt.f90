@@ -251,13 +251,20 @@ contains
   subroutine gwt_ar(this)
     ! -- modules
     use ConstantsModule, only: DHNOFLO
-    use SimModule, only: store_warning
-    use SimVariablesModule, only: warnmsg
     ! -- dummy
     class(GwtModelType) :: this
     ! -- locals
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
+    !
+    ! -- stranded mass is turned off in a model with UZT, which MST reads
+    !    with its options
+    if (this%inmst > 0) then
+      do ip = 1, this%bndlist%Count()
+        packobj => GetBndFromList(this%bndlist, ip)
+        if (packobj%filtyp == 'UZT') this%mst%uzt_active = .true.
+      end do
+    end if
     !
     ! -- Allocate and read modules attached to model
     call this%fmi%fmi_ar(this%ibound)
@@ -294,31 +301,11 @@ contains
       call packobj%bnd_ar()
     end do
     !
-    ! -- Stranded mass holds solute in the drained part of a cell, and
-    !    unsaturated zone transport moves solute through it, so a cell that
-    !    has both is represented twice.  UZF covers only part of a model in
-    !    many simulations, and stranded mass is meaningful in the rest of it,
-    !    so this is reported rather than refused.
+    ! -- stranded mass also holds the solute that sinks such as
+    !    evapotranspiration leave behind in the drained part of a cell
     if (this%inmst > 0) then
       if (this%mst%istrand /= 0) then
-        !
-        ! -- stranded mass also holds the solute that sinks such as
-        !    evapotranspiration leave behind in the drained part of a cell
         if (this%inssm > 0) this%mst%ssm => this%ssm
-        do ip = 1, this%bndlist%Count()
-          packobj => GetBndFromList(this%bndlist, ip)
-          if (packobj%filtyp == 'UZT') then
-            write (warnmsg, '(a)') 'STRANDED_MASS is active in the MST &
-              &Package and the UZT Package is active in the same model. Both &
-              &represent the part of a cell that the water table has drained, &
-              &so a cell that is in both carries its solute twice, and the &
-              &two do not agree: UZT carries no sorbed phase and no decay, &
-              &whereas stranded mass carries both. STRANDED_MASS is intended &
-              &for simulations that do not represent the unsaturated zone.'
-            call store_warning(warnmsg)
-            exit
-          end if
-        end do
       end if
     end if
   end subroutine gwt_ar

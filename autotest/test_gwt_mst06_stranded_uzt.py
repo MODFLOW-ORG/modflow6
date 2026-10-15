@@ -1,17 +1,19 @@
 """
-Tests the report that the MST stranded mass option makes when the Unsaturated
-Zone Transport (UZT) Package is active in the same model.
+Tests that the MST stranded mass option is turned off when the Unsaturated Zone
+Transport (UZT) Package is active in the same model.
 
-Both represent the part of a cell that the water table has drained, so a cell
-in both carries its solute twice. UZF often covers only part of a model, so the
-combination is reported rather than refused.
+Both represent the part of a cell that the water table has drained, and stranded
+mass has not been implemented for UZT.
 
 Cases:
-  - stranded : STRANDED_MASS with UZT runs and writes the warning.
-  - plain    : the same model without STRANDED_MASS runs and does not.
+  - stranded_with_uzt : STRANDED_MASS with UZT runs, writes a warning that the
+                        option is turned off, has no stranded mass budget term,
+                        and gives the concentrations of the same model without
+                        the option, which writes no warning.
 """
 
 import flopy
+import numpy as np
 import pytest
 
 nlay, nrow, ncol = 5, 1, 1
@@ -138,21 +140,32 @@ def build_model(ws, exe, stranded):
 def warned(ws):
     # the message is wrapped in the listing file, so compare without the breaks
     listing = " ".join((ws / "mfsim.lst").read_text().split())
-    return "UZT Package is active in the same model" in listing
+    return "STRANDED_MASS is turned off because the UZT Package" in listing
 
 
-@pytest.mark.parametrize("stranded", [True, False])
-def test_stranded_with_uzt(function_tmpdir, targets, stranded):
-    ws = function_tmpdir / ("stranded" if stranded else "plain")
-    ws.mkdir(parents=True)
-    sim = build_model(ws, str(targets["mf6"]), stranded)
-    success, buff = sim.run_simulation(silent=True)
+def concentrations(ws):
+    f = flopy.utils.HeadFile(ws / "t.ucn", text="CONCENTRATION")
+    return np.array([f.get_data(totim=t) for t in f.get_times()])
 
-    # the combination is reported, not refused, so the run must still finish
-    assert success, f"simulation failed\n{buff}"
-    assert warned(ws) is stranded, (
-        f"the report was {'missing' if stranded else 'made'} for a model "
-        f"{'with' if stranded else 'without'} STRANDED_MASS"
+
+def test_stranded_with_uzt(function_tmpdir, targets):
+    exe = str(targets["mf6"])
+    runs = {}
+    for stranded in (True, False):
+        ws = function_tmpdir / ("stranded" if stranded else "plain")
+        ws.mkdir(parents=True)
+        sim = build_model(ws, exe, stranded)
+        success, buff = sim.run_simulation(silent=True)
+        assert success, f"simulation failed\n{buff}"
+        assert warned(ws) is stranded, (
+            f"the warning was {'missing' if stranded else 'written'} for a model "
+            f"{'with' if stranded else 'without'} STRANDED_MASS"
+        )
+        runs[stranded] = ws
+    listing = (runs[True] / "t.lst").read_text()
+    assert "STORAGE-STRANDED" not in listing, "stranded mass is in the budget"
+    assert np.array_equal(concentrations(runs[True]), concentrations(runs[False])), (
+        "the option changed the concentrations"
     )
 
 
