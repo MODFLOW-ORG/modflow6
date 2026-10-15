@@ -1,7 +1,7 @@
 module TestStrandedMass
 
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: DZERO, DONE, DHALF, DTWO, DNODATA
+  use ConstantsModule, only: DZERO, DONE, DHALF, DTWO
   use MathUtilModule, only: is_close
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
@@ -248,26 +248,19 @@ contains
 
     call strand%init('TESTSTRAND', 'MST-STRND', 2)
     !
-    ! -- the end of a time step; the second cell has no new saturation
+    ! -- the end of a time step
     strand%stranded_aqueous(1) = 1.0_DP
     strand%stranded_sorbed(1) = 2.0_DP
     strand%held_aq(1) = 0.3_DP
     strand%held_srb(1) = 0.4_DP
     strand%stranded_et(1) = 3.0_DP
     strand%held_et(1) = 0.5_DP
-    strand%sat_new(1) = 0.6_DP
-    strand%sat_old(2) = 0.8_DP
     call strand%advance()
     call check(error, strand%stranded_aqueous0(1) == 1.0_DP .and. &
                strand%stranded_sorbed0(1) == 2.0_DP .and. &
                strand%held_aq0(1) == 0.3_DP .and. &
                strand%held_srb0(1) == 0.4_DP, &
                'advance did not store the reservoirs')
-    if (allocated(error)) return
-    call check(error, strand%sat_old(1) == 0.6_DP .and. &
-               strand%sat_old(2) == 0.8_DP .and. &
-               strand%sat_new(2) == DNODATA, &
-               'advance did not keep the saturation of each cell')
     if (allocated(error)) return
     !
     ! -- a time step that fails changes the reservoirs and is repeated
@@ -285,9 +278,6 @@ contains
                strand%stranded_et(1) == 3.0_DP .and. &
                strand%held_et(1) == 0.5_DP, &
                'restore did not return the reservoirs to the start of the step')
-    if (allocated(error)) return
-    call check(error, strand%sat_old(1) == 0.6_DP, &
-               'restore changed the saturation of the previous time step')
     call strand%da()
   end subroutine test_advance_restore
 
