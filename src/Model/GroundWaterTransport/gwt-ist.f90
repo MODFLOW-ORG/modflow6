@@ -285,7 +285,7 @@ contains
     integer(I4B) :: n, idiag
     real(DP) :: tled
     real(DP) :: hhcof, rrhs
-    real(DP) :: swt, swtpdt
+    real(DP) :: swtpdt
     real(DP) :: vcell
     real(DP) :: thetaim
     real(DP) :: zetaim
@@ -317,7 +317,6 @@ contains
       ! calculate new and old water volumes
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       swtpdt = this%fmi%gwfsat(n)
-      swt = this%fmi%gwfsatold(n, delt)
       thetaim = this%get_thetaim(n)
       idiag = ia(n)
 
@@ -412,7 +411,7 @@ contains
     integer(I4B) :: idiag
     integer(I4B) :: n
     real(DP) :: rate
-    real(DP) :: swt, swtpdt
+    real(DP) :: swtpdt
     real(DP) :: hhcof, rrhs
     real(DP) :: vcell
     real(DP) :: thetaim
@@ -447,7 +446,6 @@ contains
         ! calculate new and old water volumes
         vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
         swtpdt = this%fmi%gwfsat(n)
-        swt = this%fmi%gwfsatold(n, delt)
         thetaim = this%get_thetaim(n)
 
         ! set exchange coefficient
