@@ -2091,7 +2091,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zict-3.0.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
       - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git?rev=8fb5dd848088f755285c9de46a54e4b47d47fd0a#8fb5dd848088f755285c9de46a54e4b47d47fd0a
-      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
       - pypi: https://files.pythonhosted.org/packages/09/4e/23e0009b6d5d415c223ea38fcf1e38dc9b0fc6d3ff15b5c5090dcc1f6d88/sparse-0.19.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/82/3d/14ce75ef66813643812f3093ab17e46d3a206942ce7376d31ec2d36229e7/lark-1.3.1-py3-none-any.whl
@@ -2467,7 +2467,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/zict-3.0.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.0-pyhcf101f3_0.conda
       - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git?rev=8fb5dd848088f755285c9de46a54e4b47d47fd0a#8fb5dd848088f755285c9de46a54e4b47d47fd0a
-      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
       - pypi: https://files.pythonhosted.org/packages/09/4e/23e0009b6d5d415c223ea38fcf1e38dc9b0fc6d3ff15b5c5090dcc1f6d88/sparse-0.19.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/0f/a3/c05ca796e1197618a774b01e596aeedfefc2f7d8c01ae3054e910b120e8a/pydantic_core-2.46.5-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl
       - pypi: https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl
@@ -2786,7 +2786,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zlib-ng-2.3.3-h646e873_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-hbc1a06c_7.conda
       - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git?rev=8fb5dd848088f755285c9de46a54e4b47d47fd0a#8fb5dd848088f755285c9de46a54e4b47d47fd0a
-      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
       - pypi: https://files.pythonhosted.org/packages/09/4e/23e0009b6d5d415c223ea38fcf1e38dc9b0fc6d3ff15b5c5090dcc1f6d88/sparse-0.19.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/82/3d/14ce75ef66813643812f3093ab17e46d3a206942ce7376d31ec2d36229e7/lark-1.3.1-py3-none-any.whl
@@ -3105,7 +3105,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zlib-ng-2.3.3-h31dac16_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hf451053_7.conda
       - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git?rev=8fb5dd848088f755285c9de46a54e4b47d47fd0a#8fb5dd848088f755285c9de46a54e4b47d47fd0a
-      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
       - pypi: https://files.pythonhosted.org/packages/09/4e/23e0009b6d5d415c223ea38fcf1e38dc9b0fc6d3ff15b5c5090dcc1f6d88/sparse-0.19.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/21/43/6323b1f8b217780454c61304bcd2b38ae4762f50754414124603ccc90bb2/pydantic_core-2.46.5-cp313-cp313-macosx_11_0_arm64.whl
       - pypi: https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl
@@ -3428,7 +3428,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-ng-2.3.3-h0261ad2_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda
       - pypi: git+https://github.com/MODFLOW-ORG/modflow-devtools.git?rev=8fb5dd848088f755285c9de46a54e4b47d47fd0a#8fb5dd848088f755285c9de46a54e4b47d47fd0a
-      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+      - pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
       - pypi: https://files.pythonhosted.org/packages/09/4e/23e0009b6d5d415c223ea38fcf1e38dc9b0fc6d3ff15b5c5090dcc1f6d88/sparse-0.19.2-py2.py3-none-any.whl
       - pypi: https://files.pythonhosted.org/packages/2c/1e/1d5371213f4cc9a7ed70c0bfcc7911de22311ee99a662a56077d7292d2ac/pydantic_core-2.46.5-cp313-cp313-win_amd64.whl
       - pypi: https://files.pythonhosted.org/packages/67/81/4add07e5172b7ac40d8ed5ff580409a7801a4fe26d529bdd915401dabfbe/typing_inspection-0.4.4-py3-none-any.whl
@@ -32870,7 +32870,7 @@ packages:
   - pytest!=8.1.0 ; extra == 'test'
   - syrupy<5.0.0 ; extra == 'test'
   requires_python: '>=3.11'
-- pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=0b2bb73d925b9b9b1d77bbb846f835aab4fe537c#0b2bb73d925b9b9b1d77bbb846f835aab4fe537c
+- pypi: git+https://github.com/modflowpy/pyphoenix-project.git?rev=25a7faa15f99af65542993d83640aaea2254403e#25a7faa15f99af65542993d83640aaea2254403e
   name: flopy4
   version: 0.0.1.dev0
   requires_dist:
