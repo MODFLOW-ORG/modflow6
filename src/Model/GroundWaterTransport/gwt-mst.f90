@@ -94,10 +94,8 @@ module GwtMstModule
     integer(I4B), pointer :: ioutstrandsrb => null() !< unit number for sorbed stranded mass output
     integer(I4B), pointer :: ioutstrandet => null() !< unit number for output of the solute deposited by evapotranspiration
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
-    logical :: satold_valid = .false. !< the stored saturation of the previous time step can be used
     logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
-    logical :: strand_stepped = .false. !< the stranded mass of a time step has been calculated
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
     type(StrandedMassType), pointer :: strand => null() !< stranded mass reservoirs
     type(BudgetType), pointer :: strandbudget => null() !< budget of the reservoirs
@@ -113,13 +111,10 @@ module GwtMstModule
   contains
 
     procedure :: mst_ar
-    procedure :: mst_set_initial_saturation
     procedure, private :: mst_decay_strand
     procedure :: mst_fc
     procedure :: mst_fc_sto
     procedure :: mst_vold
-    procedure :: mst_satold
-    procedure :: mst_satold_strand
     procedure :: mst_fc_dcy
     procedure :: mst_fc_srb
     procedure :: mst_fc_dcy_srb
@@ -260,23 +255,6 @@ contains
     end if
   end subroutine mst_ar
 
-  !> @brief Set the saturation that the first time step starts from
-  !<
-  subroutine mst_set_initial_saturation(this, sat)
-    ! -- dummy
-    class(GwtMstType) :: this !< GwtMstType object
-    real(DP), dimension(:), intent(in) :: sat !< saturation from the initial heads
-    ! -- local
-    integer(I4B) :: n
-    !
-    if (this%istrand == IZERO) return
-    !
-    do n = 1, this%dis%nodes
-      this%strand%sat_old(n) = sat(n)
-    end do
-    this%satold_valid = .true.
-  end subroutine mst_set_initial_saturation
-
   !> @ brief Fill coefficient method for package
   !!
   !!  Method to calculate and fill coefficients for the package.
@@ -358,7 +336,7 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold_strand(n)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
       released = DZERO
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
@@ -430,6 +408,8 @@ contains
   !! the start of the simulation, so it returns as that part resaturates.
   !<
   subroutine mst_held_initial(this)
+    ! -- modules
+    use TdisModule, only: delt
     ! -- dummy
     class(GwtMstType) :: this !< GwtMstType object
     ! -- local
@@ -439,7 +419,7 @@ contains
     !
     do n = 1, this%dis%nodes
       if (this%strand%total(n) <= DZERO) cycle
-      sat0 = this%mst_satold_strand(n)
+      sat0 = this%fmi%gwfsatold(n, delt, this%thetam(n))
       if (sat0 >= DONE - DEM6) then
         call this%dis%noder_to_string(n, cellid)
         write (errmsg, '(a)') 'Cell '//trim(adjustl(cellid))//' holds &
@@ -490,48 +470,6 @@ contains
     end if
   end subroutine mst_solute_free
 
-  !> @ brief Saturation of a cell at the end of the previous time step
-  !!
-  !!  The stored value is used when stranded mass is active.
-  !<
-  function mst_satold(this, n, delt) result(sat_old)
-    ! -- modules
-    ! -- dummy
-    class(GwtMstType) :: this !< GwtMstType object
-    integer(I4B), intent(in) :: n !< cell number
-    real(DP), intent(in) :: delt !< length of the time step
-    ! -- return
-    real(DP) :: sat_old
-
-    if (this%istrand /= IZERO) then
-      if (this%strand%sat_old(n) /= DNODATA) then
-        sat_old = this%strand%sat_old(n)
-        return
-      end if
-    end if
-    sat_old = this%fmi%gwfsatold(n, delt)
-  end function mst_satold
-
-  !> @ brief Saturation at the end of the previous time step for stranded mass
-  !!
-  !!  Before a previous saturation is stored, which happens when flows are
-  !!  read from a budget file, the current saturation is used, so that no mass
-  !!  is stranded or returned during the first time step.
-  !<
-  function mst_satold_strand(this, n) result(sat_old)
-    ! -- dummy
-    class(GwtMstType) :: this !< GwtMstType object
-    integer(I4B), intent(in) :: n !< cell number
-    ! -- return
-    real(DP) :: sat_old
-
-    if (this%strand%sat_old(n) /= DNODATA) then
-      sat_old = this%strand%sat_old(n)
-    else
-      sat_old = this%fmi%gwfsat(n)
-    end if
-  end function mst_satold_strand
-
   !> @ brief Water volume of a cell at the end of the previous time step
   !!
   !!  Calculated from the stored saturation when stranded mass is active, and
@@ -549,17 +487,12 @@ contains
     real(DP) :: vcell
 
     !
-    ! -- the saturation of the previous time step is not known until the end of
-    !    the first time step, because the flow model interface is not connected
-    !    when the package is read, so the first time step uses the reconstructed
-    !    volume as it would without the option
     if (this%istrand /= IZERO) then
-      if (this%strand%sat_old(n) /= DNODATA) then
-        vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
-        vold = vcell * this%strand%sat_old(n) * this%thetam(n)
-        if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
-        return
-      end if
+      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vold = vcell * this%fmi%gwfsatold(n, delt, this%thetam(n)) * &
+             this%thetam(n)
+      if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
+      return
     end if
 
     vold = vnew
@@ -711,7 +644,7 @@ contains
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
@@ -933,12 +866,12 @@ contains
         maq = DZERO
         msrb = DZERO
         sat_new = this%fmi%gwfsat(n)
-        sat_old = this%mst_satold_strand(n)
+        sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
         !
         ! -- the flow model reports no storage for a cell that goes dry, so
         !    whether it drained during the first time step cannot be told
         !    from a budget file
-        if (.not. this%satold_valid .and. .not. this%warned_firststep) then
+        if (this%fmi%satold(n) == DNODATA .and. .not. this%warned_firststep) then
           write (warnmsg, '(a)') 'At least one cell was dry at the end of &
             &the first time step and the saturation the simulation started &
             &from was not available, so no mass was stranded if the cell &
@@ -980,7 +913,6 @@ contains
         call accumulate_strandterm(this%budterm_strand, 1, -(maq - daq) * tled)
         call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
         call accumulate_strandterm(this%budterm_strand, 6, det * tled)
-        this%strand%sat_new(n) = sat_new
         cycle
       end if
       !
@@ -989,7 +921,7 @@ contains
       rhobm = DZERO
       if (this%isrb /= SORPTION_OFF) rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold_strand(n)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
       released = DZERO
       if (this%fmi%igwfstrgsy /= 0) released = this%fmi%gwfstrgsy(n) * delt
       !
@@ -1007,8 +939,8 @@ contains
         ! -- the flow model cannot drain more water than the mobile domain
         !    holds; if it does, the specific yield exceeds the mobile porosity
         vdrain = ds * vcell * this%thetam(n)
-        if (.not. this%warned_sy .and. this%satold_valid .and. ds > DEM6 .and. &
-            released > vdrain * (DONE + DEM6)) then
+        if (.not. this%warned_sy .and. this%fmi%satold(n) /= DNODATA .and. &
+            ds > DEM6 .and. released > vdrain * (DONE + DEM6)) then
           write (warnmsg, '(a)') 'Specific yield is greater than the mobile &
             &porosity in at least one cell, so the flow model releases more &
             &water from storage than the mobile domain holds. No solute is &
@@ -1077,20 +1009,20 @@ contains
       call accumulate_strandterm(this%budterm_strand, 2, -(msrb - dsrb) * tled)
       call accumulate_strandterm(this%budterm_strand, 6, -(met - det) * tled)
       !
-      ! -- remember where the water table was, for the next time step
-      this%strand%sat_new(n) = sat_new
-      !
       ! -- the saturation the simulation started from is supplied by a flow
-      !    model solved in the same simulation, and cannot be recovered from a
-      !    budget file, whose first record is the end of the first time step
-      if (.not. this%satold_valid .and. .not. this%warned_firststep) then
+      !    model solved in the same simulation; from a budget file, whose first
+      !    record is the end of the first time step, it is reconstructed with
+      !    the specific yield taken as the mobile porosity
+      if (this%fmi%satold(n) == DNODATA .and. .not. this%warned_firststep) then
         !
         ! -- the water table moved if water was released to or taken from
         !    specific yield storage, which leaves out specific storage
         if (abs(released) > DEM6 * vcell) then
           write (warnmsg, '(a)') 'The water table moved during the first time &
-            &step and the saturation the simulation started from was not &
-            &available, so no mass was stranded then. The saturation is &
+            &step and the saturation the simulation started from was &
+            &reconstructed from the specific yield storage flow, taking the &
+            &specific yield as the mobile porosity, so no solute was held back &
+            &from water retained against drainage then. The saturation is &
             &supplied by a flow model solved in the same simulation; a &
             &transport model that reads its flows from a file should begin &
             &with a stress period during which the water table does not move.'
@@ -1099,10 +1031,6 @@ contains
         end if
       end if
     end do
-    !
-    ! -- the saturation each cell ends this time step with is stored, and
-    !    becomes the previous saturation when the next time step starts
-    this%strand_stepped = .true.
   end subroutine mst_cq_strand
 
   !> @ brief Extend the drained fraction of each reservoir that gains mass
@@ -1138,7 +1066,6 @@ contains
     if (this%istrand == IZERO) return
     if (iFailedStepRetry == 0) then
       call this%strand%advance()
-      if (this%strand_stepped) this%satold_valid = .true.
     else
       call this%strand%restore()
     end if
@@ -1348,7 +1275,7 @@ contains
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%mst_satold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       contribution = -volfracm * rhobm * sat_new &
