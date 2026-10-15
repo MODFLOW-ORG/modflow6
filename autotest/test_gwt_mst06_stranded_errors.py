@@ -14,13 +14,17 @@ Cases:
                         that no solute is held back from residual water, and
                         strands sorbed mass alone.
   - fmi_first_step    : a transport model that reads its flows from files, with
-                        a water table that moves in the first time step, runs,
-                        warns that no mass was stranded then, and strands none;
-                        so does a cell that the standard formulation dries in
-                        the first time step, for which the flow model saves no
-                        storage; a leading period in which the water table is
-                        still, or a cell whose head stays above its top while
-                        specific storage releases water, writes no warning.
+                        a water table that moves in the first time step,
+                        strands the sorbed mass from a starting saturation
+                        reconstructed with the specific yield taken as the
+                        porosity, and warns that no solute was held back from
+                        retained water then; a cell that the standard
+                        formulation dries in the first time step leaves no
+                        storage flow in the model, so the time step is taken
+                        as steady and nothing is stranded; a leading period in
+                        which the water table is still, or a cell whose head
+                        stays above its top while specific storage releases
+                        water, writes no warning.
 """
 
 import flopy
@@ -227,14 +231,21 @@ def test_fmi_first_step(function_tmpdir, targets, case):
         "The water table moved during the first time step" in text
         or "At least one cell was dry at the end of the first time step" in text
     )
-    assert warned == (case in ("moved", "dry")), (
+    assert warned == (case == "moved"), (
         f"a warning was expected only when the water table moved, {case=} {warned=}"
     )
     # the saturation the first time step starts from is not in the budget
-    # file, so no mass is stranded during it; the leading period makes the
-    # drainage happen in the second time step, where mass is stranded
+    # file and is reconstructed; with the specific yield equal to the porosity,
+    # the pumping strands all of the sorbed mass of the drained half of the
+    # cell, 7,500 g, as with a flow model solved in the same simulation.  The
+    # leading period makes the drainage happen in the second time step.
     sf = flopy.utils.HeadFile(ws / "gwt.strand.bin", text="STRANDED")
     stranded = np.array([sf.get_data(totim=t).ravel()[0] for t in sf.get_times()])
-    assert stranded[0] == 0.0, f"mass was stranded in the first time step: {stranded}"
+    if case == "moved":
+        assert np.isclose(stranded[0], 7500.0), f"stranded {stranded}"
+    else:
+        assert stranded[0] == 0.0, (
+            f"mass was stranded in the first time step: {stranded}"
+        )
     if case == "lead":
         assert stranded[1] > 0.0, f"no mass was stranded after the lead: {stranded}"

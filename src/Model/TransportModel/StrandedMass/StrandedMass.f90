@@ -5,7 +5,7 @@
 module StrandedMassModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DONE, DNODATA, LENMEMPATH
+  use ConstantsModule, only: DZERO, DONE, LENMEMPATH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryHelperModule, only: create_mem_path
 
@@ -34,8 +34,6 @@ module StrandedMassModule
     real(DP), dimension(:), pointer, contiguous :: held_srb0 => null() !< sorbed drained fraction at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: stranded_et0 => null() !< evapotranspiration reservoir at the start of the time step
     real(DP), dimension(:), pointer, contiguous :: held_et0 => null() !< evapotranspiration drained fraction at the start of the time step
-    real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation at the end of the previous time step
-    real(DP), dimension(:), pointer, contiguous :: sat_new => null() !< saturation at the end of the time step
     real(DP), dimension(:), pointer, contiguous :: ratestrand => null() !< mobile-side transfer rate, positive on return
     real(DP), dimension(:), pointer, contiguous :: ratedcystrand => null() !< decay rate of the aqueous reservoir
     real(DP), dimension(:), pointer, contiguous :: ratedcystrands => null() !< decay rate of the sorbed reservoir
@@ -79,8 +77,6 @@ contains
     call mem_allocate(this%held_et, nodes, 'HELD_ET', this%memoryPath)
     call mem_allocate(this%stranded_et0, nodes, 'STRANDED_ET0', this%memoryPath)
     call mem_allocate(this%held_et0, nodes, 'HELD_ET0', this%memoryPath)
-    call mem_allocate(this%sat_old, nodes, 'SAT_OLD', this%memoryPath)
-    call mem_allocate(this%sat_new, nodes, 'SAT_NEW', this%memoryPath)
     call mem_allocate(this%ratestrand, nodes, 'RATESTRAND', this%memoryPath)
     call mem_allocate(this%ratedcystrand, nodes, 'RATEDCYSTRAND', &
                       this%memoryPath)
@@ -100,8 +96,6 @@ contains
       this%held_et(n) = DZERO
       this%stranded_et0(n) = DZERO
       this%held_et0(n) = DZERO
-      this%sat_old(n) = DNODATA
-      this%sat_new(n) = DNODATA
       this%ratestrand(n) = DZERO
       this%ratedcystrand(n) = DZERO
       this%ratedcystrands(n) = DZERO
@@ -125,8 +119,6 @@ contains
     call mem_deallocate(this%held_et)
     call mem_deallocate(this%stranded_et0)
     call mem_deallocate(this%held_et0)
-    call mem_deallocate(this%sat_old)
-    call mem_deallocate(this%sat_new)
     call mem_deallocate(this%ratestrand)
     call mem_deallocate(this%ratedcystrand)
     call mem_deallocate(this%ratedcystrands)
@@ -157,7 +149,6 @@ contains
       this%held_srb0(n) = this%held_srb(n)
       this%stranded_et0(n) = this%stranded_et(n)
       this%held_et0(n) = this%held_et(n)
-      if (this%sat_new(n) /= DNODATA) this%sat_old(n) = this%sat_new(n)
     end do
   end subroutine strand_advance
 
