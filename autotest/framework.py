@@ -464,7 +464,7 @@ class TestFramework:
     check_fp4 : callable, optional
         Function to re-check results after an FP4_COMPARISONS re-run,
         with `self.workspace` retargeted to the comparison directory.
-        Defaults to `check`, re-used as-is.
+        Defaults to `check`, reused as-is.
     plot: callable, optional
         User defined function to create plots of the results.
     compare: str or Comparison, optional
