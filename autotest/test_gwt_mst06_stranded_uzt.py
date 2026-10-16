@@ -1,15 +1,16 @@
 """
-Tests that the MST stranded mass option is turned off when the Unsaturated Zone
-Transport (UZT) Package is active in the same model.
+Tests that MST stranded mass is turned off when the Unsaturated Zone Transport
+(UZT) Package is active in the same model.
 
 Both represent the part of a cell that the water table has drained, and stranded
 mass has not been implemented for UZT.
 
 Cases:
-  - stranded_with_uzt : STRANDED_MASS with UZT runs, writes a warning that the
-                        option is turned off, has no stranded mass budget term,
-                        and gives the concentrations of the same model without
-                        the option, which writes no warning.
+  - stranded_with_uzt : the default with UZT runs, writes a note that stranded
+                        mass is not simulated, has no stranded mass budget
+                        term, and gives the concentrations of the same model
+                        with LEGACY_STORAGE, which writes no note and a
+                        deprecation warning.
 """
 
 import flopy
@@ -114,8 +115,8 @@ def build_model(ws, exe, stranded):
         "bulk_density": 1600.0,
         "distcoef": 1.0e-4,
     }
-    if stranded:
-        kwargs["stranded_mass"] = True
+    if not stranded:
+        kwargs["legacy_storage"] = True
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
     flopy.mf6.ModflowGwtssm(gwt, sources=[["GHB-1", "AUX", "CONCENTRATION"]])
     flopy.mf6.ModflowGwtuzt(
@@ -140,7 +141,7 @@ def build_model(ws, exe, stranded):
 def warned(ws):
     # the message is wrapped in the listing file, so compare without the breaks
     listing = " ".join((ws / "mfsim.lst").read_text().split())
-    return "STRANDED_MASS is turned off because the UZT Package" in listing
+    return "Stranded mass is not simulated in the MST Package because a UZT" in listing
 
 
 def concentrations(ws):
@@ -158,14 +159,18 @@ def test_stranded_with_uzt(function_tmpdir, targets):
         success, buff = sim.run_simulation(silent=True)
         assert success, f"simulation failed\n{buff}"
         assert warned(ws) is stranded, (
-            f"the warning was {'missing' if stranded else 'written'} for a model "
-            f"{'with' if stranded else 'without'} STRANDED_MASS"
+            f"the note was {'missing' if stranded else 'written'} for a model "
+            f"{'without' if stranded else 'with'} LEGACY_STORAGE"
         )
+        deprecated = "WAS DEPRECATED IN VERSION 6.9.0" in " ".join(
+            (ws / "mfsim.lst").read_text().split()
+        )
+        assert deprecated is not stranded, "deprecation warning for LEGACY_STORAGE"
         runs[stranded] = ws
     listing = (runs[True] / "t.lst").read_text()
     assert "STORAGE-STRANDED" not in listing, "stranded mass is in the budget"
     assert np.array_equal(concentrations(runs[True]), concentrations(runs[False])), (
-        "the option changed the concentrations"
+        "the default changed the concentrations"
     )
 
 

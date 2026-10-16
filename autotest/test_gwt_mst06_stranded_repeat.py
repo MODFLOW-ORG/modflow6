@@ -109,7 +109,6 @@ def build_ats(ws, exe):
         sorption="linear",
         bulk_density=rhob,
         distcoef=kd,
-        stranded_mass=True,
         stranded_filerecord=[("gwt.strand.bin",)],
     )
     flopy.mf6.ModflowGwtssm(gwt, sources=[["WEL-1", "AUX", "CONCENTRATION"]])

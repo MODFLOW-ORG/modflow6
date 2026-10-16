@@ -116,7 +116,6 @@ def build_model(ws, exe, decay, newton):
         "sorption": "linear",
         "bulk_density": rhob,
         "distcoef": kd,
-        "stranded_mass": True,
         "stranded_filerecord": [("t.strand.bin",)],
     }
     if decay:

@@ -103,7 +103,6 @@ def build_model(ws, decay):
         "sorption": "linear",
         "bulk_density": RHOB,
         "distcoef": KD,
-        "stranded_mass": True,
         "stranded_filerecord": [("t.strand.bin",)],
     }
     if decay:

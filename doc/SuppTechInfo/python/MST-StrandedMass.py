@@ -123,10 +123,9 @@ def build_model(ws, sorption, decay, stranded):
     if decay:
         kwargs.update(first_order_decay=True, decay=DECAY, decay_sorbed=DECAY)
     if stranded:
-        kwargs.update(
-            stranded_mass=True,
-            stranded_filerecord=[(f"{gwtname}.strand.bin",)],
-        )
+        kwargs.update(stranded_filerecord=[(f"{gwtname}.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
 
     flopy.mf6.ModflowGwtssm(gwt, sources=[["CHD-1", "AUX", "CONCENTRATION"]])
