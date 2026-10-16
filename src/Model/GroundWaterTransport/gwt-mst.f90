@@ -257,10 +257,6 @@ contains
       reason = ''
     else if (this%uzt_active) then
       reason = 'a UZT Package is active in the same model'
-    else if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then
-      ! -- the water retained against drainage follows from the STO-SY term
-      reason = 'the budget file read by the FMI Package does not contain &
-               &the STO-SY flow term'
     else
       write (this%iout, '(4x,a)') 'STRANDED MASS IS ACTIVE.'
       return
