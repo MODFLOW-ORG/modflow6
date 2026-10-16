@@ -2,17 +2,21 @@
 Tests the MST stranded mass option when the flow model is run as a separate
 simulation and the transport model reads its flows through the FMI Package.
 
-The retained water volume is derived from the STO-SY flow term, which a
-coupled flow model always supplies but a budget file carries only if the flow
-model saved it.
+The retained water volume is derived from the STO-SY flow term. A budget file
+without it either has no storage terms, and the saturation is then held fixed,
+or comes from a flow model with no convertible cell, so no cell can drain.
 
 Cases:
   - matches_coupled : results are identical to the same models run in one
                       simulation through a GWF-GWT exchange.
-  - requires_stosy  : a budget file without STO-SY turns stranded mass off with
-                      a note, and results match LEGACY_STORAGE.
-  - confined_flow   : a confined flow model writes no STO-SY because it has no
-                      specific yield, and is handled the same way.
+  - no_storage      : a budget file without storage terms keeps stranded mass
+                      active, and results match LEGACY_STORAGE.
+  - confined_flow   : a confined flow model writes STO-SS but no STO-SY, keeps
+                      stranded mass active, and results match LEGACY_STORAGE.
+  - steady_et       : a steady-state flow model drawn down by evapotranspiration
+                      with a mixed (AUXMIXED) concentration deposits solute in
+                      the drained part of a cell, and the results match the
+                      same models run in one simulation.
 """
 
 import flopy
@@ -159,20 +163,18 @@ def run_transport(ws, exe, flow_ws, legacy=False, strand_output=True):
     return sim.run_simulation(silent=True)
 
 
-def assert_stosy_fallback(tran, exe, flow, buff):
-    """Stranded mass is turned off with a note, and the run matches the legacy one."""
+def assert_matches_legacy(tran, exe, flow, buff):
+    """Stranded mass is active, and the run matches the legacy one."""
     # the message is wrapped in the listing file, so compare without the breaks
-    listing = " ".join((tran / "mfsim.lst").read_text().split())
-    assert "does not contain the STO-SY flow term" in listing, (
-        f"the note was not written\n{buff}"
-    )
+    listing = " ".join((tran / "t.lst").read_text().split())
+    assert "STRANDED MASS IS ACTIVE" in listing, f"stranded mass is off\n{buff}"
     legacy = tran.parent / "legacy"
     legacy.mkdir()
     success, buff = run_transport(legacy, exe, flow, legacy=True, strand_output=False)
     assert success, f"legacy transport simulation failed\n{buff}"
     a = series(tran, "t.ucn", "CONCENTRATION")
     b = series(legacy, "t.ucn", "CONCENTRATION")
-    assert np.array_equal(a, b), (
+    assert np.allclose(a, b, rtol=1e-10, atol=1e-10), (
         f"results differ from LEGACY_STORAGE by {np.abs(a - b).max()}"
     )
 
@@ -210,7 +212,7 @@ def test_stranded_fmi_matches_coupled(function_tmpdir, targets):
     assert series(tran, "t.strand.bin", "STRANDED").max() > 0.0
 
 
-def test_stranded_fmi_requires_stosy(function_tmpdir, targets):
+def test_stranded_fmi_no_storage(function_tmpdir, targets):
     exe = str(targets["mf6"])
     flow = function_tmpdir / "flow"
     tran = function_tmpdir / "transport"
@@ -228,9 +230,9 @@ def test_stranded_fmi_requires_stosy(function_tmpdir, targets):
         "the flow model saved STO-SY, so this case does not test what it claims"
     )
 
-    success, buff = run_transport(tran, exe, flow, strand_output=False)
+    success, buff = run_transport(tran, exe, flow)
     assert success, f"transport simulation failed\n{buff}"
-    assert_stosy_fallback(tran, exe, flow, buff)
+    assert_matches_legacy(tran, exe, flow, buff)
 
 
 def test_stranded_fmi_confined_flow(function_tmpdir, targets):
@@ -255,11 +257,139 @@ def test_stranded_fmi_confined_flow(function_tmpdir, targets):
         "what it claims"
     )
 
-    # no cell drains, but a budget file cannot show that, so it is handled as
-    # any budget file without STO-SY
-    success, buff = run_transport(tran, exe, flow, strand_output=False)
+    # no cell drains, so stranded mass has nothing to hold
+    success, buff = run_transport(tran, exe, flow)
     assert success, f"transport simulation failed\n{buff}"
-    assert_stosy_fallback(tran, exe, flow, buff)
+    assert_matches_legacy(tran, exe, flow, buff)
+
+
+def add_steady_gwf(sim, name):
+    """Two cells at steady state; ET draws the first below its top."""
+    gwf = flopy.mf6.ModflowGwf(
+        sim, modelname=name, save_flows=True, newtonoptions="NEWTON"
+    )
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=1, nrow=1, ncol=2, delr=delr, delc=delc, top=top, botm=botm
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=20.0)
+    flopy.mf6.ModflowGwfnpf(
+        gwf,
+        save_flows=True,
+        save_specific_discharge=True,
+        save_saturation=True,
+        icelltype=1,
+        k=100.0,
+    )
+    flopy.mf6.ModflowGwfchd(
+        gwf,
+        stress_period_data=[[(0, 0, 1), 20.0, cinit]],
+        auxiliary="CONCENTRATION",
+        pname="CHD-1",
+    )
+    flopy.mf6.ModflowGwfevt(
+        gwf,
+        stress_period_data=[[(0, 0, 0), top, 1.0e-3, 30.0, 0.0]],
+        auxiliary="CONCENTRATION",
+        pname="EVT-1",
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        head_filerecord=f"{name}.hds",
+        budget_filerecord=f"{name}.cbc",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+    )
+    return gwf
+
+
+def add_steady_gwt(sim, name, fmi_packagedata=None):
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=name, save_flows=True)
+    flopy.mf6.ModflowGwtdis(
+        gwt, nlay=1, nrow=1, ncol=2, delr=delr, delc=delc, top=top, botm=botm
+    )
+    flopy.mf6.ModflowGwtic(gwt, strt=cinit)
+    flopy.mf6.ModflowGwtadv(gwt)
+    flopy.mf6.ModflowGwtmst(
+        gwt, porosity=porosity, stranded_filerecord=[(f"{name}.strand.bin",)]
+    )
+    flopy.mf6.ModflowGwtssm(
+        gwt,
+        sources=[
+            ["CHD-1", "AUX", "CONCENTRATION"],
+            ["EVT-1", "AUXMIXED", "CONCENTRATION"],
+        ],
+    )
+    if fmi_packagedata is not None:
+        flopy.mf6.ModflowGwtfmi(gwt, packagedata=fmi_packagedata)
+    flopy.mf6.ModflowGwtoc(
+        gwt,
+        concentration_filerecord=f"{name}.ucn",
+        saverecord=[("CONCENTRATION", "ALL")],
+    )
+    return gwt
+
+
+def test_stranded_fmi_steady_et(function_tmpdir, targets):
+    exe = str(targets["mf6"])
+    tdis = {"nper": 1, "perioddata": [(1000.0, 10, 1.0)]}
+    coupled = function_tmpdir / "coupled"
+    flow = function_tmpdir / "flow"
+    tran = function_tmpdir / "transport"
+
+    sim = flopy.mf6.MFSimulation(sim_name="c", sim_ws=str(coupled), exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, **tdis)
+    add_steady_gwf(sim, "f")
+    sim.register_ims_package(add_ims(sim, "f.ims"), ["f"])
+    add_steady_gwt(sim, "t")
+    sim.register_ims_package(add_ims(sim, "t.ims"), ["t"])
+    flopy.mf6.ModflowGwfgwt(sim, exgtype="GWF6-GWT6", exgmnamea="f", exgmnameb="t")
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"coupled simulation failed\n{buff}"
+
+    sim = flopy.mf6.MFSimulation(sim_name="f", sim_ws=str(flow), exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, **tdis)
+    add_steady_gwf(sim, "f")
+    add_ims(sim, "f.ims")
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"flow simulation failed\n{buff}"
+    names = [
+        n.strip()
+        for n in flopy.utils.CellBudgetFile(
+            flow / "f.cbc", precision="double"
+        ).get_unique_record_names(decode=True)
+    ]
+    assert not any(n.startswith("STO") for n in names), (
+        "the steady-state flow model wrote storage terms"
+    )
+
+    sim = flopy.mf6.MFSimulation(sim_name="t", sim_ws=str(tran), exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, **tdis)
+    add_steady_gwt(
+        sim,
+        "t",
+        [
+            ("GWFHEAD", str(flow / "f.hds"), None),
+            ("GWFBUDGET", str(flow / "f.cbc"), None),
+        ],
+    )
+    add_ims(sim, "t.ims")
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"transport simulation failed\n{buff}"
+
+    # the first cell is partly drained, so evapotranspiration deposits solute
+    sat = flopy.utils.HeadFile(flow / "f.hds").get_data().ravel()[0] / top
+    assert 0.0 < sat < 1.0, f"the first cell is not partly drained, {sat=}"
+    stranded = series(tran, "t.strand.bin", "STRANDED")
+    assert stranded[-1, 0] > 0.0, "no solute was deposited"
+    for fname, text in (("t.ucn", "CONCENTRATION"), ("t.strand.bin", "STRANDED")):
+        a = series(coupled, fname, text)
+        b = series(tran, fname, text)
+        assert np.allclose(a, b, rtol=1e-10, atol=1e-10), (
+            f"{text} differs between the coupled and the separate simulation, "
+            f"maximum difference {np.abs(a - b).max()}"
+        )
 
 
 if __name__ == "__main__":
