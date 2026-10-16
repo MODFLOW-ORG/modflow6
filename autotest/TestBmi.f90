@@ -92,14 +92,18 @@ contains
       call check(error, bmi_update_until(2.0_DP) == BMI_FAILURE, &
                  "update_until after the end time")
       if (allocated(error)) exit run
-      call check(error, get_current_time(time) == BMI_SUCCESS .and. &
-                 time == 0.0_DP, "time advanced by a failed update_until")
+      call check(error, get_current_time(time) == BMI_SUCCESS, &
+                 "get_current_time")
+      if (allocated(error)) exit run
+      call check(error, time == 0.0_DP, "time advanced by a failed update_until")
       if (allocated(error)) exit run
       call check(error, bmi_update_until(1.0_DP) == BMI_SUCCESS, &
                  "update_until the end time")
       if (allocated(error)) exit run
-      call check(error, get_current_time(time) == BMI_SUCCESS .and. &
-                 time == 1.0_DP, "current time after update_until")
+      call check(error, get_current_time(time) == BMI_SUCCESS, &
+                 "get_current_time")
+      if (allocated(error)) exit run
+      call check(error, time == 1.0_DP, "current time after update_until")
       if (allocated(error)) exit run
       call check(error, bmi_update_until(0.5_DP) == BMI_FAILURE, &
                  "update_until before the current time")
@@ -141,8 +145,9 @@ contains
       inds(1) = 2
       call check(error, get_value_at_indices(c_string('LEFTMODEL/DIS/MSHAPE'), &
                                              c_loc(int_vals), inds, 1) &
-                 == BMI_SUCCESS .and. int_vals(1) == 5, &
-                 "get_value_at_indices of MSHAPE")
+                 == BMI_SUCCESS, "get_value_at_indices of MSHAPE")
+      if (allocated(error)) exit run
+      call check(error, int_vals(1) == 5, "MSHAPE")
       if (allocated(error)) exit run
 
       ! -- an index past the end of the variable

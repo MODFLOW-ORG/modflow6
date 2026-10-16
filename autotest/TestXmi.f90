@@ -54,8 +54,10 @@ contains
     if (allocated(error)) return
 
     run: block
-      call check(error, xmi_get_version(c_version) == BMI_SUCCESS .and. &
-                 len(f_string(c_version)) > 0, "get_version")
+      call check(error, xmi_get_version(c_version) == BMI_SUCCESS, &
+                 "get_version")
+      if (allocated(error)) exit run
+      call check(error, len(f_string(c_version)) > 0, "empty version")
       if (allocated(error)) exit run
 
       call check(error, get_var_address(c_string('LEFTMODEL'), &
@@ -68,8 +70,10 @@ contains
       if (allocated(error)) exit run
 
       ! -- both models are in one solution
-      call check(error, xmi_get_subcomponent_count(count) == BMI_SUCCESS &
-                 .and. count == 1, "get_subcomponent_count")
+      call check(error, xmi_get_subcomponent_count(count) == BMI_SUCCESS, &
+                 "get_subcomponent_count")
+      if (allocated(error)) exit run
+      call check(error, count == 1, "subcomponent count")
       if (allocated(error)) exit run
 
       ! -- one time step, solved outer iteration by outer iteration
@@ -93,21 +97,26 @@ contains
       call check(error, xmi_finalize_time_step() == BMI_SUCCESS, &
                  "finalize_time_step")
       if (allocated(error)) exit run
-      call check(error, get_current_time(time) == BMI_SUCCESS .and. &
-                 time == 1.0_DP, "current time after the time step")
+      call check(error, get_current_time(time) == BMI_SUCCESS, &
+                 "get_current_time")
+      if (allocated(error)) exit run
+      call check(error, time == 1.0_DP, "current time after the time step")
       if (allocated(error)) exit run
 
       ! -- the constant heads hold the two ends of the section
       inds(1) = 0
       call check(error, get_value_at_indices(c_string('LEFTMODEL/X'), &
                                              c_loc(head), inds, 1) &
-                 == BMI_SUCCESS .and. head(1) == 1.0_DP, "head at the left end")
+                 == BMI_SUCCESS, "get_value_at_indices of the left head")
+      if (allocated(error)) exit run
+      call check(error, head(1) == 1.0_DP, "head at the left end")
       if (allocated(error)) exit run
       inds(1) = 4
       call check(error, get_value_at_indices(c_string('RIGHTMODEL/X'), &
                                              c_loc(head), inds, 1) &
-                 == BMI_SUCCESS .and. head(1) == 10.0_DP, &
-                 "head at the right end")
+                 == BMI_SUCCESS, "get_value_at_indices of the right head")
+      if (allocated(error)) exit run
+      call check(error, head(1) == 10.0_DP, "head at the right end")
       if (allocated(error)) exit run
     end block run
 
