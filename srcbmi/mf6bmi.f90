@@ -1288,7 +1288,8 @@ contains
   !! The indices are zero-based positions in the variable's values in C-style
   !! (row-major) order, as in get_value_at_indices(). The array pointed to by
   !! @p c_arr_ptr holds @p count values. Double precision and integer
-  !! variables are supported.
+  !! variables are supported. A new hydraulic conductivity does not change
+  !! the saturated conductance until NPF recalculates it, as it does for TVK.
   !<
   function set_value_at_indices(c_var_address, c_inds, count, c_arr_ptr) &
     result(bmi_status) bind(C, name="set_value_at_indices")
