@@ -95,7 +95,6 @@ module GwtMstModule
     integer(I4B), pointer :: ioutstrandet => null() !< unit number for output of the solute deposited by evapotranspiration
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     logical :: uzt_active = .false. !< the model has a UZT Package, which turns stranded mass off
-    logical :: ist_active = .false. !< the model has an IST Package, which turns stranded mass off
     logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
@@ -256,8 +255,6 @@ contains
     !
     if (this%istrand == IZERO) then
       reason = ''
-    else if (this%ist_active) then
-      reason = 'an IST Package is active in the same model'
     else if (this%uzt_active) then
       reason = 'a UZT Package is active in the same model'
     else if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then

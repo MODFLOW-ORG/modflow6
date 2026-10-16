@@ -257,13 +257,12 @@ contains
     integer(I4B) :: ip
     class(BndType), pointer :: packobj
     !
-    ! -- stranded mass is not simulated in a model with UZT or IST, which
-    !    MST checks after reading its options
+    ! -- stranded mass is not simulated in a model with UZT, which MST
+    !    checks after reading its options
     if (this%inmst > 0) then
       do ip = 1, this%bndlist%Count()
         packobj => GetBndFromList(this%bndlist, ip)
         if (packobj%filtyp == 'UZT') this%mst%uzt_active = .true.
-        if (packobj%filtyp == 'IST') this%mst%ist_active = .true.
       end do
     end if
     !
