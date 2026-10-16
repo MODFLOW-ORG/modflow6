@@ -1,6 +1,7 @@
 """Tests to ability to run flow model first followed by transport model"""
 
 import os
+import re
 from os.path import join
 
 import flopy
@@ -739,14 +740,14 @@ def run_transport_model(dir, exe):
     lst = flopy.utils.Mf6ListBudget(fname, budgetkey="MASS BUDGET FOR ENTIRE MODEL")
     lstra = lst.get_incremental()
 
-    # list file has additional terms, so need to pluck out the following for
-    # direct comparison
-    imap = (0, 3, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 9, 16, 18)
+    # list file has additional terms, so match the csv terms by name, without
+    # the package name in parentheses
+    special = {"time": "totim", "PERCENT_DIFFERENCE": "PERCENT_DISCREPANCY"}
     success_all = True
     failed_list = []
-    for name1, i in zip(csvra.dtype.names, imap):
-        name2 = lstra.dtype.names[i]
-        if i == 18:
+    for name1 in csvra.dtype.names:
+        name2 = special.get(name1, re.sub(r"\(.*\)", "", name1))
+        if name1 == "PERCENT_DIFFERENCE":
             # percent difference needs to compare small numbers
             success = np.allclose(csvra[name1], lstra[name2], atol=1.0e-7)
         else:
@@ -754,7 +755,7 @@ def run_transport_model(dir, exe):
         if not success:
             success_all = False
             failed_list.append(name1)
-            print(f"Records do not match for {name1} in position {i}")
+            print(f"Records do not match for {name1} and {name2}")
             for rate1, rate2 in zip(csvra[name1], lstra[name2]):
                 print(rate1, rate2)
     assert success_all, f"Comparisons failed for {failed_list}"
