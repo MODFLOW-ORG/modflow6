@@ -349,12 +349,24 @@ contains
           objPtr => conn
           gwfConn => CastAsGwfGwfConnection(objPtr)
           !
-          ! for now, connecting the same nodes nrs will be
+          ! A model can have multiple exchanges, even connecting the same two
+          ! models. Require that the GWF models match those referenced by the
+          ! GWE exchange before comparing node lists, otherwise a GWE exchange
+          ! could be linked to the wrong GWF-GWF exchange.
+          if (gwfConn%gwfExchange%v_model1%name /= &
+              gweConn%gweExchange%gwfmodelname1) cycle
+          if (gwfConn%gwfExchange%v_model2%name /= &
+              gweConn%gweExchange%gwfmodelname2) cycle
+          !
+          ! then, connecting the same nodes nrs will be
           ! sufficient evidence of equality
-          areEqual = all(gwfConn%prim_exchange%nodem1 == &
-                         gweConn%prim_exchange%nodem1)
-          areEqual = areEqual .and. all(gwfConn%prim_exchange%nodem2 == &
-                                        gweConn%prim_exchange%nodem2)
+          areEqual = (gwfConn%gwfExchange%nexg == gweConn%gweExchange%nexg)
+          if (areEqual) then
+            areEqual = all(gwfConn%prim_exchange%nodem1 == &
+                           gweConn%prim_exchange%nodem1)
+            areEqual = areEqual .and. all(gwfConn%prim_exchange%nodem2 == &
+                                          gweConn%prim_exchange%nodem2)
+          end if
           if (areEqual) then
             ! same DIS, same exchange: link and go to next GWE conn.
             write (iout, '(/6a)') 'Linking exchange ', &
@@ -381,6 +393,12 @@ contains
           !
           if (associated(gwfEx%model1, gwfModel) .or. &
               associated(gwfEx%model2, gwfModel)) then
+            !
+            ! require that the GWF models match those referenced by the GWE
+            ! exchange, otherwise a GWE exchange could be linked to the wrong
+            ! GWF-GWF exchange
+            if (gwfEx%v_model1%name /= gweConn%gweExchange%gwfmodelname1) cycle
+            if (gwfEx%v_model2%name /= gweConn%gweExchange%gwfmodelname2) cycle
 
             ! check exchanges have same node counts
             areEqual = size(gwfEx%nodem1) == size(gweConn%prim_exchange%nodem1)
