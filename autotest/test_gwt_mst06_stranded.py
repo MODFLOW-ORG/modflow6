@@ -125,9 +125,10 @@ def get_model(name, ws, hds, strand, sorb, isotherm=None, newton=True):
         if isotherm is not None:
             kwargs.update(isotherm)
     if strand:
-        kwargs.update(stranded_mass=True)
         if sorb:
             kwargs.update(stranded_filerecord=[(f"{gwtname}.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
 
     flopy.mf6.ModflowGwtssm(gwt, sources=[["CHD-1", "AUX", "CONCENTRATION"]])

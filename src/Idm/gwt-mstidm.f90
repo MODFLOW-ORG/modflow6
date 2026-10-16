@@ -17,7 +17,7 @@ module GwtMstInputModule
     logical :: order1_decay = .false.
     logical :: order0_decay = .false.
     logical :: sorption = .false.
-    logical :: istrand = .false.
+    logical :: ilegacy = .false.
     logical :: stranded_rec = .false.
     logical :: stranded = .false.
     logical :: strandedfile = .false.
@@ -133,16 +133,16 @@ module GwtMstInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtmst_istrand = InputParamDefinitionType &
+    gwtmst_ilegacy = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'MST', & ! subcomponent
     'OPTIONS', & ! block
-    'STRANDED_MASS', & ! tag name
-    'ISTRAND', & ! fortran variable
+    'LEGACY_STORAGE', & ! tag name
+    'ILEGACY', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'activate stranded mass', & ! longname
+    'use the storage formulation of earlier versions', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -671,7 +671,7 @@ module GwtMstInputModule
     gwtmst_order1_decay, &
     gwtmst_order0_decay, &
     gwtmst_sorption, &
-    gwtmst_istrand, &
+    gwtmst_ilegacy, &
     gwtmst_stranded_rec, &
     gwtmst_stranded, &
     gwtmst_strandedfile, &
