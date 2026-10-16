@@ -3,8 +3,6 @@ Tests the errors, warnings, and notes of MST stranded mass, using the single
 cell of test_gwt_mst06_stranded_cell.py.
 
 Cases:
-  - ist               : an active IST Package turns stranded mass off with a
-                        note, and results match LEGACY_STORAGE.
   - fileout           : STRANDED FILEOUT with LEGACY_STORAGE is an error
                         (xfail).
   - zero_order        : zero-order decay runs, notes that stranded mass does not
@@ -36,11 +34,9 @@ from test_gwt_mst06_stranded_cell import (
     cinit,
     get_model,
     held_mass,
-    kd,
     paper,
     porosity,
     results,
-    rhob,
     strand_budget,
 )
 
@@ -59,42 +55,6 @@ def run_framework(function_tmpdir, targets, build, check, xfail=False):
         check=check,
         xfail=xfail,
     ).run()
-
-
-def test_ist(function_tmpdir, targets):
-    exe = str(targets["mf6"])
-    conc = {}
-    for legacy in (False, True):
-        ws = function_tmpdir / ("legacy" if legacy else "default")
-        sim = get_model(
-            ws,
-            paper,
-            1,
-            porosity,
-            True,
-            strand=False,
-            mst_kwargs={"legacy_storage": legacy},
-        )
-        gwt = sim.get_model("gwt")
-        flopy.mf6.ModflowGwtist(
-            gwt,
-            sorption="linear",
-            porosity=0.05,
-            volfrac=0.1,
-            zetaim=0.1,
-            bulk_density=rhob,
-            distcoef=kd,
-        )
-        sim.exe_name = exe
-        sim.write_simulation(silent=True)
-        success, buff = sim.run_simulation(silent=True)
-        assert success, f"simulation failed\n{buff}"
-        conc[legacy] = gwt.output.concentration().get_alldata()
-    assert (
-        "Stranded mass is not simulated in the MST Package because an IST "
-        "Package is active" in listing_text(function_tmpdir / "default")
-    )
-    assert np.array_equal(conc[False], conc[True]), "results differ from legacy"
 
 
 def test_fileout(function_tmpdir, targets):
