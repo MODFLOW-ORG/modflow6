@@ -1010,7 +1010,7 @@ contains
       else
         !
         ! -- a reach that goes dry keeps the volume of the previous time step
-        !    with the STRANDED_MASS option, so its solute can be held
+        !    with stranded mass, so its solute can be held
         if (vnew == DZERO .and. this%istrand == 0) then
           vold = DZERO
         else

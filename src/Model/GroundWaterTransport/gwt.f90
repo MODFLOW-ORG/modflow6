@@ -153,7 +153,7 @@ contains
     class(GwtModelType) :: this
     ! -- local
     integer(I4B) :: ip
-    integer(I4B), pointer :: istrand
+    integer(I4B), pointer :: ilegacy
     logical(LGP) :: found
     class(BndType), pointer :: packobj
     !
@@ -186,27 +186,28 @@ contains
     ! -- Allocate model arrays, now that neq and nja are assigned
     call this%allocate_arrays()
     !
-    ! -- stranded mass in the MST Package also holds the solute of a lake or
-    !    stream reach that goes dry, so it is set before they are defined
+    ! -- the solute of a lake or stream reach that goes dry is held unless
+    !    LEGACY_STORAGE is specified in the MST Package, so it is set before
+    !    they are defined
+    allocate (ilegacy)
+    ilegacy = 0
     if (this%inmst > 0) then
-      allocate (istrand)
-      istrand = 0
       ! -- the input is kept for MST, which reads it again
-      call mem_set_value(istrand, 'ISTRAND', this%mst%input_mempath, found, &
+      call mem_set_value(ilegacy, 'ILEGACY', this%mst%input_mempath, found, &
                          release=.false.)
-      if (istrand /= 0) then
-        do ip = 1, this%bndlist%Count()
-          packobj => GetBndFromList(this%bndlist, ip)
-          select type (packobj)
-          class is (TspAptType)
-            if (packobj%filtyp == 'LKT' .or. packobj%filtyp == 'SFT') then
-              call packobj%apt_strand_from_mst()
-            end if
-          end select
-        end do
-      end if
-      deallocate (istrand)
     end if
+    if (ilegacy == 0) then
+      do ip = 1, this%bndlist%Count()
+        packobj => GetBndFromList(this%bndlist, ip)
+        select type (packobj)
+        class is (TspAptType)
+          if (packobj%filtyp == 'LKT' .or. packobj%filtyp == 'SFT') then
+            call packobj%apt_strand_from_mst()
+          end if
+        end select
+      end do
+    end if
+    deallocate (ilegacy)
     !
     ! -- Define packages and assign iout for time series managers
     do ip = 1, this%bndlist%Count()
