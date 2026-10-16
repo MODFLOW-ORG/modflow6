@@ -5,7 +5,9 @@ cell whose water table moves, using the saturation of the previous time step.
 Specific yield equals porosity and specific storage is zero, so the water
 volume of the transport model matches the storage of the flow model, and the
 concentration at the end of each time step follows from a mass balance of the
-cell over the time step.
+cell over the time step. The storage formulation of earlier versions
+(LEGACY_STORAGE) is used, since stranded mass holds back the sorbed mass of
+the drained part of the cell.
 
 Cases:
   - drain      : a well drains half the cell and refills it with clean water,
@@ -107,7 +109,7 @@ def add_gwt(sim, periods, sorb, fmi_files=False, ims_kwargs=None):
         gwt, nrow=1, ncol=1, delr=delr, delc=delc, top=top, botm=botm
     )
     flopy.mf6.ModflowGwtic(gwt, strt=cinit)
-    kwargs = {"porosity": porosity, "save_flows": True}
+    kwargs = {"porosity": porosity, "save_flows": True, "legacy_storage": True}
     if sorb:
         kwargs.update(sorption="linear", bulk_density=rhob, distcoef=kd)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)

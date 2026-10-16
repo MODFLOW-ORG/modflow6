@@ -99,7 +99,6 @@ def add_gwt(sim, name, chd, n=ncol):
         sorption="linear",
         bulk_density=rhob,
         distcoef=kd,
-        stranded_mass=True,
         stranded_filerecord=[(f"{name}.strand.bin",)],
     )
     if chd:

@@ -105,7 +105,9 @@ def build_model(ws, sy, kd, stranded):
     if kd > 0.0:
         kwargs.update(sorption="linear", bulk_density=RHOB, distcoef=kd)
     if stranded:
-        kwargs.update(stranded_mass=True, stranded_filerecord=[("t.strand.bin",)])
+        kwargs.update(stranded_filerecord=[("t.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
     flopy.mf6.ModflowGwtssm(gwt, sources=[["CHD-1", "AUX", "CONCENTRATION"]])
     flopy.mf6.ModflowGwtoc(

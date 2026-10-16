@@ -20,7 +20,7 @@ Cases:
   - restart  : a simulation started from the concentration and the aqueous
                stranded mass (STRANDED_AQ FILEOUT) that another wrote halfway
                through ends where a single simulation over both halves does.
-  - errors   : the arrays without STRANDED_MASS, STRANDED_SORBED without
+  - errors   : the arrays with LEGACY_STORAGE, STRANDED_SORBED without
                sorption, a negative mass, and stranded mass in a cell that
                starts saturated are errors (xfail).
 """
@@ -99,7 +99,6 @@ def add_transport(sim, add_ims, cinit, mst_kwargs, fmi=None):
     kwargs = {
         "porosity": porosity,
         "save_flows": True,
-        "stranded_mass": True,
         "stranded_filerecord": [("gwt.strand.bin",)],
         "stranded_aq_filerecord": [("gwt.strandaq.bin",)],
         "stranded_srb_filerecord": [("gwt.strandsrb.bin",)],
@@ -328,16 +327,16 @@ def test_restart(function_tmpdir, targets):
 
 
 error_cases = {
-    "nooption": (
+    "legacy": (
         {
-            "stranded_mass": False,
+            "legacy_storage": True,
             "stranded_filerecord": None,
             "stranded_aq_filerecord": None,
             "stranded_srb_filerecord": None,
             "stranded_aqueous": mass0,
         },
         strt0,
-        "STRANDED_MASS keyword was not specified",
+        "STRANDED_ET_SOLUTE was specified but stranded mass is not simulated",
     ),
     "nosorption": (
         {"stranded_sorbed": mass0},

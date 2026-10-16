@@ -20,7 +20,7 @@ Cases:
   - restart: a simulation started from the concentration and the deposit
              (STRANDED_ET FILEOUT, STRANDED_ET_SOLUTE) that another wrote at the
              end of the deposition ends where a single simulation does.
-  - errors : STRANDED_ET_SOLUTE without STRANDED_MASS, and a negative deposit,
+  - errors : STRANDED_ET_SOLUTE with LEGACY_STORAGE, and a negative deposit,
              are errors (xfail).
   - sorption: a cell with linear sorption drains by half, deposits solute
              under evapotranspiration and recharge, and is refilled to 0.9;
@@ -172,7 +172,9 @@ def get_model(
     flopy.mf6.ModflowGwtic(gwt, strt=c0)
     kwargs = {"porosity": porosity, "save_flows": True}
     if strand:
-        kwargs.update(stranded_mass=True, stranded_filerecord=[("gwt.strand.bin",)])
+        kwargs.update(stranded_filerecord=[("gwt.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     if mst_kwargs is not None:
         kwargs.update(mst_kwargs)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
@@ -341,7 +343,7 @@ deposit_errors = {
         False,
         10.0,
         "STRANDED_AQUEOUS, STRANDED_SORBED, or STRANDED_ET_SOLUTE was specified "
-        "but the STRANDED_MASS keyword was not specified",
+        "but stranded mass is not simulated",
     ),
     "negative": (
         True,

@@ -95,7 +95,9 @@ def get_model(ws, newton, strand):
     flopy.mf6.ModflowGwtic(gwt, strt=cinit)
     kwargs = {"porosity": porosity}
     if strand:
-        kwargs.update(stranded_mass=True, stranded_filerecord=[("gwt.strand.bin",)])
+        kwargs.update(stranded_filerecord=[("gwt.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)
     flopy.mf6.ModflowGwtadv(gwt, scheme="upstream")
     flopy.mf6.ModflowGwtssm(

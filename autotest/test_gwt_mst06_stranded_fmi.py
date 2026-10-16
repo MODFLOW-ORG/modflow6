@@ -9,11 +9,10 @@ model saved it.
 Cases:
   - matches_coupled : results are identical to the same models run in one
                       simulation through a GWF-GWT exchange.
-  - requires_stosy  : a budget file without STO-SY is an error rather than a
-                      run in which every drained pore volume is retained.
+  - requires_stosy  : a budget file without STO-SY turns stranded mass off with
+                      a note, and results match LEGACY_STORAGE.
   - confined_flow   : a confined flow model writes no STO-SY because it has no
-                      specific yield, and is the same error even though no cell
-                      drains and the option would have had no effect.
+                      specific yield, and is handled the same way.
 """
 
 import flopy
@@ -91,7 +90,7 @@ def add_gwf(sim, name, save_sto, confined=False):
     return gwf
 
 
-def add_gwt(sim, name, fmi_packagedata=None):
+def add_gwt(sim, name, fmi_packagedata=None, legacy=False, strand_output=True):
     gwt = flopy.mf6.ModflowGwt(sim, modelname=name, save_flows=True)
     flopy.mf6.ModflowGwtdis(
         gwt, nlay=1, nrow=1, ncol=2, delr=delr, delc=delc, top=top, botm=botm
@@ -105,8 +104,8 @@ def add_gwt(sim, name, fmi_packagedata=None):
         sorption="linear",
         bulk_density=rhob,
         distcoef=kd,
-        stranded_mass=True,
-        stranded_filerecord=[(f"{name}.strand.bin",)],
+        legacy_storage=legacy,
+        stranded_filerecord=[(f"{name}.strand.bin",)] if strand_output else None,
     )
     flopy.mf6.ModflowGwtssm(gwt, sources=[["CHD-1", "AUX", "CONCENTRATION"]])
     if fmi_packagedata is not None:
@@ -142,7 +141,7 @@ def run_flow(ws, exe, save_sto, confined=False):
     return sim.run_simulation(silent=True)
 
 
-def run_transport(ws, exe, flow_ws):
+def run_transport(ws, exe, flow_ws, legacy=False, strand_output=True):
     sim = flopy.mf6.MFSimulation(sim_name="t", sim_ws=str(ws), exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=perioddata)
     add_gwt(
@@ -152,19 +151,30 @@ def run_transport(ws, exe, flow_ws):
             ("GWFHEAD", str(flow_ws / "f.hds"), None),
             ("GWFBUDGET", str(flow_ws / "f.cbc"), None),
         ],
+        legacy=legacy,
+        strand_output=strand_output,
     )
     add_ims(sim, "t.ims")
     sim.write_simulation(silent=True)
     return sim.run_simulation(silent=True)
 
 
-def assert_stosy_error(ws, buff):
-    """The run stopped for the missing storage term and not for something else."""
+def assert_stosy_fallback(tran, exe, flow, buff):
+    """Stranded mass is turned off with a note, and the run matches the legacy one."""
     # the message is wrapped in the listing file, so compare without the breaks
-    listing = " ".join((ws / "mfsim.lst").read_text().split())
-    assert (
-        "STRANDED_MASS is active but the STO-SY flow term was not found" in listing
-    ), f"unexpected error message\n{buff}"
+    listing = " ".join((tran / "mfsim.lst").read_text().split())
+    assert "does not contain the STO-SY flow term" in listing, (
+        f"the note was not written\n{buff}"
+    )
+    legacy = tran.parent / "legacy"
+    legacy.mkdir()
+    success, buff = run_transport(legacy, exe, flow, legacy=True, strand_output=False)
+    assert success, f"legacy transport simulation failed\n{buff}"
+    a = series(tran, "t.ucn", "CONCENTRATION")
+    b = series(legacy, "t.ucn", "CONCENTRATION")
+    assert np.array_equal(a, b), (
+        f"results differ from LEGACY_STORAGE by {np.abs(a - b).max()}"
+    )
 
 
 def series(ws, fname, text):
@@ -218,9 +228,9 @@ def test_stranded_fmi_requires_stosy(function_tmpdir, targets):
         "the flow model saved STO-SY, so this case does not test what it claims"
     )
 
-    success, buff = run_transport(tran, exe, flow)
-    assert not success, "transport ran without STO-SY instead of terminating"
-    assert_stosy_error(tran, buff)
+    success, buff = run_transport(tran, exe, flow, strand_output=False)
+    assert success, f"transport simulation failed\n{buff}"
+    assert_stosy_fallback(tran, exe, flow, buff)
 
 
 def test_stranded_fmi_confined_flow(function_tmpdir, targets):
@@ -245,11 +255,11 @@ def test_stranded_fmi_confined_flow(function_tmpdir, targets):
         "what it claims"
     )
 
-    # no cell drains, so the option would have had no effect; it is still an
-    # error, because a budget file cannot show whether that is the reason
-    success, buff = run_transport(tran, exe, flow)
-    assert not success, "transport ran without STO-SY instead of terminating"
-    assert_stosy_error(tran, buff)
+    # no cell drains, but a budget file cannot show that, so it is handled as
+    # any budget file without STO-SY
+    success, buff = run_transport(tran, exe, flow, strand_output=False)
+    assert success, f"transport simulation failed\n{buff}"
+    assert_stosy_fallback(tran, exe, flow, buff)
 
 
 if __name__ == "__main__":

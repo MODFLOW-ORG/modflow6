@@ -1,13 +1,13 @@
 """
-Tests the errors and warnings of the MST stranded mass option, using the single
+Tests the errors, warnings, and notes of MST stranded mass, using the single
 cell of test_gwt_mst06_stranded_cell.py.
 
 Cases:
-  - ist               : STRANDED_MASS with an active IST Package is an error
+  - ist               : an active IST Package turns stranded mass off with a
+                        note, and results match LEGACY_STORAGE.
+  - fileout           : STRANDED FILEOUT with LEGACY_STORAGE is an error
                         (xfail).
-  - fileout           : STRANDED FILEOUT without STRANDED_MASS is an error
-                        (xfail).
-  - zero_order        : zero-order decay runs, warns that stranded mass does not
+  - zero_order        : zero-order decay runs, notes that stranded mass does not
                         decay, and the stranded mass stays constant while the
                         cell stays drained.
   - sy_above_porosity : a specific yield greater than the porosity runs, warns
@@ -36,9 +36,11 @@ from test_gwt_mst06_stranded_cell import (
     cinit,
     get_model,
     held_mass,
+    kd,
     paper,
     porosity,
     results,
+    rhob,
     strand_budget,
 )
 
@@ -60,19 +62,39 @@ def run_framework(function_tmpdir, targets, build, check, xfail=False):
 
 
 def test_ist(function_tmpdir, targets):
-    def build(test):
-        sim = get_model(test.workspace, paper, 1, porosity, True)
-        gwt = sim.get_model("gwt")
-        flopy.mf6.ModflowGwtist(gwt, porosity=0.05, volfrac=0.1, zetaim=0.1)
-        return sim
-
-    def check(test):
-        assert (
-            "STRANDED_MASS is specified in the MST package, but an immobile "
-            "domain (IST) is active" in listing_text(test.workspace)
+    exe = str(targets["mf6"])
+    conc = {}
+    for legacy in (False, True):
+        ws = function_tmpdir / ("legacy" if legacy else "default")
+        sim = get_model(
+            ws,
+            paper,
+            1,
+            porosity,
+            True,
+            strand=False,
+            mst_kwargs={"legacy_storage": legacy},
         )
-
-    run_framework(function_tmpdir, targets, build, check, xfail=True)
+        gwt = sim.get_model("gwt")
+        flopy.mf6.ModflowGwtist(
+            gwt,
+            sorption="linear",
+            porosity=0.05,
+            volfrac=0.1,
+            zetaim=0.1,
+            bulk_density=rhob,
+            distcoef=kd,
+        )
+        sim.exe_name = exe
+        sim.write_simulation(silent=True)
+        success, buff = sim.run_simulation(silent=True)
+        assert success, f"simulation failed\n{buff}"
+        conc[legacy] = gwt.output.concentration().get_alldata()
+    assert (
+        "Stranded mass is not simulated in the MST Package because an IST "
+        "Package is active" in listing_text(function_tmpdir / "default")
+    )
+    assert np.array_equal(conc[False], conc[True]), "results differ from legacy"
 
 
 def test_fileout(function_tmpdir, targets):
@@ -89,8 +111,8 @@ def test_fileout(function_tmpdir, targets):
 
     def check(test):
         assert (
-            "STRANDED FILEOUT was specified but the STRANDED_MASS keyword was not "
-            "specified" in listing_text(test.workspace)
+            "STRANDED_ET FILEOUT was specified but stranded mass is not simulated"
+            in listing_text(test.workspace)
         )
 
     run_framework(function_tmpdir, targets, build, check, xfail=True)
@@ -116,7 +138,7 @@ def test_zero_order(function_tmpdir, targets):
 
     def check(test):
         ws = test.workspace
-        assert "Zero-order decay is active with STRANDED_MASS" in listing_text(ws)
+        assert "Zero-order decay is active with stranded mass" in listing_text(ws)
         assert_budget_closes(ws)
         stranded = results(ws, True)[4]
         assert stranded[0] > 0.0, f"no mass was stranded {stranded}"
@@ -205,7 +227,6 @@ def test_fmi_first_step(function_tmpdir, targets, case):
         sorption="linear",
         bulk_density=1500.0,
         distcoef=1.0e-4,
-        stranded_mass=True,
         stranded_filerecord=[("gwt.strand.bin",)],
     )
     flopy.mf6.ModflowGwtfmi(
