@@ -1,19 +1,17 @@
 """
-Tests the STRANDED_MASS option of the LKT and SFT Packages, which holds the
-solute of a lake or reach that goes dry and returns it as the feature rewets.
+Tests stranded mass in the LKT and SFT Packages, which holds the solute of a
+lake or reach that goes dry and returns it as the feature rewets.
 
 Cases:
   - lake          : a lake on an impermeable bed evaporates dry and is refilled
                     by rainfall; all of its solute is held while it is dry and
                     is returned in proportion to the volume regained, relative
-                    to its largest volume before it went dry. The option is
-                    given in LKT, in MST (which turns it on in LKT), or both.
-  - lake_nooption : the same lake without the option cannot be solved once the
-                    lake has no water (xfail).
+                    to its largest volume before it went dry.
+  - lake_legacy   : the same lake with LEGACY_STORAGE in MST cannot be solved
+                    once the lake has no water (xfail).
   - reach         : the inflow to three reaches stops, so they go dry, and then
                     resumes with clean water; the solute of each reach is held
-                    and returned when the reach refills. The option is given in
-                    SFT, in MST, or both.
+                    and returned when the reach refills.
   - lake_retry    : the same lake, with adaptive time steps and a transport
                     solution allowed one outer iteration, so that the first
                     time step of the refill fails and is repeated with a
@@ -30,7 +28,8 @@ Cases:
                     the held mass stays spread over the 10,000 m3, so it is
                     returned only above the highest volume regained, and all
                     of it once the lake regains 10,000 m3.
-  - energy        : the option is an error for the LKE Package (xfail).
+  - energy        : the LKE Package of a GWE model is not set to hold the
+                    energy of a lake that goes dry.
 """
 
 import re
@@ -41,8 +40,6 @@ import pytest
 from framework import TestFramework
 
 cinit = 100.0
-# where the STRANDED_MASS option is given: the package, MST, or both
-option_sources = ["package", "mst", "both"]
 
 
 def add_ims(sim, fname):
@@ -85,7 +82,7 @@ def add_gwf(sim, nlay, botm, idomain):
     return gwf
 
 
-def add_gwt(sim, nlay, botm, idomain, mst_strand=False):
+def add_gwt(sim, nlay, botm, idomain, legacy=False):
     gwt = flopy.mf6.ModflowGwt(sim, modelname="gwt", save_flows=True)
     sim.register_ims_package(add_ims(sim, "gwt.ims"), ["gwt"])
     flopy.mf6.ModflowGwtdis(
@@ -100,7 +97,7 @@ def add_gwt(sim, nlay, botm, idomain, mst_strand=False):
         idomain=idomain,
     )
     flopy.mf6.ModflowGwtic(gwt, strt=0.0)
-    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3, stranded_mass=mst_strand)
+    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3, legacy_storage=legacy)
     flopy.mf6.ModflowGwtadv(gwt)
     flopy.mf6.ModflowGwtssm(gwt)
     flopy.mf6.ModflowGwtoc(
@@ -122,7 +119,7 @@ lake_periods = [
 ]
 
 
-def lake_model(ws, strand, mst_strand=False, periods=lake_periods):
+def lake_model(ws, strand=True, periods=lake_periods):
     """A lake on an impermeable bed, so that it loses water only to
     evaporation; by default it evaporates dry over the second period and
     refills in the fourth."""
@@ -148,11 +145,9 @@ def lake_model(ws, strand, mst_strand=False, periods=lake_periods):
         },
         budget_filerecord="gwf.lak.bud",
     )
-    gwt = add_gwt(sim, 2, botm, idomain, mst_strand)
+    gwt = add_gwt(sim, 2, botm, idomain, legacy=not strand)
     kwargs = {}
     if strand:
-        kwargs.update(stranded_mass=True)
-    if strand or mst_strand:
         kwargs.update(observations={"lkt.obs.csv": [("held", "stranded", 1)]})
     flopy.mf6.ModflowGwtlkt(
         gwt,
@@ -167,7 +162,7 @@ def lake_model(ws, strand, mst_strand=False, periods=lake_periods):
     return sim
 
 
-def reach_model(ws, strand, mst_strand=False):
+def reach_model(ws, strand=True):
     """Three reaches whose inflow stops in the second period, so that they go
     dry, and resumes with clean water in the third."""
     sim = flopy.mf6.MFSimulation(sim_name="reach", sim_ws=ws, exe_name="mf6")
@@ -196,7 +191,7 @@ def reach_model(ws, strand, mst_strand=False):
         },
         budget_filerecord="gwf.sfr.bud",
     )
-    gwt = add_gwt(sim, 1, botm, idomain, mst_strand)
+    gwt = add_gwt(sim, 1, botm, idomain, legacy=not strand)
     flopy.mf6.ModflowGwtsft(
         gwt,
         flow_package_name="SFR-1",
@@ -206,7 +201,6 @@ def reach_model(ws, strand, mst_strand=False):
         budget_filerecord="gwt.sft.bud",
         concentration_filerecord="gwt.sft.conc",
         pname="SFT-1",
-        stranded_mass=strand,
     )
     return sim
 
@@ -234,27 +228,22 @@ def assert_package_budget_closes(ws, pname):
     assert np.all(disc < 1e-2), f"{pname} budget does not close {disc}"
 
 
-def assert_option_source(ws, pname, source):
+def assert_held(ws, pname):
     text = (ws / "gwt.lst").read_text()
-    # MST notes in the listing that it turned the option on in the package
-    note = "STRANDED_MASS IS ACTIVE IN THE MST PACKAGE" in text
-    assert note == (source == "mst"), f"note in the listing {note} for {source}"
+    note = "WILL HOLD THE MASS OF A FEATURE THAT GOES DRY" in " ".join(text.split())
+    assert note, "the package did not report that it holds mass"
     held = re.search(rf"{pname} BUDGET.*?STRANDED", text, re.S) is not None
     assert held, f"no STRANDED term in the {pname} budget"
-    # the model budget holds stranded mass only when MST has the option
-    model = "STORAGE-STRANDED" in text
-    assert model == (source != "package"), f"model STORAGE-STRANDED {model}"
 
 
-@pytest.mark.parametrize("source", option_sources)
-def test_lake(function_tmpdir, targets, source):
+def test_lake(function_tmpdir, targets):
     def build(test):
-        return lake_model(test.workspace, source != "mst", source != "package")
+        return lake_model(test.workspace)
 
     def check(test):
         ws = test.workspace
         assert_package_budget_closes(ws, "LKT-1")
-        assert_option_source(ws, "LKT-1", source)
+        assert_held(ws, "LKT-1")
         vol, c, held = feature_series(
             ws, "gwf.lak.bud", "gwt.lkt.bud", "gwt.lkt.conc", True
         )
@@ -403,7 +392,7 @@ def test_lake_retry(function_tmpdir, targets):
     ).run()
 
 
-def test_lake_nooption(function_tmpdir, targets):
+def test_lake_legacy(function_tmpdir, targets):
     def build(test):
         return lake_model(test.workspace, False)
 
@@ -420,15 +409,14 @@ def test_lake_nooption(function_tmpdir, targets):
     ).run()
 
 
-@pytest.mark.parametrize("source", option_sources)
-def test_reach(function_tmpdir, targets, source):
+def test_reach(function_tmpdir, targets):
     def build(test):
-        return reach_model(test.workspace, source != "mst", source != "package")
+        return reach_model(test.workspace)
 
     def check(test):
         ws = test.workspace
         assert_package_budget_closes(ws, "SFT-1")
-        assert_option_source(ws, "SFT-1", source)
+        assert_held(ws, "SFT-1")
         vol, c, held = feature_series(
             ws, "gwf.sfr.bud", "gwt.sft.bud", "gwt.sft.conc", True
         )
@@ -551,20 +539,11 @@ def test_energy(function_tmpdir, targets):
         flopy.mf6.ModflowGwfgwe(
             sim, exgtype="GWF6-GWE6", exgmnamea="gwf", exgmnameb="gwe"
         )
-        sim.write_simulation(silent=True)
-        # the option is not part of the LKE input definition, so it is added
-        # to the file directly
-        fpth = ws / "gwe.lke"
-        text = fpth.read_text()
-        fpth.write_text(
-            text.replace("BEGIN options", "BEGIN options\n  STRANDED_MASS", 1)
-        )
         return sim
 
     def check(test):
-        listing = " ".join((test.workspace / "mfsim.lst").read_text().split())
-        # LKE has no STRANDED_MASS option, so the keyword is not recognized
-        assert 'tag not found: "STRANDED_MASS"' in listing
+        listing = " ".join((test.workspace / "gwe.lst").read_text().split())
+        assert "WILL HOLD THE MASS OF A FEATURE THAT GOES DRY" not in listing
 
     TestFramework(
         name="energy",
@@ -572,6 +551,4 @@ def test_energy(function_tmpdir, targets):
         targets=targets,
         build=build,
         check=check,
-        xfail=True,
-        overwrite=False,
     ).run()
