@@ -22,6 +22,7 @@ from platform import system
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = [
@@ -238,7 +239,10 @@ def check_output(idx, test):
 
 @pytest.mark.parallel
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+@pytest.mark.parametrize(
+    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     if system() == "Windows" and name.endswith(("d", "e", "f")):
         pytest.skip("very slow on windows runners")
 
@@ -249,7 +253,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
-        compare=None,
+        compare=compare,
         parallel=True,
         ncpus=ncpus,
     )

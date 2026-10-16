@@ -11,6 +11,7 @@ This test also checks that Newton under_relaxation works in parallel.
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["par_uzf_3lay_1p", "par_uzf_3lay_2p"]
@@ -35,14 +36,17 @@ def build_models(idx, test):
 
 @pytest.mark.parallel
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+@pytest.mark.parametrize(
+    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     ncpus = 2 if idx == 1 else 1
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        compare=None,
+        compare=compare,
         parallel=True,
         ncpus=ncpus,
     )

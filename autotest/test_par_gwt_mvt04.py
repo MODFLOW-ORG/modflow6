@@ -4,6 +4,7 @@ test_gwt_mvt04.py and runs it in parallel mode.
 """
 
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["par_mvt04"]
@@ -12,7 +13,10 @@ cases = ["par_mvt04"]
 @pytest.mark.parallel
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+@pytest.mark.parametrize(
+    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     from test_gwt_mvt04 import build_models, check_output
 
     test = TestFramework(
@@ -21,7 +25,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
-        compare=None,
+        compare=compare,
         parallel=True,
         ncpus=2,
     )
