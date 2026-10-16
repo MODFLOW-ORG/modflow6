@@ -116,7 +116,7 @@ module TspAptModule
     integer(I4B), pointer :: nconcbudssm => null() !< number of concbudssm terms (columns)
     real(DP), dimension(:, :), pointer, contiguous :: concbudssm => null() !< user specified concentrations (or temperatures) for flow terms
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
-    integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry (2 if set by MST)
+    integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
     real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume over which the held mass of a feature is spread
     real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
@@ -336,11 +336,10 @@ contains
     !
     ! --print a message identifying the apt package.
     write (this%iout, fmtapt) this%inunit
-    if (this%istrand == 2) then
+    if (this%istrand /= 0) then
       write (this%iout, '(4x,a)') &
         trim(adjustl(this%text))//' WILL HOLD THE MASS OF A FEATURE THAT &
-        &GOES DRY AND RETURN IT WHEN THE FEATURE REWETS, BECAUSE &
-        &STRANDED_MASS IS ACTIVE IN THE MST PACKAGE.'
+        &GOES DRY AND RETURN IT WHEN THE FEATURE REWETS.'
     end if
     !
     ! -- Allocate arrays
@@ -1222,7 +1221,7 @@ contains
     ! -- mass (or energy) added from the mover transport package
     call mem_allocate(this%qmfrommvr, this%ncv, 'QMFROMMVR', this%memoryPath)
     !
-    ! -- mass held for features that go dry, only with the STRANDED_MASS option
+    ! -- mass held for features that go dry, only with stranded mass
     nstrand = 0
     if (this%istrand /= 0) nstrand = this%ncv
     call mem_allocate(this%strandmass, nstrand, 'STRANDMASS', this%memoryPath)
@@ -1391,14 +1390,6 @@ contains
       write (this%iout, '(4x,a)') &
         'SIMULATED CONCENTRATIONS WILL BE COPIED INTO THE FLOW PACKAGE &
         &AUXILIARY VARIABLE WITH THE NAME '//trim(adjustl(this%cauxfpconc))
-    end if
-    !
-    ! -- ISTRAND (DFN: stranded_mass)
-    call mem_set_value(this%istrand, 'ISTRAND', this%input_mempath, found)
-    if (found) then
-      write (this%iout, '(4x,a)') &
-        trim(adjustl(this%text))//' WILL HOLD THE MASS OF A FEATURE THAT &
-        &GOES DRY AND RETURN IT WHEN THE FEATURE REWETS.'
     end if
     !
     ! -- DEV_NONEXPANDING_MATRIX is intentionally not sourced: this
@@ -1844,8 +1835,7 @@ contains
     ! -- dummy
     class(TspAptType) :: this
     !
-    ! -- 2 marks the option as set by MST; the package keyword resets it to 1
-    if (this%istrand == 0) this%istrand = 2
+    this%istrand = 1
   end subroutine apt_strand_from_mst
 
   !> @brief Rates of mass moved to and returned from the held mass
@@ -2027,7 +2017,7 @@ contains
     ! -- add terms for the specific package
     nbudterm = nbudterm + this%pak_get_nbudterms()
     !
-    ! -- add one for the held mass if the STRANDED_MASS option is active
+    ! -- add one for the held mass if stranded mass is active
     if (this%istrand /= 0) nbudterm = nbudterm + 1
     !
     ! -- add for mover terms and auxiliary
@@ -2814,7 +2804,8 @@ contains
             write (errmsg, '(5a)') &
               'Observation ', trim(obsrv%Name), ' in package ', &
               trim(this%packName), &
-              ' requires the STRANDED_MASS option.'
+              ' requires stranded mass, which LEGACY_STORAGE in the MST &
+              &Package turns off.'
             call store_error(errmsg)
           end if
           call this%rp_obs_byfeature(obsrv)
