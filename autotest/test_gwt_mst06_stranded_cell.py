@@ -176,7 +176,9 @@ def get_model(
     if sorb:
         kwargs.update(sorption="linear", bulk_density=rhob, distcoef=kd)
     if strand:
-        kwargs.update(stranded_mass=True, stranded_filerecord=[("gwt.strand.bin",)])
+        kwargs.update(stranded_filerecord=[("gwt.strand.bin",)])
+    else:
+        kwargs.update(legacy_storage=True)
     if mst_kwargs is not None:
         kwargs.update(mst_kwargs)
     flopy.mf6.ModflowGwtmst(gwt, **kwargs)

@@ -14,8 +14,8 @@ module GwtMstModule
                              LENBUDTXT, MAXCHARLEN, MNORMAL, LINELENGTH, &
                              DHNOFLO, DNODATA
   use SimVariablesModule, only: errmsg, warnmsg
-  use SimModule, only: store_error, count_errors, &
-                       store_warning, store_error_filename
+  use SimModule, only: store_error, count_errors, store_warning, &
+                       store_note, store_error_filename, deprecation_warning
   use MatrixBaseModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
@@ -95,6 +95,7 @@ module GwtMstModule
     integer(I4B), pointer :: ioutstrandet => null() !< unit number for output of the solute deposited by evapotranspiration
     logical :: warned_sy = .false. !< specific yield above the mobile porosity has been reported
     logical :: uzt_active = .false. !< the model has a UZT Package, which turns stranded mass off
+    logical :: ist_active = .false. !< the model has an IST Package, which turns stranded mass off
     logical :: held_pending = .false. !< the held fraction of initial stranded mass is set in the first time step
     logical :: warned_firststep = .false. !< a first time step without a stored saturation has been reported
     real(DP), dimension(:), pointer, contiguous :: cstrand => null() !< stranded mass held in each cell
@@ -112,6 +113,7 @@ module GwtMstModule
   contains
 
     procedure :: mst_ar
+    procedure, private :: strand_fallback
     procedure, private :: mst_decay_strand
     procedure :: mst_fc
     procedure :: mst_fc_sto
@@ -200,16 +202,9 @@ contains
     ! -- Source options
     call this%source_options()
     !
-    ! -- UZT and stranded mass both represent the drained part of a cell, and
-    !    stranded mass has not been implemented for UZT
-    if (this%istrand /= IZERO .and. this%uzt_active) then
-      this%istrand = IZERO
-      write (warnmsg, '(a)') 'STRANDED_MASS is turned off because the UZT &
-        &Package is active in the same model. Both represent the part of a &
-        &cell that the water table has drained, and stranded mass has not &
-        &been implemented for UZT.'
-      call store_warning(warnmsg)
-    end if
+    ! -- the storage formulation of earlier versions is used where stranded
+    !    mass has not been implemented
+    call this%strand_fallback()
 
     !
     ! -- store pointers to arguments that were passed in
@@ -242,30 +237,56 @@ contains
       ! -- zero-order decay of a reservoir that can be empty is ill-posed, so
       !    stranded mass does not decay in that case
       if (this%idcy == DECAY_ZERO_ORDER) then
-        write (warnmsg, '(a)') 'Zero-order decay is active with STRANDED_MASS. &
-          &Stranded mass does not decay because zero-order decay would drive &
-          &an empty reservoir negative.'
-        call store_warning(warnmsg)
-      end if
-      !
-      ! -- the volume of water retained against drainage is the difference
-      !    between the change in the mobile water volume and the water the
-      !    flow model releases from storage, so the STO-SY term is required.
-      !    Without it every drained pore volume would be treated as retained.
-      !    A flow model that is coupled to this one supplies the term whenever
-      !    it uses specific yield, so only flows read from a file can lack it.
-      if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then
-        write (errmsg, '(a)') 'STRANDED_MASS is active but the STO-SY flow &
-          &term was not found in the budget file read by the FMI Package. &
-          &Add SAVE_FLOWS to the STO Package or the name file of the flow &
-          &model and rerun it. &
-          &If the flow model does not use specific yield, no cell drains and &
-          &the option has no effect, so remove STRANDED_MASS.'
-        call store_error(errmsg)
-        call store_error_filename(this%input_fname)
+        write (warnmsg, '(a)') 'Zero-order decay is active with stranded &
+          &mass. Stranded mass does not decay because zero-order decay would &
+          &drive an empty reservoir negative.'
+        call store_note(warnmsg)
       end if
     end if
   end subroutine mst_ar
+
+  !> @brief Use the storage formulation of earlier versions where stranded
+  !! mass has not been implemented
+  !<
+  subroutine strand_fallback(this)
+    ! -- dummy
+    class(GwtMstType), intent(inout) :: this !< GwtMstType object
+    ! -- local
+    character(len=LINELENGTH) :: reason
+    !
+    if (this%istrand == IZERO) then
+      reason = ''
+    else if (this%ist_active) then
+      reason = 'an IST Package is active in the same model'
+    else if (this%uzt_active) then
+      reason = 'a UZT Package is active in the same model'
+    else if (this%fmi%flows_from_file .and. this%fmi%igwfstrgsy == 0) then
+      ! -- the water retained against drainage follows from the STO-SY term
+      reason = 'the budget file read by the FMI Package does not contain &
+               &the STO-SY flow term'
+    else
+      write (this%iout, '(4x,a)') 'STRANDED MASS IS ACTIVE.'
+      return
+    end if
+    if (reason /= '') then
+      this%istrand = IZERO
+      write (warnmsg, '(a)') 'Stranded mass is not simulated in the MST &
+        &Package because '//trim(reason)//'. The storage formulation of &
+        &earlier versions is used.'
+      call store_note(warnmsg)
+      write (this%iout, '(4x,a)') 'STRANDED MASS IS NOT SIMULATED BECAUSE '// &
+        trim(reason)//'.'
+    end if
+    !
+    ! -- stranded mass output requires stranded mass
+    if (this%ioutstranded /= 0 .or. this%ioutstrandaq /= 0 .or. &
+        this%ioutstrandsrb /= 0 .or. this%ioutstrandet /= 0) then
+      call store_error('STRANDED, STRANDED_AQ, STRANDED_SRB, or STRANDED_ET &
+                       &FILEOUT was specified but stranded mass is not &
+                       &simulated.')
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine strand_fallback
 
   !> @ brief Fill coefficient method for package
   !!
@@ -1753,7 +1774,7 @@ contains
     this%isrb = IZERO
     this%ioutsorbate = 0
     this%idcy = IZERO
-    this%istrand = IZERO
+    this%istrand = 1
     this%ioutstranded = 0
     this%ioutstrandaq = 0
     this%ioutstrandsrb = 0
@@ -1881,6 +1902,7 @@ contains
     character(len=LINELENGTH) :: strandaqfname
     character(len=LINELENGTH) :: strandsrbfname
     character(len=LINELENGTH) :: strandetfname
+    integer(I4B), pointer :: ilegacy
     !
     ! -- update defaults with memory sourced values
     call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
@@ -1893,8 +1915,11 @@ contains
                        sorption_method, found%sorption)
     call mem_set_value(fname, 'SORBATEFILE', this%input_mempath, &
                        found%sorbatefile)
-    call mem_set_value(this%istrand, 'ISTRAND', this%input_mempath, &
-                       found%istrand)
+    allocate (ilegacy)
+    ilegacy = 0
+    call mem_set_value(ilegacy, 'ILEGACY', this%input_mempath, &
+                       found%ilegacy)
+    deallocate (ilegacy)
     call mem_set_value(strandfname, 'STRANDEDFILE', this%input_mempath, &
                        found%strandedfile)
     call mem_set_value(strandaqfname, 'STRANDEDAQFILE', this%input_mempath, &
@@ -1921,25 +1946,15 @@ contains
       call openfile(this%ioutsorbate, this%iout, fname, 'DATA(BINARY)', &
                     form, access, 'REPLACE', mode_opt=MNORMAL)
     end if
-    if (found%istrand) this%istrand = 1
+    if (found%ilegacy) then
+      this%istrand = IZERO
+      call deprecation_warning('OPTIONS', 'LEGACY_STORAGE', '6.9.0', &
+                               'Stranded mass is simulated by default')
+    end if
     if (found%strandedfile) then
-      if (this%istrand == IZERO) then
-        call store_error('STRANDED FILEOUT was specified but the &
-                         &STRANDED_MASS keyword was not specified.')
-        call store_error_filename(this%input_fname)
-      end if
       this%ioutstranded = getunit()
       call openfile(this%ioutstranded, this%iout, strandfname, 'DATA(BINARY)', &
                     form, access, 'REPLACE', mode_opt=MNORMAL)
-    end if
-    if (found%strandedaqfile .or. found%strandedsrbfile .or. &
-        found%strandedetfile) then
-      if (this%istrand == IZERO) then
-        call store_error('STRANDED_AQ, STRANDED_SRB, or STRANDED_ET FILEOUT &
-                         &was specified but the STRANDED_MASS keyword was not &
-                         &specified.')
-        call store_error_filename(this%input_fname)
-      end if
     end if
     if (found%strandedaqfile) then
       this%ioutstrandaq = getunit()
@@ -1990,8 +2005,8 @@ contains
       &"(4x,'FIRST-ORDER DECAY IS ACTIVE. ')"
     character(len=*), parameter :: fmtidcy2 = &
       &"(4x,'ZERO-ORDER DECAY IS ACTIVE. ')"
-    character(len=*), parameter :: fmtstrand = &
-      &"(4x,'STRANDED MASS IS ACTIVE. ')"
+    character(len=*), parameter :: fmtlegacy = &
+      &"(4x,'LEGACY STORAGE IS ACTIVE; STRANDED MASS IS NOT SIMULATED. ')"
     character(len=*), parameter :: fmtfileout = &
       "(4x,'MST ',1x,a,1x,' WILL BE SAVED TO FILE: ',a,/4x,&
       &'OPENED ON UNIT: ',I7)"
@@ -2020,8 +2035,8 @@ contains
       write (this%iout, fmtfileout) &
         'SORBATE', sorbate_fname, this%ioutsorbate
     end if
-    if (found%istrand) then
-      write (this%iout, fmtstrand)
+    if (found%ilegacy) then
+      write (this%iout, fmtlegacy)
     end if
     if (found%strandedfile) then
       write (this%iout, fmtfileout) &
@@ -2220,8 +2235,8 @@ contains
         found%stranded_etsol) then
       if (this%istrand == IZERO) then
         write (errmsg, '(a)') 'STRANDED_AQUEOUS, STRANDED_SORBED, or &
-          &STRANDED_ET_SOLUTE was specified but the STRANDED_MASS keyword was &
-          &not specified.'
+          &STRANDED_ET_SOLUTE was specified but stranded mass is not &
+          &simulated.'
         call store_error(errmsg)
       else
         if (found%stranded_sorbed .and. this%isrb == SORPTION_OFF) then
@@ -2313,18 +2328,6 @@ contains
     real(DP), dimension(:), intent(in) :: volfracim !< immobile domain volume fraction that contributes to total immobile volume fraction
     ! -- local
     integer(I4B) :: n
-    !
-    ! -- An immobile domain scales its own mass by the cell saturation, so it
-    !    would redissolve its solute on drainage while the mobile domain
-    !    stranded its own.  Stranding must be added to the immobile domains
-    !    before the two can be used together.
-    if (this%istrand /= IZERO) then
-      write (errmsg, '(a)') 'STRANDED_MASS is specified in the MST package, &
-        &but an immobile domain (IST) is active.  Stranded mass is not &
-        &supported for immobile domains.'
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
-    end if
     !
     ! -- Add to volfracim
     do n = 1, this%dis%nodes
