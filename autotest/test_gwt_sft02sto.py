@@ -289,9 +289,9 @@ def check_mass_storage_change(times, volumes, concentrations, answers, verbose=F
     mass_storage_changes = np.zeros(ntimes, dtype=float)
     for idx in range(ntimes):
         dt = times[idx + 1] - times[idx]
+        # a reach that goes dry gives up its solute from storage to the mass
+        # it holds while dry, so the storage change is the whole of it
         v0, v1 = volumes[idx], volumes[idx + 1]
-        if v1 == 0.0:
-            v0 = 0.0
         mass_storage_changes[idx] = (
             concentrations[idx] * v0 - concentrations[idx + 1] * v1
         ) / dt
