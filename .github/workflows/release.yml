@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'Branch, tag or commit SHA to release from. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run.'
+        description: 'Branch, tag or commit SHA to build. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run. In release mode, the release metadata is committed on top of it, and that commit is built.'
         required: true
         type: string
       compiler_toolchain:
@@ -34,7 +34,7 @@ on:
         type: boolean
         default: true
       version:
-        description: 'Version number to use for release.'
+        description: 'Version number to use for release. In develop mode, this must match version.txt on ref, since development builds use the version metadata committed there.'
         required: true
         type: string
       patch:
@@ -43,19 +43,22 @@ on:
         type: boolean
         default: false
       date:
-        description: 'Date (YYYY-MM-DD) of the release, used for timestamps so all jobs agree. Defaults to the current date in each job. Only used when update_version is true.'
+        description: 'Date (YYYY-MM-DD) of the release, for timestamps and the release history. Defaults to the current date. Only used in release mode.'
         required: false
         type: string
         default: ''
-      update_version:
-        description: 'Apply update_version.py in each job. Set to false when ref is already a commit with version metadata applied (e.g. by a prepare job in the caller workflow), so each job does not need to reapply and recommit it.'
+      doi:
+        description: 'DOI link of the release, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history in the release notes. Required for a new minor or major release unless its release history row is already on ref. Patch releases reuse the DOI of the previous release with the same major and minor version. Only used in release mode.'
         required: false
-        type: boolean
-        default: true
+        type: string
+        default: ''
     outputs:
+      base_sha:
+        description: 'Commit SHA ref resolved to'
+        value: ${{ jobs.prepare.outputs.base_sha }}
       sha:
-        description: 'Commit SHA the release was built from'
-        value: ${{ jobs.resolve.outputs.sha }}
+        description: 'Commit SHA the release was built from. In release mode, this is a commit applying the release metadata on top of base_sha, unless base_sha already has it. Such a commit is not pushed anywhere; it is uploaded as the prepared-commit artifact, a git bundle with a branch named prepared, for the caller to publish if it wants.'
+        value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
         value: ${{ jobs.build.outputs.version }}
@@ -65,19 +68,19 @@ on:
 env:
   PIXI_BETA_WARNING_OFF: true
 jobs:
-  resolve:
-    name: Resolve commit
+  prepare:
+    name: Prepare release
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
     outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
+      base_sha: ${{ steps.resolve.outputs.sha }}
+      sha: ${{ steps.prepare.outputs.sha }}
+      prepared: ${{ steps.prepare.outputs.prepared }}
     steps:
-      # pin the ref to a SHA up front. build, docs and dist each check out
-      # separately, and docs/dist only start after build and tests finish,
-      # so checking out a branch name in each could pick up different commits
-      - name: Resolve ref to commit SHA
-        id: resolve
+      - name: Check ref
         env:
-          GH_TOKEN: ${{ github.token }}
           REF: ${{ inputs.ref }}
         run: |
           # required inputs can still be passed an empty string, e.g. from an
@@ -86,12 +89,109 @@ jobs:
             echo "::error::The ref input is empty. Pass the branch, tag or commit SHA to release from."
             exit 1
           fi
-          sha=$(gh api "repos/${{ github.repository_owner }}/modflow6/commits/$REF" --jq .sha)
-          echo "resolved $REF to $sha"
+
+      - name: Checkout modflow6
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          path: modflow6
+          ref: ${{ inputs.ref }}
+
+      # pin the ref to a SHA up front. build, docs and dist each check out
+      # separately, and docs/dist only start after build and tests finish,
+      # so checking out a branch name in each could pick up different commits
+      - name: Resolve ref to commit SHA
+        id: resolve
+        working-directory: modflow6
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "resolved ${{ inputs.ref }} to $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Check version
+        if: inputs.releasemode != true
+        working-directory: modflow6
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          # development builds use the version metadata committed on ref as is,
+          # so the version they're named by must be the one they report
+          committed=$(cat version.txt)
+          if [[ "$committed" != "$VERSION" ]]; then
+            echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Development builds use the committed version."
+            exit 1
+          fi
+
+      - name: Setup pixi
+        if: inputs.releasemode == true
+        uses: prefix-dev/setup-pixi@v0.11.0
+        with:
+          pixi-version: v0.80.0
+          manifest-path: "modflow6/pixi.toml"
+
+      # release builds get their version strings, timestamps and release history
+      # row here, once, committed so every job builds the same commit, and so a
+      # release can publish exactly what was built. development builds skip this
+      # and use what's committed, which only differs from it in timestamps
+      - name: Apply release metadata
+        id: prepare
+        working-directory: modflow6
+        env:
+          VERSION: ${{ inputs.version }}
+          DATE: ${{ inputs.date }}
+          DOI: ${{ inputs.doi }}
+          BASE: ${{ steps.resolve.outputs.sha }}
+        run: |
+          if [[ "${{ inputs.releasemode }}" != "true" ]]; then
+            echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+            echo "prepared=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          args=(-v "$VERSION")
+          if [[ -n "$DATE" ]]; then
+            args+=(--date "$DATE")
+          fi
+          if [[ -n "$DOI" ]]; then
+            args+=(--doi "$DOI")
+          fi
+          pixi run prepare-release "${args[@]}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+
+          # doc/version.py always changes (it embeds the exact run time, down to
+          # the second, in a comment), so ignore it when deciding whether there's
+          # anything real to commit. there isn't when ref already has the metadata,
+          # e.g. a release rerun the same day after its prepared commit was pushed
+          if git diff --cached --quiet -- . ':(exclude)doc/version.py'; then
+            echo "${{ inputs.ref }} already has the release metadata for $VERSION, building it as is"
+            echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+            echo "prepared=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # commit, and bundle the commit for the other jobs (and the caller) to
+          # fetch. the bundle only holds the new commit; recipients need BASE
+          git switch -C prepared
+          git commit -m "ci(release): update version to $VERSION"
+          git bundle create ../prepared.bundle "$BASE..prepared"
+          sha=$(git rev-parse HEAD)
+          echo "prepared $sha on top of $BASE"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "prepared=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload prepared commit
+        if: steps.prepare.outputs.prepared == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: prepared-commit
+          path: prepared.bundle
+
   build:
     name: Build binaries (${{ matrix.os }}, extended=${{ matrix.extended }})
-    needs: resolve
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -138,7 +238,22 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.base_sha }}
+
+      - name: Download prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: prepared-commit
+          path: prepared-commit
+
+      - name: Checkout prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        working-directory: modflow6
+        shell: bash
+        run: |
+          git fetch ../prepared-commit/prepared.bundle prepared
+          git checkout --detach "${{ needs.prepare.outputs.sha }}"
 
       - name: Checkout modflow6-testmodels
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -183,23 +298,6 @@ jobs:
           echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
           echo "distname=$distname" >> "$GITHUB_OUTPUT"
           echo "DISTNAME=$distname" >> "$GITHUB_ENV"
-
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ steps.set_version.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
 
       - name: Update flopy
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -464,7 +562,7 @@ jobs:
   docs:
     name: Build docs
     needs:
-      - resolve
+      - prepare
       - build
     runs-on: ubuntu-22.04
     defaults:
@@ -487,7 +585,22 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.base_sha }}
+
+      - name: Download prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: prepared-commit
+          path: prepared-commit
+
+      - name: Checkout prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        working-directory: modflow6
+        shell: bash
+        run: |
+          git fetch ../prepared-commit/prepared.bundle prepared
+          git checkout --detach "${{ needs.prepare.outputs.sha }}"
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -529,23 +642,6 @@ jobs:
         with:
           compiler: ${{ inputs.compiler_toolchain }}
           version: ${{ inputs.compiler_version }}
-
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6/distribution
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ needs.build.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
 
       - name: Update flopy
         working-directory: modflow6
@@ -640,7 +736,7 @@ jobs:
   dist:
     name: Build distribution (${{ matrix.os }})
     needs:
-      - resolve
+      - prepare
       - build
       - docs
     runs-on: ${{ matrix.os }}
@@ -671,7 +767,22 @@ jobs:
         with:
           repository: ${{ github.repository_owner }}/modflow6
           path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          ref: ${{ needs.prepare.outputs.base_sha }}
+
+      - name: Download prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: prepared-commit
+          path: prepared-commit
+
+      - name: Checkout prepared commit
+        if: needs.prepare.outputs.prepared == 'true'
+        working-directory: modflow6
+        shell: bash
+        run: |
+          git fetch ../prepared-commit/prepared.bundle prepared
+          git checkout --detach "${{ needs.prepare.outputs.sha }}"
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -695,23 +806,6 @@ jobs:
         working-directory: modflow6
         run: pixi run install
       
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6/distribution
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ needs.build.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
-
       - name: Get OS tag
         working-directory: modflow6
         id: ostag
@@ -733,8 +827,8 @@ jobs:
           echo "selecting ${{ steps.ostag.outputs.ostag }} artifacts"
           # remove dists for other systems
           rm -rf ${{ needs.build.outputs.distname }}_*
-          # remove release notes
-          rm -rf release_notes
+          # remove release notes and the prepared commit
+          rm -rf release_notes prepared-commit
           # rename dist bin directory
           mv bin-${{ steps.ostag.outputs.ostag }} bin
           # remove binaries for other systems
