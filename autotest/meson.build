@@ -22,6 +22,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'PtrHashTable',
     'Sim',
     'Smoothing',
+    'StrandedMass',
     'SVD',
     'SwfUtils',
     'TimeSelect',
