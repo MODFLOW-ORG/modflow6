@@ -10,7 +10,7 @@ from compare import (
     setup_mf5to6,
 )
 from framework import TestFramework
-from modflow_devtools.models import DEFAULT_REGISTRY, LocalRegistry
+from modflow_devtools.models import LocalRegistry, get_default_registry
 
 # prefixes into the model registry. only relevant for the "official" registry.
 # https://modflow-devtools.readthedocs.io/en/latest/md/models.html#model-names
@@ -59,7 +59,23 @@ def pytest_generate_tests(metafunc):
         models_paths = [
             Path(p).expanduser().resolve().absolute() for p in models_paths or []
         ]
-        registry = LocalRegistry() if any(models_paths) else DEFAULT_REGISTRY
+        if any(models_paths):
+            registry = LocalRegistry()
+        else:
+            # the default registry must be synced to a local cache
+            # first (e.g. `mf models sync`), skip if it isn't there
+            try:
+                registry = get_default_registry()
+            except RuntimeError as e:
+                if "No model registries found in cache" not in str(e):
+                    raise
+                metafunc.parametrize("registry", [None], ids=["default"])
+                metafunc.parametrize(
+                    "model_name",
+                    [pytest.param(None, marks=pytest.mark.skip(reason=str(e)))],
+                    ids=["unavailable"],
+                )
+                return
         registry_type = type(registry).__name__.lower().replace("registry", "")
         metafunc.parametrize("registry", [registry], ids=[registry_type])
         models = []
