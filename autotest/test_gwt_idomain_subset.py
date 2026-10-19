@@ -3,7 +3,9 @@ Tests a GWT model that simulates transport on a subset of the GWF model cells.
 
 A one-dimensional flow model with an injection well at the upgradient end and a
 constant head at the downgradient end supplies flows to one or two transport
-models through separate GWF-GWT exchanges.
+models through separate GWF-GWT exchanges.  The flow imbalance correction is
+off, so flow across the boundary of a reduced domain is carried by the
+DOMAIN-BOUNDARY budget term alone.
 
 Cases:
   - idomsub : the transport domain drops the downgradient cells; concentrations
@@ -189,7 +191,7 @@ def build_transport_model(
     flopy.mf6.ModflowGwtic(gwt, strt=0.0)
     flopy.mf6.ModflowGwtadv(gwt, scheme="upstream")
     flopy.mf6.ModflowGwtmst(gwt, porosity=porosity)
-    flopy.mf6.ModflowGwtfmi(gwt, flow_imbalance_correction=True)
+    flopy.mf6.ModflowGwtfmi(gwt)
     flopy.mf6.ModflowGwtssm(gwt, sources=[("WEL-1", "AUX", "CONCENTRATION")])
     if icolcnc[idx] is not None:
         flopy.mf6.ModflowGwtcnc(
@@ -321,6 +323,10 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwtname}.ucn")
     cobj = flopy.utils.HeadFile(fpth, precision="double", text="CONCENTRATION")
     csub = cobj.get_data()
+
+    # flow across the boundary of the reduced domain has its own budget term
+    with open(os.path.join(test.workspace, f"{gwtname}.lst")) as f:
+        assert "DOMAIN-BOUNDARY" in f.read(), "no DOMAIN-BOUNDARY budget term"
 
     # the transport budget must close
     pd = budget_discrepancy(test, gwtname)

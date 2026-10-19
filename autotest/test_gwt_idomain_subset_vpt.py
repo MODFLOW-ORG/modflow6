@@ -7,8 +7,8 @@ model gives that cell an IDOMAIN of 0, so both models have the same number of
 active cells but the transport model does not connect the cells above and below.
 
 Cases:
-  - idomvpt : flow through the pass-through connection is carried by the flow
-              imbalance correction; the transport budget must close and
+  - idomvpt : flow through the pass-through connection is carried by the
+              DOMAIN-BOUNDARY budget term; the transport budget must close and
               concentrations must stay within the source range.
 """
 

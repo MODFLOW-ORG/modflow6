@@ -4,7 +4,9 @@ Tests a GWE model that simulates transport on a subset of the GWF model cells.
 A one-dimensional flow model with an injection well at the upgradient end and a
 constant head at the downgradient end supplies flows to one or two energy
 transport models through separate GWF-GWE exchanges.  Conduction is omitted so
-that the reduced domain reproduces the full-domain solution exactly.
+that the reduced domain reproduces the full-domain solution exactly.  The flow
+imbalance correction is off, so flow across the boundary of a reduced domain is
+carried by the DOMAIN-BOUNDARY budget term alone.
 
 Cases:
   - idomsub : the transport domain drops the downgradient cells; temperatures
@@ -183,7 +185,7 @@ def build_transport_model(
         heat_capacity_solid=cps,
         density_solid=rhos,
     )
-    flopy.mf6.ModflowGwefmi(gwe, flow_imbalance_correction=True)
+    flopy.mf6.ModflowGwefmi(gwe)
     flopy.mf6.ModflowGwessm(gwe, sources=[("WEL-1", "AUX", "TEMPERATURE")])
     if icolctp[idx] is not None:
         flopy.mf6.ModflowGwectp(
@@ -305,6 +307,10 @@ def check_output(idx, test):
     fpth = os.path.join(test.workspace, f"{gwename}.ucn")
     tobj = flopy.utils.HeadFile(fpth, precision="double", text="TEMPERATURE")
     tsub = tobj.get_data()
+
+    # flow across the boundary of the reduced domain has its own budget term
+    with open(os.path.join(test.workspace, f"{gwename}.lst")) as f:
+        assert "DOMAIN-BOUNDARY" in f.read(), "no DOMAIN-BOUNDARY budget term"
 
     # the transport budget must close
     pd = budget_discrepancy(test, gwename)
