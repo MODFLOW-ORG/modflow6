@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "exchanges"
+description = "The GWE-GWE interface model took its equation scaling factor from the CND Package, so without CND almost no energy crossed a GWE-GWE exchange. The scaling factor now comes from the GWE model; results with CND are unchanged."
