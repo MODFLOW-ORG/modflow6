@@ -224,16 +224,9 @@ jobs:
       # when the branch already has the metadata, e.g. a rerun the same day)
       - name: Checkout modflow6
         if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.make_dist.outputs.base_sha }}
-
-      - name: Checkout prepared commit
-        if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
+          base_sha: ${{ needs.make_dist.outputs.base_sha }}
           sha: ${{ needs.make_dist.outputs.sha }}
 
       - name: Push prepared commit

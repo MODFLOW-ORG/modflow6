@@ -367,7 +367,7 @@ The `release.yml` workflow has no triggers of its own, and must be dispatched by
 
 The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
 
-In release mode (`releasemode: true`), `release.yml` commits the release metadata on top of the given `ref` and builds that commit. It's not pushed; the caller gets its SHA as the `sha` output, and the commit itself as the `prepared-commit` artifact, a git bundle with a branch named `prepared` whose prerequisite is the `base_sha` output. `release_dispatch.yml` pushes it to the release branch. In develop mode, `ref` is built as committed, and the `version` input must match its `version.txt`.
+In release mode (`releasemode: true`), `release.yml` commits the release metadata on top of the given `ref` and builds that commit. It's not pushed; the caller gets its SHA as the `sha` output, and the commit itself as the `prepared-commit` artifact, a git bundle with a branch named `prepared` whose prerequisite is the `base_sha` output. `release_dispatch.yml` pushes it to the release branch. The jobs check out the commit to build with the `checkout-prepared` composite action in `.github/actions/`, which checks out `base_sha` and applies the bundle on top, if there is one. In develop mode, `ref` is built as committed, and the `version` input is optional: it defaults to `ref`'s `version.txt`, and if given must match it.
 
 This workflow is also used by the [nightly build repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build).
 

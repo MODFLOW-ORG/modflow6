@@ -34,9 +34,10 @@ on:
         type: boolean
         default: true
       version:
-        description: 'Version number to use for release. In develop mode, this must match version.txt on ref, since development builds use the version metadata committed there.'
-        required: true
+        description: 'Version number to use for release. Required in release mode. In develop mode, defaults to version.txt on ref, since development builds use the version metadata committed there, and if given must match it.'
+        required: false
         type: string
+        default: ''
       patch:
         description: 'Create a patch release. If true, only bug fixes and new examples will be included in generated documentation.'
         required: false
@@ -77,7 +78,7 @@ jobs:
     outputs:
       base_sha: ${{ steps.resolve.outputs.sha }}
       sha: ${{ steps.prepare.outputs.sha }}
-      prepared: ${{ steps.prepare.outputs.prepared }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check ref
         env:
@@ -108,19 +109,29 @@ jobs:
           echo "resolved ${{ inputs.ref }} to $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
-      - name: Check version
-        if: inputs.releasemode != true
+      - name: Resolve version
+        id: version
         working-directory: modflow6
         env:
           VERSION: ${{ inputs.version }}
         run: |
-          # development builds use the version metadata committed on ref as is,
-          # so the version they're named by must be the one they report
-          committed=$(cat version.txt)
-          if [[ "$committed" != "$VERSION" ]]; then
-            echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Development builds use the committed version."
-            exit 1
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            if [[ -z "$VERSION" ]]; then
+              echo "::error::The version input is required in release mode."
+              exit 1
+            fi
+          else
+            # development builds use the version metadata committed on ref as is,
+            # so the version they're named by must be the one they report
+            committed=$(cat version.txt)
+            if [[ -z "$VERSION" ]]; then
+              VERSION="$committed"
+            elif [[ "$committed" != "$VERSION" ]]; then
+              echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Development builds use the committed version, so omit the version input or pass that."
+              exit 1
+            fi
           fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Setup pixi
         if: inputs.releasemode == true
@@ -137,7 +148,7 @@ jobs:
         id: prepare
         working-directory: modflow6
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
           DATE: ${{ inputs.date }}
           DOI: ${{ inputs.doi }}
           BASE: ${{ steps.resolve.outputs.sha }}
@@ -243,19 +254,12 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      - name: Checkout modflow6
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.prepare.outputs.base_sha }}
-
       # from develop like this workflow, not the checkout, which may be a
       # release branch cut before the action existed
-      - name: Checkout prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
+      - name: Checkout modflow6
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
+          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-testmodels
@@ -294,11 +298,11 @@ jobs:
         id: set_version
         run: |
           # distribution name format is 'mf<major.minor.patch[label]>'
-          distname="mf${{ inputs.version }}"
+          distname="mf${{ needs.prepare.outputs.version }}"
 
           # set step outputs and environment variables
-          echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          echo "version=${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${{ needs.prepare.outputs.version }}" >> "$GITHUB_ENV"
           echo "distname=$distname" >> "$GITHUB_OUTPUT"
           echo "DISTNAME=$distname" >> "$GITHUB_ENV"
 
@@ -583,17 +587,12 @@ jobs:
           docker-images: true
           swap-storage: true
 
+      # from develop like this workflow, not the checkout, which may be a
+      # release branch cut before the action existed
       - name: Checkout modflow6
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.prepare.outputs.base_sha }}
-
-      - name: Checkout prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
+          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
@@ -756,17 +755,12 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
+      # from develop like this workflow, not the checkout, which may be a
+      # release branch cut before the action existed
       - name: Checkout modflow6
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.prepare.outputs.base_sha }}
-
-      - name: Checkout prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
+          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples

@@ -1,26 +1,37 @@
 name: Checkout prepared commit
-description: Check out the release metadata commit made by the release workflow's prepare job
+description: Check out the commit the release workflow builds, base_sha with the release metadata commit made by its prepare job on top, if there is one
 inputs:
+  base_sha:
+    description: 'SHA the ref input resolved to (the prepare job base_sha output)'
+    required: true
   sha:
-    description: 'SHA of the prepared commit'
+    description: 'SHA of the commit to build (the prepare job sha output). If it differs from base_sha, it is the prepared commit, fetched from the prepared-commit artifact.'
     required: true
   path:
-    description: 'Path of the modflow6 checkout'
+    description: 'Path to check out modflow6 to'
     required: false
     default: modflow6
 runs:
   using: "composite"
   steps:
+    - name: Checkout base commit
+      uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/modflow6
+        path: ${{ inputs.path }}
+        ref: ${{ inputs.base_sha }}
+
     - name: Download prepared commit
+      if: inputs.sha != inputs.base_sha
       uses: actions/download-artifact@v8
       with:
         name: prepared-commit
         path: ${{ runner.temp }}/prepared-commit
 
-    # the bundle only holds the prepared commit, and its prerequisite is the
-    # commit it was made on top of (base_sha). a shallow (depth 1) checkout of
-    # base_sha is enough to satisfy that, so check out base_sha before this
+    # the bundle only holds the prepared commit, so fetching it needs its parent,
+    # base_sha, which the (shallow) checkout above provides
     - name: Checkout prepared commit
+      if: inputs.sha != inputs.base_sha
       working-directory: ${{ inputs.path }}
       shell: bash
       env:
