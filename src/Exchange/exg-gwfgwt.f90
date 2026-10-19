@@ -3,8 +3,8 @@ module GwfGwtExchangeModule
   use ConstantsModule, only: LENPACKAGENAME, LINELENGTH
   use ListsModule, only: basemodellist, baseexchangelist, &
                          baseconnectionlist
-  use SimModule, only: store_error, store_warning
-  use SimVariablesModule, only: errmsg, warnmsg
+  use SimModule, only: store_error
+  use SimVariablesModule, only: errmsg
   use BaseExchangeModule, only: BaseExchangeType, AddBaseExchangeToList
   use SpatialModelConnectionModule, only: SpatialModelConnectionType, &
                                           get_smc_from_list
@@ -133,8 +133,6 @@ contains
   !> @brief Define the GwfGwt Exchange object
   !<
   subroutine exg_df(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_checkin
     ! -- dummy
     class(GwfGwtExchangeType) :: this
     ! -- local
@@ -172,12 +170,7 @@ contains
     call gwtmodel%check_gwf_domain(gwfmodel%dis, this%name, this%filename)
     !
     ! -- Set pointer to flowja
-    if (gwtmodel%fmi%igwfmapped == 0) then
-      gwtmodel%fmi%gwfflowja => gwfmodel%flowja
-      call mem_checkin(gwtmodel%fmi%gwfflowja, &
-                       'GWFFLOWJA', gwtmodel%fmi%memoryPath, &
-                       'FLOWJA', gwfmodel%memoryPath)
-    end if
+    call gwtmodel%fmi%set_gwf_flowja(gwfmodel%flowja, gwfmodel%memoryPath)
     !
     ! -- Set the npf flag so that specific discharge is available for
     !    transport calculations if dispersion is active
@@ -189,20 +182,12 @@ contains
   !> @brief Allocate and read
   !<
   subroutine exg_ar(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_checkin
     ! -- dummy
     class(GwfGwtExchangeType) :: this
     ! -- local
     class(BaseModelType), pointer :: mb => null()
     type(GwfModelType), pointer :: gwfmodel => null()
     type(GwtModelType), pointer :: gwtmodel => null()
-    ! -- formats
-    character(len=*), parameter :: fmtnocorr = &
-      "('GWT Model uses a subset of the GWF Model cells for exchange ',a,'.&
-      &  Water that flows across the boundary of the transport domain is not&
-      &  accounted for unless FLOW_IMBALANCE_CORRECTION is activated in the&
-      &  GWT FMI Package.')"
     !
     ! -- set gwfmodel
     mb => GetBaseModelFromList(basemodellist, this%m1_idx)
@@ -218,30 +203,10 @@ contains
       gwtmodel => mb
     end select
     !
-    ! -- setup pointers to gwf variables allocated in gwf_ar.  When the
-    !    transport model uses a subset of the flow model cells the arrays are
-    !    owned by fmi and refilled through the grid maps each time step.
-    if (gwtmodel%fmi%igwfmapped /= 0) then
-      call gwtmodel%fmi%set_gwf_sources(gwfmodel%x, gwfmodel%npf%sat, &
-                                        gwfmodel%npf%spdis, gwfmodel%flowja)
-      if (gwtmodel%fmi%iflowerr == 0) then
-        write (warnmsg, fmtnocorr) trim(this%name)
-        call store_warning(warnmsg)
-      end if
-    else
-      gwtmodel%fmi%gwfhead => gwfmodel%x
-      call mem_checkin(gwtmodel%fmi%gwfhead, &
-                       'GWFHEAD', gwtmodel%fmi%memoryPath, &
-                       'X', gwfmodel%memoryPath)
-      gwtmodel%fmi%gwfsat => gwfmodel%npf%sat
-      call mem_checkin(gwtmodel%fmi%gwfsat, &
-                       'GWFSAT', gwtmodel%fmi%memoryPath, &
-                       'SAT', gwfmodel%npf%memoryPath)
-      gwtmodel%fmi%gwfspdis => gwfmodel%npf%spdis
-      call mem_checkin(gwtmodel%fmi%gwfspdis, &
-                       'GWFSPDIS', gwtmodel%fmi%memoryPath, &
-                       'SPDIS', gwfmodel%npf%memoryPath)
-    end if
+    ! -- setup pointers to gwf variables allocated in gwf_ar
+    call gwtmodel%fmi%set_gwf_state(gwfmodel%x, gwfmodel%npf%sat, &
+                                    gwfmodel%npf%spdis, gwfmodel%memoryPath, &
+                                    gwfmodel%npf%memoryPath)
     gwtmodel%fmi%igwfspdis = gwfmodel%npf%icalcspdis
     !
     ! -- setup pointers to the flow storage rates. GWF strg arrays are

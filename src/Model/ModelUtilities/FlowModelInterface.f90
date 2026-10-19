@@ -87,7 +87,8 @@ module FlowModelInterfaceModule
     procedure :: map_gwf_grid
     procedure :: map_gwf_values
     procedure :: is_dropped
-    procedure :: set_gwf_sources
+    procedure :: set_gwf_flowja
+    procedure :: set_gwf_state
     procedure :: set_gwf_storage
     procedure :: source_options
     procedure :: source_packagedata
@@ -284,21 +285,56 @@ contains
     end if
   end function is_dropped
 
-  !> @brief Set pointers to the flow model arrays that are mapped each time step
+  !> @brief Connect this model to the flow model flowja
   !<
-  subroutine set_gwf_sources(this, head, sat, spdis, flowja)
+  subroutine set_gwf_flowja(this, flowja, gwfpath)
+    ! -- modules
+    use MemoryManagerModule, only: mem_checkin
+    ! -- dummy
+    class(FlowModelInterfaceType) :: this
+    real(DP), dimension(:), pointer, contiguous :: flowja !< flow model flowja
+    character(len=*), intent(in) :: gwfpath !< flow model memory path
+    !
+    if (this%igwfmapped /= 0) then
+      this%gwfflowja_src => flowja
+    else
+      this%gwfflowja => flowja
+      call mem_checkin(this%gwfflowja, 'GWFFLOWJA', this%memoryPath, &
+                       'FLOWJA', gwfpath)
+    end if
+  end subroutine set_gwf_flowja
+
+  !> @brief Connect this model to the flow model head, saturation, and
+  !! specific discharge
+  !<
+  subroutine set_gwf_state(this, head, sat, spdis, gwfpath, npfpath)
+    ! -- modules
+    use MemoryManagerModule, only: mem_checkin
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     real(DP), dimension(:), pointer, contiguous :: head !< flow model head
     real(DP), dimension(:), pointer, contiguous :: sat !< flow model saturation
     real(DP), dimension(:, :), pointer, contiguous :: spdis !< flow model specific discharge
-    real(DP), dimension(:), pointer, contiguous :: flowja !< flow model flowja
+    character(len=*), intent(in) :: gwfpath !< flow model memory path
+    character(len=*), intent(in) :: npfpath !< flow model NPF memory path
     !
-    this%gwfhead_src => head
-    this%gwfsat_src => sat
-    this%gwfspdis_src => spdis
-    this%gwfflowja_src => flowja
-  end subroutine set_gwf_sources
+    ! -- a mapped model owns its arrays and refills them each time step
+    if (this%igwfmapped /= 0) then
+      this%gwfhead_src => head
+      this%gwfsat_src => sat
+      this%gwfspdis_src => spdis
+    else
+      this%gwfhead => head
+      call mem_checkin(this%gwfhead, 'GWFHEAD', this%memoryPath, &
+                       'X', gwfpath)
+      this%gwfsat => sat
+      call mem_checkin(this%gwfsat, 'GWFSAT', this%memoryPath, &
+                       'SAT', npfpath)
+      this%gwfspdis => spdis
+      call mem_checkin(this%gwfspdis, 'GWFSPDIS', this%memoryPath, &
+                       'SPDIS', npfpath)
+    end if
+  end subroutine set_gwf_state
 
   !> @brief Connect this model to the flow model storage rates
   !<
@@ -355,34 +391,20 @@ contains
       nf = this%gwfnodemap(n)
       this%gwfhead(n) = this%gwfhead_src(nf)
       this%gwfsat(n) = this%gwfsat_src(nf)
-    end do
-    !
-    if (this%igwfspdis /= 0) then
-      do n = 1, this%dis%nodes
-        nf = this%gwfnodemap(n)
+      if (this%igwfspdis /= 0) then
         do i = 1, 3
           this%gwfspdis(i, n) = this%gwfspdis_src(i, nf)
         end do
-      end do
-    end if
-    !
-    if (this%igwfstrgss /= 0) then
-      do n = 1, this%dis%nodes
-        this%gwfstrgss(n) = this%gwfstrgss_src(this%gwfnodemap(n))
-      end do
-    end if
-    if (this%igwfstrgsy /= 0) then
-      do n = 1, this%dis%nodes
-        this%gwfstrgsy(n) = this%gwfstrgsy_src(this%gwfnodemap(n))
-      end do
-    end if
-    !
-    do n = 1, this%dis%nodes
+      end if
+      if (this%igwfstrgss /= 0) then
+        this%gwfstrgss(n) = this%gwfstrgss_src(nf)
+      end if
+      if (this%igwfstrgsy /= 0) then
+        this%gwfstrgsy(n) = this%gwfstrgsy_src(nf)
+      end if
       do ipos = this%dis%con%ia(n), this%dis%con%ia(n + 1) - 1
         this%gwfflowja(ipos) = this%gwfflowja_src(this%gwfjamap(ipos))
       end do
-    end do
-    do n = 1, this%dis%nodes
       idiag = this%dis%con%ia(n)
       do i = this%gwfdropia(n), this%gwfdropia(n + 1) - 1
         this%gwfflowja(idiag) = this%gwfflowja(idiag) - &

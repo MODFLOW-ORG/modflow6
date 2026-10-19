@@ -20,6 +20,10 @@ Cases:
               well handled by MWT, so the transport and flow node numbers of
               the well cell differ; concentrations must match the full-domain
               model in the retained cells.
+  - idomshp : a transport grid with the same number of cells as the flow grid
+              but a different shape is an error (xfail).
+  - idomgeo : a transport grid with a different cell bottom than the flow grid
+              is an error (xfail).
 """
 
 import os
@@ -30,7 +34,15 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["idomsub", "idomint", "idomnot", "idomapt", "idommwt"]
+cases = [
+    "idomsub",
+    "idomint",
+    "idomnot",
+    "idomapt",
+    "idommwt",
+    "idomshp",
+    "idomgeo",
+]
 
 nlay, nrow, ncol = 1, 1, 100
 delr, delc = 1.0, 1.0
@@ -42,20 +54,24 @@ porosity = 0.1
 perlen, nstp = 5.0, 200
 
 # first and last active transport column for each case
-icol0 = [0, 20, 0, 0, 20]
-icol1 = [59, 59, 59, 59, 59]
+icol0 = [0, 20, 0, 0, 20, 0, 0]
+icol1 = [59, 59, 59, 59, 59, 59, 59]
 
 # column deactivated in the flow model, or None
-icolgwf = [None, None, 80, None, None]
+icolgwf = [None, None, 80, None, None, None, None]
 
 # column with a multi-aquifer well outside the transport domain, or None
-icolmaw = [None, None, None, 80, 40]
+icolmaw = [None, None, None, 80, 40, None, None]
 
 # multi-aquifer well injection rate
-mawrate = [0.0, 0.0, 0.0, 0.0, 0.5]
+mawrate = [0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0]
 
 # column with a specified transport concentration, or None
-icolcnc = [None, 20, None, None, 20]
+icolcnc = [None, 20, None, None, 20, None, None]
+
+# transport grid that differs from the flow grid: (nrow, ncol) and bottom
+gwtshape = [None, None, None, None, None, (ncol, 1), None]
+gwtbotm = [None, None, None, None, None, None, -1.0]
 
 
 def transport_idomain(idx):
@@ -63,6 +79,8 @@ def transport_idomain(idx):
     idomain[0, 0, icol0[idx] : icol1[idx] + 1] = 1
     if icolgwf[idx] is not None:
         idomain[0, 0, icolgwf[idx]] = 1
+    if gwtshape[idx] is not None:
+        idomain = idomain.reshape((nlay, *gwtshape[idx]))
     return idomain
 
 
@@ -156,15 +174,16 @@ def build_transport_model(
     )
     sim.register_ims_package(ims, [gwt.name])
 
+    nr, nc = (nrow, ncol) if gwtshape[idx] is None else gwtshape[idx]
     flopy.mf6.ModflowGwtdis(
         gwt,
         nlay=nlay,
-        nrow=nrow,
-        ncol=ncol,
+        nrow=nr,
+        ncol=nc,
         delr=delr,
         delc=delc,
         top=top,
-        botm=botm,
+        botm=botm if gwtbotm[idx] is None else [gwtbotm[idx]],
         idomain=idomain,
     )
     flopy.mf6.ModflowGwtic(gwt, strt=0.0)
@@ -280,6 +299,16 @@ def check_output(idx, test):
         )
         return
 
+    if idx == 5:
+        srch = "GWF and GWT Models do not have the same discretization"
+        assert srch in text, "expected an error for a different grid shape"
+        return
+
+    if idx == 6:
+        srch = "has a different top, bottom, or area in the GWT Model"
+        assert srch in text, "expected an error for a different cell bottom"
+        return
+
     if idx == 3:
         srch = "which is not active in the GWT Model"
         assert srch in text, (
@@ -326,6 +355,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
-        xfail=idx in (2, 3),
+        xfail=idx in (2, 3, 5, 6),
     )
     test.run()

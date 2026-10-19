@@ -632,7 +632,10 @@ contains
   subroutine check_gwf_domain(this, gwfdis, exgname, exgfile)
     ! -- modules
     use BaseDisModule, only: DisBaseType
-    use SimModule, only: store_error, store_error_filename, count_errors
+    use ConstantsModule, only: DONE, DEM6
+    use SimModule, only: store_error, store_error_filename, count_errors, &
+                         store_warning
+    use SimVariablesModule, only: warnmsg
     use TspAptModule, only: TspAptType
     ! -- dummy
     class(TransportModelType) :: this
@@ -642,7 +645,7 @@ contains
     ! -- local
     class(BndType), pointer :: packobj => null()
     integer(I4B) :: ip, j
-    integer(I4B) :: nu, n, nf, nerr
+    integer(I4B) :: i, nu, n, nf, nerr, ngeo
     integer(I4B) :: ipos
     logical(LGP) :: same
     character(len=20) :: nodestr
@@ -651,9 +654,11 @@ contains
     ! -- formats
     character(len=*), parameter :: fmtdiserr = &
       "('GWF and ', a, ' Models do not have the same discretization for &
-      &exchange ',a,'.  GWF Model has ', i0, ' user nodes and the ', a, &
-      &' Model has ', i0, '.  Ensure the discretization packages define the &
+      &exchange ',a,'.  Ensure the discretization packages define the &
       &same grid.')"
+    character(len=*), parameter :: fmtgeoerr = &
+      "('Cell ', a, ' has a different top, bottom, or area in the ', a, &
+      &' Model than in the GWF Model for exchange ',a,'.')"
     character(len=*), parameter :: fmtidomerr = &
       "('Cell ', a, ' is active in the ', a, ' Model but is not active in the &
       &GWF Model for exchange ',a,'.')"
@@ -661,25 +666,51 @@ contains
       "('IDOMAIN for the ', a, ' Model is not a subset of IDOMAIN for the GWF &
       &Model for exchange ',a,'.  ', i0, ' cells are active in the ', a, &
       &' Model and inactive in the GWF Model.')"
+    character(len=*), parameter :: fmtnocorr = &
+      "(a, ' Model uses a subset of the GWF Model cells for exchange ',a,'.&
+      &  Water that flows across the boundary of the transport domain is not&
+      &  accounted for unless FLOW_IMBALANCE_CORRECTION is activated in the&
+      &  ', a, ' FMI Package.')"
     character(len=*), parameter :: fmtapterr = &
       "('Advanced transport package ',a,' is connected to cell ',a,', which &
       &is not active in the ', a, ' Model.  Cells connected to an advanced &
       &package must be included in the transport domain.')"
     !
-    ! -- the user grids must be the same
-    if (this%dis%nodesuser /= gwfdis%nodesuser) then
-      write (errmsg, fmtdiserr) trim(this%macronym), trim(exgname), &
-        gwfdis%nodesuser, trim(this%macronym), this%dis%nodesuser
-      call store_error(errmsg, terminate=.TRUE.)
+    ! -- the user grids must be the same type and shape
+    same = same_type_as(this%dis, gwfdis) .and. &
+           size(this%dis%mshape) == size(gwfdis%mshape)
+    if (same) then
+      do i = 1, size(this%dis%mshape)
+        if (this%dis%mshape(i) /= gwfdis%mshape(i)) same = .false.
+      end do
+    end if
+    if (.not. same) then
+      write (errmsg, fmtdiserr) trim(this%macronym), trim(exgname)
+      call store_error(errmsg)
+      call store_error_filename(exgfile)
     end if
     !
-    ! -- every active transport cell must be active in the flow model
+    ! -- every active transport cell must be active in the flow model and
+    !    have the same geometry
     nerr = 0
+    ngeo = 0
     do nu = 1, this%dis%nodesuser
       n = this%dis%get_nodenumber(nu, 0)
       if (n <= 0) cycle
       nf = gwfdis%get_nodenumber(nu, 0)
-      if (nf > 0) cycle
+      if (nf > 0) then
+        if (differ(this%dis%top(n), gwfdis%top(nf)) .or. &
+            differ(this%dis%bot(n), gwfdis%bot(nf)) .or. &
+            differ(this%dis%area(n), gwfdis%area(nf))) then
+          ngeo = ngeo + 1
+          if (ngeo > MAXCELLS) cycle
+          call this%dis%nodeu_to_string(nu, nodestr)
+          write (errmsg, fmtgeoerr) trim(adjustl(nodestr)), &
+            trim(this%macronym), trim(exgname)
+          call store_error(errmsg)
+        end if
+        cycle
+      end if
       nerr = nerr + 1
       if (nerr > MAXCELLS) cycle
       call this%dis%nodeu_to_string(nu, nodestr)
@@ -691,8 +722,8 @@ contains
       write (errmsg, fmtidomsum) trim(this%macronym), trim(exgname), nerr, &
         trim(this%macronym)
       call store_error(errmsg)
-      call store_error_filename(exgfile)
     end if
+    if (count_errors() > 0) call store_error_filename(exgfile)
     !
     ! -- nothing more to do if the two models use the same cells and
     !    connections; vertical pass-through cells can change the connections
@@ -718,6 +749,11 @@ contains
     end if
     !
     call this%fmi%map_gwf_grid(gwfdis)
+    if (this%fmi%iflowerr == 0) then
+      write (warnmsg, fmtnocorr) trim(this%macronym), trim(exgname), &
+        trim(this%macronym)
+      call store_warning(warnmsg)
+    end if
     !
     ! -- an advanced transport package works from flow model cell numbers
     !    rather than from the mapped nodelist
@@ -736,6 +772,14 @@ contains
       end select
     end do
     if (count_errors() > 0) call store_error_filename(exgfile)
+  contains
+    !> @brief Compare two cell dimensions
+    !<
+    function differ(a, b) result(d)
+      real(DP), intent(in) :: a, b
+      logical(LGP) :: d
+      d = abs(a - b) > DEM6 * max(DONE, abs(a), abs(b))
+    end function differ
   end subroutine check_gwf_domain
 
   !> @brief Write model name file options to list file
