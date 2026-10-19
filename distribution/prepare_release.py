@@ -1,16 +1,11 @@
 """
-Apply the release-time changeset: version strings and timestamps in release
-mode (update_version.py), the release's row in the release history
-(../doc/ReleaseNotes/release_history.py), and formatting of the generated
-version.f90. The release workflow runs this once and builds the result, and
-when releasing, that same commit is what merges to master.
+Apply release metadata: version strings and timestamps (update_version.py
+--releasemode), the release history row (release_history.py), and formatting
+of version.f90. For release builds only; development builds use the metadata
+committed on develop.
 
-This is only for release builds. Development builds use the version metadata
-already committed on develop.
-
-If the release history already has a row for the version (a retried release,
-or one added by hand), its date is updated and its DOI kept, so the history
-and citation agree with the timestamps.
+An existing release history row (a retry, or added by hand) gets its date
+updated and its DOI kept.
 """
 
 import argparse
@@ -69,8 +64,7 @@ def prepare_release(version: str, release_date: date, doi: str | None = None):
     )
 
 
-# files the release metadata scripts read or write, and the scripts themselves,
-# copied to a scratch tree so the test doesn't touch the repository
+# files the scripts touch, and the scripts, copied so the test leaves the repo alone
 _tree_files = [
     ".fprettify.yaml",
     "version.txt",
@@ -132,8 +126,7 @@ def test_prepare_release(tree):
         in first["doc/ReleaseNotes/ReleaseNotes.tex"]
     )
 
-    # rerunning with the same inputs changes nothing but the run time embedded
-    # in doc/version.py, which the release workflow relies on to skip the commit
+    # a rerun changes only the run time in doc/version.py (release.yml relies on this)
     subprocess.run(cmd, cwd=tree / "distribution", check=True)
     second = _snapshot(tree)
     del first["doc/version.py"], second["doc/version.py"]
@@ -161,8 +154,7 @@ if __name__ == "__main__":
         "--doi",
         default=None,
         help="DOI of the release, bare or as a link. Needed for a new minor "
-        "release unless its release history row already exists. Defaults to "
-        "the DOI of the latest release with the same major and minor version.",
+        "release without a release history row. Defaults to the previous DOI.",
     )
     args = parser.parse_args()
 

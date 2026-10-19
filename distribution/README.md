@@ -145,7 +145,7 @@ Double-check release notes in `doc/ReleaseNotes/items/` with the authors of any 
 
 For hotfix releases, files for features not included in the hotfix must be removed manually on the release branch. For patch releases made from `develop`, release notes are automatically filtered to include only fixes and examples.
 
-**Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically, using `doc/ReleaseNotes/release_history.py` (`pixi run add-release-history`). This happens once, in the release workflow's `prepare` job, before anything is built (see [Build assets/distributions](#build-assetsdistributions)). The date is the date the workflow starts, which is also used for build timestamps and the software citation. If the line already exists, because the release is being retried or the line was added by hand, its date is updated and its DOI kept, so a release retried on a later day is dated by the build that ships. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
+**Note**: A line providing the version number, date and DOI of the release, e.g. `6.4.4 & February 13, 2024 & \url{https://doi.org/10.5066/P9FL1JCC}`, is added to the Release History section of `ReleaseNotes.tex` automatically, using `doc/ReleaseNotes/release_history.py` (`pixi run add-release-history`). This happens in the release workflow's `prepare` job, before anything is built (see [Build assets/distributions](#build-assetsdistributions)). The date is the date the workflow starts, which is also used for build timestamps and the software citation. If the line already exists, because the release is being retried or the line was added by hand, its date is updated and its DOI kept, so a release retried on a later day is dated by the build that ships. DOIs are updated with minor releases and remain the same for patch releases, so patch releases reuse the DOI of the minor release they patch.
 
 A new minor (or major) release needs its DOI provided. Pushing a `vX.Y.0` branch does not trigger the release workflow, since a push can't take input. Start the release with `workflow_dispatch` and the `doi` input instead (see [Workflow triggers](#workflow-triggers)). The DOI may be given bare (`10.5066/P1PGE9XW`) or as a link. As a safeguard, a release started without a DOI, or with an invalid one, fails immediately, before anything is built, unless the release branch already has a line for the release with the DOI. The date and DOI in the release history are also used in the software citation in the drafted GitHub release.
 
@@ -168,9 +168,9 @@ Pushing a `vX.Y.Z` branch triggers the release workflow for patch releases (`Z` 
 
 ### Build assets/distributions
 
-A `prepare` job runs first: it applies the release metadata (version strings, timestamps and the release history row, via `prepare_release.py`, or `pixi run prepare-release`) once, on top of the release branch's tip, and commits it. The commit isn't pushed yet; it's handed to the build, docs and dist jobs as a git bundle artifact, and they all build exactly that commit. Only once the build succeeds is the same commit pushed to the release branch, so the binaries, documentation and distribution archives are built from precisely the commit that later gets merged to `master`, and a failed build leaves the branch untouched. If the branch moved while the release was building, the push fails rather than overwrite it; rerun the release to build the branch as it is now. A release rerun on the same day after its commit was pushed regenerates the same files, so no new commit is made; a rerun on a later day commits the new date, since it's a new build.
+A `prepare` job first commits the release metadata (version strings, timestamps and the release history row, via `pixi run prepare-release`) on top of the release branch. The build, docs and dist jobs all build that commit, and it's pushed to the release branch only if the build succeeds, so what's built is exactly what merges to `master`. If the branch moved during the build, the push fails; rerun the release. A same-day rerun makes no new commit; a rerun on a later day commits the new date.
 
-Once the build completes and the commit is pushed, the workflow drafts a pull request against the `master` branch from the release branch, unless one is already open. Nothing is released until that pull request is merged, so to abandon a release (e.g. if the distributions fail inspection), close the pull request and delete the release branch.
+Then the workflow drafts a pull request against the `master` branch from the release branch, unless one is already open. Nothing is released until that pull request is merged, so to abandon a release (e.g. if the distributions fail inspection), close the pull request and delete the release branch.
 
 ### Merge release branch to master
 
@@ -240,7 +240,7 @@ pixi run update-version -v 6.4.1
 python update_version.py -v 6.4.1 # or from the distribution/ folder
 ```
 
-The `--date` option (`YYYY-MM-DD`) sets the date used in timestamps, instead of today's. The release workflow passes the same date to `prepare_release.py`, which passes it on to `update_version.py` and `release_history.py`, so timestamps and the release history agree.
+The `--date` option (`YYYY-MM-DD`) sets the date used in timestamps, instead of today's. The release workflow passes one date to `prepare_release.py`, so timestamps and the release history agree.
 
 If a `--version` value is not provided, the version string will not be changed, just dates and timestamps. The `--version` value may contain trailing letters, e.g.
 
@@ -367,7 +367,7 @@ The `release.yml` workflow has no triggers of its own, and must be dispatched by
 
 The `release.yml` workflow is a callable function for producing distributions. It uses the scripts in this directory to build a distribution for each supported platform. Custom actions in `.github/actions/` are also used for extended builds.
 
-In release mode (`releasemode: true`), `release.yml` commits the release metadata on top of the given `ref` and builds that commit. It's not pushed; the caller gets its SHA as the `sha` output, and the commit itself as the `prepared-commit` artifact, a git bundle with a branch named `prepared` whose prerequisite is the `base_sha` output. `release_dispatch.yml` pushes it to the release branch. The jobs check out the commit to build with the `checkout-prepared` composite action in `.github/actions/`, which checks out `base_sha` and applies the bundle on top, if there is one. In develop mode, `ref` is built as committed, and the `version` input is optional: it defaults to `ref`'s `version.txt`, and if given must match it.
+In release mode, `release.yml` commits the release metadata on top of `ref` and builds that commit without pushing it. Callers get it as the `prepared-commit` artifact, a git bundle on top of `base_sha`, and its SHA as the `sha` output; `release_dispatch.yml` pushes it to the release branch. Jobs check it out with the `checkout-prepared` action. In develop mode, `ref` is built as is, and `version` defaults to its `version.txt`.
 
 This workflow is also used by the [nightly build repository](https://github.com/MODFLOW-ORG/modflow6-nightly-build).
 

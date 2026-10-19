@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'Branch, tag or commit SHA to build. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run. In release mode, the release metadata is committed on top of it, and that commit is built.'
+        description: 'Branch, tag or commit SHA to build, resolved to a SHA once so all jobs build the same commit. In release mode, the release metadata is committed on top of it.'
         required: true
         type: string
       compiler_toolchain:
@@ -34,7 +34,7 @@ on:
         type: boolean
         default: true
       version:
-        description: 'Version number to use for release. Required in release mode. In develop mode, defaults to version.txt on ref, since development builds use the version metadata committed there, and if given must match it.'
+        description: 'Version number. Required in release mode. In develop mode, defaults to version.txt on ref and must match it if given.'
         required: false
         type: string
         default: ''
@@ -44,12 +44,12 @@ on:
         type: boolean
         default: false
       date:
-        description: 'Date (YYYY-MM-DD) of the release, for timestamps and the release history. Defaults to the current date. Only used in release mode.'
+        description: 'Release date (YYYY-MM-DD) for timestamps and the release history. Defaults to today. Release mode only.'
         required: false
         type: string
         default: ''
       doi:
-        description: 'DOI link of the release, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history in the release notes. Required for a new minor or major release unless its release history row is already on ref. Patch releases reuse the DOI of the previous release with the same major and minor version. Only used in release mode.'
+        description: 'Release DOI, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history. Required for a new minor/major release unless ref has its row already. Patch releases reuse the previous DOI. Release mode only.'
         required: false
         type: string
         default: ''
@@ -58,7 +58,7 @@ on:
         description: 'Commit SHA ref resolved to'
         value: ${{ jobs.prepare.outputs.base_sha }}
       sha:
-        description: 'Commit SHA the release was built from. In release mode, this is a commit applying the release metadata on top of base_sha, unless base_sha already has it. Such a commit is not pushed anywhere; it is uploaded as the prepared-commit artifact, a git bundle with a branch named prepared, for the caller to publish if it wants.'
+        description: 'Commit SHA built. In release mode, the release metadata commit on top of base_sha (unless base_sha has it already), not pushed, but uploaded as the prepared-commit artifact (a git bundle with branch prepared).'
         value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
@@ -98,9 +98,7 @@ jobs:
           path: modflow6
           ref: ${{ inputs.ref }}
 
-      # pin the ref to a SHA up front. build, docs and dist each check out
-      # separately, and docs/dist only start after build and tests finish,
-      # so checking out a branch name in each could pick up different commits
+      # pin ref to a SHA so all jobs build the same commit, even if a branch moves
       - name: Resolve ref to commit SHA
         id: resolve
         working-directory: modflow6
@@ -121,13 +119,12 @@ jobs:
               exit 1
             fi
           else
-            # development builds use the version metadata committed on ref as is,
-            # so the version they're named by must be the one they report
+            # development builds use the committed version metadata as is
             committed=$(cat version.txt)
             if [[ -z "$VERSION" ]]; then
               VERSION="$committed"
             elif [[ "$committed" != "$VERSION" ]]; then
-              echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Development builds use the committed version, so omit the version input or pass that."
+              echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Omit it or pass the committed version."
               exit 1
             fi
           fi
@@ -140,10 +137,8 @@ jobs:
           pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
-      # release builds get their version strings, timestamps and release history
-      # row here, once, committed so every job builds the same commit, and so a
-      # release can publish exactly what was built. development builds skip this
-      # and use what's committed, which only differs from it in timestamps
+      # release builds commit their metadata once, so every job builds, and the
+      # release publishes, the same commit. development builds use what's committed
       - name: Apply release metadata
         id: prepare
         working-directory: modflow6
@@ -166,35 +161,31 @@ jobs:
           if [[ -n "$DOI" ]]; then
             args+=(--doi "$DOI")
           fi
-          # frozen, so pixi.lock (tracked) is never touched and swept into the commit
+          # frozen, so pixi.lock isn't modified and committed
           pixi run --frozen prepare-release "${args[@]}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -u
 
-          # the release metadata scripts only modify tracked files. anything new
-          # is unexpected, so fail rather than build without it or commit it blindly
+          # the scripts only modify tracked files, so anything new is unexpected
           untracked=$(git ls-files --others --exclude-standard)
           if [[ -n "$untracked" ]]; then
-            echo "::error::Preparing the release created untracked files, which aren't committed:"
+            echo "::error::prepare-release created untracked files:"
             echo "$untracked"
             exit 1
           fi
 
-          # doc/version.py always changes (it embeds the exact run time, down to
-          # the second, in a comment), so ignore it when deciding whether there's
-          # anything real to commit. there isn't when ref already has the metadata,
-          # e.g. a release rerun the same day after its prepared commit was pushed
+          # doc/version.py always changes (it embeds the run time), so ignore it.
+          # nothing else does if ref already has the metadata, e.g. a same-day rerun
           if git diff --cached --quiet -- . ':(exclude)doc/version.py'; then
-            echo "${{ inputs.ref }} already has the release metadata for $VERSION, building it as is"
+            echo "${{ inputs.ref }} already has the release metadata for $VERSION"
             echo "sha=$BASE" >> "$GITHUB_OUTPUT"
             echo "prepared=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # commit, and bundle the commit for the other jobs (and the caller) to
-          # fetch. the bundle only holds the new commit; recipients need BASE
+          # the bundle only holds the new commit, so recipients need BASE
           git switch -C prepared
           git commit -m "ci(release): update version to $VERSION"
           git bundle create ../prepared.bundle "$BASE..prepared"
@@ -254,8 +245,7 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      # from develop like this workflow, not the checkout, which may be a
-      # release branch cut before the action existed
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
@@ -587,8 +577,7 @@ jobs:
           docker-images: true
           swap-storage: true
 
-      # from develop like this workflow, not the checkout, which may be a
-      # release branch cut before the action existed
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
@@ -755,8 +744,7 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      # from develop like this workflow, not the checkout, which may be a
-      # release branch cut before the action existed
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:

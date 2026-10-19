@@ -172,12 +172,9 @@ jobs:
           VERSION: ${{ steps.set_version.outputs.version }}
           DOI: ${{ inputs.doi }}
         run: |
-          # The release history in the release notes gets a row for the release in the release
-          # workflow's prepare job.
-          # It reuses the DOI of the previous release with the same major and minor version, so
-          # patch releases need no DOI, but a new minor release needs one: either from the doi
-          # input, or from a row already on the release branch. Fail now instead of in the build
-          # if there isn't one.
+          # release.yml adds the release history row. Patch releases reuse the previous DOI,
+          # but a new minor release needs one, from the doi input or a row already on the
+          # branch. Fail now instead of in the build if there isn't one.
           git fetch --depth=1 origin "$BRANCH"
           git show FETCH_HEAD:doc/ReleaseNotes/ReleaseNotes.tex > "$RUNNER_TEMP/ReleaseNotes.tex"
           args=(-v "$VERSION" --check --notes "$RUNNER_TEMP/ReleaseNotes.tex")
@@ -196,8 +193,7 @@ jobs:
     with:
       compiler_toolchain: ${{ needs.set_options.outputs.compiler_toolchain }}
       compiler_version: ${{ needs.set_options.outputs.compiler_version }}
-      # release.yml commits the release metadata on top of the branch and builds
-      # that commit, which the pr job then pushes to the branch
+      # release.yml commits the release metadata on top, which the pr job pushes
       ref: ${{ needs.set_options.outputs.branch }}
       releasemode: true
       # If the workflow is manually triggered, the maintainer must manually set run_tests to false, otherwise the default is true.
@@ -205,10 +201,8 @@ jobs:
       run_tests: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_tests == true) || github.event_name != 'workflow_dispatch' }}
       version: ${{ needs.set_options.outputs.version }}
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == true) || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
-      # If triggered by pushing a release branch there is no input. A patch release reuses the previous DOI,
-      # and for a new minor release the release history row must already be on the branch.
+      # empty if triggered by push (see Check release history)
       doi: ${{ inputs.doi }}
-      # the same date for timestamps and the release history
       date: ${{ needs.set_options.outputs.date }}
   pr:
     name: Draft release PR
@@ -220,8 +214,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      # the release metadata commit release.yml built, if it made one (it doesn't
-      # when the branch already has the metadata, e.g. a rerun the same day)
+      # the prepared commit, if release.yml made one
       - name: Checkout modflow6
         if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
         uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
@@ -236,10 +229,9 @@ jobs:
           BRANCH: ${{ needs.set_options.outputs.branch }}
           SHA: ${{ needs.make_dist.outputs.sha }}
         run: |
-          # not forced: if the branch moved since the release started, the commit
-          # that was built isn't on top of it, so fail instead of overwriting it
+          # not forced, so a branch that moved during the build isn't overwritten
           if ! git push origin "$SHA:refs/heads/$BRANCH"; then
-            echo "::error::Couldn't push the release metadata commit to $BRANCH, which may have moved since the release started. Rerun the release to build the branch as it is now."
+            echo "::error::Couldn't push to $BRANCH, which may have moved since the release started. Rerun the release."
             exit 1
           fi
 
