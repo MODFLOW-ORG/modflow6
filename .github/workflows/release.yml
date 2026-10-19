@@ -250,9 +250,11 @@ jobs:
           path: modflow6
           ref: ${{ needs.prepare.outputs.base_sha }}
 
+      # from develop like this workflow, not the checkout, which may be a
+      # release branch cut before the action existed
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        uses: ./modflow6/.github/actions/checkout-prepared
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
           sha: ${{ needs.prepare.outputs.sha }}
 
@@ -590,7 +592,7 @@ jobs:
 
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        uses: ./modflow6/.github/actions/checkout-prepared
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
           sha: ${{ needs.prepare.outputs.sha }}
 
@@ -763,7 +765,7 @@ jobs:
 
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        uses: ./modflow6/.github/actions/checkout-prepared
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
           sha: ${{ needs.prepare.outputs.sha }}
 

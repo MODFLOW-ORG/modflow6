@@ -232,7 +232,7 @@ jobs:
 
       - name: Checkout prepared commit
         if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
-        uses: ./modflow6/.github/actions/checkout-prepared
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
         with:
           sha: ${{ needs.make_dist.outputs.sha }}
 
