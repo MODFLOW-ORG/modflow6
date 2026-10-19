@@ -1,0 +1,3 @@
+section = "features"
+subsection = "exchanges"
+description = "The IDOMAIN of a GWT or GWE model can now exclude cells that are active in the GWF model that supplies its flows, including with GWT-GWT and GWE-GWE exchanges and in parallel. Flow across the boundary of the reduced domain is carried by the flow imbalance, so FLOW\\_IMBALANCE\\_CORRECTION should be activated in the FMI Package. An advanced transport package cannot be connected to an excluded cell."
