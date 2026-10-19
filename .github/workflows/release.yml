@@ -155,11 +155,21 @@ jobs:
           if [[ -n "$DOI" ]]; then
             args+=(--doi "$DOI")
           fi
-          pixi run prepare-release "${args[@]}"
+          # frozen, so pixi.lock (tracked) is never touched and swept into the commit
+          pixi run --frozen prepare-release "${args[@]}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -u
+
+          # the release metadata scripts only modify tracked files. anything new
+          # is unexpected, so fail rather than build without it or commit it blindly
+          untracked=$(git ls-files --others --exclude-standard)
+          if [[ -n "$untracked" ]]; then
+            echo "::error::Preparing the release created untracked files, which aren't committed:"
+            echo "$untracked"
+            exit 1
+          fi
 
           # doc/version.py always changes (it embeds the exact run time, down to
           # the second, in a comment), so ignore it when deciding whether there's
@@ -240,20 +250,11 @@ jobs:
           path: modflow6
           ref: ${{ needs.prepare.outputs.base_sha }}
 
-      - name: Download prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: prepared-commit
-          path: prepared-commit
-
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        working-directory: modflow6
-        shell: bash
-        run: |
-          git fetch ../prepared-commit/prepared.bundle prepared
-          git checkout --detach "${{ needs.prepare.outputs.sha }}"
+        uses: ./modflow6/.github/actions/checkout-prepared
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-testmodels
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -587,20 +588,11 @@ jobs:
           path: modflow6
           ref: ${{ needs.prepare.outputs.base_sha }}
 
-      - name: Download prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: prepared-commit
-          path: prepared-commit
-
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        working-directory: modflow6
-        shell: bash
-        run: |
-          git fetch ../prepared-commit/prepared.bundle prepared
-          git checkout --detach "${{ needs.prepare.outputs.sha }}"
+        uses: ./modflow6/.github/actions/checkout-prepared
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -769,20 +761,11 @@ jobs:
           path: modflow6
           ref: ${{ needs.prepare.outputs.base_sha }}
 
-      - name: Download prepared commit
-        if: needs.prepare.outputs.prepared == 'true'
-        uses: actions/download-artifact@v8
-        with:
-          name: prepared-commit
-          path: prepared-commit
-
       - name: Checkout prepared commit
         if: needs.prepare.outputs.prepared == 'true'
-        working-directory: modflow6
-        shell: bash
-        run: |
-          git fetch ../prepared-commit/prepared.bundle prepared
-          git checkout --detach "${{ needs.prepare.outputs.sha }}"
+        uses: ./modflow6/.github/actions/checkout-prepared
+        with:
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -827,8 +810,8 @@ jobs:
           echo "selecting ${{ steps.ostag.outputs.ostag }} artifacts"
           # remove dists for other systems
           rm -rf ${{ needs.build.outputs.distname }}_*
-          # remove release notes and the prepared commit
-          rm -rf release_notes prepared-commit
+          # remove release notes
+          rm -rf release_notes
           # rename dist bin directory
           mv bin-${{ steps.ostag.outputs.ostag }} bin
           # remove binaries for other systems

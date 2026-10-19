@@ -14,10 +14,14 @@ and citation agree with the timestamps.
 """
 
 import argparse
+import shutil
 import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+
+import pytest
+from packaging.version import Version
 
 project_root_path = Path(__file__).parents[1]
 distribution_path = project_root_path / "distribution"
@@ -63,6 +67,77 @@ def prepare_release(version: str, release_date: date, doi: str | None = None):
         ],
         check=True,
     )
+
+
+# files the release metadata scripts read or write, and the scripts themselves,
+# copied to a scratch tree so the test doesn't touch the repository
+_tree_files = [
+    ".fprettify.yaml",
+    "version.txt",
+    "meson.build",
+    "pixi.toml",
+    "README.md",
+    "DISCLAIMER.md",
+    "CITATION.cff",
+    "code.json",
+    ".build_rtd_docs/Doxyfile",
+    "utils/mf5to6/meson.build",
+    "doc/version.tex",
+    "doc/version.py",
+    "doc/ReleaseNotes/ReleaseNotes.tex",
+    "doc/ReleaseNotes/release_history.py",
+    "src/Utilities/version.f90.in",
+    "src/Utilities/version.f90",
+    "distribution/prepare_release.py",
+    "distribution/update_version.py",
+    "distribution/utils.py",
+]
+
+
+@pytest.fixture
+def tree(tmp_path):
+    for name in _tree_files:
+        dst = tmp_path / name
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(project_root_path / name, dst)
+    return tmp_path
+
+
+def _snapshot(root: Path) -> dict[str, str]:
+    return {name: (root / name).read_text() for name in _tree_files}
+
+
+def test_prepare_release(tree):
+    current = Version((tree / "version.txt").read_text().strip())
+    version = f"{current.major}.{current.minor + 1}.0"
+    doi = "https://doi.org/10.5066/TEST"
+    cmd = [
+        sys.executable,
+        str(tree / "distribution" / "prepare_release.py"),
+        "-v",
+        version,
+        "--date",
+        "2026-12-01",
+        "--doi",
+        doi,
+    ]
+
+    subprocess.run(cmd, cwd=tree / "distribution", check=True)
+    first = _snapshot(tree)
+
+    assert first["version.txt"].strip() == version
+    assert "IDEVELOPMODE = 0" in first["src/Utilities/version.f90"]
+    assert (
+        f"{version} & December 1, 2026 & \\url{{{doi}}}"
+        in first["doc/ReleaseNotes/ReleaseNotes.tex"]
+    )
+
+    # rerunning with the same inputs changes nothing but the run time embedded
+    # in doc/version.py, which the release workflow relies on to skip the commit
+    subprocess.run(cmd, cwd=tree / "distribution", check=True)
+    second = _snapshot(tree)
+    del first["doc/version.py"], second["doc/version.py"]
+    assert first == second
 
 
 if __name__ == "__main__":

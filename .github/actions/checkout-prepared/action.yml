@@ -1,0 +1,31 @@
+name: Checkout prepared commit
+description: Check out the release metadata commit made by the release workflow's prepare job
+inputs:
+  sha:
+    description: 'SHA of the prepared commit'
+    required: true
+  path:
+    description: 'Path of the modflow6 checkout'
+    required: false
+    default: modflow6
+runs:
+  using: "composite"
+  steps:
+    - name: Download prepared commit
+      uses: actions/download-artifact@v8
+      with:
+        name: prepared-commit
+        path: ${{ runner.temp }}/prepared-commit
+
+    # the bundle only holds the prepared commit, and its prerequisite is the
+    # commit it was made on top of (base_sha). a shallow (depth 1) checkout of
+    # base_sha is enough to satisfy that, so check out base_sha before this
+    - name: Checkout prepared commit
+      working-directory: ${{ inputs.path }}
+      shell: bash
+      env:
+        BUNDLE: ${{ runner.temp }}/prepared-commit/prepared.bundle
+        SHA: ${{ inputs.sha }}
+      run: |
+        git fetch "$BUNDLE" prepared
+        git checkout --detach "$SHA"

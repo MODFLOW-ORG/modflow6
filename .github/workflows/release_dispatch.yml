@@ -230,12 +230,11 @@ jobs:
           path: modflow6
           ref: ${{ needs.make_dist.outputs.base_sha }}
 
-      - name: Download prepared commit
+      - name: Checkout prepared commit
         if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
-        uses: actions/download-artifact@v8
+        uses: ./modflow6/.github/actions/checkout-prepared
         with:
-          name: prepared-commit
-          path: prepared-commit
+          sha: ${{ needs.make_dist.outputs.sha }}
 
       - name: Push prepared commit
         if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
@@ -244,7 +243,6 @@ jobs:
           BRANCH: ${{ needs.set_options.outputs.branch }}
           SHA: ${{ needs.make_dist.outputs.sha }}
         run: |
-          git fetch ../prepared-commit/prepared.bundle prepared
           # not forced: if the branch moved since the release started, the commit
           # that was built isn't on top of it, so fail instead of overwriting it
           if ! git push origin "$SHA:refs/heads/$BRANCH"; then
