@@ -21,9 +21,9 @@ module TspFmiModule
 
   character(len=LENPACKAGENAME) :: text = '    GWTFMI'
 
-  integer(I4B), parameter :: NBDITEMS = 2
+  integer(I4B), parameter :: NBDITEMS = 3
   character(len=LENBUDTXT), dimension(NBDITEMS) :: budtxt
-  data budtxt/'      FLOW-ERROR', ' FLOW-CORRECTION'/
+  data budtxt/'      FLOW-ERROR', ' FLOW-CORRECTION', ' DOMAIN-BOUNDARY'/
 
   type :: DataAdvancedPackageType
     real(DP), dimension(:), contiguous, pointer :: concpack => null()
@@ -42,6 +42,7 @@ module TspFmiModule
     real(DP), dimension(:), pointer, contiguous :: satold => null() !< gwf saturation at the end of the previous time step
     real(DP), dimension(:), pointer, contiguous :: satnew => null() !< gwf saturation at the end of the current time step
     integer(I4B), pointer :: igwfiss => null() !< gwf steady-state flag, when the flow model is solved in the simulation
+    real(DP), dimension(:), pointer, contiguous :: bndrate => null() !< mass flow across the boundary of a reduced domain
     real(DP), pointer :: eqnsclfac => null() !< governing equation scale factor; =1. for solute; =rhow*cpw for energy
     type(DataAdvancedPackageType), &
       dimension(:), pointer, contiguous :: datp => null()
@@ -245,6 +246,16 @@ contains
         call matrix_sln%add_value_pos(idiag_sln, qcorr)
       end do
     end if
+    !
+    ! -- Water crossing the boundary of a reduced domain enters or leaves at
+    !    the cell concentration
+    if (this%igwfmapped /= 0) then
+      do n = 1, nodes
+        idiag_sln = idxglo(this%dis%con%ia(n))
+        call matrix_sln%add_value_pos(idiag_sln, &
+                                      this%gwfbndflow(n) * this%eqnsclfac)
+      end do
+    end if
   end subroutine fmi_fc
 
   !> @brief Calculate flow correction
@@ -277,6 +288,19 @@ contains
         flowja(idiag) = flowja(idiag) + rate
       end do
     end if
+    !
+    ! -- Accumulate the flow across the boundary of a reduced domain
+    if (this%igwfmapped /= 0) then
+      do n = 1, this%dis%nodes
+        rate = DZERO
+        idiag = this%dis%con%ia(n)
+        if (this%ibound(n) > 0) then
+          rate = this%gwfbndflow(n) * cnew(n) * this%eqnsclfac
+        end if
+        this%bndrate(n) = rate
+        flowja(idiag) = flowja(idiag) + rate
+      end do
+    end if
   end subroutine fmi_cq
 
   !> @brief Calculate budget terms associated with FMI object
@@ -297,6 +321,12 @@ contains
     if (this%iflowerr /= 0) then
       call rate_accumulator(this%flowcorrect, rin, rout)
       call model_budget%addentry(rin, rout, delt, budtxt(2), isuppress_output)
+    end if
+    !
+    ! -- boundary of a reduced domain
+    if (this%igwfmapped /= 0) then
+      call rate_accumulator(this%bndrate, rin, rout)
+      call model_budget%addentry(rin, rout, delt, budtxt(3), isuppress_output)
     end if
   end subroutine fmi_bd
 
@@ -323,17 +353,21 @@ contains
     end if
     if (icbcfl == 0) ibinun = 0
     !
-    ! -- Do not save flow corrections if not active
-    if (this%iflowerr == 0) ibinun = 0
+    if (ibinun == 0) return
+    iprint = 0
+    dinact = DZERO
     !
-    ! -- Record the storage rates if requested
-    if (ibinun /= 0) then
-      iprint = 0
-      dinact = DZERO
-      !
-      ! -- flow correction
+    ! -- flow correction
+    if (this%iflowerr /= 0) then
       call this%dis%record_array(this%flowcorrect, this%iout, iprint, -ibinun, &
                                  budtxt(2), cdatafmp, nvaluesp, &
+                                 nwidthp, editdesc, dinact)
+    end if
+    !
+    ! -- boundary of a reduced domain
+    if (this%igwfmapped /= 0) then
+      call this%dis%record_array(this%bndrate, this%iout, iprint, -ibinun, &
+                                 budtxt(3), cdatafmp, nvaluesp, &
                                  nwidthp, editdesc, dinact)
     end if
   end subroutine fmi_ot_flow
@@ -358,6 +392,7 @@ contains
     call mem_deallocate(this%satold)
     call mem_deallocate(this%satnew)
     nullify (this%igwfiss)
+    call mem_deallocate(this%bndrate)
     !
     ! -- deallocate transport-specific scalars
     call mem_deallocate(this%iflowerr)
@@ -424,6 +459,15 @@ contains
     do n = 1, nodes
       this%satold(n) = DNODATA
       this%satnew(n) = DNODATA
+    end do
+    !
+    if (this%igwfmapped == 0) then
+      call mem_allocate(this%bndrate, 1, 'BNDRATE', this%memoryPath)
+    else
+      call mem_allocate(this%bndrate, nodes, 'BNDRATE', this%memoryPath)
+    end if
+    do n = 1, size(this%bndrate)
+      this%bndrate(n) = DZERO
     end do
   end subroutine gwtfmi_allocate_arrays
 

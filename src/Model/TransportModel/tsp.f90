@@ -633,9 +633,7 @@ contains
     ! -- modules
     use BaseDisModule, only: DisBaseType
     use ConstantsModule, only: DONE, DEM6
-    use SimModule, only: store_error, store_error_filename, count_errors, &
-                         store_warning
-    use SimVariablesModule, only: warnmsg
+    use SimModule, only: store_error, store_error_filename, count_errors
     use TspAptModule, only: TspAptType
     ! -- dummy
     class(TransportModelType) :: this
@@ -666,11 +664,6 @@ contains
       "('IDOMAIN for the ', a, ' Model is not a subset of IDOMAIN for the GWF &
       &Model for exchange ',a,'.  ', i0, ' cells are active in the ', a, &
       &' Model and inactive in the GWF Model.')"
-    character(len=*), parameter :: fmtnocorr = &
-      "(a, ' Model uses a subset of the GWF Model cells for exchange ',a,'.&
-      &  Water that flows across the boundary of the transport domain is not&
-      &  accounted for unless FLOW_IMBALANCE_CORRECTION is activated in the&
-      &  ', a, ' FMI Package.')"
     character(len=*), parameter :: fmtapterr = &
       "('Advanced transport package ',a,' is connected to cell ',a,', which &
       &is not active in the ', a, ' Model.  Cells connected to an advanced &
@@ -749,11 +742,6 @@ contains
     end if
     !
     call this%fmi%map_gwf_grid(gwfdis)
-    if (this%fmi%iflowerr == 0) then
-      write (warnmsg, fmtnocorr) trim(this%macronym), trim(exgname), &
-        trim(this%macronym)
-      call store_warning(warnmsg)
-    end if
     !
     ! -- an advanced transport package works from flow model cell numbers
     !    rather than from the mapped nodelist

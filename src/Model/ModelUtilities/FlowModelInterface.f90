@@ -46,6 +46,7 @@ module FlowModelInterfaceModule
     integer(I4B), dimension(:), pointer, contiguous :: gwfjamap => null() !< flow model connection for each connection in this model
     integer(I4B), dimension(:), pointer, contiguous :: gwfdropia => null() !< index into gwfdropja for each node in this model
     integer(I4B), dimension(:), pointer, contiguous :: gwfdropja => null() !< flow model connections excluded from this model
+    real(DP), dimension(:), pointer, contiguous :: gwfbndflow => null() !< flow into each node across the excluded connections
     real(DP), dimension(:), pointer, contiguous :: gwfflowja_src => null() !< flow model flowja when mapped
     real(DP), dimension(:, :), pointer, contiguous :: gwfspdis_src => null() !< flow model specific discharge when mapped
     real(DP), dimension(:), pointer, contiguous :: gwfhead_src => null() !< flow model head when mapped
@@ -251,6 +252,11 @@ contains
     !
     ! -- store the flow model connections that are excluded from this model
     call mem_allocate(this%gwfdropja, ndrop, 'GWFDROPJA', this%memoryPath)
+    call mem_allocate(this%gwfbndflow, this%dis%nodes, 'GWFBNDFLOW', &
+                      this%memoryPath)
+    do n = 1, this%dis%nodes
+      this%gwfbndflow(n) = DZERO
+    end do
     ndrop = 0
     do n = 1, this%dis%nodes
       nf = this%gwfnodemap(n)
@@ -378,14 +384,15 @@ contains
   !> @brief Transfer flow model results onto this model grid
   !!
   !! Flow across flow model connections that are excluded from this model is
-  !! removed from the diagonal so that it is carried by the flow imbalance.
+  !! summed for each node in gwfbndflow.
   !<
   subroutine map_gwf_values(this)
     ! -- dummy
     class(FlowModelInterfaceType) :: this
     ! -- local
     integer(I4B) :: i, n, nf
-    integer(I4B) :: ipos, idiag
+    integer(I4B) :: ipos
+    real(DP) :: qbnd
     !
     do n = 1, this%dis%nodes
       nf = this%gwfnodemap(n)
@@ -405,11 +412,11 @@ contains
       do ipos = this%dis%con%ia(n), this%dis%con%ia(n + 1) - 1
         this%gwfflowja(ipos) = this%gwfflowja_src(this%gwfjamap(ipos))
       end do
-      idiag = this%dis%con%ia(n)
+      qbnd = DZERO
       do i = this%gwfdropia(n), this%gwfdropia(n + 1) - 1
-        this%gwfflowja(idiag) = this%gwfflowja(idiag) - &
-                                this%gwfflowja_src(this%gwfdropja(i))
+        qbnd = qbnd + this%gwfflowja_src(this%gwfdropja(i))
       end do
+      this%gwfbndflow(n) = qbnd
     end do
     !
     do i = 1, this%nflowpack
@@ -452,6 +459,7 @@ contains
       call mem_deallocate(this%gwfjamap)
       call mem_deallocate(this%gwfdropia)
       call mem_deallocate(this%gwfdropja)
+      call mem_deallocate(this%gwfbndflow)
     end if
     !
     ! -- special treatment, these could be from mem_checkin
