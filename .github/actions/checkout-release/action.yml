@@ -1,8 +1,8 @@
 name: Checkout release commit
-description: "Check out the commit the release workflow built from: the release metadata commit if it made one, otherwise the commit it was asked to build."
+description: "Check out the commit the release workflow built from: the release commit if it made one, otherwise the commit it was asked to build."
 inputs:
   sha:
-    description: 'SHA to check out. If the release workflow made a release metadata commit, it is fetched from the release-commit artifact.'
+    description: 'SHA to check out. If the release workflow made a release commit, it is fetched from the release-commit artifact.'
     required: true
   path:
     description: 'Path to check out modflow6 to'
