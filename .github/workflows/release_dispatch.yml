@@ -214,16 +214,13 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      # the prepared commit, if release.yml made one
       - name: Checkout modflow6
-        if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
-        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          base_sha: ${{ needs.make_dist.outputs.base_sha }}
           sha: ${{ needs.make_dist.outputs.sha }}
 
-      - name: Push prepared commit
-        if: needs.make_dist.outputs.sha != needs.make_dist.outputs.base_sha
+      # a no-op if release.yml made no release commit
+      - name: Push release commit
         working-directory: modflow6
         env:
           BRANCH: ${{ needs.set_options.outputs.branch }}

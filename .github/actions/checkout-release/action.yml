@@ -1,0 +1,52 @@
+name: Checkout release commit
+description: Check out the commit prepared by the release workflow, if any
+inputs:
+  sha:
+    description: 'SHA to check out (release workflow sha output). Fetched from the release-commit artifact if not pushed.'
+    required: true
+  path:
+    description: 'Path to check out modflow6 to'
+    required: false
+    default: modflow6
+runs:
+  using: "composite"
+  steps:
+    # a pattern, unlike a name, doesn't fail if there's no release commit
+    - name: Download release commit
+      uses: actions/download-artifact@v8
+      with:
+        pattern: release-commit
+        path: ${{ runner.temp }}/release-commit
+
+    # the bundle holds only the release commit, so check out its parent first
+    - name: Find base commit
+      id: base
+      shell: bash
+      env:
+        BUNDLE: ${{ runner.temp }}/release-commit/release.bundle
+        SHA: ${{ inputs.sha }}
+      run: |
+        if [[ -f "$BUNDLE" ]]; then
+          sha=$(grep -a -m1 '^-' "$BUNDLE" | cut -d' ' -f1 | cut -c2-)
+        else
+          sha="$SHA"
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout base commit
+      uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/modflow6
+        path: ${{ inputs.path }}
+        ref: ${{ steps.base.outputs.sha }}
+
+    - name: Checkout release commit
+      if: steps.base.outputs.sha != inputs.sha
+      working-directory: ${{ inputs.path }}
+      shell: bash
+      env:
+        BUNDLE: ${{ runner.temp }}/release-commit/release.bundle
+        SHA: ${{ inputs.sha }}
+      run: |
+        git fetch "$BUNDLE" release
+        git checkout --detach "$SHA"

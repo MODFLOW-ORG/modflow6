@@ -54,11 +54,8 @@ on:
         type: string
         default: ''
     outputs:
-      base_sha:
-        description: 'Commit SHA ref resolved to'
-        value: ${{ jobs.prepare.outputs.base_sha }}
       sha:
-        description: 'Commit SHA built. In release mode, the release metadata commit on top of base_sha (unless base_sha has it already), not pushed, but uploaded as the prepared-commit artifact (a git bundle with branch prepared).'
+        description: 'Commit SHA built. In release mode, the release commit on top of ref (unless ref has it already), not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
         value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
@@ -76,7 +73,6 @@ jobs:
       run:
         shell: bash
     outputs:
-      base_sha: ${{ steps.resolve.outputs.sha }}
       sha: ${{ steps.prepare.outputs.sha }}
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -150,7 +146,7 @@ jobs:
         run: |
           if [[ "${{ inputs.releasemode }}" != "true" ]]; then
             echo "sha=$BASE" >> "$GITHUB_OUTPUT"
-            echo "prepared=false" >> "$GITHUB_OUTPUT"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -181,25 +177,25 @@ jobs:
           if git diff --cached --quiet -- . ':(exclude)doc/version.py'; then
             echo "${{ inputs.ref }} already has the release metadata for $VERSION"
             echo "sha=$BASE" >> "$GITHUB_OUTPUT"
-            echo "prepared=false" >> "$GITHUB_OUTPUT"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-          # the bundle only holds the new commit, so recipients need BASE
-          git switch -C prepared
+          # the bundle only holds the release commit, so recipients need BASE
+          git switch -C release
           git commit -m "ci(release): update version to $VERSION"
-          git bundle create ../prepared.bundle "$BASE..prepared"
+          git bundle create ../release.bundle "$BASE..release"
           sha=$(git rev-parse HEAD)
-          echo "prepared $sha on top of $BASE"
+          echo "committed $sha on top of $BASE"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
-          echo "prepared=true" >> "$GITHUB_OUTPUT"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
 
-      - name: Upload prepared commit
-        if: steps.prepare.outputs.prepared == 'true'
+      - name: Upload release commit
+        if: steps.prepare.outputs.committed == 'true'
         uses: actions/upload-artifact@v7
         with:
-          name: prepared-commit
-          path: prepared.bundle
+          name: release-commit
+          path: release.bundle
 
   build:
     name: Build binaries (${{ matrix.os }}, extended=${{ matrix.extended }})
@@ -247,9 +243,8 @@ jobs:
 
       # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-testmodels
@@ -579,9 +574,8 @@ jobs:
 
       # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
@@ -746,9 +740,8 @@ jobs:
     steps:
       # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-prepared@develop
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          base_sha: ${{ needs.prepare.outputs.base_sha }}
           sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
