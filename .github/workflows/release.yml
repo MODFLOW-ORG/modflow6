@@ -129,7 +129,7 @@ jobs:
 
       - name: Setup pixi
         if: inputs.releasemode == true
-        uses: prefix-dev/setup-pixi@v0.11.0
+        uses: prefix-dev/setup-pixi@v0.11.2
         with:
           pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
