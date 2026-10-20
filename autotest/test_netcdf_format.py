@@ -44,6 +44,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="tests MF6's own NetCDF writer directly, not flopy4-generated input"
+)
+
 nc = pytest.importorskip("netCDF4")
 
 # WKT strings — distinct WKT1 and WKT2 for EPSG:26918 (NAD83 / UTM zone 18N)

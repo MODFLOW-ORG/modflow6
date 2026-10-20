@@ -14,6 +14,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="tests MF6's own NetCDF writer directly, not flopy4-generated input"
+)
+
 xa = pytest.importorskip("xarray")
 nc = pytest.importorskip("netCDF4")
 
