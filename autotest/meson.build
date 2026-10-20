@@ -26,6 +26,7 @@ if test_drive.found() and not fc_id.contains('intel')
     'SwfUtils',
     'TimeSelect',
     'TimeStepSelect',
+    'UtlTva',
     'UzfCellGroup',
     'UzfEtUtil'
   ]

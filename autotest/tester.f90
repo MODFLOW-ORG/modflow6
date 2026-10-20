@@ -24,6 +24,7 @@ program tester
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
   use TestSmoothing, only: collect_smoothing
+  use TestUtlTva, only: collect_utltva
   use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
@@ -67,6 +68,7 @@ program tester
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &
+               new_testsuite("UtlTva", collect_utltva), &
                new_testsuite("UzfCellGroup", collect_uzfcellgroup), &
                new_testsuite("UzfEtUtil", collect_uzfetutil), &
                new_testsuite("Xmi", collect_xmi) &
