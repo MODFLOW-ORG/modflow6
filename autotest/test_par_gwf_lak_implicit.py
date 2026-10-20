@@ -37,6 +37,11 @@ from flopy.mf6.utils import Mf6Splitter, get_lak_connections
 from flopy.utils.compare import compare_cell_budget
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="registers a 2nd MFSimulation for its own native comparison -- a "
+    "different build_models/check_output shape, not worth restructuring"
+)
+
 # model parameters (from ex-gwf-lak-p02)
 name = "lakp02"
 nlay, nrow, ncol = 5, 27, 17
