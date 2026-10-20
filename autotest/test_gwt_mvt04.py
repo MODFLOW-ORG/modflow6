@@ -45,6 +45,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 # Base simulation and model name and workspace
@@ -604,12 +605,19 @@ def check_output(idx, test):
         ) / sum(surf_Q_in), "SFT concentration for model3, reach 1 not equal to 200.0"
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 # - No need to change any code below
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),
 )
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -617,5 +625,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         xfail=[True] if "fail" in str(function_tmpdir) else [False],
+        compare=compare,
     )
     test.run()

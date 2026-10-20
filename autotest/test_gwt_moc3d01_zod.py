@@ -11,6 +11,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = [
@@ -563,8 +564,15 @@ def check_output(idx, test):
         assert np.allclose(tsres, tssim), errmsg
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, plot):
+def test_mf6model(idx, name, compare, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -572,5 +580,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
+        compare=compare,
     )
     test.run()

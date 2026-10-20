@@ -11,6 +11,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["maw10a", "maw10b", "maw10c", "maw10d"]
@@ -263,14 +264,22 @@ def check_output(idx, test):
         assert np.isclose(actvalmfr, actvalobs), msgval
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         targets=targets,
+        compare=compare,
     )
     test.run()

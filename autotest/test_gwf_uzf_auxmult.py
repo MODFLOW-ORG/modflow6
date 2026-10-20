@@ -7,6 +7,7 @@ ensure this to be the case.
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["uzauxmlt-1to1", "uzauxmlt-2to1", "uzauxmlt-3to1", "uzauxmlt-bad"]
@@ -253,8 +254,15 @@ def check_output(idx, test):
         assert error_count == 0, errmsg0
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx,name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     xfail = ["bad" in cases[ct] for ct in np.arange(len(cases))]
     test = TestFramework(
         name=name,
@@ -263,5 +271,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
         targets=targets,
         xfail=xfail[idx],
+        compare=compare,
     )
     test.run()

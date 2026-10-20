@@ -12,6 +12,7 @@ import os
 
 import flopy
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from prt_test_utils import FlopyReadmeCase, get_model_name
 
@@ -184,15 +185,22 @@ def check_output(test):
         )
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("name", cases)
-def test_mf6model(name, function_tmpdir, targets):
+def test_mf6model(compare, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=build_models,
         check=check_output,
         targets=targets,
-        compare=None,
+        compare=compare,
         # For non-positive tolerance cases: GWF should succeed, PRT should fail
         xfail=[False, True] if ("neg" in name or "zero" in name) else False,
     )

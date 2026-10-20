@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.plot.plotutil import to_mp7_pathlines
 from flopy.utils import EndpointFile, PathlineFile
 from flopy.utils.binaryfile import HeadFile
@@ -543,9 +544,16 @@ def plot_output(idx, test):
     plt.savefig(prt_ws / f"{name}.png")
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, plot):
+def test_mf6model(idx, name, compare, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -553,7 +561,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if (plot and "bprp" not in name) else None,
         targets=targets,
-        compare=None,
+        compare=compare,
         xfail=[False, "bprp" in name, False],
     )
     test.run()

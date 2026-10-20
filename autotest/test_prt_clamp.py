@@ -13,6 +13,7 @@ not guaranteed to end up at the nearest point within the cell.
 import flopy
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.utils.gridutil import get_disv_kwargs
 from framework import TestFramework
 from prt_test_utils import FlopyReadmeCase, get_model_name
@@ -184,15 +185,22 @@ def check_output(test, offset, direction):
     assert (mf6_pls["t"].diff().dropna() >= -1e-9).all()
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.developmode
 @pytest.mark.parametrize("name, method, offset, direction", cases)
-def test_mf6model(name, method, offset, direction, function_tmpdir, targets):
+def test_mf6model(compare, name, method, offset, direction, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(t, method, offset, direction),
         check=lambda t: check_output(t, offset, direction),
         targets=targets,
-        compare=None,
+        compare=compare,
     )
     test.run()

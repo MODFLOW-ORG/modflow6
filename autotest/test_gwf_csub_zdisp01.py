@@ -3,6 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from conftest import try_get_target
 from flopy.utils.compare import compare_heads
 from framework import TestFramework
@@ -397,7 +398,7 @@ def build_models(idx, test):
     return sim, mc
 
 
-def check_output(idx, test):
+def check_output(idx, test, mfnwt_root=None):
     # MODFLOW 6 total compaction results
     fpth = os.path.join(test.workspace, "csub_obs.csv")
     try:
@@ -405,9 +406,13 @@ def check_output(idx, test):
     except:
         assert False, f'could not load data from "{fpth}"'
 
-    # MODFLOW-2005 total compaction results
+    # MODFLOW-NWT comparison results: a static reference built once under
+    # the test's own workspace, not copied into an FP4_COMPARISONS rerun's
+    # subdirectory (it isn't part of the MF6 simulation's own file graph) --
+    # mfnwt_root lets the FP4_ASCII check point back at the original
+    # workspace instead of the swapped one (see test_mf6model's check_fp4)
     fn = f"{os.path.basename(test.name)}.total_comp.hds"
-    fpth = os.path.join(test.workspace, "mfnwt", fn)
+    fpth = os.path.join(mfnwt_root or test.workspace, "mfnwt", fn)
     try:
         sobj = flopy.utils.HeadFile(fpth, text="LAYER COMPACTION", verbose=False)
         tc0 = sobj.get_ts((2, wrp[0], wcp[0]))
@@ -514,7 +519,9 @@ def check_output(idx, test):
         test.workspace,
         f"{os.path.basename(test.name)}.zdisplacement.gridbin",
     )
-    fpth2 = os.path.join(test.workspace, cmppth, "csub_zdisp01.vert_disp.hds")
+    fpth2 = os.path.join(
+        mfnwt_root or test.workspace, cmppth, "csub_zdisp01.vert_disp.hds"
+    )
     text1 = "CSUB-ZDISPLACE"
     text2 = "Z DISPLACEMENT"
     fout = os.path.join(
@@ -542,15 +549,20 @@ def check_output(idx, test):
         assert success_tst, msg
 
 
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        check_fp4=lambda t: check_output(idx, t, mfnwt_root=function_tmpdir),
         htol=htol[idx],
+        compare=compare,
     )
     test.run()

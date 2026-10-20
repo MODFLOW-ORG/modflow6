@@ -9,6 +9,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = [
@@ -244,13 +245,21 @@ def check_output(idx, name, test):
     )
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", cases)
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, name, t),
         check=lambda t: check_output(idx, name, t),
+        compare=compare,
     )
     test.run()

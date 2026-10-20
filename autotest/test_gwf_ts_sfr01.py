@@ -3,6 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from flopy.utils.compare import eval_bud_diff
 from framework import TestFramework
 
@@ -904,13 +905,21 @@ def check_result(idx, test):
         _check_sfr_aux(cobj1, expected_temp, expected_conc)
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_result(idx, t),
         targets=targets,
+        compare=compare,
     )
     test.run()

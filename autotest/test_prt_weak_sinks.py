@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.utils import PathlineFile
 from flopy.utils.binaryfile import HeadFile
 from framework import TestFramework
@@ -51,8 +52,12 @@ def build_prt_sim(name, gwf_ws, prt_ws, mf6):
     prtname = f"{name}_prt"
     gwf_budget_file = gwf_ws / f"{gwfname}.bud"
     gwf_head_file = gwf_ws / f"{gwfname}.hds"
-    prt_track_file = prt_ws / f"{prtname}.trk"
-    prt_track_csv_file = prt_ws / f"{prtname}.trk.csv"
+    # relative to prt's own input directory (prt_ws), not absolute -- an
+    # absolute path here would always resolve to this directory even when
+    # MF6 runs a copy of these files from somewhere else (e.g. an FP4_ASCII
+    # rerun), so its track/track-CSV output never lands next to that copy
+    prt_track_file = f"{prtname}.trk"
+    prt_track_csv_file = f"{prtname}.trk.csv"
 
     # create simulation
     sim = flopy.mf6.MFSimulation(
@@ -392,8 +397,11 @@ def plot_output(idx, test):
     plt.savefig(gwf_ws / f"{name}.png")
 
 
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, plot):
+def test_mf6model(idx, name, function_tmpdir, targets, plot, compare):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -401,6 +409,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
-        compare=None,
+        compare=compare,
     )
     test.run()

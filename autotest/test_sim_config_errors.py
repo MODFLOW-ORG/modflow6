@@ -10,6 +10,10 @@ import flopy
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="checks mf6's own config-validation error path; no run to round-trip"
+)
+
 simname = "cfgerr"
 cases = [
     f"{simname}_ims_prt",

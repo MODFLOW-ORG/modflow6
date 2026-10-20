@@ -20,6 +20,7 @@ import re
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["csub_ibscale", "csub_ibscale_th", "csub_ibscale_er"]
@@ -118,8 +119,15 @@ def check_output(idx, test):
     assert max(cum) < 0.1, f"mass balance did not close (max discrepancy {max(cum)}%)"
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -127,5 +135,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         check=(lambda t: check_output(idx, t)) if not gross[idx] else None,
         xfail=gross[idx],
+        compare=compare,
     )
     test.run()

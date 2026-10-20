@@ -385,6 +385,7 @@ def check_outputs(idx, test):
     "compare",
     [
         "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
         pytest.param(Comparison.FP4_STRUCTURED, marks=pytest.mark.netcdf),
         pytest.param(Comparison.FP4_LAYERED, marks=pytest.mark.netcdf),
     ],

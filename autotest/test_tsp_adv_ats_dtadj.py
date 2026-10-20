@@ -28,6 +28,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 # name: (transport model type, dtadj, dt0)
@@ -222,13 +223,17 @@ def check_output(name, test):
     )
 
 
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.parametrize("name", cases)
-def test_mf6model(name, function_tmpdir, targets):
+def test_mf6model(name, function_tmpdir, targets, compare):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(name, t),
         check=lambda t: check_output(name, t),
+        compare=compare,
     )
     test.run()

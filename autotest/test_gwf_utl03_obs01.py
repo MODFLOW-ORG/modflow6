@@ -3,6 +3,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["utl03_obs"]
@@ -207,8 +208,15 @@ def check_output(idx, test):
             assert np.allclose(d0[name], d1[name], rtol=1e-5), msg
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -216,5 +224,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
         targets=targets,
         overwrite=False,
+        compare=compare,
     )
     test.run()
