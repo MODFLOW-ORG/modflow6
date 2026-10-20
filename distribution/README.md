@@ -168,7 +168,7 @@ Pushing a `vX.Y.Z` branch triggers the release workflow for patch releases (`Z` 
 
 ### Build assets/distributions
 
-A `prepare` job first commits the release metadata (version strings, timestamps and the release history row, via `pixi run prepare-release`) on top of the release branch. The build, docs and dist jobs all build that commit, and it's pushed to the release branch only if the build succeeds, so what's built is exactly what merges to `master`. If the branch moved during the build, the push fails; rerun the release. A same-day rerun makes no new commit; a rerun on a later day commits the new date.
+A `prepare` job first commits the release metadata (version strings, timestamps and the release history row, via `pixi run prepare-release`) on top of the release branch. The build, docs and dist jobs all build that commit, and it's pushed to the release branch only if the build succeeds, so what's built is exactly what merges to `master`. If the branch moved during the build, the push fails; rerun the release. If the branch already has the metadata, e.g. from an earlier run the same day, no commit is made; a rerun on a later day commits the new date.
 
 Then the workflow drafts a pull request against the `master` branch from the release branch, unless one is already open. Nothing is released until that pull request is merged, so to abandon a release (e.g. if the distributions fail inspection), close the pull request and delete the release branch.
 

@@ -55,7 +55,7 @@ on:
         default: ''
     outputs:
       sha:
-        description: 'Commit SHA built. In release mode, the release commit on top of ref (unless ref has it already), not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
+        description: 'Commit SHA built. In release mode, a release commit on top of ref, unless ref already has the release metadata. The release commit is not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
         value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
@@ -133,8 +133,8 @@ jobs:
           pixi-version: v0.80.0
           manifest-path: "modflow6/pixi.toml"
 
-      # release builds commit their metadata once, so every job builds, and the
-      # release publishes, the same commit. development builds use what's committed
+      # in release mode, commit the release metadata once, so every job builds, and
+      # the release publishes, the same commit. develop mode builds ref as is
       - name: Apply release metadata
         id: prepare
         working-directory: modflow6

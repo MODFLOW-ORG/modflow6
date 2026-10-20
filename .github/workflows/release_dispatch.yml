@@ -219,7 +219,7 @@ jobs:
         with:
           sha: ${{ needs.make_dist.outputs.sha }}
 
-      # a no-op if release.yml made no release commit
+      # if release.yml made no release commit, this just checks the branch hasn't moved
       - name: Push release commit
         working-directory: modflow6
         env:
