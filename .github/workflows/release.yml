@@ -43,11 +43,6 @@ on:
         required: false
         type: boolean
         default: false
-      date:
-        description: 'Release date (YYYY-MM-DD) for timestamps and the release history. Defaults to today. Release mode only.'
-        required: false
-        type: string
-        default: ''
       doi:
         description: 'Release DOI, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history. Required for a new minor release unless ref has its row already. Patch releases reuse the previous DOI. Release mode only.'
         required: false
@@ -75,6 +70,7 @@ jobs:
     outputs:
       sha: ${{ steps.prepare.outputs.sha }}
       version: ${{ steps.version.outputs.version }}
+      date: ${{ steps.date.outputs.date }}
     steps:
       - name: Check ref
         env:
@@ -126,6 +122,11 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      # one date for all jobs, in case the run crosses midnight
+      - name: Set date
+        id: date
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
       - name: Setup pixi
         if: inputs.releasemode == true
         uses: prefix-dev/setup-pixi@v0.11.0
@@ -140,7 +141,7 @@ jobs:
         working-directory: modflow6
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          DATE: ${{ inputs.date }}
+          DATE: ${{ steps.date.outputs.date }}
           DOI: ${{ inputs.doi }}
           BASE: ${{ steps.resolve.outputs.sha }}
         run: |
@@ -150,10 +151,7 @@ jobs:
             exit 0
           fi
 
-          args=(-v "$VERSION")
-          if [[ -n "$DATE" ]]; then
-            args+=(--date "$DATE")
-          fi
+          args=(-v "$VERSION" --date "$DATE")
           if [[ -n "$DOI" ]]; then
             args+=(--doi "$DOI")
           fi
@@ -613,6 +611,12 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
+      # develop mode builds ref as is, but dates the docs and metadata by the build
+      - name: Update version
+        if: inputs.releasemode == false
+        working-directory: modflow6
+        run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
+
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -765,6 +769,12 @@ jobs:
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
+
+      # develop mode builds ref as is, but dates the docs and metadata by the build
+      - name: Update version
+        if: inputs.releasemode == false
+        working-directory: modflow6
+        run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
       
       - name: Get OS tag
         working-directory: modflow6

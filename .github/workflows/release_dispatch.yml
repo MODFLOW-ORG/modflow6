@@ -63,7 +63,6 @@ jobs:
       compiler_version: ${{ steps.set_compiler.outputs.compiler_version }}
       version: ${{ steps.set_version.outputs.version }}
       patch: ${{ steps.set_patch.outputs.patch }}
-      date: ${{ steps.set_date.outputs.date }}
     steps:
       - name: Checkout modflow6
         uses: actions/checkout@v7
@@ -161,11 +160,6 @@ jobs:
             exit 1
           fi
           echo "patch=$patch" >> $GITHUB_OUTPUT
-      - name: Set date
-        id: set_date
-        run: |
-          # one date for all jobs, so timestamps and the release history agree
-          echo "date=$(date -u +%F)" >> $GITHUB_OUTPUT
       - name: Check release history
         env:
           BRANCH: ${{ steps.set_branch.outputs.branch }}
@@ -203,7 +197,6 @@ jobs:
       patch: ${{ (github.event_name == 'workflow_dispatch' && inputs.patch == true) || (github.event_name != 'workflow_dispatch' && needs.set_options.outputs.patch == 'true') }}
       # empty if triggered by push (see Check release history)
       doi: ${{ inputs.doi }}
-      date: ${{ needs.set_options.outputs.date }}
   pr:
     name: Draft release PR
     needs:
