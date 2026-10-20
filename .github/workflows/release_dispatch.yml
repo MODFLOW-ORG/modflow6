@@ -46,7 +46,7 @@ on:
         type: boolean
         default: false
       doi:
-        description: 'DOI link of the release, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history in the release notes. Required for a new minor or major release unless its release history row was already added to the release branch. Patch releases reuse the DOI of the previous release with the same major and minor version.'
+        description: 'DOI link of the release, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history in the release notes. Required for a new minor release unless its release history row was already added to the release branch. Patch releases reuse the DOI of the minor release they patch.'
         required: false
         type: string
 jobs:

@@ -49,13 +49,13 @@ on:
         type: string
         default: ''
       doi:
-        description: 'Release DOI, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history. Required for a new minor/major release unless ref has its row already. Patch releases reuse the previous DOI. Release mode only.'
+        description: 'Release DOI, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history. Required for a new minor release unless ref has its row already. Patch releases reuse the previous DOI. Release mode only.'
         required: false
         type: string
         default: ''
     outputs:
       sha:
-        description: 'Commit SHA built. In release mode, a release commit on top of ref, unless ref already has the release metadata. The release commit is not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
+        description: 'SHA the release was built from. In release mode, a release commit on top of ref, unless ref already has the release metadata. The release commit is not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
         value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
