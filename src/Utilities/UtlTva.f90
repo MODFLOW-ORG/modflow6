@@ -62,7 +62,7 @@ module UtlTvaModule
 
 contains
 
-  !> @ brief Initialize the TVA type
+  !> @brief Initialize the TVA type
   !!
   !! Set up the object against the input that the Input Data Model has loaded
   !< for this subpackage, and point at the loaded arrays.
@@ -98,7 +98,7 @@ contains
     call this%source_options()
   end subroutine initialize
 
-  !> @ Check to see if variable was included by user
+  !> @brief Check to see if variable was included by user
   function has(this, auxname) result(found)
     ! dummy variables
     class(UtlTvaType) :: this !< UtlTvaType object
@@ -117,7 +117,7 @@ contains
     end do
   end function has
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !<
   subroutine allocate_scalars(this)
     ! dummy variables
@@ -139,7 +139,7 @@ contains
     this%iprpak = 0
   end subroutine allocate_scalars
 
-  !> @ brief Source options from the loaded input
+  !> @brief Source options from the loaded input
   !!
   !! Read the auxiliary names and the print flag from the input memory path,
   !! then point at the array of loaded values. Any time-array series attached
@@ -182,7 +182,7 @@ contains
     end if
   end subroutine source_options
 
-  !> @ brief Fill the passed array with values for the named variable
+  !> @brief Fill the passed array with values for the named variable
   !<
   subroutine fill(this, dblvec, auxname)
     ! dummy
@@ -218,7 +218,7 @@ contains
     end do
   end subroutine fill
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !<
   subroutine tva_da(this)
     ! dummy variables

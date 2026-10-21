@@ -24,11 +24,11 @@ program tester
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
   use TestSmoothing, only: collect_smoothing
-  use TestUtlTva, only: collect_utltva
   use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
   use TestTimeStepSelect, only: collect_timestepselect
+  use TestUtlTva, only: collect_utltva
   use TestUzfCellGroup, only: collect_uzfcellgroup
   use TestUzfEtUtil, only: collect_uzfetutil
   use TestXmi, only: collect_xmi
