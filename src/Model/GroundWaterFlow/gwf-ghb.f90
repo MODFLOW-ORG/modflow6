@@ -289,7 +289,7 @@ contains
       ! -- If mover is active and this boundary is discharging,
       !    store available water (as positive value). Use the assembled
       !    coefficients so terms added to hcof and rhs after ghb_cf, such
-      !    as those from another package, are included.
+      !    as the BUY density terms, are included.
       if (this%imover == 1) then
         qghb = this%rhs(i) - this%hcof(i) * this%xnew(n)
         if (qghb > DZERO) then

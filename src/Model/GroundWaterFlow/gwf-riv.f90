@@ -322,7 +322,7 @@ contains
       ! -- If mover is active and this river cell is discharging,
       !    store available water (as positive value). Use the assembled
       !    coefficients so terms added to hcof and rhs after riv_cf, such
-      !    as those from another package, are included.
+      !    as the BUY density terms, are included.
       if (this%imover == 1) then
         qriv = this%rhs(i) - this%hcof(i) * this%xnew(n)
         if (qriv > DZERO) then
