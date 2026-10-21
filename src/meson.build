@@ -418,6 +418,7 @@ modflow_sources = files(
     'Utilities' / 'Matrix' / 'MatrixBase.f90',
     'Utilities' / 'Matrix' / 'SparseMatrix.f90',
     'Utilities' / 'Memory' / 'Memory.F90',
+    'Utilities' / 'Memory' / 'MemoryAlias.f90',
     'Utilities' / 'Memory' / 'MemoryHelper.f90',
     'Utilities' / 'Memory' / 'MemoryContainerIterator.f90',
     'Utilities' / 'Memory' / 'MemoryStore.f90',

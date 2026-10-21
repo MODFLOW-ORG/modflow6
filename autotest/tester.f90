@@ -17,6 +17,7 @@ program tester
   use TestMathUtil, only: collect_mathutil
   use TestMawNonVertical, only: collect_mawnonvertical
   use TestMawNur, only: collect_mawnur
+  use TestMemoryAlias, only: collect_memoryalias
   use TestMemoryContainerIterator, only: collect_memorycontaineriterator
   use TestMemoryStore, only: collect_memorystore
   use TestMessage, only: collect_message
@@ -55,6 +56,7 @@ program tester
                new_testsuite("MathUtil", collect_mathutil), &
                new_testsuite("MawNonVertical", collect_mawnonvertical), &
                new_testsuite("MawNur", collect_mawnur), &
+               new_testsuite("MemoryAlias", collect_memoryalias), &
                new_testsuite("MemoryContainerIterator", &
                              collect_memorycontaineriterator), &
                new_testsuite("MemoryStore", collect_memorystore), &

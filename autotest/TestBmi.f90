@@ -17,6 +17,9 @@ module TestBmi
                     get_current_time, get_end_time, get_time_units, &
                     get_var_units, get_var_location, get_value, &
                     get_value_at_indices, set_value_at_indices
+  use MemoryManagerModule, only: mem_setptr
+  use MemoryAliasModule, only: mem_alias_deprecated
+  use SimModule, only: count_warnings
   implicit none
   private
   public :: collect_bmi, c_string, f_string
@@ -49,11 +52,14 @@ contains
     character(kind=c_char, len=1) :: c_location(LENVARLOCATION + 1)
     integer(c_int), target :: inds(3), int_vals(1)
     real(c_double), target :: x(5), k(5), spdis(15), vals(3), new_k(2)
+    real(c_double), target :: x_old(5)
+    real(DP), dimension(:), pointer, contiguous :: xptr
     real(c_double), dimension(5), parameter :: &
       k_expected = [1.0_DP, 2.0_DP, 1.0_DP, 3.0_DP, 1.0_DP]
     real(c_double) :: time
     type(c_ptr) :: ptr
     integer(I4B) :: i
+    integer(I4B) :: nwarn
     logical :: exists
 
     inquire (file='mfsim.nam', exist=exists)
@@ -171,6 +177,32 @@ contains
       do i = 1, 5
         call check(error, k(i) == k_expected(i), &
                    "K11 after set_value_at_indices")
+        if (allocated(error)) exit run
+      end do
+
+      ! -- a deprecated alias resolves and is reported once, the current
+      !    name is not reported
+      call mem_setptr(xptr, 'X', 'LEFTMODEL')
+      call mem_alias_deprecated(xptr, 'X_OLD', 'LEFTMODEL', 'X', 'LEFTMODEL', &
+                                '6.9.0')
+      nwarn = count_warnings()
+      ptr = c_loc(x)
+      call check(error, get_value(c_string('LEFTMODEL/X'), ptr) &
+                 == BMI_SUCCESS, "get_value of X")
+      if (allocated(error)) exit run
+      call check(error, count_warnings() == nwarn, "X reported as deprecated")
+      if (allocated(error)) exit run
+      ptr = c_loc(x_old)
+      do i = 1, 2
+        call check(error, get_value(c_string('LEFTMODEL/X_OLD'), ptr) &
+                   == BMI_SUCCESS, "get_value of X_OLD")
+        if (allocated(error)) exit run
+      end do
+      call check(error, count_warnings() == nwarn + 1, &
+                 "X_OLD not reported once as deprecated")
+      if (allocated(error)) exit run
+      do i = 1, 5
+        call check(error, x_old(i) == x(i), "X_OLD differs from X")
         if (allocated(error)) exit run
       end do
     end block run

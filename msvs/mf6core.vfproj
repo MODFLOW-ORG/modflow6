@@ -779,6 +779,7 @@
 				</Filter>
 				<Filter Name="Memory">
 					<File RelativePath="..\src\Utilities\Memory\Memory.F90"/>
+					<File RelativePath="..\src\Utilities\Memory\MemoryAlias.f90"/>
 					<File RelativePath="..\src\Utilities\Memory\MemoryContainerIterator.f90"/>
 					<File RelativePath="..\src\Utilities\Memory\MemoryHelper.f90"/>
 					<File RelativePath="..\src\Utilities\Memory\MemoryManager.f90"/>
