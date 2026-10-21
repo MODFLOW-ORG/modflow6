@@ -455,10 +455,20 @@ contains
   !<
   subroutine checkin_deprecated_names(this, memory_path)
     ! -- modules
-    use MemoryManagerModule, only: mem_checkin
+    use ConstantsModule, only: LENVARNAME
+    use MemoryManagerModule, only: mem_checkin, mem_deprecate
     ! -- dummy
     class(UzfCellGroupType) :: this
     character(len=*), intent(in) :: memory_path
+    ! -- local
+    character(len=LENVARNAME), dimension(28), parameter :: names = &
+      &[character(len=LENVARNAME) :: 'UZDPST', 'UZTHST', 'UZFLST', 'UZSPST', &
+      &'NWAVST', 'NWAV_PVAR', 'THTR', 'THTS', 'THTI', 'EPS', 'HA', 'HROOT', &
+      &'ROOTACT', 'EXTWC', 'ETACT', 'TOTFLUX', 'SINF', 'GWET_PVAR', 'PETMAX', &
+      &'GWPET', 'EXTDP', 'EXTDPUZ', 'WATAB', 'WATABOLD', 'SURFLUX', &
+      &'SURFLUXBELOW', 'SURFSEEP', 'IVERTCON']
+    character(len=*), parameter :: version = '6.9.0'
+    integer(I4B) :: i
     ! -- code
     !
     ! -- wave state
@@ -519,6 +529,11 @@ contains
                      'SURF_SEEP', memory_path)
     call mem_checkin(this%cell_below, 'IVERTCON', memory_path, &
                      'CELL_BELOW', memory_path)
+    !
+    ! -- warn when a program uses the previous names
+    do i = 1, size(names)
+      call mem_deprecate(names(i), memory_path, version)
+    end do
   end subroutine checkin_deprecated_names
 
   !> @brief Deallocate uzf object variables

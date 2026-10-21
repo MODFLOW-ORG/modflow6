@@ -1,14 +1,15 @@
 """
 Test that the pre-refactor uzf variable names resolve through the API.
 
-The uzf variables were renamed, so the old names are checked in to the memory
-manager as aliases of the renamed arrays. A program that addresses uzf
-variables through the API must resolve either name, and both names must refer
-to the same memory.
+The uzf variables were renamed, and the stress period data moved to the input
+context, so the old names are checked in to the memory manager as aliases. A
+program that addresses uzf variables through the API must resolve either name,
+both names must refer to the same memory, and using an old name must store a
+deprecation warning.
 
 Cases:
-  - libgwf_uzf01 : every aliased name resolves, matches the renamed variable it
-                   aliases, and shares memory with it.
+  - libgwf_uzf01 : every aliased name resolves, matches the variable it aliases,
+                   shares memory with it, and is reported once as deprecated.
 """
 
 import os
@@ -58,6 +59,18 @@ aliases = {
     "NSETS": "NWAVESETS",
 }
 
+# pre-refactor name of the stress period data : input context name
+input_aliases = {
+    "SINF_PVAR": "FINF",
+    "PET_PVAR": "PET",
+    "EXDP_PVAR": "EXTDP",
+    "EXTWC_PVAR": "EXTWC",
+    "HA_PVAR": "HA",
+    "HROOT_PVAR": "HROOT",
+    "ROOTACT_PVAR": "ROOTACT",
+    "UAUXVAR": "AUXVAR",
+}
+
 # aliases checked for shared memory: one array and every scalar, since the
 # scalars are checked in through a separate mem_checkin overload
 shared_aliases = [
@@ -66,6 +79,9 @@ shared_aliases = [
     ("NTRAIL_PVAR", "NTRAIL_INPUT"),
     ("NSETS", "NWAVESETS"),
 ]
+
+# alias checked for shared memory with the input context
+shared_input_aliases = [("SINF_PVAR", "FINF")]
 
 # model spatial dimensions
 nlay, nrow, ncol = 3, 3, 3
@@ -138,7 +154,9 @@ def get_model(ws, name):
                     ]
                 )
                 if landflag == 1:
-                    perioddata.append([iuzno, 0.01, 0.005, 1.0, 0.1, 0.0, 0.0, 0.0])
+                    perioddata.append(
+                        [iuzno, 0.01, 0.005, 1.0, 0.1, 0.0, 0.0, 0.0, 2.5]
+                    )
                 iuzno += 1
     flopy.mf6.ModflowGwfuzf(
         gwf,
@@ -149,6 +167,7 @@ def get_model(ws, name):
         simulate_et=True,
         unsat_etwc=True,
         linear_gwet=True,
+        auxiliary=["CONC"],
         packagedata=packagedata,
         perioddata={0: perioddata},
     )
@@ -208,15 +227,39 @@ def api_func(exe, idx, model_ws=None):
         elif not np.array_equal(vold, vnew):
             failures.append(f"{old} -> {new}: values differ")
 
-    # -- an alias must share memory with the renamed variable, not copy it;
-    #    checked for an array and for each scalar alias
-    for old, new in shared_aliases:
-        vold = mf6.get_value_ptr(mf6.get_var_address(old, name, "UZF-1"))
-        vnew = mf6.get_value_ptr(mf6.get_var_address(new, name, "UZF-1"))
+    # -- the stress period data aliases refer to the input context
+    input_path = f"__INPUT__/{name}/UZF-1"
+    for old, new in input_aliases.items():
+        try:
+            vold = mf6.get_value_ptr(mf6.get_var_address(old, name, "UZF-1"))
+            vnew = mf6.get_value_ptr(f"{input_path}/{new}")
+        except Exception as e:
+            failures.append(f"{old} -> {new}: {e}")
+            continue
+        if vold.shape != vnew.shape:
+            failures.append(f"{old} -> {new}: shape {vold.shape} != {vnew.shape}")
+        elif not np.array_equal(vold, vnew):
+            failures.append(f"{old} -> {new}: values differ")
+
+    # -- an alias must share memory with the variable it aliases, not copy it;
+    #    checked for an array, for each scalar alias, and for the input context
+    pairs = [
+        (
+            mf6.get_var_address(old, name, "UZF-1"),
+            mf6.get_var_address(new, name, "UZF-1"),
+        )
+        for old, new in shared_aliases
+    ] + [
+        (mf6.get_var_address(old, name, "UZF-1"), f"{input_path}/{new}")
+        for old, new in shared_input_aliases
+    ]
+    for aold, anew in pairs:
+        vold = mf6.get_value_ptr(aold)
+        vnew = mf6.get_value_ptr(anew)
         saved = vold.flat[0]
         vold.flat[0] = saved + 7
         if vnew.flat[0] != saved + 7:
-            failures.append(f"{old} does not share memory with {new}")
+            failures.append(f"{aold} does not share memory with {anew}")
         vold.flat[0] = saved
 
     try:
@@ -231,6 +274,17 @@ def check_output(idx, test):
     assert not alias_failures, "aliased uzf variable names failed:\n  " + "\n  ".join(
         alias_failures
     )
+
+    # -- each old name used through the API is reported once as deprecated
+    # (the warning report wraps lines, so whitespace is collapsed first)
+    with open(os.path.join(test.workspace, "libmf6", "mfsim.lst")) as f:
+        lst = " ".join(f.read().split())
+    for old in list(aliases) + list(input_aliases):
+        msg = f"API VARIABLE '{old}' IN "
+        assert lst.count(msg) == 1, f"{old}: {lst.count(msg)} deprecation warnings"
+    # -- the renamed variables are not reported
+    for new in aliases.values():
+        assert f"API VARIABLE '{new}' IN " not in lst, f"{new} reported as deprecated"
 
 
 @requires_pkg("modflowapi")

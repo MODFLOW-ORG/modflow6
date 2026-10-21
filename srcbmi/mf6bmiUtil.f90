@@ -92,6 +92,9 @@ contains
       return
     end if
 
+    ! warn if the variable is addressed by a deprecated name
+    call warn_deprecated_address(mem_path, var_name)
+
     success = .true.
 
   end subroutine split_address
@@ -116,6 +119,34 @@ contains
     call get_from_memorystore(var_name, mem_path, mt, found, check=.false.)
 
   end subroutine check_mem_address
+
+  !> @brief Store a warning the first time a deprecated variable name is used
+  !<
+  subroutine warn_deprecated_address(mem_path, var_name)
+    ! -- modules
+    use MemoryManagerModule, only: get_from_memorystore
+    use MemoryTypeModule, only: MemoryType
+    use SimModule, only: store_warning
+    ! -- dummy variables
+    character(len=LENMEMPATH), intent(in) :: mem_path !< memory path used by the memory manager
+    character(len=LENVARNAME), intent(in) :: var_name !< name of the variable
+    ! -- local variables
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    character(len=MAXCHARLEN) :: msg
+
+    mt => null()
+    call get_from_memorystore(var_name, mem_path, mt, found, check=.false.)
+    if (.not. found) return
+    if (len_trim(mt%deprecated_in) == 0) return
+
+    write (msg, '(a)') &
+      "API VARIABLE '"//trim(var_name)//"' IN '"//trim(mem_path)// &
+      "' WAS DEPRECATED IN VERSION "//trim(mt%deprecated_in)//". USE '"// &
+      trim(mt%mastername)//"' IN '"//trim(mt%masterPath)//"' INSTEAD."
+    call store_warning(trim(msg), substring=trim(msg))
+
+  end subroutine warn_deprecated_address
 
   !> @brief Returns the string length without the trailing null character
   !<

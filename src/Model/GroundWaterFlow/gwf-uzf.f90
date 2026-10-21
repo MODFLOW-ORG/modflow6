@@ -5,7 +5,8 @@ module UzfModule
   use ConstantsModule, only: DZERO, DEM6, DEM4, DEM2, DEM1, DHALF, &
                              DONE, DHUNDRED, MNORMAL, &
                              LINELENGTH, LENFTYPE, LENPACKAGENAME, &
-                             LENBOUNDNAME, LENBUDTXT, LENPAKLOC, DNODATA, &
+                             LENBOUNDNAME, LENBUDTXT, LENPAKLOC, LENVARNAME, &
+                             DNODATA, &
                              NAMEDBOUNDFLAG, MAXCHARLEN, &
                              DHNOFLO, DHDRY, &
                              TABLEFT, TABCENTER, TABRIGHT, &
@@ -409,20 +410,51 @@ contains
 
   !> @brief Check in the pre-refactor names of the renamed uzf variables
   !!
-  !! The aliases share memory with the renamed arrays so that a program
-  !! addressing uzf variables through the API resolves either name.
+  !! The aliases share memory with the renamed variables, or with the input
+  !! context for the stress period data, so that a program addressing uzf
+  !! variables through the API resolves either name.
   !<
   subroutine uzf_checkin_deprecated_names(this)
     ! -- modules
-    use MemoryManagerModule, only: mem_checkin
+    use MemoryManagerModule, only: mem_checkin, mem_deprecate
     ! -- dummy
     class(UzfType), intent(inout) :: this
+    ! -- local
+    character(len=LENVARNAME), dimension(10), parameter :: names = &
+      &[character(len=LENVARNAME) :: 'NTRAIL_PVAR', 'NSETS', 'SINF_PVAR', &
+      &'PET_PVAR', 'EXDP_PVAR', 'EXTWC_PVAR', 'HA_PVAR', 'HROOT_PVAR', &
+      &'ROOTACT_PVAR', 'UAUXVAR']
+    character(len=*), parameter :: version = '6.9.0'
+    integer(I4B) :: i
     ! -- code
     !
     call mem_checkin(this%ntrail_input, 'NTRAIL_PVAR', this%memoryPath, &
                      'NTRAIL_INPUT', this%memoryPath)
     call mem_checkin(this%nwavesets, 'NSETS', this%memoryPath, &
                      'NWAVESETS', this%memoryPath)
+    !
+    ! -- stress period data held in the input context
+    call mem_checkin(this%finf_input, 'SINF_PVAR', this%memoryPath, &
+                     'FINF', this%input_mempath)
+    call mem_checkin(this%pet_input, 'PET_PVAR', this%memoryPath, &
+                     'PET', this%input_mempath)
+    call mem_checkin(this%extdp_input, 'EXDP_PVAR', this%memoryPath, &
+                     'EXTDP', this%input_mempath)
+    call mem_checkin(this%extwc_input, 'EXTWC_PVAR', this%memoryPath, &
+                     'EXTWC', this%input_mempath)
+    call mem_checkin(this%ha_input, 'HA_PVAR', this%memoryPath, &
+                     'HA', this%input_mempath)
+    call mem_checkin(this%hroot_input, 'HROOT_PVAR', this%memoryPath, &
+                     'HROOT', this%input_mempath)
+    call mem_checkin(this%rootact_input, 'ROOTACT_PVAR', this%memoryPath, &
+                     'ROOTACT', this%input_mempath)
+    call mem_checkin(this%uauxvar, 'UAUXVAR', this%memoryPath, &
+                     'AUXVAR', this%input_mempath)
+    !
+    ! -- warn when a program uses the previous names
+    do i = 1, size(names)
+      call mem_deprecate(names(i), this%memoryPath, version)
+    end do
   end subroutine uzf_checkin_deprecated_names
 
   !> @brief Source OPTIONS block from input context

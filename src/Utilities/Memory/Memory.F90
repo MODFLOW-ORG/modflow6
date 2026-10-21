@@ -25,6 +25,7 @@ module MemoryTypeModule
     integer(I4B) :: element_size = 0 !< byte size of an element; string length
     integer(I4B) :: set_handler_idx = 0 !< index of side effect handler for external access
     logical(LGP) :: master = .true. !< master copy, others point to this one
+    character(len=16) :: deprecated_in = '' !< version this name was deprecated in; blank if current
     character(len=:), pointer :: strsclr => null() !< pointer to the character string
     logical(LGP), pointer :: logicalsclr => null() !< pointer to the logical
     integer(I4B), pointer :: intsclr => null() !< pointer to the integer

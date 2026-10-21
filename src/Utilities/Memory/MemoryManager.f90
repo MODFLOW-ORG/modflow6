@@ -23,6 +23,7 @@ module MemoryManagerModule
   private
   public :: mem_allocate
   public :: mem_checkin
+  public :: mem_deprecate
   public :: mem_reallocate
   public :: mem_setptr
   public :: mem_copyptr
@@ -1257,6 +1258,20 @@ contains
     ! -- add memory type to the memory list
     call memorystore%add(mt)
   end subroutine checkin_charstr1d
+
+  !> @brief Mark a variable name as deprecated for access through the API
+  !<
+  subroutine mem_deprecate(name, mem_path, version)
+    character(len=*), intent(in) :: name !< deprecated variable name
+    character(len=*), intent(in) :: mem_path !< path where the variable is stored
+    character(len=*), intent(in) :: version !< version the name was deprecated in
+    ! -- local
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    ! -- code
+    call get_from_memorystore(name, mem_path, mt, found)
+    mt%deprecated_in = version
+  end subroutine mem_deprecate
 
   !> @brief Reallocate a 1-dimensional defined length string array
   !<
