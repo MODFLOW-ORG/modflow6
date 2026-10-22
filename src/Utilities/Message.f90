@@ -198,6 +198,8 @@ contains
   subroutine deallocate (this)
     class(MessagesType) :: this
     if (allocated(this%messages)) deallocate (this%messages)
+    this%num_messages = 0
+    this%max_exceeded = 0
   end subroutine deallocate
 
   !> @brief Write a message to an output unit.
