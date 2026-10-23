@@ -231,6 +231,7 @@ module MawModule
     procedure :: maw_allocate_scalars
     procedure :: maw_allocate_well_conn_arrays
     procedure :: maw_allocate_arrays
+    procedure :: maw_checkin_deprecated_names
     procedure :: source_options => maw_source_options
     procedure :: source_dimensions => maw_source_dimensions
     procedure :: read_initial_attr => maw_read_initial_attr
@@ -613,6 +614,39 @@ contains
     call this%BndExtType%allocate_featureauxvar()
   end subroutine maw_allocate_arrays
 
+  !> @brief Alias deprecated MAW variable names to their current storage
+  !!
+  !! IDM integration moved several well variables into the input context,
+  !! renaming some. These aliases share memory with the relocated variables so
+  !! that programs addressing them through the API by their old package-path
+  !! names continue to resolve; each use is reported as deprecated.
+  !<
+  subroutine maw_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    character(len=*), parameter :: version = '6.8.2' !< version the names were deprecated in
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    call mem_alias_deprecated(this%rate, 'RATE', this%memoryPath, &
+                              'RATE', this%input_mempath, version)
+    call mem_alias_deprecated(this%well_head, 'WELL_HEAD', this%memoryPath, &
+                              'WELL_HEAD', this%input_mempath, version)
+    !
+    ! -- well auxiliary values, present (possibly empty) in the input context
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'MAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, version)
+    end if
+  end subroutine maw_checkin_deprecated_names
+
   !> @brief Source OPTIONS block from input context
   !<
   subroutine maw_source_options(this)
@@ -789,6 +823,9 @@ contains
     !
     ! -- read optional ANGLEDATA (non-vertical well connections)
     call this%maw_source_angledata()
+    !
+    ! -- alias deprecated variable names
+    call this%maw_checkin_deprecated_names()
     !
     ! -- Call define_listlabel
     call this%define_listlabel()
