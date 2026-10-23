@@ -1,0 +1,49 @@
+\subsection{Well (WEL) Package}
+
+The Well Package applies a specified volumetric flow rate to each listed cell.
+The single per-boundary input is the well rate.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the WEL Package that are candidates for
+modification through the API. See also the variables common to all stress
+packages described above.} \label{table:api-gwf-wel} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{Q} & Period-reset &
+Volumetric well rate for each well, dimensioned by \texttt{MAXBOUND} (positive
+for injection, negative for extraction). Read from input at the start of each
+stress period. Set it every time step (after \texttt{prepare\_time\_step}) to
+change pumping at run time; a value set once before the time loop is overwritten
+at the next Read and Prepare. \emph{Caveats:} when a well rate is supplied by a
+time series, it is refreshed each time step and overwrites API changes (class
+becomes Overwritten). When \texttt{AUTO\_FLOW\_REDUCE} is active, \texttt{Q} is
+the requested rate; the rate actually applied to an extraction well is reduced as
+the cell head approaches the cell bottom. \\
+
+\texttt{AUXVAR} & Period-reset &
+Auxiliary variable values, dimensioned by the number of auxiliary variables and
+\texttt{MAXBOUND} (present when \texttt{AUXILIARY} variables are specified).
+Re-read each stress period; set after \texttt{prepare\_time\_step}. Indexed by
+boundary position, so a value follows the boundary index, not the cell. \\
+
+\texttt{NODELIST} & Period-reset &
+One-based reduced node number of the cell containing each boundary, dimensioned
+by \texttt{MAXBOUND}. Set it after \texttt{prepare\_time\_step} to relocate a
+boundary (see ``Changing Boundary Locations''). \\
+
+\texttt{NBOUND} & Period-reset &
+Number of active boundaries in the current stress period, from 0 to
+\texttt{MAXBOUND}. Increase it (and fill the new entries) to activate boundaries
+or decrease it to deactivate them (see ``Changing Boundary Locations''). \\
+
+\hline
+\end{longtable}
