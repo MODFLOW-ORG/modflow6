@@ -164,6 +164,12 @@ def pytest_addoption(parser):
         help="include netcdf test cases",
     )
     parser.addoption(
+        "--fp4",
+        action="store_true",
+        default=False,
+        help="include tests re-running and comparing a flopy4-rewritten simulation",
+    )
+    parser.addoption(
         "--plot",
         action="store_true",
         default=False,
@@ -199,3 +205,9 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "netcdf" in item.keywords:
                 item.add_marker(skip_netcdf)
+
+    if not config.getoption("--fp4"):
+        skip_fp4 = pytest.mark.skip(reason="need --fp4 option to run")
+        for item in items:
+            if "fp4" in item.keywords:
+                item.add_marker(skip_fp4)
