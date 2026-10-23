@@ -11,6 +11,7 @@ module MemoryAliasModule
   use MemoryHelperModule, only: create_mem_address
   use MemoryManagerModule, only: mem_allocate, mem_checkin, mem_reassignptr
   use HashTableModule, only: HashTableType, hash_table_cr, hash_table_da
+  use CharacterStringModule, only: CharacterStringType
   use ArrayHandlersModule, only: ExpandArray
 
   implicit none
@@ -24,10 +25,12 @@ module MemoryAliasModule
   interface mem_alias_deprecated
     module procedure &
       alias_int, &
+      alias_logical1d, &
       alias_int1d, &
       alias_int2d, &
       alias_dbl1d, &
-      alias_dbl2d
+      alias_dbl2d, &
+      alias_charstr1d
   end interface mem_alias_deprecated
 
   type(HashTableType), pointer :: alias_index => null() !< alias address to record number
@@ -56,6 +59,21 @@ contains
     call mem_reassignptr(alias, name, mem_path, name2, mem_path2)
     call record_alias(name, mem_path, name2, mem_path2, version)
   end subroutine alias_int
+
+  !> @brief Check in a deprecated name for a 1d logical array
+  !<
+  subroutine alias_logical1d(alog, name, mem_path, name2, mem_path2, version)
+    logical(LGP), dimension(:), pointer, contiguous, intent(in) :: alog !< the replacement variable
+    character(len=*), intent(in) :: name !< deprecated variable name
+    character(len=*), intent(in) :: mem_path !< path of the deprecated name
+    character(len=*), intent(in) :: name2 !< replacement variable name
+    character(len=*), intent(in) :: mem_path2 !< path of the replacement variable
+    character(len=*), intent(in) :: version !< version the name was deprecated in
+    !
+    if (.not. associated(alog)) return
+    call mem_checkin(alog, name, mem_path, name2, mem_path2)
+    call record_alias(name, mem_path, name2, mem_path2, version)
+  end subroutine alias_logical1d
 
   !> @brief Check in a deprecated name for a 1d integer array
   !<
@@ -116,6 +134,24 @@ contains
     call mem_checkin(adbl, name, mem_path, name2, mem_path2)
     call record_alias(name, mem_path, name2, mem_path2, version)
   end subroutine alias_dbl2d
+
+  !> @brief Check in a deprecated name for a 1d character string array
+  !<
+  subroutine alias_charstr1d(acharstr1d, ilen, name, mem_path, name2, &
+                             mem_path2, version)
+    type(CharacterStringType), dimension(:), &
+      pointer, contiguous, intent(inout) :: acharstr1d !< the replacement variable
+    integer(I4B), intent(in) :: ilen !< string length
+    character(len=*), intent(in) :: name !< deprecated variable name
+    character(len=*), intent(in) :: mem_path !< path of the deprecated name
+    character(len=*), intent(in) :: name2 !< replacement variable name
+    character(len=*), intent(in) :: mem_path2 !< path of the replacement variable
+    character(len=*), intent(in) :: version !< version the name was deprecated in
+    !
+    if (.not. associated(acharstr1d)) return
+    call mem_checkin(acharstr1d, ilen, name, mem_path, name2, mem_path2)
+    call record_alias(name, mem_path, name2, mem_path2, version)
+  end subroutine alias_charstr1d
 
   !> @brief Record the replacement and version of a deprecated name
   !<

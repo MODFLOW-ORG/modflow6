@@ -4,6 +4,7 @@ module TestMemoryAlias
   use MemoryManagerModule, only: mem_allocate, mem_setptr, &
                                  get_from_memorystore
   use MemoryTypeModule, only: MemoryType
+  use CharacterStringModule, only: CharacterStringType
   use MemoryAliasModule, only: mem_alias_deprecated, get_deprecated_alias, &
                                mem_alias_da
   use testdrive, only: error_type, unittest_type, new_unittest, check
@@ -57,17 +58,24 @@ contains
     integer(I4B), dimension(:, :), pointer, contiguous :: ia2, ib2
     real(DP), dimension(:), pointer, contiguous :: da1, db1
     real(DP), dimension(:, :), pointer, contiguous :: da2, db2
+    logical(LGP), dimension(:), pointer, contiguous :: la1, lb1
+    type(CharacterStringType), dimension(:), pointer, contiguous :: ca1, cb1
     integer(I4B) :: n
 
+    call mem_allocate(la1, 3, 'NEWLOG1D', MEMPATH)
     call mem_allocate(ia1, 3, 'NEWINT1D', MEMPATH)
     call mem_allocate(ia2, 2, 3, 'NEWINT2D', MEMPATH)
     call mem_allocate(da1, 3, 'NEWDBL1D', MEMPATH)
     call mem_allocate(da2, 2, 3, 'NEWDBL2D', MEMPATH)
+    call mem_allocate(ca1, 8, 3, 'NEWSTR1D', MEMPATH)
     do n = 1, 3
+      la1(n) = .true.
       ia1(n) = n
       da1(n) = real(n, DP)
     end do
 
+    call mem_alias_deprecated(la1, 'OLDLOG1D', MEMPATH, 'NEWLOG1D', MEMPATH, &
+                              VERSION)
     call mem_alias_deprecated(ia1, 'OLDINT1D', MEMPATH, 'NEWINT1D', MEMPATH, &
                               VERSION)
     call mem_alias_deprecated(ia2, 'OLDINT2D', MEMPATH, 'NEWINT2D', MEMPATH, &
@@ -76,12 +84,18 @@ contains
                               VERSION)
     call mem_alias_deprecated(da2, 'OLDDBL2D', MEMPATH, 'NEWDBL2D', MEMPATH, &
                               VERSION)
+    call mem_alias_deprecated(ca1, 8, 'OLDSTR1D', MEMPATH, 'NEWSTR1D', &
+                              MEMPATH, VERSION)
 
     ! -- the previous names resolve to the same memory
+    call mem_setptr(lb1, 'OLDLOG1D', MEMPATH)
     call mem_setptr(ib1, 'OLDINT1D', MEMPATH)
     call mem_setptr(ib2, 'OLDINT2D', MEMPATH)
     call mem_setptr(db1, 'OLDDBL1D', MEMPATH)
     call mem_setptr(db2, 'OLDDBL2D', MEMPATH)
+    call mem_setptr(cb1, 'OLDSTR1D', MEMPATH)
+    call check(error, associated(lb1, la1), "OLDLOG1D shares memory")
+    if (allocated(error)) return
     call check(error, associated(ib1, ia1), "OLDINT1D shares memory")
     if (allocated(error)) return
     call check(error, associated(ib2, ia2), "OLDINT2D shares memory")
@@ -90,11 +104,17 @@ contains
     if (allocated(error)) return
     call check(error, associated(db2, da2), "OLDDBL2D shares memory")
     if (allocated(error)) return
+    call check(error, associated(cb1, ca1), "OLDSTR1D shares memory")
+    if (allocated(error)) return
 
     ! -- each previous name is recorded with its replacement
     call check_recorded(error, 'OLDINT1D', MEMPATH, MEMPATH//'/NEWINT1D')
     if (allocated(error)) return
     call check_recorded(error, 'OLDDBL2D', MEMPATH, MEMPATH//'/NEWDBL2D')
+    if (allocated(error)) return
+    call check_recorded(error, 'OLDLOG1D', MEMPATH, MEMPATH//'/NEWLOG1D')
+    if (allocated(error)) return
+    call check_recorded(error, 'OLDSTR1D', MEMPATH, MEMPATH//'/NEWSTR1D')
     if (allocated(error)) return
 
     ! -- the replacement itself is not deprecated
