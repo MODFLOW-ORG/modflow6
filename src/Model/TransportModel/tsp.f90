@@ -80,7 +80,7 @@ module TransportModelModule
     ! -- private
     procedure, private :: tsp_ot_obs
     procedure, private :: tsp_ot_flowja
-    procedure, private :: tsp_ot_bdsummary
+    procedure, public :: tsp_ot_bdsummary
     procedure, private :: create_tsp_packages
     procedure, private :: log_namfile_options
 

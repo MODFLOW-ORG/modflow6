@@ -35,10 +35,13 @@ module FlowModelInterfaceModule
     integer(I4B), pointer :: idryinactive => null() !< mark cells with an additional flag to exclude from deactivation (gwe will simulate conduction through dry cells)
     real(DP), dimension(:), pointer, contiguous :: gwfstrgss => null() !< pointer to flow model QSTOSS
     real(DP), dimension(:), pointer, contiguous :: gwfstrgsy => null() !< pointer to flow model QSTOSY
+    real(DP), dimension(:), pointer, contiguous :: gwfvss => null() !< pointer to flow model compressible storage volume
+    real(DP), dimension(:), pointer, contiguous :: gwfsatprev => null() !< flow model saturation at the end of the previous time step
     integer(I4B), dimension(:), pointer, contiguous :: gwfceltyp => null() !< pointer to flow model NPF icelltype
     integer(I4B), pointer :: igwfspdis => null() !< indicates if gwfspdis is available
     integer(I4B), pointer :: igwfstrgss => null() !< indicates if gwfstrgss is available
     integer(I4B), pointer :: igwfstrgsy => null() !< indicates if gwfstrgsy is available
+    integer(I4B), pointer :: igwfstovol => null() !< indicates if gwfvss and gwfsatprev are available
     integer(I4B), pointer :: igwfceltyp => null() !< indicates if gwfceltyp is available
     integer(I4B), pointer :: iubud => null() !< unit number GWF budget file
     integer(I4B), pointer :: iuhds => null() !< unit number GWF head file
@@ -175,6 +178,8 @@ contains
     if (this%flows_from_file) then
       call mem_deallocate(this%gwfstrgss)
       call mem_deallocate(this%gwfstrgsy)
+      call mem_deallocate(this%gwfvss)
+      call mem_deallocate(this%gwfsatprev)
       call mem_deallocate(this%gwfceltyp)
     end if
     !
@@ -190,6 +195,7 @@ contains
     call mem_deallocate(this%igwfspdis)
     call mem_deallocate(this%igwfstrgss)
     call mem_deallocate(this%igwfstrgsy)
+    call mem_deallocate(this%igwfstovol)
     call mem_deallocate(this%igwfceltyp)
     call mem_deallocate(this%iubud)
     call mem_deallocate(this%iuhds)
@@ -221,6 +227,7 @@ contains
     call mem_allocate(this%igwfspdis, 'IGWFSPDIS', this%memoryPath)
     call mem_allocate(this%igwfstrgss, 'IGWFSTRGSS', this%memoryPath)
     call mem_allocate(this%igwfstrgsy, 'IGWFSTRGSY', this%memoryPath)
+    call mem_allocate(this%igwfstovol, 'IGWFSTOVOL', this%memoryPath)
     call mem_allocate(this%igwfceltyp, 'IGWFCELTYP', this%memoryPath)
     call mem_allocate(this%iubud, 'IUBUD', this%memoryPath)
     call mem_allocate(this%iuhds, 'IUHDS', this%memoryPath)
@@ -236,6 +243,7 @@ contains
     this%igwfspdis = 0
     this%igwfstrgss = 0
     this%igwfstrgsy = 0
+    this%igwfstovol = 0
     this%igwfceltyp = 0
     this%iubud = 0
     this%iuhds = 0
@@ -297,6 +305,18 @@ contains
       end do
       do n = 1, size(this%gwfstrgsy)
         this%gwfstrgsy(n) = DZERO
+      end do
+      if (this%igwfstovol == 0) then
+        call mem_allocate(this%gwfvss, 1, 'GWFVSS', this%memoryPath)
+        call mem_allocate(this%gwfsatprev, 1, 'GWFSATPREV', this%memoryPath)
+      else
+        call mem_allocate(this%gwfvss, nodes, 'GWFVSS', this%memoryPath)
+        call mem_allocate(this%gwfsatprev, nodes, 'GWFSATPREV', &
+                          this%memoryPath)
+      end if
+      do n = 1, size(this%gwfvss)
+        this%gwfvss(n) = DZERO
+        this%gwfsatprev(n) = DONE
       end do
       ! allocate and initialize cell type array. if the FMI is in a separate
       ! simulation from the GWF model, we expect cell type to have been read
@@ -710,6 +730,14 @@ contains
               if (nr <= 0) cycle
               this%gwfsat(nr) = this%bfr%auxvar(1, i)
             end do
+          case ('DATA-STOVOL')
+            do i = 1, h%nlist
+              nu = this%bfr%nodesrc(i)
+              nr = this%dis%get_nodenumber(nu, 0)
+              if (nr <= 0) cycle
+              this%gwfvss(nr) = this%bfr%auxvar(1, i)
+              this%gwfsatprev(nr) = this%bfr%auxvar(2, i)
+            end do
           case ('STO-SS')
             do nu = 1, this%dis%nodesuser
               nr = this%dis%get_nodenumber(nu, 0)
@@ -908,6 +936,8 @@ contains
         this%igwfspdis = 1
       case ('DATA-SAT')
         found_datasat = .true.
+      case ('DATA-STOVOL')
+        this%igwfstovol = 1
       case ('STO-SS')
         found_stoss = .true.
         this%igwfstrgss = 1
