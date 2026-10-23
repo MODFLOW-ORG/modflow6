@@ -265,6 +265,10 @@ contains
     call mem_checkin(gwemodel%fmi%gwfsat, &
                      'GWFSAT', gwemodel%fmi%memoryPath, &
                      'SAT', gwfmodel%npf%memoryPath)
+    gwemodel%fmi%gwfsat_old => gwfmodel%npf%sat_old
+    call mem_checkin(gwemodel%fmi%gwfsat_old, &
+                     'GWFSAT_OLD', gwemodel%fmi%memoryPath, &
+                     'SAT_OLD', gwfmodel%npf%memoryPath)
     gwemodel%fmi%gwfspdis => gwfmodel%npf%spdis
     call mem_checkin(gwemodel%fmi%gwfspdis, &
                      'GWFSPDIS', gwemodel%fmi%memoryPath, &
