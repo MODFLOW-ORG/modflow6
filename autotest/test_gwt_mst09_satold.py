@@ -16,6 +16,10 @@ Cases:
   - fmi_file   : the drain case with flows read from the files of a separate
                  flow simulation, where the first time step reconstructs the
                  starting saturation from the specific yield storage flow.
+  - fmi_satold : flows read from a file with the storage volumes saved, a
+                 specific yield less than porosity, and a water table that
+                 moves in the first time step; the concentrations match the
+                 coupled simulation.
   - ats_retry  : the drain case, starting at a saturation of 0.9, with a
                  transport solution that fails on long time steps, so that ATS
                  repeats them with shorter lengths.
@@ -64,7 +68,7 @@ def add_ims(sim, fname, **kwargs):
     return flopy.mf6.ModflowIms(sim, filename=fname, **options)
 
 
-def add_gwf(sim, periods, strt, ss=0.0):
+def add_gwf(sim, periods, strt, ss=0.0, sy=porosity, savvol=False):
     gwf = flopy.mf6.ModflowGwf(
         sim, modelname="gwf", save_flows=True, newtonoptions="NEWTON"
     )
@@ -82,7 +86,12 @@ def add_gwf(sim, periods, strt, ss=0.0):
         save_saturation=True,
     )
     flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=0 if ss > 0.0 else 1, ss=ss, sy=porosity, transient={0: True}
+        gwf,
+        iconvert=0 if ss > 0.0 else 1,
+        ss=ss,
+        sy=sy,
+        transient={0: True},
+        save_storage_volume=savvol,
     )
     flopy.mf6.ModflowGwfwel(
         gwf,
@@ -230,6 +239,45 @@ def test_fmi_file(function_tmpdir, targets, sorb):
     times, sat, conc = simulated(ws, flow_ws)
     ref = expected(times, sat, drain_periods, sorb, 1.0)
     assert np.allclose(conc, ref, rtol=1e-6), f"concentration {conc} expected {ref}"
+
+
+@pytest.mark.parametrize("sorb", [False, True], ids=["nosorb", "sorb"])
+def test_fmi_satold(function_tmpdir, targets, sorb):
+    exe = str(targets["mf6"])
+    # with a specific yield of 0.05, pumping 10 m3 in 1 d lowers the water
+    # table from 5 m to 3 m and injecting it raises it back
+    sy = 0.05
+    periods = [(1.0, -10.0, 0.0, 0.0), (1.0, 10.0, 0.0, 0.0)]
+    tdis = [(perlen, 1, 1.0) for perlen, *_ in periods]
+
+    ws = function_tmpdir / "coupled"
+    sim = flopy.mf6.MFSimulation(sim_name="cell", sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=len(periods), perioddata=tdis)
+    add_gwf(sim, periods, 5.0, sy=sy)
+    add_gwt(sim, periods, sorb)
+    flopy.mf6.ModflowGwfgwt(sim, exgtype="GWF6-GWT6", exgmnamea="gwf", exgmnameb="gwt")
+    run(sim)
+    _, _, ref = simulated(ws)
+
+    flow_ws = function_tmpdir / "flow"
+    sim = flopy.mf6.MFSimulation(sim_name="flow", sim_ws=flow_ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=len(periods), perioddata=tdis)
+    add_gwf(sim, periods, 5.0, sy=sy, savvol=True)
+    run(sim)
+
+    ws = function_tmpdir / "transport"
+    sim = flopy.mf6.MFSimulation(sim_name="transport", sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=len(periods), perioddata=tdis)
+    add_gwt(sim, periods, sorb, fmi_files=True)
+    run(sim)
+
+    # the saturation saved for the start of each time step
+    times, sat, conc = simulated(ws, flow_ws)
+    cbc = flopy.utils.CellBudgetFile(flow_ws / "gwf.cbc", precision="double")
+    satold = [cbc.get_data(text="DATA-STOVOL", totim=t)[0]["satold"][0] for t in times]
+    assert np.allclose(sat, [0.3, 0.5]), f"saturation {sat}"
+    assert np.allclose(satold, [0.5, sat[0]]), f"previous saturation {satold}"
+    assert np.allclose(conc, ref, rtol=1e-9), f"concentration {conc} expected {ref}"
 
 
 def test_ats_retry(function_tmpdir, targets):
