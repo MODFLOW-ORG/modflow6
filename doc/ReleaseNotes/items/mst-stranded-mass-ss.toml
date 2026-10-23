@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "With stranded mass, the water volume of a cell in the Mobile Storage and Transfer (MST) Package includes the water in compressible storage of the Storage (STO) Package, so the solute in water released from specific storage is conserved. Results change for a model with specific storage. The new SAVE\\_STORAGE\\_VOLUME option of the STO Package writes that volume and the saturation at the end of the previous time step to the budget file as DATA-STOVOL, so a transport model that reads its flows from the file gives the same results as one solved with the flow model."
