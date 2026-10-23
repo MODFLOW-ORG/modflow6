@@ -191,6 +191,14 @@ contains
       this%satnew(n) = this%gwfsat(n)
     end do
     !
+    ! -- a flow model budget file with the storage volumes carries the
+    !    saturation at the end of the previous time step
+    if (this%flows_from_file .and. this%igwfstovol /= 0) then
+      do n = 1, this%dis%nodes
+        this%satold(n) = this%gwfsatprev(n)
+      end do
+    end if
+    !
     ! -- without storage flow, as in a steady-state period, the saturation
     !    does not change over the time step
     if (.not. this%has_storage_flow()) then
@@ -709,6 +717,8 @@ contains
         found_dataspdis = .true.
       case ('DATA-SAT')
         found_datasat = .true.
+      case ('DATA-STOVOL')
+        this%igwfstovol = 1
       case ('STO-SS')
         found_stoss = .true.
         this%igwfstrgss = 1

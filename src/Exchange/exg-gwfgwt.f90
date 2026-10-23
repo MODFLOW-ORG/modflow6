@@ -289,6 +289,8 @@ contains
       if (gwfmodel%insto > 0) then
         gwtmodel%fmi%gwfstrgss => gwfmodel%sto%strgss
         gwtmodel%fmi%igwfstrgss = 1
+        gwtmodel%fmi%gwfvss => gwfmodel%sto%vss
+        gwtmodel%fmi%igwfstovol = 1
         if (gwfmodel%sto%iusesy == 1) then
           gwtmodel%fmi%gwfstrgsy => gwfmodel%sto%strgsy
           gwtmodel%fmi%igwfstrgsy = 1
