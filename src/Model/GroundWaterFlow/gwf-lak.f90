@@ -266,6 +266,7 @@ module LakModule
 
     procedure :: lak_allocate_scalars
     procedure :: lak_allocate_arrays
+    procedure :: lak_checkin_deprecated_names
     procedure :: source_options => lak_source_options
     procedure :: source_dimensions => lak_source_dimensions
     procedure :: read_initial_attr => lak_read_initial_attr
@@ -569,6 +570,72 @@ contains
     ! -- allocate viscratios to size 0
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
   end subroutine lak_allocate_arrays
+
+  !> @brief Alias deprecated LAK variable names to their current storage
+  !!
+  !! IDM integration moved several lake and outlet variables into the input
+  !! context, renaming some, and renamed the lake connection cell array. The
+  !! legacy solver refactor renamed the fallback variables. These aliases share
+  !! memory with the current variables so that programs addressing them
+  !! through the API by their old package-path names continue to resolve; each
+  !! use is reported as deprecated. Outlet names are only aliased when outlets
+  !! are present.
+  !<
+  subroutine lak_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    ! -- local
+    character(len=*), parameter :: version = '6.8.2' !< version the names were deprecated in
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- lake period data
+    call mem_alias_deprecated(this%stage, 'STAGE', this%memoryPath, &
+                              'STAGE', this%input_mempath, version)
+    call mem_alias_deprecated(this%rainfall, 'RAINFALL', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, version)
+    call mem_alias_deprecated(this%evaporation, 'EVAPORATION', &
+                              this%memoryPath, 'EVAPORATION', &
+                              this%input_mempath, version)
+    call mem_alias_deprecated(this%runoff, 'RUNOFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, version)
+    call mem_alias_deprecated(this%inflow, 'INFLOW', this%memoryPath, &
+                              'INFLOW', this%input_mempath, version)
+    call mem_alias_deprecated(this%withdrawal, 'WITHDRAWAL', this%memoryPath, &
+                              'WITHDRAWAL', this%input_mempath, version)
+    !
+    ! -- outlet period data
+    call mem_alias_deprecated(this%outrate, 'OUTRATE', this%memoryPath, &
+                              'RATE', this%input_mempath, version)
+    call mem_alias_deprecated(this%outinvert, 'OUTINVERT', this%memoryPath, &
+                              'INVERT', this%input_mempath, version)
+    call mem_alias_deprecated(this%outwidth, 'OUTWIDTH', this%memoryPath, &
+                              'WIDTH', this%input_mempath, version)
+    call mem_alias_deprecated(this%outslope, 'OUTSLOPE', this%memoryPath, &
+                              'SLOPE', this%input_mempath, version)
+    call mem_alias_deprecated(this%outrough, 'OUTROUGH', this%memoryPath, &
+                              'ROUGH', this%input_mempath, version)
+    !
+    ! -- lake auxiliary values, present (possibly empty) in the input context
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'LAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, version)
+    end if
+    !
+    ! -- renamed at the package path
+    call mem_alias_deprecated(this%gwfconn, 'CELLID', this%memoryPath, &
+                              'GWFCONN', this%memoryPath, version)
+    call mem_alias_deprecated(this%ilegacy, 'IFALLBACK', this%memoryPath, &
+                              'ILEGACY', this%memoryPath, version)
+    call mem_alias_deprecated(this%iforceleg, 'IFORCEFB', this%memoryPath, &
+                              'IFORCELEG', this%memoryPath, version)
+  end subroutine lak_checkin_deprecated_names
 
   !> @brief Source PACKAGEDATA block from input context
   !<
@@ -1575,6 +1642,9 @@ contains
     !
     ! -- read OUTLETS
     call this%lak_source_outlets()
+    !
+    ! -- alias deprecated variable names
+    call this%lak_checkin_deprecated_names()
     !
     ! -- Call define_listlabel
     call this%define_listlabel()
