@@ -142,6 +142,7 @@ module GwtMstModule
     procedure :: addto_volfracim
     procedure :: get_volfracm
     procedure, private :: allocate_arrays
+    procedure, private :: mst_vnew
     procedure, private :: log_options
     procedure, private :: log_data
     procedure, private :: source_options
@@ -498,8 +499,9 @@ contains
 
   !> @ brief Water volume of a cell at the end of the previous time step
   !!
-  !!  Calculated from the stored saturation when stranded mass is active, and
-  !!  reconstructed from the storage flow otherwise.
+  !!  Calculated from the stored saturation and compressible storage volume
+  !!  when stranded mass is active, and reconstructed from the storage flow
+  !!  otherwise.
   !<
   function mst_vold(this, n, vnew, delt) result(vold)
     ! -- dummy
@@ -517,6 +519,8 @@ contains
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       vold = vcell * this%fmi%gwfsatold(n, delt, this%thetam(n)) * &
              this%thetam(n)
+      ! -- compressible storage at the end of the previous time step
+      if (this%fmi%igwfstovol /= 0) vold = vold + this%fmi%gwfvss(n)
       if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
       return
     end if
@@ -557,8 +561,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
+      vnew = this%mst_vnew(n)
       vold = this%mst_vold(n, vnew, delt)
       !
       ! -- add terms to diagonal and rhs accumulators
@@ -569,6 +572,25 @@ contains
       rhs(n) = rhs(n) + rrhs
     end do
   end subroutine mst_fc_sto
+
+  !> @brief Water volume of the mobile domain at the end of the time step
+  !<
+  function mst_vnew(this, n) result(vnew)
+    ! -- dummy
+    class(GwtMstType) :: this !< GwtMstType object
+    integer(I4B), intent(in) :: n !< cell number
+    ! -- return
+    real(DP) :: vnew
+    ! -- local
+    real(DP) :: vcell
+    !
+    vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+    vnew = vcell * this%fmi%gwfsat(n) * this%thetam(n)
+    ! -- stranded mass: include compressible storage when it is available
+    if (this%istrand /= IZERO .and. this%fmi%igwfstovol /= 0) then
+      vnew = vnew + this%fmi%gwfvss(n)
+    end if
+  end function mst_vnew
 
   !> @ brief Fill decay coefficient method for package
   !!
@@ -613,7 +635,7 @@ contains
         ! -- first order decay rate is a function of concentration, so add
         !    to left hand side
         if (cnew(n) > DZERO) then
-          hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
+          hhcof = -this%decay(n) * this%mst_vnew(n)
           call matrix_sln%add_value_pos(idxglo(idiag), hhcof)
         end if
       case (DECAY_ZERO_ORDER)
@@ -623,7 +645,7 @@ contains
         decay_rate = get_zero_order_decay(this%decay(n), this%decaylast(n), &
                                           kiter, cold(n), cnew(n), delt)
         this%decaylast(n) = decay_rate
-        rrhs = decay_rate * vcell * swtpdt * this%thetam(n)
+        rrhs = decay_rate * this%mst_vnew(n)
         rhs(n) = rhs(n) + rrhs
       end select
       !
@@ -1036,9 +1058,9 @@ contains
       call accumulate_strandterm(this%budterm_strand, 6, -(met - det) * tled)
       !
       ! -- the saturation the simulation started from is supplied by a flow
-      !    model solved in the same simulation; from a budget file, whose first
-      !    record is the end of the first time step, it is reconstructed with
-      !    the specific yield taken as the mobile porosity
+      !    model solved in the same simulation or saved with the storage
+      !    volumes; otherwise it is reconstructed with the specific yield taken
+      !    as the mobile porosity
       if (this%fmi%satold(n) == DNODATA .and. .not. this%warned_firststep) then
         !
         ! -- the water table moved if water was released to or taken from
@@ -1049,9 +1071,11 @@ contains
             &reconstructed from the specific yield storage flow, taking the &
             &specific yield as the mobile porosity, so no solute was held back &
             &from water retained against drainage then. The saturation is &
-            &supplied by a flow model solved in the same simulation; a &
-            &transport model that reads its flows from a file should begin &
-            &with a stress period during which the water table does not move.'
+            &supplied by a flow model solved in the same simulation or saved &
+            &with the SAVE_STORAGE_VOLUME option of the STO Package; &
+            &otherwise, a transport model that reads its flows from a file &
+            &should begin with a stress period during which the water table &
+            &does not move.'
           call store_warning(warnmsg)
           this%warned_firststep = .true.
         end if
@@ -1188,8 +1212,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
+      vnew = this%mst_vnew(n)
       vold = this%mst_vold(n, vnew, delt)
       !
       ! -- calculate rate
@@ -1243,12 +1266,12 @@ contains
       rrhs = DZERO
       if (this%idcy == DECAY_FIRST_ORDER) then
         if (cnew(n) > DZERO) then
-          hhcof = -this%decay(n) * vcell * swtpdt * this%thetam(n)
+          hhcof = -this%decay(n) * this%mst_vnew(n)
         end if
       elseif (this%idcy == DECAY_ZERO_ORDER) then
         decay_rate = get_zero_order_decay(this%decay(n), this%decaylast(n), &
                                           0, cold(n), cnew(n), delt)
-        rrhs = decay_rate * vcell * swtpdt * this%thetam(n)
+        rrhs = decay_rate * this%mst_vnew(n)
       end if
       rate = hhcof * cnew(n) - rrhs
       this%ratedcy(n) = rate
