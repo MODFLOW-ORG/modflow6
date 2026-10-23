@@ -11,6 +11,11 @@ import pytest
 from flopy.mf6.utils import Mf6Splitter
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="registers a 2nd MFSimulation for its own native comparison -- a "
+    "different build_models/check_output shape, not worth restructuring"
+)
+
 cases = ["par_dvscale"]
 
 
