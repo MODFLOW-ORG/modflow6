@@ -14,6 +14,8 @@ Cases:
 
 import flopy
 import numpy as np
+import pytest
+from compare import Comparison
 from framework import TestFramework
 
 nreach = 3
@@ -173,12 +175,20 @@ def check_output(idx, test):
     )
 
 
-def test_mf6model(function_tmpdir, targets):
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
+def test_mf6model(compare, function_tmpdir, targets):
     test = TestFramework(
         name="sft_ats",
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(0, t),
         check=lambda t: check_output(0, t),
+        compare=compare,
     )
     test.run()

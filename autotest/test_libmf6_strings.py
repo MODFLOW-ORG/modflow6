@@ -17,6 +17,7 @@ from ctypes import byref, c_int, create_string_buffer
 
 import flopy
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
 
@@ -200,13 +201,17 @@ def api_func(exe, idx, model_ws=None):
 
 
 @requires_pkg("modflowapi")
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, compare):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         targets=targets,
         api_func=lambda exe, ws: api_func(exe, idx, ws),
+        compare=compare,
     )
     test.run()

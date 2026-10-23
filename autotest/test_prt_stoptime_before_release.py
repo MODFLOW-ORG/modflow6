@@ -13,6 +13,7 @@ Two configurations are tested, matching the two models attached to the issue:
 import flopy
 import pandas as pd
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from prt_test_utils import FlopyReadmeCase, get_model_name
 
@@ -162,14 +163,21 @@ def check_output(test):
     assert late.iloc[0]["istatus"] == 8
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("name", cases)
-def test_mf6model(name, function_tmpdir, targets):
+def test_mf6model(compare, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=build_models,
         check=check_output,
         targets=targets,
-        compare=None,
+        compare=compare,
     )
     test.run()

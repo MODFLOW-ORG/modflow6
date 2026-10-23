@@ -29,6 +29,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="uses DEV_INTERFACEMODEL_ON, a MF6 dev-only option flopy4 won't generate"
+)
+
 cases = ["ifmod_newton01"]
 
 # some global convenience...:

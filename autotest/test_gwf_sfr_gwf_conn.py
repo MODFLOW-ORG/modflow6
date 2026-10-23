@@ -1,6 +1,7 @@
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 paktest = "sfr"
@@ -255,14 +256,35 @@ def build_models(idx, test):
     return sim, None
 
 
+# known flopy4 gap: SFR cellid=None ("NONE") dropped on rewrite --
+# project_flopy4_sfr_cellid_float_gap. Only the "_none" cases (no GWF
+# connection) hit it; the others pass.
+_FP4_GAP_CASES = {"sfr_dis_none", "sfr_disv_none", "sfr_disu_none"}
+
+
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(
+            Comparison.FP4_ASCII,
+            marks=[
+                pytest.mark.fp4,
+                pytest.mark.fp4_gap(reason="SFR cellid=None dropped (some cases)"),
+            ],
+        ),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
+    if compare == Comparison.FP4_ASCII and name in _FP4_GAP_CASES:
+        pytest.xfail("known flopy4 gap: project_flopy4_sfr_cellid_float_gap")
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
-        compare=None,
+        compare=compare,
         xfail="fail" in name,
     )
     test.run()

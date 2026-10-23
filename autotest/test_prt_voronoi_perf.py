@@ -13,6 +13,7 @@ from pathlib import Path
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from flopy.discretization import VertexGrid
 from framework import TestFramework
 from prt_test_utils import get_model_name
@@ -100,16 +101,23 @@ def check_output(test):
     assert trk.exists() and trk.stat().st_size > 0
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.skip(reason="run manually")  # uncomment to run
 @pytest.mark.slow
 @pytest.mark.parametrize("scratch_buffer", [False, True], ids=["inmem", "scratch"])
-def test_mf6model(scratch_buffer, function_tmpdir, targets, benchmark):
+def test_mf6model(compare, scratch_buffer, function_tmpdir, targets, benchmark):
     test = TestFramework(
         name=simname,
         workspace=function_tmpdir,
         build=lambda t: build_models(t, scratch_buffer),
         check=lambda t: check_output(t),
         targets=targets,
-        compare=None,
+        compare=compare,
     )
     benchmark.pedantic(test.run, rounds=1, iterations=1)

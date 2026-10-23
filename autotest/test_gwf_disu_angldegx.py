@@ -27,6 +27,7 @@ from pathlib import Path
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from flopy.utils.gridutil import get_disu_kwargs
 from framework import TestFramework
 
@@ -175,8 +176,15 @@ def check_output(idx, test):
         assert "ERROR REPORT" not in text
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -184,5 +192,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         xfail=(name == "anglerr"),
+        compare=compare,
     )
     test.run()

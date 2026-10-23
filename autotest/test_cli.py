@@ -1,7 +1,12 @@
 import platform
 import subprocess
 
+import pytest
 from conftest import project_root_path
+
+pytestmark = pytest.mark.fp4_exclude(
+    reason="exercises the mf6 CLI directly, no model/simulation to round-trip"
+)
 
 bin_path = project_root_path / "bin"
 ext = ".exe" if platform.system() == "Windows" else ""
