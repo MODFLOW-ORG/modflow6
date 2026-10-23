@@ -20,6 +20,14 @@ Cases:
   - restart  : a simulation started from the concentration and the aqueous
                stranded mass (STRANDED_AQ FILEOUT) that another wrote halfway
                through ends where a single simulation over both halves does.
+  - restart_ss : the restart for a saturated cell with specific storage,
+               sorption, and a specific yield less than the porosity that is
+               pumped down and partly refilled; the solute in compressible
+               storage is conserved, and the restart ends where a single
+               simulation does.
+  - fmi_ss   : the restart_ss cell with flows read from a budget file with the
+               storage volumes saved matches the coupled simulation; without
+               them, it does not.
   - errors   : the arrays with LEGACY_STORAGE, STRANDED_SORBED without
                sorption, a negative mass, and stranded mass in a cell that
                starts saturated are errors (xfail).
@@ -44,7 +52,7 @@ qin = 25.0
 dsdt = qin / (porosity * vcell)
 
 
-def add_flow(sim, strt, periods):
+def add_flow(sim, strt, periods, ss=0.0, sy=porosity, savvol=False):
     def add_ims(fname):
         return flopy.mf6.ModflowIms(
             sim,
@@ -71,7 +79,14 @@ def add_flow(sim, strt, periods):
         save_specific_discharge=True,
         save_saturation=True,
     )
-    flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=0.0, sy=porosity, transient={0: True})
+    flopy.mf6.ModflowGwfsto(
+        gwf,
+        iconvert=1,
+        ss=ss,
+        sy=sy,
+        transient={0: True},
+        save_storage_volume=savvol,
+    )
     flopy.mf6.ModflowGwfwel(
         gwf,
         stress_period_data={
@@ -116,7 +131,7 @@ def add_transport(sim, add_ims, cinit, mst_kwargs, fmi=None):
     )
 
 
-def get_model(ws, periods, nstp, mst_kwargs, strt=strt0, cinit=0.0):
+def get_model(ws, periods, nstp, mst_kwargs, strt=strt0, cinit=0.0, flow_kwargs=None):
     """Single cell with flow and transport solved together."""
     sim = flopy.mf6.MFSimulation(sim_name="cell", sim_ws=ws, exe_name="mf6")
     flopy.mf6.ModflowTdis(
@@ -125,7 +140,7 @@ def get_model(ws, periods, nstp, mst_kwargs, strt=strt0, cinit=0.0):
         nper=len(periods),
         perioddata=[(perlen, nstp, 1.0) for perlen, _ in periods],
     )
-    add_ims = add_flow(sim, strt, periods)
+    add_ims = add_flow(sim, strt, periods, **(flow_kwargs or {}))
     add_transport(sim, add_ims, cinit, mst_kwargs)
     flopy.mf6.ModflowGwfgwt(sim, exgtype="GWF6-GWT6", exgmnamea="gwf", exgmnameb="gwt")
     return sim
@@ -324,6 +339,155 @@ def test_restart(function_tmpdir, targets):
     assert np.isclose(hsecond[-1], hfull[-1], rtol=1e-6), (
         f"stranded mass {hsecond[-1]} expected {hfull[-1]}"
     )
+
+
+# a saturated cell with specific storage, sorption, and a specific yield less
+# than the porosity is pumped down, then partly refilled with clean water, so
+# mass is stranded and returned
+ss_cell = {"ss": 2.0e-3, "sy": 0.05}
+ss_sorb = {"sorption": "linear", "bulk_density": rhob, "distcoef": kd}
+ss_periods = [(1.0, -10.0), (1.0, 8.0)]
+ss_strt = top + 0.5
+ss_cinit = 10.0
+
+
+def test_restart_ss(function_tmpdir, targets):
+    # a restart continues the first simulation in a cell that started it
+    # saturated
+    ss = ss_cell["ss"]
+    ws = function_tmpdir
+
+    def run(path, periods, mst_kwargs, strt, cinit):
+        sim = get_model(
+            path, periods, 5, mst_kwargs, strt=strt, cinit=cinit, flow_kwargs=ss_cell
+        )
+        sim.exe_name = targets["mf6"]
+        sim.write_simulation(silent=True)
+        success, _ = sim.run_simulation(silent=True)
+        assert success, f"simulation in {path} failed"
+
+    def last(path, fname, text):
+        return read_array(path, fname, text)[1][-1]
+
+    def cell_mass(path):
+        """Dissolved, sorbed, and stranded mass of the cell over time."""
+        times, conc = read_array(path, "gwt.ucn", "CONCENTRATION")
+        _, head = read_array(path, "gwf.hds", "HEAD")
+        _, held = read_array(path, "gwt.strand.bin", "STRANDED")
+        cbc = flopy.utils.CellBudgetFile(path / "gwf.cbc", precision="double")
+        sat = np.array([r["sat"][0] for r in cbc.get_data(text="DATA-SAT")])
+        sc1 = ss * vcell
+        vss = sc1 * sat * (head - botm - 0.5 * (top - botm) * sat)
+        water = porosity * vcell * sat + vss
+        return times, conc * water + rhob * kd * conc * vcell * sat + held
+
+    def ssm_mass(path):
+        """Cumulative mass entering the cell from the well."""
+        cbc = flopy.utils.CellBudgetFile(path / "gwt.cbc", precision="double")
+        times = cbc.get_times()
+        dt = np.diff(np.concatenate(([0.0], times)))
+        rate = np.array(
+            [cbc.get_data(text="SOURCE-SINK MIX", totim=t)[0]["q"][0] for t in times]
+        )
+        return np.cumsum(rate * dt)
+
+    # one simulation over both periods, and the first period alone
+    run(ws / "full", ss_periods, ss_sorb, ss_strt, ss_cinit)
+    run(ws / "first", ss_periods[:1], ss_sorb, ss_strt, ss_cinit)
+
+    # the second period starts from what the first wrote
+    first = ws / "first"
+    run(
+        ws / "second",
+        ss_periods[1:],
+        ss_sorb
+        | {
+            "stranded_aqueous": last(first, "gwt.strandaq.bin", "STRAND-AQUEOUS"),
+            "stranded_sorbed": last(first, "gwt.strandsrb.bin", "STRAND-SORBED"),
+        },
+        last(first, "gwf.hds", "HEAD"),
+        last(first, "gwt.ucn", "CONCENTRATION"),
+    )
+
+    # the cell mass changes only by the solute the well removes
+    vss0 = ss * vcell * (ss_strt - botm - 0.5 * (top - botm))
+    mass0 = ss_cinit * (porosity * vcell + vss0 + rhob * kd * vcell)
+    _, mass = cell_mass(ws / "full")
+    expected = mass0 + ssm_mass(ws / "full")
+    assert np.allclose(mass, expected, rtol=1e-8), f"mass {mass} expected {expected}"
+
+    for fname, text in (
+        ("gwt.ucn", "CONCENTRATION"),
+        ("gwt.strandaq.bin", "STRAND-AQUEOUS"),
+        ("gwt.strandsrb.bin", "STRAND-SORBED"),
+    ):
+        full = last(ws / "full", fname, text)
+        second = last(ws / "second", fname, text)
+        assert np.isclose(second, full, rtol=1e-6), f"{text} {second} expected {full}"
+
+
+@pytest.mark.parametrize("savvol", [True, False], ids=["stovol", "nostovol"])
+def test_fmi_ss(function_tmpdir, targets, savvol):
+    exe = targets["mf6"]
+    tdis = [(perlen, 5, 1.0) for perlen, _ in ss_periods]
+    ws = function_tmpdir
+
+    def ims(sim):
+        def add_ims(fname):
+            return flopy.mf6.ModflowIms(
+                sim,
+                complexity="moderate",
+                outer_dvclose=1e-10,
+                inner_dvclose=1e-12,
+                linear_acceleration="bicgstab",
+                filename=fname,
+            )
+
+        return add_ims
+
+    def run(sim):
+        sim.write_simulation(silent=True)
+        success, _ = sim.run_simulation(silent=True)
+        assert success, f"simulation in {sim.sim_path} failed"
+
+    sim = get_model(
+        ws / "coupled",
+        ss_periods,
+        5,
+        ss_sorb,
+        strt=ss_strt,
+        cinit=ss_cinit,
+        flow_kwargs=ss_cell,
+    )
+    sim.exe_name = exe
+    run(sim)
+
+    fsim = flopy.mf6.MFSimulation(sim_name="flow", sim_ws=ws / "flow", exe_name=exe)
+    flopy.mf6.ModflowTdis(fsim, time_units="DAYS", nper=2, perioddata=tdis)
+    add_flow(fsim, ss_strt, ss_periods, savvol=savvol, **ss_cell)
+    run(fsim)
+
+    sim = flopy.mf6.MFSimulation(sim_name="cell", sim_ws=ws / "transport", exe_name=exe)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", nper=2, perioddata=tdis)
+    add_transport(
+        sim,
+        ims(sim),
+        ss_cinit,
+        ss_sorb,
+        fmi=[("GWFHEAD", "../flow/gwf.hds"), ("GWFBUDGET", "../flow/gwf.cbc")],
+    )
+    run(sim)
+
+    match = []
+    for fname, text in (
+        ("gwt.ucn", "CONCENTRATION"),
+        ("gwt.strandaq.bin", "STRAND-AQUEOUS"),
+        ("gwt.strandsrb.bin", "STRAND-SORBED"),
+    ):
+        _, ref = read_array(ws / "coupled", fname, text)
+        _, val = read_array(ws / "transport", fname, text)
+        match.append(np.allclose(val, ref, rtol=1e-9))
+    assert all(match) == savvol, f"{match} with save_storage_volume {savvol}"
 
 
 error_cases = {
