@@ -1,0 +1,111 @@
+# --------------------- utl tva options ---------------------
+# flopy multi-package
+# flopy subpackage tva6_filerecord tva tva_array tva_array
+# flopy parent_name_type parent_package MFPackage
+
+block options
+name readasarrays
+type keyword
+shape
+reader urword
+optional false
+longname use array-based input
+description indicates that array-based input will be used for the TVA Utility.  This keyword must be specified to use array-based input.
+default_value true
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Time Variable Arrays'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'time variable array input'}
+mf6internal iprpak
+
+block options
+name tas_filerecord
+type record tas6 filein tas6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name tas6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname head keyword
+description keyword to specify that record corresponds to a time-array-series file.
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name tas6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of time series information
+description defines a time-array-series file defining a time-array series that can be used to assign time-varying values. See the ``Time-Variable Input'' section for instructions on using the time-array series capability.
+
+block options
+name export_array_netcdf
+type keyword
+reader urword
+optional true
+mf6internal export_nc
+longname export array variables to netcdf output files.
+description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+
+# --------------------- utl tva period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name aux
+type double precision
+shape (nodes)
+reader readarray
+layered true
+time_series true
+optional true
+longname auxiliary variable iaux
+description is an array of values for auxiliary variable aux(iaux), where iaux is a value from 1 to naux, and aux(iaux) must be listed as part of the auxiliary variables.  A separate array can be specified for each auxiliary variable.  If an array is not specified for an auxiliary variable, then it will retain its value from the most recently specified period block.  If an auxiliary variable array has never been specified, its value is zero.
+mf6internal auxvar
