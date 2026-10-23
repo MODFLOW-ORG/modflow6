@@ -23,6 +23,7 @@ module MemoryManagerModule
   private
   public :: mem_allocate
   public :: mem_checkin
+  public :: mem_deprecate
   public :: mem_reallocate
   public :: mem_setptr
   public :: mem_copyptr
@@ -71,6 +72,8 @@ module MemoryManagerModule
 
   interface mem_checkin
     module procedure &
+      checkin_int, &
+      checkin_dbl, &
       checkin_logical1d, &
       checkin_int1d, &
       checkin_int2d, &
@@ -948,6 +951,76 @@ contains
     call memorystore%add(mt)
   end subroutine allocate_dbl3d
 
+  !> @brief Check in an existing integer scalar with a new address (name + path)
+  !<
+  subroutine checkin_int(sclr, name, mem_path, name2, mem_path2)
+    integer(I4B), pointer, intent(in) :: sclr !< the existing scalar
+    character(len=*), intent(in) :: name !< new variable name
+    character(len=*), intent(in) :: mem_path !< new path where variable is stored
+    character(len=*), intent(in) :: name2 !< existing variable name
+    character(len=*), intent(in) :: mem_path2 !< existing path where variable is stored
+    ! -- local
+    type(MemoryType), pointer :: mt
+    ! -- code
+    !
+    ! -- check variable name length
+    call mem_check_length(name, LENVARNAME, "variable")
+    !
+    ! -- allocate memory type
+    allocate (mt)
+    !
+    ! -- set memory type
+    mt%intsclr => sclr
+    mt%element_size = I4B
+    mt%isize = 1
+    mt%name = name
+    mt%path = mem_path
+    write (mt%memtype, "(a)") 'INTEGER'
+    !
+    ! -- set master information
+    mt%master = .false.
+    mt%mastername = name2
+    mt%masterPath = mem_path2
+    !
+    ! -- add memory type to the memory list
+    call memorystore%add(mt)
+  end subroutine checkin_int
+
+  !> @brief Check in an existing real scalar with a new address (name + path)
+  !<
+  subroutine checkin_dbl(sclr, name, mem_path, name2, mem_path2)
+    real(DP), pointer, intent(in) :: sclr !< the existing scalar
+    character(len=*), intent(in) :: name !< new variable name
+    character(len=*), intent(in) :: mem_path !< new path where variable is stored
+    character(len=*), intent(in) :: name2 !< existing variable name
+    character(len=*), intent(in) :: mem_path2 !< existing path where variable is stored
+    ! -- local
+    type(MemoryType), pointer :: mt
+    ! -- code
+    !
+    ! -- check variable name length
+    call mem_check_length(name, LENVARNAME, "variable")
+    !
+    ! -- allocate memory type
+    allocate (mt)
+    !
+    ! -- set memory type
+    mt%dblsclr => sclr
+    mt%element_size = DP
+    mt%isize = 1
+    mt%name = name
+    mt%path = mem_path
+    write (mt%memtype, "(a)") 'DOUBLE'
+    !
+    ! -- set master information
+    mt%master = .false.
+    mt%mastername = name2
+    mt%masterPath = mem_path2
+    !
+    ! -- add memory type to the memory list
+    call memorystore%add(mt)
+  end subroutine checkin_dbl
+
   !> @brief Check in an existing 1d logical array with a new address (name + path)
   !<
   subroutine checkin_logical1d(alog, name, mem_path, name2, mem_path2)
@@ -1185,6 +1258,20 @@ contains
     ! -- add memory type to the memory list
     call memorystore%add(mt)
   end subroutine checkin_charstr1d
+
+  !> @brief Mark a variable name as deprecated for access through the API
+  !<
+  subroutine mem_deprecate(name, mem_path, version)
+    character(len=*), intent(in) :: name !< deprecated variable name
+    character(len=*), intent(in) :: mem_path !< path where the variable is stored
+    character(len=*), intent(in) :: version !< version the name was deprecated in
+    ! -- local
+    type(MemoryType), pointer :: mt
+    logical(LGP) :: found
+    ! -- code
+    call get_from_memorystore(name, mem_path, mt, found)
+    mt%deprecated_in = version
+  end subroutine mem_deprecate
 
   !> @brief Reallocate a 1-dimensional defined length string array
   !<
