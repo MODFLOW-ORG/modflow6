@@ -14,7 +14,7 @@
 
 module WelModule
   ! -- modules used by WelModule methods
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DONE, LENFTYPE, DNODATA, LINELENGTH, &
                              LENAUXNAME
   use SimVariablesModule, only: errmsg, warnmsg
@@ -52,6 +52,7 @@ module WelModule
     procedure :: log_wel_options
     procedure :: bnd_ck => wel_ck
     procedure :: bnd_cf => wel_cf
+    procedure, private :: reduction_bounds
     procedure :: bnd_fc => wel_fc
     procedure :: bnd_fn => wel_fn
     procedure :: bnd_da => wel_da
@@ -377,6 +378,8 @@ contains
     ! -- local variables
     character(len=LINELENGTH) :: errmsg
     integer(I4B) :: i
+    real(DP) :: bt, btop
+    logical(LGP) :: lreduce
     integer(I4B) :: node
     real(DP) :: afraux
     real(DP) :: thick
@@ -401,8 +404,11 @@ contains
     do i = 1, this%nbound
       node = this%nodelist(i)
       if (node == 0) cycle
-      ! -- the reduction is only applied to convertible cells
-      if (this%icelltype(node) == 0) cycle
+      ! -- without a narrowed interval the reduction applies only to
+      !    convertible cells; with one, any cell can be reduced, so the
+      !    per-well value must be valid there too
+      call this%reduction_bounds(node, bt, btop, lreduce)
+      if (.not. lreduce) cycle
       afraux = this%auxvar(this%iafrauxcol, i)
       if (this%iflowredlen == 0) then
         ! -- value is a fraction of the cell thickness: valid range (0, 1]
@@ -436,8 +442,10 @@ contains
     ! -- dummy variables
     class(WelType) :: this !< WelType object
     ! -- local variables
-    integer(I4B) :: i, node, ict
+    integer(I4B) :: i, node
     real(DP) :: qmult
+    real(DP) :: btop
+    logical(LGP) :: lreduce
     real(DP) :: q
     real(DP) :: tp
     real(DP) :: bt
@@ -456,11 +464,10 @@ contains
       end if
       q = this%q_mult(i)
       if (this%iflowred /= 0 .and. q < DZERO) then
-        ict = this%icelltype(node)
-        if (ict /= 0) then
-          bt = this%dis%bot(node)
+        call this%reduction_bounds(node, bt, btop, lreduce)
+        if (lreduce) then
           if (this%iflowredlen == 0) then
-            thick = this%dis%top(node) - bt
+            thick = this%dis%top(node) - this%dis%bot(node)
           else
             thick = DONE
           end if
@@ -469,13 +476,42 @@ contains
           else
             tp = bt + this%flowred * thick
           end if
-          qmult = sQSaturation(tp, bt, this%xnew(node))
-          q = q * qmult
+          if (tp > bt) then
+            qmult = sQSaturation(tp, bt, min(this%xnew(node), btop))
+            q = q * qmult
+          end if
         end if
       end if
       this%rhs(i) = -q
     end do
   end subroutine wel_cf
+
+  !> @brief Interval over which a withdrawal is tapered, and whether to taper
+  !!
+  !! Without a provider the interval spans the cell and the reduction applies
+  !! only to convertible cells, as it always has. A provider that narrows the
+  !! interval makes the reduction apply to that cell whatever its cell type,
+  !! because the fluid being withdrawn can run out in a cell that is nowhere
+  !! near empty.
+  !<
+  subroutine reduction_bounds(this, node, bt, tp, lreduce)
+    class(WelType), intent(inout) :: this !< this WEL instance
+    integer(I4B), intent(in) :: node !< reduced node number
+    real(DP), intent(out) :: bt !< bottom of the reduction interval
+    real(DP), intent(out) :: tp !< top of the reduction interval
+    logical(LGP), intent(out) :: lreduce !< whether to reduce in this cell
+
+    bt = this%dis%bot(node)
+    tp = this%dis%top(node)
+    if (associated(this%flowred_provider)) then
+      call this%flowred_provider%interval(node, bt, tp)
+    end if
+
+    lreduce = this%icelltype(node) /= 0 .or. &
+              bt > this%dis%bot(node) .or. &
+              tp < this%dis%top(node)
+
+  end subroutine reduction_bounds
 
   !> @ brief Copy hcof and rhs terms into solution.
     !!
@@ -532,7 +568,8 @@ contains
     integer(I4B) :: i
     integer(I4B) :: node
     integer(I4B) :: ipos
-    integer(I4B) :: ict
+    real(DP) :: btop
+    logical(LGP) :: lreduce
     real(DP) :: drterm
     real(DP) :: q
     real(DP) :: tp
@@ -549,16 +586,14 @@ contains
       end if
       !
       ! -- well rate is possibly head dependent
-      ict = this%icelltype(node)
-      if (this%iflowred /= 0 .and. ict /= 0) then
+      call this%reduction_bounds(node, bt, btop, lreduce)
+      if (this%iflowred /= 0 .and. lreduce) then
         ipos = ia(node)
         q = -this%rhs(i)
         if (q < DZERO) then
           ! -- calculate derivative for well
-          tp = this%dis%top(node)
-          bt = this%dis%bot(node)
           if (this%iflowredlen == 0) then
-            thick = tp - bt
+            thick = this%dis%top(node) - this%dis%bot(node)
           else
             thick = DONE
           end if
@@ -567,7 +602,12 @@ contains
           else
             tp = bt + this%flowred * thick
           end if
-          drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
+          ! -- the taper is flat above the interval top, so no derivative
+          if (this%xnew(node) >= btop) then
+            drterm = DZERO
+          else
+            drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
+          end if
           drterm = drterm * this%q_mult(i)
           !--fill amat and rhs with newton-raphson terms
           call matrix_sln%add_value_pos(idxglo(ipos), drterm)
