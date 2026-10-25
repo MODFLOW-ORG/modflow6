@@ -2,8 +2,6 @@
 Test that a package listed more than once in the PACKAGES block of a
 model mover or an exchange mover is reported as an input error, and
 that packages with the same name in different models are accepted.
-The simulations are borrowed from test_gwf_mvr01 (model mover) and
-test_gwf_exgmvr01 (exchange mover).
 """
 
 import subprocess
