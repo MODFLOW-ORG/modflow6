@@ -4,10 +4,9 @@ model mover or an exchange mover is reported as an input error, and
 that packages with the same name in different models are accepted.
 """
 
-import subprocess
-
 import flopy
 import pytest
+from framework import TestFramework
 from test_gwf_exgmvr01 import build_simulation
 from test_gwf_mvr01 import get_model
 
@@ -39,25 +38,33 @@ def build_exchange_mvr(ws):
     return sim, exg.mvr
 
 
-@pytest.mark.parametrize("duplicate", [False, True], ids=["unique", "duplicate"])
-@pytest.mark.parametrize("mover_type", ["model", "exchange"], ids=lambda t: f"{t}_mvr")
-def test_mvr_duplicate_packages(function_tmpdir, targets, mover_type, duplicate):
-    mf6 = targets["mf6"]
+def build_models(test, mover_type, duplicate):
     build = build_model_mvr if mover_type == "model" else build_exchange_mvr
-    sim, mvr = build(function_tmpdir)
+    sim, mvr = build(test.workspace)
     if duplicate:
         # repeat the first package, differing only in case
         packages = [tuple(row) for row in mvr.packages.get_data()]
         packages.append(tuple(v.upper() for v in packages[0]))
         mvr.packages.set_data(packages)
         mvr.maxpackages.set_data(len(packages))
-    sim.write_simulation()
+    return sim, None
 
-    proc = subprocess.run([mf6], cwd=function_tmpdir, capture_output=True, text=True)
-    print(proc.stdout)
-    if duplicate:
-        assert proc.returncode != 0
-        assert errmsg in proc.stdout
-    else:
-        assert proc.returncode == 0
-        assert errmsg not in proc.stdout
+
+def check_output(test, duplicate):
+    buff = "\n".join(test.buffs[0])
+    assert (errmsg in buff) == duplicate
+
+
+@pytest.mark.parametrize("duplicate", [False, True], ids=["unique", "duplicate"])
+@pytest.mark.parametrize("mover_type", ["model", "exchange"], ids=lambda t: f"{t}_mvr")
+def test_mvr_duplicate_packages(function_tmpdir, targets, mover_type, duplicate):
+    test = TestFramework(
+        name=f"{mover_type}-mvr",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: build_models(t, mover_type, duplicate),
+        check=lambda t: check_output(t, duplicate),
+        compare=None,
+        xfail=duplicate,
+    )
+    test.run()
