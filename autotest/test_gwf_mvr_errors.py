@@ -41,8 +41,8 @@ def build_exchange_mvr(ws):
     return sim, exg.mvr
 
 
-@pytest.mark.parametrize("duplicate", [False, True])
-@pytest.mark.parametrize("mover_type", ["model", "exchange"])
+@pytest.mark.parametrize("duplicate", [False, True], ids=["unique", "duplicate"])
+@pytest.mark.parametrize("mover_type", ["model", "exchange"], ids=lambda t: f"{t}_mvr")
 def test_mvr_duplicate_packages(function_tmpdir, targets, mover_type, duplicate):
     mf6 = targets["mf6"]
     build = build_model_mvr if mover_type == "model" else build_exchange_mvr
