@@ -380,6 +380,7 @@ contains
     integer(I4B) :: i
     real(DP) :: bt, btop
     logical(LGP) :: lreduce
+    logical(LGP) :: lcaptop
     integer(I4B) :: node
     real(DP) :: afraux
     real(DP) :: thick
@@ -407,7 +408,7 @@ contains
       ! -- without a narrowed interval the reduction applies only to
       !    convertible cells; with one, any cell can be reduced, so the
       !    per-well value must be valid there too
-      call this%reduction_bounds(node, bt, btop, lreduce)
+      call this%reduction_bounds(node, bt, btop, lreduce, lcaptop)
       if (.not. lreduce) cycle
       afraux = this%auxvar(this%iafrauxcol, i)
       if (this%iflowredlen == 0) then
@@ -444,8 +445,10 @@ contains
     ! -- local variables
     integer(I4B) :: i, node
     real(DP) :: qmult
+    real(DP) :: hval
     real(DP) :: btop
     logical(LGP) :: lreduce
+    logical(LGP) :: lcaptop
     real(DP) :: q
     real(DP) :: tp
     real(DP) :: bt
@@ -464,7 +467,7 @@ contains
       end if
       q = this%q_mult(i)
       if (this%iflowred /= 0 .and. q < DZERO) then
-        call this%reduction_bounds(node, bt, btop, lreduce)
+        call this%reduction_bounds(node, bt, btop, lreduce, lcaptop)
         if (lreduce) then
           if (this%iflowredlen == 0) then
             thick = this%dis%top(node) - this%dis%bot(node)
@@ -477,7 +480,9 @@ contains
             tp = bt + this%flowred * thick
           end if
           if (tp > bt) then
-            qmult = sQSaturation(tp, bt, min(this%xnew(node), btop))
+            hval = this%xnew(node)
+            if (lcaptop) hval = min(hval, btop)
+            qmult = sQSaturation(tp, bt, hval)
             q = q * qmult
           end if
         end if
@@ -493,13 +498,21 @@ contains
   !! interval makes the reduction apply to that cell whatever its cell type,
   !! because the fluid being withdrawn can run out in a cell that is nowhere
   !! near empty.
+  !!
+  !! lcaptop reports that a provider lowered the top of the interval. The head
+  !! is then evaluated no higher than that top, because the fluid being
+  !! withdrawn does not reach above it. Where the top is the cell top the head
+  !! must be used as it is: a reduction length larger than the cell thickness
+  !! puts the top of the taper above the cell, and capping the head there would
+  !! hold the well at a reduced rate however high the head rose.
   !<
-  subroutine reduction_bounds(this, node, bt, tp, lreduce)
+  subroutine reduction_bounds(this, node, bt, tp, lreduce, lcaptop)
     class(WelType), intent(inout) :: this !< this WEL instance
     integer(I4B), intent(in) :: node !< reduced node number
     real(DP), intent(out) :: bt !< bottom of the reduction interval
     real(DP), intent(out) :: tp !< top of the reduction interval
     logical(LGP), intent(out) :: lreduce !< whether to reduce in this cell
+    logical(LGP), intent(out) :: lcaptop !< whether a provider lowered the top
 
     bt = this%dis%bot(node)
     tp = this%dis%top(node)
@@ -507,9 +520,10 @@ contains
       call this%flowred_provider%interval(node, bt, tp)
     end if
 
+    lcaptop = tp < this%dis%top(node)
     lreduce = this%icelltype(node) /= 0 .or. &
               bt > this%dis%bot(node) .or. &
-              tp < this%dis%top(node)
+              lcaptop
 
   end subroutine reduction_bounds
 
@@ -570,6 +584,7 @@ contains
     integer(I4B) :: ipos
     real(DP) :: btop
     logical(LGP) :: lreduce
+    logical(LGP) :: lcaptop
     real(DP) :: drterm
     real(DP) :: q
     real(DP) :: tp
@@ -586,7 +601,7 @@ contains
       end if
       !
       ! -- well rate is possibly head dependent
-      call this%reduction_bounds(node, bt, btop, lreduce)
+      call this%reduction_bounds(node, bt, btop, lreduce, lcaptop)
       if (this%iflowred /= 0 .and. lreduce) then
         ipos = ia(node)
         q = -this%rhs(i)
@@ -602,8 +617,8 @@ contains
           else
             tp = bt + this%flowred * thick
           end if
-          ! -- the taper is flat above the interval top, so no derivative
-          if (this%xnew(node) >= btop) then
+          ! -- the taper is flat above a narrowed interval top, so no derivative
+          if (lcaptop .and. this%xnew(node) >= btop) then
             drterm = DZERO
           else
             drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
