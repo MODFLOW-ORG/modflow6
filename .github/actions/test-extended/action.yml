@@ -34,6 +34,15 @@ runs:
       shell: bash
       run: echo "/usr/local/bin" >> "$GITHUB_PATH"
 
+    - name: Show toolchain (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        xcode-select -p
+        xcrun --show-sdk-version
+        ld -v 2>&1 | head -2
+        gfortran --version | head -1
+
     - name: Build OpenMPI (macOS)
       if: runner.os == 'macOS'
       shell: bash

@@ -23,10 +23,10 @@ jobs:
           - {os: ubuntu-24.04, compiler: gcc, version: 12}
           - {os: ubuntu-24.04, compiler: gcc, version: 13}
           - {os: ubuntu-24.04, compiler: gcc, version: 14}
-          - {os: macos-14, compiler: gcc, version: 11, xcode-version: '15.1.0'}
-          - {os: macos-14, compiler: gcc, version: 12, xcode-version: '15.1.0'}
-          - {os: macos-14, compiler: gcc, version: 13, xcode-version: '15.1.0'}
-          - {os: macos-14, compiler: gcc, version: 14, xcode-version: '15.1.0'}
+          - {os: macos-15, compiler: gcc, version: 11, xcode-version: '16.4'}
+          - {os: macos-15, compiler: gcc, version: 12, xcode-version: '16.4'}
+          - {os: macos-15, compiler: gcc, version: 13, xcode-version: '16.4'}
+          - {os: macos-15, compiler: gcc, version: 14, xcode-version: '16.4'}
           - {os: windows-2022, compiler: gcc, version: 11}
           - {os: windows-2022, compiler: gcc, version: 12}
           - {os: windows-2022, compiler: gcc, version: 13}
@@ -98,6 +98,14 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version }}
 
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          gfortran --version | head -1
+
       # static link gfortran libs
       - name: Hide dylibs (macOS)
         if: runner.os == 'macOS'
@@ -148,6 +156,10 @@ jobs:
           otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
           lipo -info mf6 
           lipo -info libmf6.dylib
           lipo -info mf5to6

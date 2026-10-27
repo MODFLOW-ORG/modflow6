@@ -127,7 +127,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-          - os: macos-14
+          - os: macos-15
     defaults:
       run:
         shell: bash
@@ -329,13 +329,13 @@ jobs:
       matrix:
         include:
           # arm mac, release mode
-          - os: macos-14
+          - os: macos-15
             debug: false
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           # arm mac, debug mode
-          - os: macos-14
+          - os: macos-15
             debug: true
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           # ubuntu, release mode
           - os: ubuntu-22.04
             debug: false
@@ -403,6 +403,14 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version }}
 
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          ${{ env.FC }} --version | head -1
+
       # static link gfortran libs
       - name: Hide dylibs (macOS)
         if: runner.os == 'macOS'
@@ -465,6 +473,10 @@ jobs:
           otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
           lipo -info mf6 
           lipo -info libmf6.dylib
           lipo -info mf5to6
@@ -512,8 +524,8 @@ jobs:
         id: set_filters
         run: |
           filters=""
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # sfr rewet comparison fails on macos-14
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # sfr rewet comparison fails on macos
             filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
@@ -751,7 +763,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
+        os: [ubuntu-22.04, macos-15, windows-2022]
     defaults:
       run:
         shell: bash
