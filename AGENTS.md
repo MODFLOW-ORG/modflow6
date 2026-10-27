@@ -26,6 +26,26 @@ procedure lives in a linked doc, follow that doc instead of guessing.
 - **Branching model** → [DEVELOPER.md › Branching model](./DEVELOPER.md#branching-model).
 - **Deprecation policy** → [DEVELOPER.md › Deprecation policy](./DEVELOPER.md#deprecation-policy).
 
+## Quick commands
+
+Canonical Pixi invocations for the most common actions (run from the project root
+unless noted). These mirror the linked DEVELOPER.md sections; see there for options,
+the raw Meson/Pytest equivalents, and the Conda workflow.
+
+- **Set up the dev environment:** `pixi run install`
+- **Configure the build directory:** `pixi run setup builddir`
+  (add `-Ddebug=true` for a debug build)
+- **Build MODFLOW 6 + ZONEBUDGET** (installs to `bin/`): `pixi run build builddir`
+- **Run all unit tests:** `pixi run test builddir`
+- **Run a single unit-test module** (name from `autotest/tester.f90`):
+  `pixi run test builddir --verbose ArrayHandlers`
+- **Run the integration tests:** `pixi run autotest`
+- **Format a single Fortran file:** `fprettify -c .fprettify.yaml path/to/file.f90`
+- **Format / lint Python:** `pixi run fix-python-format` and `pixi run check-python-lint`
+- **Spell check:** `pixi run check-spelling`
+- **Regenerate after a `.dfn` change** (IDM Fortran + mf6io input docs):
+  `pixi run update-fortran-definitions` and `pixi run run-mf6ivar` (see [IDM.md](./IDM.md)).
+
 ## Repository orientation
 
 - `src/` — Fortran source for MODFLOW 6 (models, exchanges, solution, IDM, utilities).
@@ -36,6 +56,8 @@ procedure lives in a linked doc, follow that doc instead of guessing.
 - `doc/mf6io/mf6ivar/dfn/` — input definition (`.dfn`) files; code and docs are generated
   from these.
 - `distribution/`, `.github/` — release tooling and CI configuration.
+- `builddir/` (and other `_builddir*` folders) — disposable Meson build output;
+  never edit by hand, just rebuild.
 
 ## Conventions and guardrails
 
@@ -51,9 +73,12 @@ procedure lives in a linked doc, follow that doc instead of guessing.
 - **Branching/PRs:** follow the repository
   [branching model](./DEVELOPER.md#branching-model) when creating branches and pull
   requests.
-- **Testing scope:** prefer targeted tests over full builds or the full suite unless the
-  change requires broader validation.
-- **On failures:** when a build or test fails, ask for confirmation before starting to
-  fix it.
+- **Testing scope:** scope tests to what changed, and rebuild first (`pixi run build
+  builddir`) — integration tests run the installed binary. Run the affected Fortran
+  unit-test module(s) by name, or the specific integration file(s). Anything broader —
+  a smoke run (`pixi run autotest -S`) or the full suite — is slow, so ask the developer
+  to confirm (or run it themselves) before starting it; escalate only when the change is
+  cross-cutting (IDM, solver, I/O, shared utilities) or a targeted run surfaces failures
+  you can't bound. See [DEVELOPER.md › Testing](./DEVELOPER.md#testing).
 - **Commit messages:** keep them concise.
 - **Tone:** reserve compliments for genuinely exceptional finds or ideas.
