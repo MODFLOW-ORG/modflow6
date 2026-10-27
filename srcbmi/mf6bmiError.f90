@@ -34,6 +34,12 @@ module mf6bmiError
   character(len=*), parameter :: fmt_invalid_mem_access = & !< Invalid memory access, args: variable name
                                  "('Fatal BMI Error, invalid access of memory &
                                  &for variable: ', a)"
+  character(len=*), parameter :: fmt_invalid_index = & !< Index out of range, args: index, variable name
+                                 "('BMI Error, index ', i0, &
+                                 &' out of range for variable: ', a)"
+  character(len=*), parameter :: fmt_invalid_time = & !< Time cannot be reached, args: time, detail
+                                 "('BMI Error, cannot update until time ', &
+                                 &g0, ', ', a)"
   character(len=*), parameter :: fmt_fail_cvg_sol = & !< Solution failed to converge, args: detail
                                  "('BMI Error, Numerical Solution ', i3, &
                                  &' failed to converge')"
