@@ -11,6 +11,7 @@ Case 5 (welg_auxmult05): CONSTANT for primary array (all cells become bounds).
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = [
@@ -193,13 +194,17 @@ def check_output(idx, test):
         assert total_q > 0.0, "Case 5: total well flow should be positive"
 
 
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         targets=targets,
+        compare=compare,
     )
     test.run()

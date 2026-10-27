@@ -2,6 +2,12 @@
 Period input of RCHA and WELG: a missing period carries the previous input
 forward, an empty grid period clears its stresses, and input carries forward
 to NPER. The well rate is scaled by the second aux variable (AUXMULTNAME).
+
+WELG's q and aux are each given in different periods (3 and 4): q restates
+at period 3 without aux restating there, and aux restates at period 4
+without q restating there. Each field fills forward on its own -- one
+field restating a period does not clear or reset a sibling field left
+silent at that same period.
 """
 
 import flopy
@@ -18,11 +24,14 @@ delr = delc = 10.0
 area = (ncol - 1) * delr * delc
 # recharge rate and well aux multiplier given in these periods only
 recharge = {0: 0.01, 2: 0.02}
-auxmult = {0: 0.5, 3: 2.0}
+auxmult = {0: 0.5, 4: 3.0}
 qwell = -1.0
 # expected rates, by period
 expected_rch = [0.01, 0.01, 0.02, 0.02, 0.02]
-expected_wel = [-0.5, 0.0, 0.0, -2.0, -2.0]
+# period 3: q restates (-1.0) while aux's mult (0.5, from period 0) stays
+# silent and still applies. period 4: aux restates (3.0) while q (-1.0,
+# from period 3) stays silent and still applies.
+expected_wel = [-0.5, 0.0, 0.0, -0.5, -3.0]
 
 
 def build_models(idx, test):
@@ -48,14 +57,27 @@ def build_models(idx, test):
 
     q = np.full((nlay, nrow, ncol), DNODATA)
     q[1, 0, ncol - 1] = qwell
-    ones = np.ones((nlay, nrow, ncol))
+    # aux must share q's node pattern (DNODATA elsewhere): when aux is the
+    # only array restated in a period (period 4, below), it's the one
+    # that establishes which cells are active, per MF6's IDM loader
+    # (GridArrayLoadType%rp/param_load in Mf6FileGridArray.f90) -- a
+    # dense array would wrongly mark every cell active instead of just
+    # the well's.
+    a1 = np.full((nlay, nrow, ncol), DNODATA)
+    a1[1, 0, ncol - 1] = 1.0
+
+    def _mult(m):
+        a = np.full((nlay, nrow, ncol), DNODATA)
+        a[1, 0, ncol - 1] = m
+        return a
+
     flopy.mf6.ModflowGwfwelg(
         gwf,
         auxiliary=["a1", "a2"],
         auxmultname="a2",
         # period 2 is empty: no well from period 2 until period 4
         q={0: q, 1: [], 3: q},
-        aux={k: [ones, ones * m] for k, m in auxmult.items()},
+        aux={k: [a1, _mult(m)] for k, m in auxmult.items()},
     )
     flopy.mf6.ModflowGwfoc(
         gwf,

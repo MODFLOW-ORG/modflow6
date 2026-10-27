@@ -286,30 +286,16 @@ def check_output(idx, test):
             assert np.allclose(res, 0.0, atol=1.0e-6), errmsg
 
 
-# known flopy4 gap: binary-format OPEN/CLOSE *list* input crashes with
-# UnicodeDecodeError on load -- project_flopy4_binary_input_gap. Only
-# the "_binary" cases hit it; the others pass.
-_FP4_GAP_CASES = {"gwfgwf_lgr_classic_binary", "gwfgwf_lgr_ifmod_binary"}
-
-
 @pytest.mark.parametrize(
     "compare",
     [
         "auto",
-        pytest.param(
-            Comparison.FP4_ASCII,
-            marks=[
-                pytest.mark.fp4,
-                pytest.mark.fp4_gap(reason="binary list input (some cases)"),
-            ],
-        ),
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
     ],
 )
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.developmode
 def test_mf6model(idx, name, function_tmpdir, targets, compare):
-    if compare == Comparison.FP4_ASCII and name in _FP4_GAP_CASES:
-        pytest.xfail("known flopy4 gap: project_flopy4_binary_input_gap")
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,

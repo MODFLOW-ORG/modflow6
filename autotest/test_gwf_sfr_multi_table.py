@@ -154,19 +154,7 @@ def check_output(idx, test):
     "compare",
     [
         "auto",
-        pytest.param(
-            Comparison.FP4_ASCII,
-            marks=[
-                pytest.mark.fp4,
-                pytest.mark.fp4_gap(
-                    reason="flopy4 drops SFR cellid=None ('NONE') on rewrite"
-                ),
-                pytest.mark.xfail(
-                    reason="known flopy4 gap: project_flopy4_sfr_cellid_float_gap",
-                    strict=True,
-                ),
-            ],
-        ),
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
     ],
 )
 @pytest.mark.parametrize("idx, name", enumerate(cases))

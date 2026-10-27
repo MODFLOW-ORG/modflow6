@@ -19,9 +19,14 @@ import re
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["spccontinue", "spcempty", "spcswitch"]
+
+# flopy4 writes too-small MAXBOUND for a multi-period SPC package (union of
+# distinct BNDNO across periods, not max-per-period) -- project_flopy4_spc_maxbound_gap
+_FP4_GAP_CASES = {"spccontinue", "spcempty", "spcswitch"}
 
 TS_VAL_P1 = 10.0
 TS_VAL_P2 = 20.0
@@ -290,13 +295,29 @@ def check_output(idx, test):
         )
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(
+            Comparison.FP4_ASCII,
+            marks=[
+                pytest.mark.fp4,
+                pytest.mark.fp4_gap(reason="SPC MAXBOUND too small"),
+            ],
+        ),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
+    if compare == Comparison.FP4_ASCII and name in _FP4_GAP_CASES:
+        pytest.xfail("known flopy4 gap: project_flopy4_spc_maxbound_gap")
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        compare=compare,
     )
     test.run()
