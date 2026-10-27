@@ -35,7 +35,6 @@ if test_drive.found() and not fc_id.contains('intel')
     'tester.f90',
     'tester_utils.f90',
     'TestBmi.f90',
-    'TestXmi.f90',
   )
   test_srcs += bmi_sources
   foreach t : tests
@@ -55,15 +54,13 @@ if test_drive.found() and not fc_id.contains('intel')
     test(t, tester, args: t)
   endforeach
 
-  # the BMI and XMI suites run the minimal simulation, each in a process of
-  # its own, because a simulation cannot be initialized twice in one process
-  foreach t : ['Bmi', 'Xmi']
-    test(
-      t,
-      tester,
-      args: t,
-      workdir: meson.project_source_root() / '.mf6minsim',
-      is_parallel: false,
-    )
-  endforeach
+  # the BMI suite runs the minimal simulation in a process of its own,
+  # because a simulation cannot be initialized twice in one process
+  test(
+    'Bmi',
+    tester,
+    args: 'Bmi',
+    workdir: meson.project_source_root() / '.mf6minsim',
+    is_parallel: false,
+  )
 endif

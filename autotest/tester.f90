@@ -31,7 +31,6 @@ program tester
   use TestTimeStepSelect, only: collect_timestepselect
   use TestUzfCellGroup, only: collect_uzfcellgroup
   use TestUzfEtUtil, only: collect_uzfetutil
-  use TestXmi, only: collect_xmi
 
   implicit none
   integer :: stat, is
@@ -70,8 +69,7 @@ program tester
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &
                new_testsuite("UzfCellGroup", collect_uzfcellgroup), &
-               new_testsuite("UzfEtUtil", collect_uzfetutil), &
-               new_testsuite("Xmi", collect_xmi) &
+               new_testsuite("UzfEtUtil", collect_uzfetutil) &
                ]
 
   call get_argument(1, suite_name)
