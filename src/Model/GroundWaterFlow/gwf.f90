@@ -10,6 +10,7 @@ module GwfModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwfIcModule, only: GwfIcType
   use GwfNpfModule, only: GwfNpfType
+  use ConductivityProviderModule, only: ConductivityProviderType
   use Xt3dModule, only: Xt3dType
   use GwfBuyModule, only: GwfBuyType
   use GwfVscModule, only: GwfVscType
@@ -37,6 +38,7 @@ module GwfModule
 
     type(GwfIcType), pointer :: ic => null() ! initial conditions package
     type(GwfNpfType), pointer :: npf => null() ! node property flow package
+    class(ConductivityProviderType), pointer :: conductivity_provider => null() ! hydraulic conductivity tensor provider (NPF-backed)
     type(Xt3dType), pointer :: xt3d => null() ! xt3d option for npf
     type(GwfBuyType), pointer :: buy => null() ! buoyancy package
     type(GwfVscType), pointer :: vsc => null() ! viscosity package
@@ -315,6 +317,8 @@ contains
   !!
   !<
   subroutine gwf_ar(this)
+    ! -- modules
+    use NpfConductivityProviderModule, only: create_npf_conductivity_provider
     ! -- dummy
     class(GwfModelType) :: this
     ! -- locals
@@ -337,6 +341,12 @@ contains
     ! -- Call dis_ar to write binary grid file
     call this%dis%dis_ar(this%npf%icelltype)
     !
+    ! -- expose NPF conductivity through the abstract provider
+    if (this%innpf > 0) then
+      call create_npf_conductivity_provider(this%conductivity_provider, &
+                                            this%npf)
+    end if
+    !
     ! -- set up output control
     call this%oc%oc_ar(this%x, this%dis, this%npf%hnoflo)
     call this%budget%set_ibudcsv(this%oc%ibudcsv)
@@ -346,6 +356,8 @@ contains
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%set_pointers(this%dis%nodes, this%ibound, this%x, &
                                 this%xold, this%flowja)
+      ! -- hand the hydraulic conductivity provider to the package
+      call packobj%set_conductivity_provider(this%conductivity_provider)
       ! -- Read and allocate package
       call packobj%bnd_ar()
       if (this%inbuy > 0) call this%buy%buy_ar_bnd(packobj, this%x)
@@ -1081,6 +1093,8 @@ contains
     ! -- Internal flow packages deallocate
     call this%dis%dis_da()
     call this%ic%ic_da()
+    if (associated(this%conductivity_provider)) &
+      deallocate (this%conductivity_provider)
     call this%npf%npf_da()
     call this%xt3d%xt3d_da()
     call this%buy%buy_da()
