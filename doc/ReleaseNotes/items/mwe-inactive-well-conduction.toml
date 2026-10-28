@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "A multi-aquifer well made INACTIVE in the Multi-Aquifer Well (MAW) Package continued to conduct heat through its connections in the Multi-Aquifer Well Energy Transport (MWE) Package, because the wetted area of each connection was still calculated. An inactive well now has no wetted area, so it does not conduct heat."
