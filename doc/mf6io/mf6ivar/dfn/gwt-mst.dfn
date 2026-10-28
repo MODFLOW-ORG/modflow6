@@ -36,6 +36,152 @@ longname activate sorption
 description is a text keyword to indicate that sorption will be activated.  Valid sorption options include LINEAR, FREUNDLICH, and LANGMUIR.  Use of this keyword requires that BULK\_DENSITY and DISTCOEF are specified in the GRIDDATA block.  If sorption is specified as FREUNDLICH or LANGMUIR then SP2 is also required in the GRIDDATA block.
 
 block options
+name legacy_storage
+type keyword
+reader urword
+optional true
+deprecated 6.9.0
+longname use the storage formulation of earlier versions
+description is a text keyword to indicate that the storage formulation of versions of MODFLOW 6 before 6.9.0 will be used.  By default, solute that stays behind when a cell drains is held out of the mobile domain as stranded mass until the cell rewets, instead of being returned to the water that remains.  Two quantities are held back: the solute in the water retained against drainage, whose volume follows from POROSITY and the specific yield of the Storage (STO) Package rather than from user input and is zero unless the specific yield is the smaller, and the sorbed mass.  Solute that a sink carrying no solute leaves behind, such as evapotranspiration given a mixed (AUXMIXED) concentration in the Source and Sink Mixing (SSM) Package, is deposited in proportion to the drained part of the cell, one minus the saturation, and returned as the cell rewets and as recharge from the Recharge (RCH) Package flushes the drained part of the cell.  Stranded mass decays at the rates given for the aqueous and sorbed phases and is written to a binary array file with the STRANDED FILEOUT option.  With LEGACY\_STORAGE, the solute of the drained part of a cell is returned to the water that remains, so the solute mass of a cell whose specific yield is less than its porosity is not conserved as the water table falls and rises.  The earlier formulation is also used, without this keyword, in a model with the Unsaturated Zone Transport (UZT) Package.  When flows are read from a budget file, a time step without storage flow is taken as steady, so a transient flow model must save its storage flows with SAVE\_FLOWS for the drainage of its cells to be represented.  The water volume of a cell includes the water in compressible storage of the STO Package.  When flows are read from a budget file, that volume and the saturation at the start of the first time step are available only if the flow model saves them with the SAVE\_STORAGE\_VOLUME option of the STO Package.  Without them, water in compressible storage is left out of the water volume, and the saturation at the start of the first time step is reconstructed from the STO-SY term with the specific yield taken as POROSITY, so sorbed mass is stranded during the first time step but no solute is held back from water retained against drainage.  This keyword is deprecated and will be removed in a future release.
+mf6internal ilegacy
+
+block options
+name stranded_filerecord
+type record stranded fileout strandedfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal stranded_rec
+
+block options
+name stranded
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded keyword
+description keyword to specify that record corresponds to stranded mass.
+
+block options
+name strandedfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write stranded mass information.  Writing this file is the way to obtain the stranded mass of a single cell over time; like the sorbate concentration, stranded mass is not available through the Observation (OBS) utility.
+
+block options
+name stranded_aq_filerecord
+type record stranded_aq fileout strandedaqfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal strandaq_rec
+
+block options
+name stranded_aq
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_aq keyword
+description keyword to specify that record corresponds to the aqueous stranded mass.
+
+block options
+name strandedaqfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the aqueous stranded mass of each cell.  The file can be used to give STRANDED\_AQUEOUS for a simulation that continues from this one.
+
+block options
+name stranded_srb_filerecord
+type record stranded_srb fileout strandedsrbfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal strandsrb_rec
+
+block options
+name stranded_srb
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_srb keyword
+description keyword to specify that record corresponds to the sorbed stranded mass.
+
+block options
+name strandedsrbfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the sorbed stranded mass of each cell.  The file can be used to give STRANDED\_SORBED for a simulation that continues from this one.
+
+block options
+name stranded_et_filerecord
+type record stranded_et fileout strandedetfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+mf6internal strandet_rec
+
+block options
+name stranded_et
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded_et keyword
+description keyword to specify that record corresponds to the solute that evapotranspiration has deposited in the drained part of each cell.
+
+block options
+name strandedetfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the solute that evapotranspiration has deposited in the drained part of each cell.  The file can be used to give STRANDED\_ET\_SOLUTE for a simulation that continues from this one.
+
+block options
 name sorbate_filerecord
 type record sorbate fileout sorbatefile
 shape
@@ -166,3 +312,36 @@ optional true
 longname second sorption parameter
 description is the exponent for the Freundlich isotherm and the sorption capacity for the Langmuir isotherm.  sp2 is not required unless the SORPTION keyword is specified in the options block.  If the SORPTION keyword is not specified in the options block, sp2 will have no effect on simulation results. 
 
+block griddata
+name stranded_aqueous
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial stranded aqueous mass
+description is the mass of solute held in the drained part of each cell at the start of the simulation, from the water retained there, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_aqueous is not specified, no aqueous mass is stranded at the start of the simulation.
+
+block griddata
+name stranded_sorbed
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial stranded sorbed mass
+description is the sorbed mass of solute held in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY\_SORBED.  Stranded mass and sorption must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_sorbed is not specified, no sorbed mass is stranded at the start of the simulation.
+
+block griddata
+name stranded_et_solute
+type double precision
+shape (nodes)
+reader readarray
+optional true
+layered true
+netcdf true
+longname initial solute deposited by evapotranspiration
+mf6internal stranded_etsol
+description is the solute that evapotranspiration has deposited in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and as recharge from the Recharge (RCH) Package flushes the drained part of the cell, and decays at the rate given by DECAY.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold deposited solute.  If stranded\_et\_solute is not specified, no solute is deposited at the start of the simulation.
