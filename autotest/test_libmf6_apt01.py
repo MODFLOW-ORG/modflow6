@@ -15,7 +15,7 @@ names. The models are reused from existing tests:
     lke   test_gwe_lke_conduction     LKE      TEMPRAIN, TEMPEVAP, TEMPROFF, TEMPIFLW
     lkt   test_gwt_lkt01              LKT      CONCRAIN, CONCEVAP, CONCROFF, CONCIFLW
     sfe   test_gwe_sfe01sto           SFE      TEMPRAIN, TEMPEVAP, TEMPROFF, TEMPIFLW
-    mwe   test_gwe_mwe_conn_status    MWE      TEMPRATE
+    mwe   test_gwe_mwe_conduction     MWE      TEMPRATE
     uze   test_gwe_uze00              UZE      TEMPINFL, TEMPUZET
 
 All packages also alias CONCFEAT to CONCENTRATION (GWT) or TEMPERATURE (GWE)
@@ -120,8 +120,8 @@ apt_cases = {
         ],
     ),
     "libapt_mwe": (
-        "test_gwe_mwe_conn_status",
-        "GWE-MWE_CS",
+        "test_gwe_mwe_conduction",
+        "GWE-MWE_01",
         "MWE-1",
         [],
         [
