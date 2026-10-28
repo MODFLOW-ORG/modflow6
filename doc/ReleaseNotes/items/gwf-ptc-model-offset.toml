@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "solution"
+description = "When a solution contained more than one GWF model, the pseudo-transient continuation (PTC) factor for steady-state Newton stress periods was calculated from the residuals of the first model in the solution, or of the first model on each process in a parallel run, divided by the cell volumes of each model. Each model now uses its own residuals. The PTC factor, and therefore the iteration history, of a multi-model steady-state Newton simulation no longer depends on the order of the models in the solution or on how the models are distributed over processes. Simulations with a single GWF model per solution are unaffected."

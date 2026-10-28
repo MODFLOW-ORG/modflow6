@@ -636,6 +636,9 @@ contains
     ! -- local
     integer(I4B) :: n
     integer(I4B) :: iptct
+    integer(I4B) :: irow_start
+    integer(I4B) :: irow_end
+    integer(I4B) :: ioffset
     real(DP) :: v
     real(DP) :: resid
     real(DP) :: ptcdelem1
@@ -656,6 +659,10 @@ contains
     ! -- calculate pseudo-transient continuation factor for model
     if (iptct > 0) then
       !
+      ! -- offset of this model in the local residual vector
+      call vec_residual%get_ownership_range(irow_start, irow_end)
+      ioffset = this%moffset - (irow_start - 1)
+      !
       ! -- calculate the pseudo-time step using the residual
       do n = 1, this%dis%nodes
         if (this%npf%ibound(n) < 1) cycle
@@ -664,7 +671,7 @@ contains
         v = this%dis%get_cell_volume(n, this%dis%top(n))
         !
         ! -- set the residual
-        resid = vec_residual%get_value_local(n)
+        resid = vec_residual%get_value_local(n + ioffset)
         !
         ! -- calculate the reciprocal of the pseudo-time step
         !    resid [L3/T] / volume [L3] = [1/T]
