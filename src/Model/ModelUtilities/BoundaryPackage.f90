@@ -86,7 +86,7 @@ module BndModule
     !
     ! -- viscosity flag and safe-copy of conductance array
     integer(I4B), pointer :: ivsc => null() !< flag indicating if viscosity is active in the model
-    class(FlowReductionType), pointer :: flowred_provider => null() !< supplies the flow-reduction interval; null when nothing narrows it
+    class(FlowReductionType), pointer :: flowred_provider => null() !< supplies the flow-reduction factor; null when no formulation does
     real(DP), dimension(:), pointer, contiguous :: condinput => null() !< stores user-specified conductance values
     !
     ! -- timeseries

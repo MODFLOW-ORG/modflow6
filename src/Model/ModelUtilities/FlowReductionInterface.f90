@@ -5,41 +5,50 @@ module FlowReductionInterfaceModule
   private
   public :: FlowReductionType
 
-  !> @brief Interface for supplying a flow-reduction interval.
+  !> @brief Interface for supplying a flow-reduction factor.
   !!
   !! A stress package that reduces a withdrawal, such as the Well Package
-  !! with AUTO_FLOW_REDUCE, tapers the rate over an interval of cell
-  !! elevations. By default that interval spans the cell, so the rate falls
-  !! away as the cell empties.
+  !! with AUTO_FLOW_REDUCE, multiplies the requested rate by a factor that
+  !! falls from one to zero as the fluid runs out. On its own the package
+  !! judges that from the cell: the factor tapers over a length measured up
+  !! from the cell bottom, and only a convertible cell can run dry.
   !!
-  !! Where only part of a cell holds the fluid being withdrawn, the taper
-  !! should be referenced to that part instead. A package that knows how the
-  !! cell is divided implements this interface and narrows the interval; the
-  !! stress package reads it without knowing which package provided it, or
-  !! whether one did at all.
+  !! A flow formulation may know better how much of the fluid being
+  !! withdrawn the cell holds: a sharp interface knows the elevation range
+  !! the fluid occupies, and an unsaturated-flow formulation knows its
+  !! saturation. Such a formulation implements this interface and returns the
+  !! factor itself, with its derivative, so the stress package applies it
+  !! without knowing which formulation provided it, or whether one did at all.
   !<
   type, abstract :: FlowReductionType
   contains
-    procedure(interval_if), deferred :: interval !< Narrow the interval for node n
+    procedure(reduce_if), deferred :: reduce !< Factor for node n
   end type FlowReductionType
 
   abstract interface
-    !> @brief Narrow the flow-reduction interval for a node
+    !> @brief Flow-reduction factor for a node, and its derivative
     !!
-    !! The bounds arrive holding the interval the caller would otherwise use,
-    !! normally the cell bottom and top. An implementation raises bt, lowers
-    !! tp, or both, to the part of the cell its fluid occupies. Leaving them
-    !! unchanged means the whole cell is available.
+    !! The taper length is what the stress package was asked to taper over,
+    !! resolved to a length: the per-boundary auxiliary value or the package
+    !! value, a fraction of the cell thickness already converted. An
+    !! implementation decides how much of its fluid the cell holds, tapers
+    !! the factor over that length from where the fluid runs out, and may
+    !! ignore the length if its fluid never runs out at a definite elevation.
+    !! The factor is one where nothing limits the withdrawal and zero where
+    !! there is nothing to withdraw; the derivative is with respect to the
+    !! head of the cell in this model.
     !<
-    subroutine interval_if(this, n, bt, tp)
+    subroutine reduce_if(this, n, h, taper, f, dfdh)
       ! -- import
       import :: FlowReductionType, DP, I4B
       ! -- dummy
       class(FlowReductionType), intent(in) :: this !< flow reduction provider
       integer(I4B), intent(in) :: n !< reduced node number
-      real(DP), intent(inout) :: bt !< bottom of the interval
-      real(DP), intent(inout) :: tp !< top of the interval
-    end subroutine interval_if
+      real(DP), intent(in) :: h !< head in the cell
+      real(DP), intent(in) :: taper !< length to taper the factor over
+      real(DP), intent(out) :: f !< factor to apply to the requested rate
+      real(DP), intent(out) :: dfdh !< derivative of the factor with respect to head
+    end subroutine reduce_if
   end interface
 
 end module FlowReductionInterfaceModule
