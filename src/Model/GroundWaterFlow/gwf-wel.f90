@@ -29,11 +29,13 @@ module WelModule
   use BlockParserModule, only: BlockParserType
   use InputOutputModule, only: GetUnit, openfile
   use MatrixBaseModule
+  use FlowReductionInterfaceModule, only: FlowReductionType
   !
   implicit none
   !
   private
   public :: wel_create
+  public :: WelType
   !
   character(len=LENFTYPE) :: ftype = 'WEL' !< package ftype
   character(len=16) :: text = '             WEL' !< package flow text string
@@ -45,6 +47,7 @@ module WelModule
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
     integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
     integer(I4B), pointer :: iafrauxcol => null() !< column index in auxvar for AUTO_FLOW_REDUCE_AUXNAME (0 if not active)
+    class(FlowReductionType), pointer :: flowred_provider => null() !< supplies the flow-reduction factor; null when no formulation does
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
@@ -132,6 +135,7 @@ contains
     call mem_deallocate(this%iflowredlen)
     call mem_deallocate(this%iafrauxcol)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
+    nullify (this%flowred_provider)
   end subroutine wel_da
 
   !> @ brief Allocate scalars
