@@ -900,6 +900,11 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
     !
     ! -- Store obs type and assign procedure pointer
+    !    for stranded observation type.
+    call this%obs%StoreObsType('stranded', .true., indx)
+    this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
+    !
+    ! -- Store obs type and assign procedure pointer
     !    for constant observation type.
     call this%obs%StoreObsType('constant', .true., indx)
     this%obs%obsData(indx)%ProcessIdPtr => apt_process_obsID
@@ -1026,7 +1031,10 @@ contains
       if (qss /= DZERO) then
         vold = vnew + qss * delt
       else
-        if (vnew == DZERO) then
+        !
+        ! -- a reach that goes dry keeps the volume of the previous time step
+        !    with stranded mass, so its solute can be held
+        if (vnew == DZERO .and. this%istrand == 0) then
           vold = DZERO
         else
           vold = this%vold(icv)
