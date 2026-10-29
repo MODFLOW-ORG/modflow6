@@ -6,7 +6,7 @@ from pprint import pprint
 
 import pytest
 from modflow_devtools.markers import no_parallel
-from modflow_devtools.misc import run_cmd
+from modflow_devtools.misc import get_model_paths, run_cmd
 
 # OS-specific extensions
 SYSTEM = platform.system()
@@ -236,13 +236,31 @@ def test_docs(dist_dir_path, releasemode):
             assert (dist_dir_path / "doc" / f"{pub}.pdf").is_file()
 
 
+def trace_script(script_path, mf6_path) -> list[Path]:
+    """Example workspaces used in the run script, in order"""
+    cwd = script_path.parent
+    run_paths = []
+    for line in script_path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith(("#!", "@echo", "echo", "pause")):
+            continue
+        if line.startswith("cd "):
+            cwd = (cwd / line[3:].strip()).resolve()
+            assert cwd.is_dir(), f"{script_path}: no such dir: {cwd}"
+            continue
+        exe_path = (cwd / line).resolve()
+        assert exe_path == mf6_path.resolve(), f"{script_path}: not mf6: {line}"
+        run_paths.append(cwd)
+    return run_paths
+
+
 @no_parallel
 def test_examples(dist_dir_path, releasemode):
     if not releasemode:
         pytest.skip(reason="examples not included in provisional distribution")
 
     # check examples directory
-    examples_path = dist_dir_path / "examples"
+    examples_path = (dist_dir_path / "examples").resolve()
     assert examples_path.is_dir()
 
     # print examples found
@@ -253,21 +271,28 @@ def test_examples(dist_dir_path, releasemode):
     print(f"{len(example_paths)} example models found:")
     pprint(example_paths)
 
-    # todo: check individual scripts? toggle via release workflow input?
-    # model_paths = get_model_paths(examples_path)
-    # script_paths = [mp / f"run{_scext}" for mp in model_paths]
-    # for script_path in script_paths:
-    #     print(f"Testing example script: {script_path}")
-    #     assert script_path.is_file()
-    #     out, err, ret = run_cmd(str(script_path), cwd=script_path.parent)
-    #     assert not ret, out + err
+    # check the combined script runs all the examples
+    mf6_path = dist_dir_path / "bin" / f"mf6{EXE_EXT}"
+    runall_path = examples_path / f"runall{SCR_EXT}"
+    assert runall_path.is_file()
+    model_paths = trace_script(runall_path, mf6_path)
+    assert len(model_paths) == len(set(model_paths))
+    assert set(model_paths) == {p.resolve() for p in get_model_paths(examples_path)}
 
-    # check comprehensive examples script and give it a test run
-    script_path = examples_path / f"runall{SCR_EXT}"
-    print(f"Testing comprehensive examples script: {script_path}")
-    assert script_path.is_file()
-    out, err, ret = run_cmd(str(script_path), cwd=script_path.parent)
-    assert not ret, out + err
+    # run each example, in the combined script's order
+    failed = []
+    for model_path in model_paths:
+        script_path = model_path / f"run{SCR_EXT}"
+        print(f"Testing example script: {script_path}")
+        assert script_path.is_file()
+        assert trace_script(script_path, mf6_path) == [model_path]
+        out, err, ret = run_cmd(
+            str(script_path), cwd=model_path, stdin=subprocess.DEVNULL
+        )
+        if ret or "Normal termination" not in out:
+            failed.append(model_path.relative_to(examples_path))
+            print(out + err)
+    assert not failed, f"{len(failed)} example(s) failed: {failed}"
 
 
 @no_parallel
