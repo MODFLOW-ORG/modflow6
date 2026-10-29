@@ -40,7 +40,7 @@ the raw Meson/Pytest equivalents, and the Conda workflow.
 - **Run a single unit-test module** (name from `autotest/tester.f90`):
   `pixi run test builddir --verbose ArrayHandlers`
 - **Run the integration tests:** `pixi run autotest`
-- **Format a single Fortran file:** `fprettify -c .fprettify.yaml path/to/file.f90`
+- **Format a single Fortran file:** `pixi run fix-style path/to/file.f90`
 - **Format / lint Python:** `pixi run fix-python-format` and `pixi run check-python-lint`
 - **Spell check:** `pixi run check-spelling`
 - **Regenerate after a `.dfn` change** (IDM Fortran + mf6io input docs):
@@ -80,5 +80,5 @@ the raw Meson/Pytest equivalents, and the Conda workflow.
   to confirm (or run it themselves) before starting it; escalate only when the change is
   cross-cutting (IDM, solver, I/O, shared utilities) or a targeted run surfaces failures
   you can't bound. See [DEVELOPER.md › Testing](./DEVELOPER.md#testing).
-- **Commit messages:** keep them concise.
+- **Commit messages:** keep them concise. See [the commit section in CONTRIBUTING.md](./CONTRIBUTING.md#commit-messages).
 - **Tone:** reserve compliments for genuinely exceptional finds or ideas.
