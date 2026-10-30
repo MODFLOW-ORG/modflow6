@@ -24,6 +24,9 @@ module SwfModule
 
   private
   public :: SwfModelType
+  ! shared SWF routines reusable by concrete models (e.g. CHF overrides that
+  ! wrap the shared behavior); callable directly since SwfModelType is abstract
+  public :: swf_ac, swf_mc, swf_fc, swf_cq, swf_da
 
   type, abstract, extends(NumericalModelType) :: SwfModelType
     type(SwfIcType), pointer :: ic => null() ! initial conditions package
