@@ -15,7 +15,7 @@ runs:
 
     - name: Restore oneAPI cache
       id: oneapi-cache
-      uses: actions/cache/restore@v3
+      uses: actions/cache/restore@v6
       with:
         path: ${{ env.ONEAPI_ROOT }}
         key: oneapi-${{ runner.os }}-${{ steps.get-date.outputs.date }}
@@ -42,7 +42,7 @@ runs:
 
     - name: Save oneAPI cache
       if: steps.oneapi-cache.outputs.cache-hit != 'true'
-      uses: actions/cache/save@v3
+      uses: actions/cache/save@v6
       with:
         path: ${{ env.ONEAPI_ROOT }}
         key: oneapi-${{ runner.os }}-${{ steps.get-date.outputs.date }}
