@@ -308,11 +308,11 @@ contains
       this%gweInterfaceModel%gwecommon%gwerhow => this%gweModel%gwecommon%gwerhow
     end if
 
-    ! set the equation scaling factor in the interface model to that of
-    !   underlying GWE model
-    if (this%gweModel%incnd > 0) then
-      this%gweInterfaceModel%ieqnsclfac = this%gweModel%cnd%eqnsclfac
-    end if
+    ! set the equation scaling factor in the interface model to that of the
+    !   underlying GWE model.  it is taken from the model rather than from CND
+    !   because the interface model advection needs it whether or not CND is
+    !   active
+    this%gweInterfaceModel%ieqnsclfac = this%gweModel%eqnsclfac
 
     ! AR the movers and obs through the exchange
     if (this%owns_exchange) then
