@@ -304,7 +304,7 @@ jobs:
       - name: Test MF6
         working-directory: modflow6
         run: |
-          if [ "${{ github.ref_name }}" == "master" ]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             pixi run autotest -m "not slow and not regression and not developmode"
           else
             pixi run autotest --smoke
@@ -501,7 +501,7 @@ jobs:
         id: set_markers
         run: |
           markers=""
-          if [[ "${{ github.ref_name }}" == "master" ]]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             markers="not large and not developmode"
           else
             markers="not large"
@@ -689,7 +689,7 @@ jobs:
         id: set_markers
         run: |
           markers=""
-          if [[ "${{ github.ref_name }}" == "master" ]]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             markers="not large and not developmode"
           else
             markers="not large"
