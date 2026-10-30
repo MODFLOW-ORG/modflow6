@@ -34,6 +34,9 @@ module IdmGwfDfnSelectorModule
   use GwfStoInputModule
   use GwfUzfInputModule
   use GwfVscInputModule
+  use GwfVsspInputModule
+  use GwfVsfInputModule
+  use GwfVsetInputModule
   use GwfWelInputModule
   use GwfWelgInputModule
 
@@ -130,6 +133,12 @@ contains
       call set_param_pointer(input_definition, gwf_uzf_param_definitions)
     case ('VSC')
       call set_param_pointer(input_definition, gwf_vsc_param_definitions)
+    case ('VSSP')
+      call set_param_pointer(input_definition, gwf_vssp_param_definitions)
+    case ('VSF')
+      call set_param_pointer(input_definition, gwf_vsf_param_definitions)
+    case ('VSET')
+      call set_param_pointer(input_definition, gwf_vset_param_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_param_definitions)
     case ('WELG')
@@ -202,6 +211,12 @@ contains
       call set_param_pointer(input_definition, gwf_uzf_aggregate_definitions)
     case ('VSC')
       call set_param_pointer(input_definition, gwf_vsc_aggregate_definitions)
+    case ('VSSP')
+      call set_param_pointer(input_definition, gwf_vssp_aggregate_definitions)
+    case ('VSF')
+      call set_param_pointer(input_definition, gwf_vsf_aggregate_definitions)
+    case ('VSET')
+      call set_param_pointer(input_definition, gwf_vset_aggregate_definitions)
     case ('WEL')
       call set_param_pointer(input_definition, gwf_wel_aggregate_definitions)
     case ('WELG')
@@ -274,6 +289,12 @@ contains
       call set_block_pointer(input_definition, gwf_uzf_block_definitions)
     case ('VSC')
       call set_block_pointer(input_definition, gwf_vsc_block_definitions)
+    case ('VSSP')
+      call set_block_pointer(input_definition, gwf_vssp_block_definitions)
+    case ('VSF')
+      call set_block_pointer(input_definition, gwf_vsf_block_definitions)
+    case ('VSET')
+      call set_block_pointer(input_definition, gwf_vset_block_definitions)
     case ('WEL')
       call set_block_pointer(input_definition, gwf_wel_block_definitions)
     case ('WELG')
@@ -345,6 +366,12 @@ contains
       multi_package = gwf_uzf_multi_package
     case ('VSC')
       multi_package = gwf_vsc_multi_package
+    case ('VSSP')
+      multi_package = gwf_vssp_multi_package
+    case ('VSF')
+      multi_package = gwf_vsf_multi_package
+    case ('VSET')
+      multi_package = gwf_vset_multi_package
     case ('WEL')
       multi_package = gwf_wel_multi_package
     case ('WELG')
@@ -419,6 +446,12 @@ contains
       is_advanced = gwf_uzf_is_advanced
     case ('VSC')
       is_advanced = gwf_vsc_is_advanced
+    case ('VSSP')
+      is_advanced = gwf_vssp_is_advanced
+    case ('VSF')
+      is_advanced = gwf_vsf_is_advanced
+    case ('VSET')
+      is_advanced = gwf_vset_is_advanced
     case ('WEL')
       is_advanced = gwf_wel_is_advanced
     case ('WELG')
@@ -493,6 +526,12 @@ contains
       call set_subpkg_pointer(subpackages, gwf_uzf_subpackages)
     case ('VSC')
       call set_subpkg_pointer(subpackages, gwf_vsc_subpackages)
+    case ('VSSP')
+      call set_subpkg_pointer(subpackages, gwf_vssp_subpackages)
+    case ('VSF')
+      call set_subpkg_pointer(subpackages, gwf_vsf_subpackages)
+    case ('VSET')
+      call set_subpkg_pointer(subpackages, gwf_vset_subpackages)
     case ('WEL')
       call set_subpkg_pointer(subpackages, gwf_wel_subpackages)
     case ('WELG')
@@ -564,6 +603,12 @@ contains
     case ('UZF')
       integrated = .true.
     case ('VSC')
+      integrated = .true.
+    case ('VSSP')
+      integrated = .true.
+    case ('VSF')
+      integrated = .true.
+    case ('VSET')
       integrated = .true.
     case ('WEL')
       integrated = .true.
