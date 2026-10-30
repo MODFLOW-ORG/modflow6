@@ -29,11 +29,13 @@ module WelModule
   use BlockParserModule, only: BlockParserType
   use InputOutputModule, only: GetUnit, openfile
   use MatrixBaseModule
+  use FlowReductionInterfaceModule, only: FlowReductionType
   !
   implicit none
   !
   private
   public :: wel_create
+  public :: WelType
   !
   character(len=LENFTYPE) :: ftype = 'WEL' !< package ftype
   character(len=16) :: text = '             WEL' !< package flow text string
@@ -45,6 +47,7 @@ module WelModule
     integer(I4B), pointer :: ioutafrcsv => null() !< unit number for CSV output file containing wells with reduced puping rates
     integer(I4B), pointer :: iflowredlen => null() !< flag indicating flowred variable is a length value
     integer(I4B), pointer :: iafrauxcol => null() !< column index in auxvar for AUTO_FLOW_REDUCE_AUXNAME (0 if not active)
+    class(FlowReductionType), pointer :: flowred_provider => null() !< supplies the flow-reduction factor; null when no formulation does
   contains
     procedure :: allocate_scalars => wel_allocate_scalars
     procedure :: allocate_arrays => wel_allocate_arrays
@@ -52,6 +55,7 @@ module WelModule
     procedure :: log_wel_options
     procedure :: bnd_ck => wel_ck
     procedure :: bnd_cf => wel_cf
+    procedure, private :: reduction_factor
     procedure :: bnd_fc => wel_fc
     procedure :: bnd_fn => wel_fn
     procedure :: bnd_da => wel_da
@@ -131,6 +135,7 @@ contains
     call mem_deallocate(this%iflowredlen)
     call mem_deallocate(this%iafrauxcol)
     call mem_deallocate(this%q, 'Q', this%memoryPath)
+    nullify (this%flowred_provider)
   end subroutine wel_da
 
   !> @ brief Allocate scalars
@@ -401,8 +406,11 @@ contains
     do i = 1, this%nbound
       node = this%nodelist(i)
       if (node == 0) cycle
-      ! -- the reduction is only applied to convertible cells
-      if (this%icelltype(node) == 0) cycle
+      ! -- without a provider the reduction applies only to convertible
+      !    cells; with one, any cell can be reduced, so the per-well value
+      !    must be valid there too
+      if (this%icelltype(node) == 0 .and. &
+          .not. associated(this%flowred_provider)) cycle
       afraux = this%auxvar(this%iafrauxcol, i)
       if (this%iflowredlen == 0) then
         ! -- value is a fraction of the cell thickness: valid range (0, 1]
@@ -436,12 +444,10 @@ contains
     ! -- dummy variables
     class(WelType) :: this !< WelType object
     ! -- local variables
-    integer(I4B) :: i, node, ict
-    real(DP) :: qmult
+    integer(I4B) :: i, node
+    real(DP) :: f
+    real(DP) :: dfdh
     real(DP) :: q
-    real(DP) :: tp
-    real(DP) :: bt
-    real(DP) :: thick
     !
     ! -- Return if no wells
     if (this%nbound == 0) return
@@ -456,26 +462,60 @@ contains
       end if
       q = this%q_mult(i)
       if (this%iflowred /= 0 .and. q < DZERO) then
-        ict = this%icelltype(node)
-        if (ict /= 0) then
-          bt = this%dis%bot(node)
-          if (this%iflowredlen == 0) then
-            thick = this%dis%top(node) - bt
-          else
-            thick = DONE
-          end if
-          if (this%iafrauxcol > 0) then
-            tp = bt + this%auxvar(this%iafrauxcol, i) * thick
-          else
-            tp = bt + this%flowred * thick
-          end if
-          qmult = sQSaturation(tp, bt, this%xnew(node))
-          q = q * qmult
-        end if
+        call this%reduction_factor(i, node, f, dfdh)
+        q = q * f
       end if
       this%rhs(i) = -q
     end do
   end subroutine wel_cf
+
+  !> @brief Factor by which a withdrawal is reduced, and its derivative
+  !!
+  !! The taper length is what the user asked for: the per-well auxiliary
+  !! value or the package value, a length as given or a fraction of the cell
+  !! thickness. Without a provider the factor tapers up from the cell bottom
+  !! over that length and applies to convertible cells only, as it always
+  !! has. A provider decides for itself how much of the fluid being withdrawn
+  !! the cell holds and returns the factor directly, so with one a cell can
+  !! be reduced whatever its cell type.
+  !<
+  subroutine reduction_factor(this, i, node, f, dfdh)
+    class(WelType), intent(inout) :: this !< this WEL instance
+    integer(I4B), intent(in) :: i !< well number
+    integer(I4B), intent(in) :: node !< reduced node number
+    real(DP), intent(out) :: f !< factor to apply to the requested rate
+    real(DP), intent(out) :: dfdh !< derivative of the factor with respect to head
+    ! -- local variables
+    real(DP) :: taper, bt, tp
+
+    f = DONE
+    dfdh = DZERO
+
+    ! -- the length to taper over
+    if (this%iafrauxcol > 0) then
+      taper = this%auxvar(this%iafrauxcol, i)
+    else
+      taper = this%flowred
+    end if
+    if (this%iflowredlen == 0) then
+      taper = taper * (this%dis%top(node) - this%dis%bot(node))
+    end if
+
+    ! -- a formulation that knows what the cell holds answers for it
+    if (associated(this%flowred_provider)) then
+      call this%flowred_provider%reduce(node, this%xnew(node), taper, f, dfdh)
+      return
+    end if
+
+    ! -- otherwise the cell itself: taper up from the bottom, convertible only
+    if (this%icelltype(node) == 0) return
+    bt = this%dis%bot(node)
+    tp = bt + taper
+    if (tp <= bt) return
+    f = sQSaturation(tp, bt, this%xnew(node))
+    dfdh = sQSaturationDerivative(tp, bt, this%xnew(node))
+
+  end subroutine reduction_factor
 
   !> @ brief Copy hcof and rhs terms into solution.
     !!
@@ -532,12 +572,10 @@ contains
     integer(I4B) :: i
     integer(I4B) :: node
     integer(I4B) :: ipos
-    integer(I4B) :: ict
+    real(DP) :: f
+    real(DP) :: dfdh
     real(DP) :: drterm
     real(DP) :: q
-    real(DP) :: tp
-    real(DP) :: bt
-    real(DP) :: thick
     !
     ! -- Copy package rhs and hcof into solution rhs and amat
     do i = 1, this%nbound
@@ -549,27 +587,15 @@ contains
       end if
       !
       ! -- well rate is possibly head dependent
-      ict = this%icelltype(node)
-      if (this%iflowred /= 0 .and. ict /= 0) then
-        ipos = ia(node)
+      if (this%iflowred /= 0) then
         q = -this%rhs(i)
         if (q < DZERO) then
           ! -- calculate derivative for well
-          tp = this%dis%top(node)
-          bt = this%dis%bot(node)
-          if (this%iflowredlen == 0) then
-            thick = tp - bt
-          else
-            thick = DONE
-          end if
-          if (this%iafrauxcol > 0) then
-            tp = bt + this%auxvar(this%iafrauxcol, i) * thick
-          else
-            tp = bt + this%flowred * thick
-          end if
-          drterm = sQSaturationDerivative(tp, bt, this%xnew(node))
-          drterm = drterm * this%q_mult(i)
+          call this%reduction_factor(i, node, f, dfdh)
+          drterm = dfdh * this%q_mult(i)
+          if (drterm == DZERO) cycle
           !--fill amat and rhs with newton-raphson terms
+          ipos = ia(node)
           call matrix_sln%add_value_pos(idxglo(ipos), drterm)
           rhs(node) = rhs(node) + drterm * this%xnew(node)
         end if
