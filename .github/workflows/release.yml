@@ -272,10 +272,16 @@ jobs:
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
+          environments: ${{ matrix.extended && 'default fp4' || 'default' }}
 
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
+
+      - name: Custom pixi install (fp4)
+        if: matrix.extended
+        working-directory: modflow6
+        run: pixi run -e fp4 install
 
       - name: Set version number
         id: set_version
@@ -317,6 +323,14 @@ jobs:
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             markers="$markers and not developmode"
           fi
+          if [[ "${{ matrix.extended }}" == "true" ]] && [[ "${{ inputs.releasemode }}" != "true" ]]; then
+            # run only parallel/netcdf tests in developmode, run all tests in releasemode.
+            # marker-based, not a -k name filter: a netcdf/parallel fp4 comparison can be
+            # folded into any base test file, whose name won't match "test_netcdf"/"test_par".
+            # "fp4" is also included so an ascii-only comparison (no netcdf/parallel mark of
+            # its own) still runs somewhere, since no other CI job currently passes --fp4.
+            markers="$markers and (netcdf or parallel or fp4)"
+          fi
           echo "markers=$markers" >> $GITHUB_OUTPUT
 
       - name: Set filters
@@ -324,17 +338,9 @@ jobs:
         id: set_filters
         run: |
           filters=""
-          if [[ "${{ matrix.extended }}" == "true" ]] && [[ "${{ inputs.releasemode }}" != "true" ]]; then
-            # run only parallel/extended tests in developmode, run all tests in releasemode
-            filters="test_par or test_netcdf"
-          fi
           # sfr rewet comparison fails on macos
           if [[ "${{ runner.os }}" == "macOS" ]]; then
-            if [[ "$filters" != "" ]]; then
-              filters="$filters and not test028_sfr_rewet"
-            else
-              filters="not test028_sfr_rewet"
-            fi
+            filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
 
@@ -448,6 +454,8 @@ jobs:
       - name: Build and test binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && inputs.run_tests
         uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          pixi-environment: fp4
         env:
           RELEASEMODE: ${{ inputs.releasemode }}
           MARKERS: ${{ steps.set_markers.outputs.markers }}
