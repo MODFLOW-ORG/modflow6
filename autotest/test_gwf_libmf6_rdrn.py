@@ -200,6 +200,12 @@ def _run_reverse_drain(libmf6, ws, results):
     return True, open(output_file_path).readlines()
 
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="not supported by the framework: correctness depends on a BMI-injected "
+    "value FP4_ASCII can't rerun safely; fixing it needs subprocess isolation"
+)
+
+
 @requires_pkg("modflowapi")
 @pytest.mark.parametrize("newton", [False, True], ids=["standard", "newton"])
 def test_reverse_drain(function_tmpdir, targets, newton):
@@ -245,6 +251,5 @@ def test_reverse_drain(function_tmpdir, targets, newton):
         build=build_models,
         api_func=api_func,
         check=check_output,
-        compare=None,
     )
     test.run()

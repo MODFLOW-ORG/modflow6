@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.plot.plotutil import to_mp7_pathlines
 from flopy.utils import EndpointFile, PathlineFile
 from flopy.utils.binaryfile import HeadFile
@@ -44,6 +45,10 @@ from prt_test_utils import (
 
 simname = "prtdisv1"
 cases = [f"{simname}", f"{simname}bprp", f"{simname}trts"]
+
+# native vs. fp4_ascii rerun disagree on PRT track row count on Windows only
+# (356 vs 355) -- project_prt_trts_fp4_track_mismatch
+_FP4_GAP_CASES = {f"{simname}trts"}
 
 # model info
 nlay = 1
@@ -543,9 +548,24 @@ def plot_output(idx, test):
     plt.savefig(prt_ws / f"{name}.png")
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(
+            Comparison.FP4_ASCII,
+            marks=[
+                pytest.mark.fp4,
+                pytest.mark.fp4_gap(reason="PRT track row count (trts case)"),
+            ],
+        ),
+    ],
+)
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets, plot):
+def test_mf6model(idx, name, compare, function_tmpdir, targets, plot):
+    if compare == Comparison.FP4_ASCII and name in _FP4_GAP_CASES:
+        pytest.xfail("known gap: project_prt_trts_fp4_track_mismatch")
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -553,7 +573,7 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot):
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if (plot and "bprp" not in name) else None,
         targets=targets,
-        compare=None,
+        compare=compare,
         xfail=[False, "bprp" in name, False],
     )
     test.run()

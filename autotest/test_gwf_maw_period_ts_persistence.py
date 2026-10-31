@@ -22,6 +22,7 @@ Model geometry: 1-layer, 1-row, single-well cases use 3 columns (CHD at
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 paktest = "maw"
@@ -497,13 +498,21 @@ def check_output(idx, test):
         _check_partial(idx - 5, test)
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        compare=compare,
     )
     test.run()

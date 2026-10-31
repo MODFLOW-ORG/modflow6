@@ -6,6 +6,7 @@ to run the PRT test.
 from pathlib import Path
 
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
 from test_prt_budget import build_gwf_sim, build_gwt_sim, build_prt_sim, check_output
@@ -84,10 +85,17 @@ def api_func(exe, idx, model_ws=None):
     return True, open(output_file_path).readlines()
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.skip(reason="storage term disagreement")
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -95,6 +103,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         api_func=lambda exe, ws: api_func(exe, idx, ws),
         check=lambda t: check_output(idx, t),
-        compare=None,
+        compare=compare,
     )
     test.run()

@@ -18,6 +18,10 @@ import flopy
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="checks mf6's own OC-validation error path; no successful run to round-trip"
+)
+
 cases = [
     ("gwf", "BUDGET"),
     ("gwf", "HEAD"),

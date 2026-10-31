@@ -6,6 +6,7 @@ of square cells.
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["dvscale"]
@@ -249,14 +250,21 @@ def check_results(test):
     )
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "mf6",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.developmode  # TODO remove for 6.7.0
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        compare="mf6",
+        compare=compare,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_results(t),
     )

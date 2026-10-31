@@ -14,6 +14,7 @@ import math
 
 import flopy
 import pytest
+from compare import Comparison
 from flopy.utils.gridutil import get_disv_kwargs
 from framework import TestFramework
 from prt_test_utils import get_model_name
@@ -148,14 +149,21 @@ def build(idx, test):
     return build_models(idx, test)
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build(idx, t),
         targets=targets,
-        compare=None,
+        compare=compare,
         xfail="far" in name,
     )
     test.run()

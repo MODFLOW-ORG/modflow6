@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.discretization import VertexGrid
 from flopy.utils import GridIntersect
 from flopy.utils.triangle import Triangle
@@ -361,11 +362,20 @@ def check_output(idx, test):
     assert np.isclose(endpts.y.max(), 996, atol=4)
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @requires_pkg("syrupy")
 @pytest.mark.slow
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("scratch_buffer", [False, True], ids=["inmem", "scratch"])
-def test_mf6model(scratch_buffer, idx, name, function_tmpdir, targets, benchmark, plot):
+def test_mf6model(
+    scratch_buffer, idx, name, compare, function_tmpdir, targets, benchmark, plot
+):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -373,6 +383,6 @@ def test_mf6model(scratch_buffer, idx, name, function_tmpdir, targets, benchmark
         check=lambda t: check_output(idx, t),
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
-        compare=None,
+        compare=compare,
     )
     benchmark(test.run)

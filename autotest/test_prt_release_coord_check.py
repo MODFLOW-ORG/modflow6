@@ -17,6 +17,7 @@ import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
+from compare import Comparison
 from flopy.utils import HeadFile
 from framework import TestFramework
 from prt_test_utils import FlopyReadmeCase, get_model_name
@@ -202,8 +203,15 @@ def plot_output(test):
     plt.savefig(prt_ws / f"{name}.png")
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        None,
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("name", cases)
-def test_mf6model(name, function_tmpdir, targets, plot):
+def test_mf6model(compare, name, function_tmpdir, targets, plot):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -211,7 +219,7 @@ def test_mf6model(name, function_tmpdir, targets, plot):
         check=check_output,
         plot=plot_output if plot else None,
         targets=targets,
-        compare=None,
+        compare=compare,
         xfail=[False, "eager" in name],
     )
     test.run()

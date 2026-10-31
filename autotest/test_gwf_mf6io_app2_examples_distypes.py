@@ -3,6 +3,7 @@ import pathlib as pl
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from conftest import try_get_target
 from flopy.utils.compare import compare_cell_budget
 from flopy.utils.gridgen import Gridgen
@@ -540,8 +541,15 @@ def check_output(idx, test):
     assert compare_cell_budget(fpth0, fpth1, outfile=ws / f"{name}.cmp")
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -549,5 +557,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
         verbose=False,
+        compare=compare,
     )
     test.run()

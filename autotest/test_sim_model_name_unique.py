@@ -6,6 +6,11 @@ to more than one model should fail with an informative error.
 import subprocess
 
 import flopy
+import pytest
+
+pytestmark = pytest.mark.fp4_exclude(
+    reason="checks mf6's own validation-error path; no successful run to round-trip"
+)
 
 
 def build_two_gwf_models(ws, exe):

@@ -41,6 +41,7 @@ import os
 import flopy
 import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
 
@@ -395,15 +396,23 @@ def check_interface_models(mf6):
     assert np.array_equal(idxToGlobalIdx_2, [6, 7, 8, 9, 10, 11, 12, 13, 14, 15])
 
 
+@pytest.mark.parametrize(
+    "compare",
+    [
+        "auto",
+        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+    ],
+)
 @requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.developmode
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         build=lambda t: build_models(idx, t),
         targets=targets,
         api_func=lambda exe, ws: api_func(exe, idx, ws),
+        compare=compare,
     )
     test.run()

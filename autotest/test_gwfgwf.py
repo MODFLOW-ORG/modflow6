@@ -20,6 +20,7 @@ import pathlib as pl
 
 import flopy
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["gwfgwf01", "gwfgwf01ifmod"]
@@ -202,14 +203,18 @@ def check_model(sim, model_number):
     return
 
 
+@pytest.mark.parametrize(
+    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
+)
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.developmode
-def test_mf6model(idx, name, function_tmpdir, targets):
+def test_mf6model(idx, name, function_tmpdir, targets, compare):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
         check=lambda t: check_output(idx, t),
+        compare=compare,
     )
     test.run()
