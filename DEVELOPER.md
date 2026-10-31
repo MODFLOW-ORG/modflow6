@@ -46,6 +46,7 @@ To build and test an extended version of the program, first read the instruction
     - [Running unit tests](#running-unit-tests)
     - [Running integration tests](#running-integration-tests)
       - [Selecting tests with markers](#selecting-tests-with-markers)
+      - [Running example models](#running-example-models)
   - [Writing tests](#writing-tests)
     - [Writing unit tests](#writing-unit-tests)
     - [Writing integration tests](#writing-integration-tests)
@@ -724,6 +725,26 @@ pixi run autotest -m "external" --models-path /path/to/modflow6-testmodels/mf5to
 ```
 
 The framework will then convert any MF2005, MFNWT or MFLGR models found to MF6 models and run them. This can be conveniently combined with `--original-regression` to compare MF2005 and MF6 results.
+
+##### Running example models
+
+The `test_examples.py` module runs the [example models](https://github.com/MODFLOW-ORG/modflow6-examples) with the development version and with the last release (rebuilt in develop mode, see `get-exes`). Unlike the external model tests, which run each simulation workspace separately, each test runs all of an example's workspaces in order, so that e.g. a transport model can read results from the example's flow model. These tests only run when selected with the `examples` marker:
+
+```shell
+pytest -v -n auto -m "examples"
+```
+
+By default the examples are pulled from the GitHub repository using the models API. To run local examples instead, e.g. the `examples/` folder of a distribution, use `--models-path`. To test binaries other than those in the project `bin/` directory, use `--bin-path`:
+
+```shell
+pytest -v -n auto -m "examples" --models-path /path/to/dist/examples --bin-path /path/to/dist/bin
+```
+
+The examples can also be benchmarked with [pytest-benchmark](https://pytest-benchmark.readthedocs.io/en/latest/). Benchmarking is disabled by default; enable it with `--benchmark-enable` and run the tests serially (benchmarking is disabled with `-n`). Results are grouped by example, and per-workspace run times are included in each benchmark's extra info:
+
+```shell
+pytest -v -m "examples" --benchmark-enable --benchmark-json=examples.json
+```
 
 ### Writing tests
 

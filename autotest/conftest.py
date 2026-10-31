@@ -11,55 +11,63 @@ project_root_path = Path(__file__).resolve().parent.parent
 
 _exe_ext, _lib_ext = get_binary_suffixes(sys.platform)
 _binaries_path = project_root_path / "bin"
-_dl_bin_path = _binaries_path / "downloaded"
-_rb_bin_path = _binaries_path / "rebuilt"
-_binaries = {
-    "development": [
-        ("mf6", _binaries_path / f"mf6{_exe_ext}"),
-        ("libmf6", _binaries_path / f"libmf6{_lib_ext}"),
-        ("mf5to6", _binaries_path / f"mf5to6{_exe_ext}"),
-        ("zbud6", _binaries_path / f"zbud6{_exe_ext}"),
-    ],
-    "downloaded": [
-        ("mf2000", _dl_bin_path / f"mf2000{_exe_ext}"),
-        ("mf2005", _dl_bin_path / f"mf2005dbl{_exe_ext}"),
-        ("mfnwt", _dl_bin_path / f"mfnwtdbl{_exe_ext}"),
-        ("mfusg", _dl_bin_path / f"mfusgdbl{_exe_ext}"),
-        ("mflgr", _dl_bin_path / f"mflgrdbl{_exe_ext}"),
-        ("mf2005s", _dl_bin_path / f"mf2005{_exe_ext}"),
-        ("mt3dms", _dl_bin_path / f"mt3dms{_exe_ext}"),
-        ("crt", _dl_bin_path / f"crt{_exe_ext}"),
-        ("gridgen", _dl_bin_path / f"gridgen{_exe_ext}"),
-        ("mp6", _dl_bin_path / f"mp6{_exe_ext}"),
-        ("mp7", _dl_bin_path / f"mp7{_exe_ext}"),
-        ("swtv4", _dl_bin_path / f"swtv4{_exe_ext}"),
-        ("sutra", _dl_bin_path / f"sutra{_exe_ext}"),
-        ("triangle", _dl_bin_path / f"triangle{_exe_ext}"),
-        ("vs2dt", _dl_bin_path / f"vs2dt{_exe_ext}"),
-        ("zonbudusg", _dl_bin_path / f"zonbudusg{_exe_ext}"),
-    ],
-    "rebuilt": [
-        ("mf6_regression", _rb_bin_path / f"mf6{_exe_ext}"),
-        ("libmf6_regression", _rb_bin_path / f"libmf6{_lib_ext}"),
-        ("mf5to6_regression", _rb_bin_path / f"mf5to6{_exe_ext}"),
-        ("zbud6_regression", _rb_bin_path / f"zbud6{_exe_ext}"),
-    ],
-}
+
+
+def _get_binaries(bin_path: Path) -> dict[str, list[tuple[str, Path]]]:
+    dl_bin_path = bin_path / "downloaded"
+    rb_bin_path = bin_path / "rebuilt"
+    return {
+        "development": [
+            ("mf6", bin_path / f"mf6{_exe_ext}"),
+            ("libmf6", bin_path / f"libmf6{_lib_ext}"),
+            ("mf5to6", bin_path / f"mf5to6{_exe_ext}"),
+            ("zbud6", bin_path / f"zbud6{_exe_ext}"),
+        ],
+        "downloaded": [
+            ("mf2000", dl_bin_path / f"mf2000{_exe_ext}"),
+            ("mf2005", dl_bin_path / f"mf2005dbl{_exe_ext}"),
+            ("mfnwt", dl_bin_path / f"mfnwtdbl{_exe_ext}"),
+            ("mfusg", dl_bin_path / f"mfusgdbl{_exe_ext}"),
+            ("mflgr", dl_bin_path / f"mflgrdbl{_exe_ext}"),
+            ("mf2005s", dl_bin_path / f"mf2005{_exe_ext}"),
+            ("mt3dms", dl_bin_path / f"mt3dms{_exe_ext}"),
+            ("crt", dl_bin_path / f"crt{_exe_ext}"),
+            ("gridgen", dl_bin_path / f"gridgen{_exe_ext}"),
+            ("mp6", dl_bin_path / f"mp6{_exe_ext}"),
+            ("mp7", dl_bin_path / f"mp7{_exe_ext}"),
+            ("swtv4", dl_bin_path / f"swtv4{_exe_ext}"),
+            ("sutra", dl_bin_path / f"sutra{_exe_ext}"),
+            ("triangle", dl_bin_path / f"triangle{_exe_ext}"),
+            ("vs2dt", dl_bin_path / f"vs2dt{_exe_ext}"),
+            ("zonbudusg", dl_bin_path / f"zonbudusg{_exe_ext}"),
+        ],
+        "rebuilt": [
+            ("mf6_regression", rb_bin_path / f"mf6{_exe_ext}"),
+            ("libmf6_regression", rb_bin_path / f"libmf6{_lib_ext}"),
+            ("mf5to6_regression", rb_bin_path / f"mf5to6{_exe_ext}"),
+            ("zbud6_regression", rb_bin_path / f"zbud6{_exe_ext}"),
+        ],
+    }
+
+
+_binaries = _get_binaries(_binaries_path)
 
 
 @pytest.fixture(scope="session")
-def bin_path() -> Path:
+def bin_path(request) -> Path:
     """
     The directory containing binaries. Binaries under test live at the top
     level of this directory. Binaries downloaded from GitHub and/or built
     from the last official release are in subdirectories of this directory
-    named "downloaded" and "rebuilt", respectively.
+    named "downloaded" and "rebuilt", respectively. Defaults to the project
+    bin directory, override with the --bin-path command line option.
     """
-    return _binaries_path
+    path = request.config.getoption("--bin-path")
+    return Path(path).expanduser().resolve() if path else _binaries_path
 
 
 @pytest.fixture(scope="session")
-def targets() -> dict[str, Path]:
+def targets(bin_path) -> dict[str, Path]:
     """
     Target executables for tests. These include local development builds as
     well as binaries 1) downloaded from GitHub and 2) rebuilt from the last
@@ -67,17 +75,18 @@ def targets() -> dict[str, Path]:
     """
 
     d = dict()
-    for k, v in _binaries["development"]:
+    binaries = _get_binaries(bin_path)
+    for k, v in binaries["development"]:
         # require development binaries
         assert v.is_file(), f"Couldn't find binary '{k}' expected at: {v}"
         d[k] = v
-    for k, v in _binaries["downloaded"]:
+    for k, v in binaries["downloaded"]:
         # downloaded binaries are optional
         if v.is_file():
             d[k] = v
         else:
             warn(f"Couldn't find downloaded binary '{k}' expected at: {v}")
-    for k, v in _binaries["rebuilt"]:
+    for k, v in binaries["rebuilt"]:
         # rebuilt binaries are optional
         if v.is_file():
             d[k] = v
@@ -168,6 +177,14 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help="make plots of model output",
+    )
+    parser.addoption(
+        "--bin-path",
+        action="store",
+        type=str,
+        help="directory containing binaries to test, with subdirectories "
+        "'downloaded' and 'rebuilt' for other programs and the last release "
+        "rebuilt in develop mode. default is the project bin directory.",
     )
     parser.addoption(
         "--models-path",

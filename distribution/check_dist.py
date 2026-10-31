@@ -1,12 +1,12 @@
 import platform
+import shutil
 import subprocess
 from os import environ
 from pathlib import Path
 from pprint import pprint
 
 import pytest
-from modflow_devtools.markers import no_parallel
-from modflow_devtools.misc import get_model_paths, run_cmd
+from modflow_devtools.misc import get_model_paths
 
 # OS-specific extensions
 SYSTEM = platform.system()
@@ -60,13 +60,11 @@ def dist_dir_path(request):
     return path
 
 
-@no_parallel
 def test_directories(dist_dir_path, releasemode):
     for dir_path in DIST_DIRS["release" if releasemode else "develop"]:
         assert (dist_dir_path / dir_path).is_dir()
 
 
-@no_parallel
 def test_dfns(dist_dir_path):
     dfns_path = dist_dir_path / "dfns"
     assert dfns_path.is_dir()
@@ -75,7 +73,6 @@ def test_dfns(dist_dir_path):
     assert (dfns_path / "gwf-nam.dfn").is_file()
 
 
-@no_parallel
 def test_sources(dist_dir_path, releasemode):
     if not releasemode:
         pytest.skip(reason="sources not included in provisional distribution")
@@ -110,7 +107,7 @@ def test_sources(dist_dir_path, releasemode):
     assert not (dist_dir_path / "utils" / "idmloader").is_dir()
 
 
-@no_parallel
+@pytest.mark.xdist_group("build")
 @pytest.mark.skipif(not FC, reason="needs Fortran compiler")
 def test_makefiles(dist_dir_path, releasemode):
     if not releasemode:
@@ -142,7 +139,7 @@ def test_makefiles(dist_dir_path, releasemode):
         )
 
 
-@no_parallel
+@pytest.mark.xdist_group("build")
 @pytest.mark.skipif(not FC, reason="needs Fortran compiler")
 def test_meson_build(dist_dir_path, releasemode):
     """Rebuild mf6 and mf5to6 from the archived sources with meson"""
@@ -200,7 +197,6 @@ def test_meson_build(dist_dir_path, releasemode):
         )
 
 
-@no_parallel
 def test_msvs(dist_dir_path, releasemode):
     if not releasemode:
         pytest.skip(reason="MSVS files not included in provisional distribution")
@@ -212,7 +208,6 @@ def test_msvs(dist_dir_path, releasemode):
     assert (dist_dir_path / "msvs" / "mf6core.vfproj").is_file()
 
 
-@no_parallel
 def test_docs(dist_dir_path, releasemode):
     # mf6io should always be included
     assert (dist_dir_path / "doc" / "mf6io.pdf").is_file()
@@ -254,7 +249,6 @@ def trace_script(script_path, mf6_path) -> list[Path]:
     return run_paths
 
 
-@no_parallel
 def test_examples(dist_dir_path, releasemode):
     if not releasemode:
         pytest.skip(reason="examples not included in provisional distribution")
@@ -279,23 +273,76 @@ def test_examples(dist_dir_path, releasemode):
     assert len(model_paths) == len(set(model_paths))
     assert set(model_paths) == {p.resolve() for p in get_model_paths(examples_path)}
 
-    # run each example, in the combined script's order
-    failed = []
+    # check each example's own script runs it
     for model_path in model_paths:
         script_path = model_path / f"run{SCR_EXT}"
-        print(f"Testing example script: {script_path}")
         assert script_path.is_file()
         assert trace_script(script_path, mf6_path) == [model_path]
-        out, err, ret = run_cmd(
-            str(script_path), cwd=model_path, stdin=subprocess.DEVNULL
+
+
+def get_examples(dist_path) -> dict[str, list[Path]]:
+    """
+    Map example names to their workspaces, in the order the distribution's
+    combined run script runs them. Empty if the distribution has no examples
+    or the script can't be traced; test_examples reports those problems.
+    """
+    examples_path = (dist_path / "examples").resolve()
+    runall_path = examples_path / f"runall{SCR_EXT}"
+    if not runall_path.is_file():
+        return {}
+    try:
+        model_paths = trace_script(runall_path, dist_path / "bin" / f"mf6{EXE_EXT}")
+    except AssertionError:
+        return {}
+    examples: dict[str, list[Path]] = {}
+    for model_path in model_paths:
+        name = model_path.relative_to(examples_path).parts[0]
+        examples.setdefault(name, []).append(model_path)
+    return examples
+
+
+def pytest_generate_tests(metafunc):
+    if "example_name" not in metafunc.fixturenames:
+        return
+    path = metafunc.config.getoption("--path")
+    path = Path(path).expanduser().absolute() if path else None
+    if metafunc.config.getoption("--releasemode") and path and path.is_dir():
+        examples = get_examples(path)
+    else:
+        examples = {}
+    if not examples:
+        metafunc.parametrize(
+            "example_name",
+            [pytest.param(None, marks=pytest.mark.skip(reason="no examples found"))],
+            ids=["none"],
         )
-        if ret or "Normal termination" not in out:
-            failed.append(model_path.relative_to(examples_path))
-            print(out + err)
-    assert not failed, f"{len(failed)} example(s) failed: {failed}"
+        return
+    metafunc.parametrize("example_name", list(examples), ids=list(examples))
 
 
-@no_parallel
+def test_example(dist_dir_path, releasemode, example_name, tmp_path):
+    """
+    Run an example with the distribution's mf6. The example is copied to a
+    temp dir, keeping its workspaces' sibling layout so later workspaces can
+    read earlier ones' output by relative path, and run in the given order.
+    """
+    if not releasemode:
+        pytest.skip(reason="examples not included in provisional distribution")
+
+    examples_path = (dist_dir_path / "examples").resolve()
+    mf6_path = (dist_dir_path / "bin" / f"mf6{EXE_EXT}").absolute()
+    shutil.copytree(examples_path / example_name, tmp_path / example_name)
+    for model_path in get_examples(dist_dir_path)[example_name]:
+        workspace = tmp_path / model_path.relative_to(examples_path)
+        proc = subprocess.run(
+            [mf6_path], cwd=workspace, capture_output=True, text=True, check=False
+        )
+        if proc.returncode or "Normal termination" not in proc.stdout:
+            print(proc.stdout[-5000:], proc.stderr[-5000:])
+            name = workspace.relative_to(tmp_path)
+            pytest.fail(f"{name} failed (exit code {proc.returncode})")
+
+
 def test_binaries(dist_dir_path, releasemode):
     bin_path = dist_dir_path / "bin"
     assert (bin_path / f"mf6{EXE_EXT}").is_file()

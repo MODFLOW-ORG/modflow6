@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from warnings import warn
 
 import pytest
-from benchmark import run_benchmarks
+from benchmark import BENCHMARKS_FILE_NAME, benchmark
 from modflow_devtools.build import meson_build
 from modflow_devtools.download import (
     download_and_unzip,
@@ -77,14 +77,13 @@ def build_benchmark_tex(
     """Build LaTeX files for MF6 performance benchmarks to go into the release notes."""
 
     # run benchmarks again if no benchmarks found on GitHub or overwrite requested
-    benchmarks_path = out_path / "run-time-comparison.md"
+    benchmarks_path = out_path / BENCHMARKS_FILE_NAME
     examples_path = EXAMPLES_REPO_PATH / "examples"
     if force or not benchmarks_path.is_file():
         fetch_examples_zip(examples_path, force=force, repo_owner=repo_owner)
-        run_benchmarks(
+        benchmark(
             build_path=PROJ_ROOT_PATH / "builddir",
-            current_bin_path=PROJ_ROOT_PATH / "bin",
-            previous_bin_path=PROJ_ROOT_PATH / "bin" / "rebuilt",
+            bin_path=PROJ_ROOT_PATH / "bin",
             examples_path=examples_path,
             out_path=out_path,
         )
@@ -103,6 +102,7 @@ def build_benchmark_tex(
 
     # clean up benchmark results
     benchmarks_path.unlink()
+    benchmarks_path.with_suffix(".json").unlink(missing_ok=True)
 
 
 def build_deprecations_tex(force: bool = False):
