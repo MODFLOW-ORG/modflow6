@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "In the Lake (LAK) Package, a time series assigned to an OUTLETS value was linked to the wrong row: the lake number from the same PACKAGEDATA row or, for OUTLETS rows past NLAKES, a value read out of bounds, which could crash. Simulated values were unaffected, but with PRINT\\_INPUT the simulation listing file could name the wrong outlet. Outlet time series are now linked by outlet number."
