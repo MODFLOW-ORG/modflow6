@@ -437,7 +437,7 @@ jobs:
         run: |
           setupargs=""
           if [[ "${{ matrix.debug }}" == "true" ]]; then
-            setupargs="-Ddebug=true -Doptimization=0"
+            setupargs="--buildtype=debug"
           fi
           echo "MESON_SETUP_ARGS=$setupargs" >> $GITHUB_ENV
 
