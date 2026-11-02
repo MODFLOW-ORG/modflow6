@@ -3,7 +3,7 @@ module GwfSwiModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, DONE, DZERO, DHALF, LENBUDTXT, &
                              MNORMAL, DHNOFLO, C3D_VERTICAL, LENMODELNAME, &
-                             DEM6, DEM12, LENMEMPATH
+                             DEM6, LENMEMPATH
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
   use NumericalPackageModule, only: NumericalPackageType
@@ -47,9 +47,7 @@ module GwfSwiModule
     integer(I4B), pointer :: intvg => null() !< flag: a TVG6 file supplies hsalt
     integer(I4B), pointer :: inoupstream => null() !< flag: average (do not upstream-weight) the fluid-zone conductance; dev option
     character(len=LENMEMPATH) :: tvg6_mempath = '' !< input memory path of the TVG subpackage
-    real(DP), dimension(:), pointer, contiguous :: zeta => null() !< starting zeta
-    real(DP), dimension(:), pointer, contiguous :: hcof => null() !< hcof contribution to amat
-    real(DP), dimension(:), pointer, contiguous :: rhs => null() !< rhs contribution
+    real(DP), dimension(:), pointer, contiguous :: zeta => null() !< interface elevation from the converged heads
     real(DP), dimension(:), pointer, contiguous :: storage => null() !< calculated swi storage
 
     ! information needed for full implementation
@@ -67,8 +65,8 @@ module GwfSwiModule
     integer(I4B), pointer :: insto => null() !< pointer to check of storage package is on
     integer(I4B), pointer :: iss => null() !< pointer to gwf steady state flag
     real(DP), dimension(:), pointer, contiguous :: sy => null() !< pointer to storage package specific yield
-    real(DP), dimension(:), pointer, contiguous :: oldsy => null() !< pointer to storage package specific yield
-    real(DP), dimension(:), pointer, contiguous :: oldss => null() !< pointer to storage package specific yield
+    real(DP), dimension(:), pointer, contiguous :: oldsy => null() !< pointer to storage package previous specific yield
+    real(DP), dimension(:), pointer, contiguous :: oldss => null() !< pointer to storage package previous specific storage
 
     ! objects
     type(UtlTvgType) :: tvg_reader
@@ -85,6 +83,7 @@ module GwfSwiModule
 
     procedure :: swi_df
     procedure :: swi_ar
+    procedure, private :: check_compatibility
     procedure :: swi_rp
     procedure :: swi_ad
     procedure :: swi_cq
@@ -132,12 +131,14 @@ module GwfSwiModule
     procedure :: reduce => swi_reduce
   end type SwiFlowReductionType
 
-  !> @brief STO storage formulation for SWI (single-fluid freshwater). Assembles
+  !> @brief STO storage formulation for SWI. In a freshwater model it assembles
   !! the freshwater storage as the water column (S^w, via the STO default) minus
-  !! the salt column (S^s): fc fills the residual-consistent terms, fn adds the
-  !! smoothed interface tangent, and cq/bd/save_flows report the water storage plus
-  !! the SWI storage budget term (the fresh<->salt conversion volume). Dispatched
-  !! from sto_fc/fn/cq for cells flagged SWI_STORAGE in swi_ar.
+  !! the salt column (S^s); in a saltwater model it supplies the salt-column
+  !! storage. fc fills the residual-consistent terms, fn adds the smoothed
+  !! interface tangent, and cq/bd/save_flows report the storage and the SWI
+  !! storage budget term. Dispatched from sto_fc/fn/cq for every active cell;
+  !! swi_ar flags the cells SWI_STORAGE only in a saltwater model, so that the
+  !! STO default skips them.
   !<
   type, extends(GwfStoFormulationType) :: SwiStoFormulationType
     class(GwfSwiType), pointer :: swi => null() !< owning SWI package
@@ -156,8 +157,6 @@ contains
   !> @brief Create a new swi package object
   !<
   subroutine swi_cr(swi, name_model, input_mempath, inunit, iout, dis)
-    ! modules
-    use MemoryManagerExtModule, only: mem_set_value
     ! dummy
     type(GwfSwiType), pointer :: swi
     character(len=*), intent(in) :: name_model
@@ -242,6 +241,9 @@ contains
     ! set pointer to ibound
     this%ibound => ibound
 
+    ! stop if the model uses a package the SWI formulation does not support
+    call this%check_compatibility(npf)
+
     ! set pointer to gwf steady state flag
     call mem_setptr(this%insto, 'INSTO', &
                     create_mem_path(this%name_model))
@@ -278,6 +280,16 @@ contains
     if (.not. associated(this%hfreshold)) then
       call mem_setptr(this%hfreshold, 'XOLD', &
                       create_mem_path(this%name_model))
+    end if
+
+    ! the saltwater head is simulated in a two-fluid model, so it cannot also
+    ! be supplied through TVG
+    if (this%intvg > 0 .and. this%iconfiguration /= FRESHWATER_ONE_FLUID) then
+      call store_error('A TVG file supplies SALTWATER_HEAD, but the model is &
+                       &part of a two-fluid (SWI-SWI) simulation, in which the &
+                       &saltwater head is simulated. Remove the TVG file.', &
+                       terminate=.false.)
+      call store_error_filename(this%input_fname)
     end if
 
     ! If this is a single-fluid freshwater model
@@ -343,6 +355,42 @@ contains
 
   end subroutine swi_ar
 
+  !> @brief Store an error for each model package the SWI formulation
+  !! does not support.
+  !!
+  !! XT3D replaces the NPF conductance terms, so the SWI fluid-zone
+  !! conductance would be dropped. GNC and HFB adjust the standard NPF
+  !! conductance, and BUY and VSC change the density and viscosity terms
+  !! that SWI already represents with its own formulation.
+  !<
+  subroutine check_compatibility(this, npf)
+    ! dummy
+    class(GwfSwiType) :: this
+    type(GwfNpfType), pointer, intent(in) :: npf
+    ! local
+    integer(I4B), pointer :: inpkg => null()
+    character(len=4), dimension(4) :: pkgs = ['GNC ', 'HFB ', 'BUY ', 'VSC ']
+    integer(I4B) :: i
+    logical(LGP) :: found
+    !
+    found = .false.
+    if (npf%ixt3d /= 0) then
+      found = .true.
+      call store_error('The SWI Package cannot be used with XT3D in the '// &
+                       'NPF Package.', terminate=.false.)
+    end if
+    do i = 1, size(pkgs)
+      call mem_setptr(inpkg, 'IN'//trim(pkgs(i)), &
+                      create_mem_path(this%name_model))
+      if (inpkg > 0) then
+        found = .true.
+        call store_error('The SWI Package cannot be used with the '// &
+                         trim(pkgs(i))//' Package.', terminate=.false.)
+      end if
+    end do
+    if (found) call store_error_filename(this%input_fname)
+  end subroutine check_compatibility
+
   !> @brief Read and prepare
   !<
   subroutine swi_rp(this)
@@ -355,6 +403,7 @@ contains
   !> @brief Advance
   !<
   subroutine swi_ad(this, irestore)
+    use TdisModule, only: kper, kstp
     ! dummy
     class(GwfSwiType) :: this
     integer(I4B), intent(in) :: irestore
@@ -380,6 +429,14 @@ contains
     if (this%intvg > 0) then
       if (this%iconfiguration == FRESHWATER_ONE_FLUID) then
         call this%tvg_reader%fill(this%hsalt, 'SALTWATER_HEAD')
+        ! the first saltwater head is the initial condition, so the
+        ! starting interface is computed from it rather than from the
+        ! scalar SALTWATER_HEAD
+        if (kper == 1 .and. kstp == 1) then
+          do n = 1, size(this%hsalt)
+            this%hsaltold(n) = this%hsalt(n)
+          end do
+        end if
       end if
     end if
 
@@ -391,6 +448,8 @@ contains
   subroutine swi_cq(this)
     ! dummy variables
     class(GwfSwiType) :: this !< GwfSwiType object
+    ! local
+    integer(I4B) :: n
     !
     ! Refresh the stored zeta array from the converged heads. zeta is not used by
     ! the solve (it is computed on the fly via get_zetanew wherever needed); the
@@ -398,6 +457,16 @@ contains
     ! post-convergence, before the budget/output phases -- so it can be written to
     ! the zeta output file (swi_ot_dv) and inspected by API/BMI users.
     call this%update_zeta()
+    !
+    ! The STO Package skips the storage formulations in a steady-state period,
+    ! so clear the SWI storage term rather than report the last transient one.
+    if (this%insto > 0) then
+      if (this%iss == 1) then
+        do n = 1, size(this%storage)
+          this%storage(n) = DZERO
+        end do
+      end if
+    end if
     !
     ! Intercell freshwater/saltwater flows (FLOW-JA-FACE) are assembled by the SWI
     ! NPF formulation (swinpf_cq, dispatched from npf_cq), consistent with the
@@ -408,7 +477,7 @@ contains
     ! saltwater column and confirms the budget balances).
   end subroutine swi_cq
 
-  !> @brief Save density array to binary file
+  !> @brief Save zeta array to binary file
   !<
   subroutine swi_ot_dv(this, idvfl)
     ! dummy
@@ -422,7 +491,7 @@ contains
     integer(I4B) :: nwidthp
     real(DP) :: dinact
     !
-    ! Set unit number for density output
+    ! Set unit number for zeta output
     if (this%izetaout /= 0) then
       ibinun = 1
     else
@@ -430,12 +499,12 @@ contains
     end if
     if (idvfl == 0) ibinun = 0
     !
-    ! save density array
+    ! save zeta array
     if (ibinun /= 0) then
       iprint = 0
       dinact = DHNOFLO
       !
-      ! write density to binary file
+      ! write zeta to binary file
       if (this%izetaout /= 0) then
         ibinun = this%izetaout
         call this%dis%record_array(this%zeta, this%iout, iprint, ibinun, &
@@ -467,8 +536,6 @@ contains
 
     ! deallocate arrays
     call mem_deallocate(this%zeta)
-    call mem_deallocate(this%hcof)
-    call mem_deallocate(this%rhs)
     call mem_deallocate(this%storage)
 
     if (this%iconfiguration == FRESHWATER_ONE_FLUID) then
@@ -490,6 +557,17 @@ contains
     ! deallocate parent
     call this%NumericalPackageType%da()
 
+    ! the flow and storage formulation objects; NPF and STO keep pointers to
+    ! them only, so they are freed here
+    if (associated(this%npf_form)) then
+      deallocate (this%npf_form)
+      nullify (this%npf_form)
+    end if
+    if (associated(this%sto_form)) then
+      deallocate (this%sto_form)
+      nullify (this%sto_form)
+    end if
+
     ! the flow-reduction provider
     if (associated(this%flowred)) then
       deallocate (this%flowred)
@@ -501,6 +579,8 @@ contains
     nullify (this%hsalt)
     nullify (this%hfreshold)
     nullify (this%hsaltold)
+    nullify (this%oldss)
+    nullify (this%oldsy)
 
   end subroutine swi_da
 
@@ -517,7 +597,7 @@ contains
 
   !> @ brief Allocate scalars
   !!
-  !! Allocate and initialize scalars for the VSC package. The base model
+  !! Allocate and initialize scalars for the SWI package. The base model
   !! allocate scalars method is also called.
   !<
   subroutine allocate_scalars(this)
@@ -565,15 +645,11 @@ contains
 
     ! Allocate
     call mem_allocate(this%zeta, nodes, 'ZETA', this%memoryPath)
-    call mem_allocate(this%hcof, nodes, 'HCOF', this%memoryPath)
-    call mem_allocate(this%rhs, nodes, 'RHS', this%memoryPath)
     call mem_allocate(this%storage, nodes, 'STORAGE', this%memoryPath)
 
     ! initialize
     do n = 1, nodes
       this%zeta(n) = DZERO
-      this%hcof(n) = DZERO
-      this%rhs(n) = DZERO
       this%storage(n) = DZERO
     end do
 
@@ -586,7 +662,7 @@ contains
     use SourceCommonModule, only: filein_fname
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, openfile
-    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryManagerModule, only: mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
     use GwfSwiInputModule, only: GwfSwiParamFoundType
@@ -632,7 +708,7 @@ contains
 
     ! open hsalt file
     ! TVG6 subpackage. The Input Data Model loads the file and records its
-    ! memory path here; the reader is attached to that path in swi_ar.
+    ! memory path here; the reader is attached to that path in swi_df.
     tvg_fname = ''
     if (filein_fname(tvg_fname, 'TVG6_FILENAME', this%input_mempath, &
                      this%input_fname)) then
@@ -803,8 +879,11 @@ contains
 
     ! Loop through each node and calculate zeta
     do n = 1, this%dis%nodes
-      ! skip if inactive
-      if (this%ibound(n) == 0) cycle
+      ! inactive cells are written as no-flow cells
+      if (this%ibound(n) == 0) then
+        this%zeta(n) = DHNOFLO
+        cycle
+      end if
 
       ! Calculate zeta
       this%zeta(n) = this%get_zetanew(n)
@@ -831,7 +910,7 @@ contains
     zeta = -alphaf * hf + alphas * hs
   end function calc_zeta
 
-  !> @brief Fractional cell freshwater saturation
+  !> @brief Fraction of the cell below the interface (saltwater fraction)
   !<
   subroutine swi_thksat(top, bot, zeta, thksat, inewton)
     ! dummy
@@ -844,6 +923,8 @@ contains
     ! Standard Formulation
     if (zeta >= top) then
       thksat = DONE
+    else if (zeta <= bot) then
+      thksat = DZERO
     else
       thksat = (zeta - bot) / (top - bot)
     end if
@@ -973,6 +1054,9 @@ contains
                     npf%dis%bot(n), npf%dis%bot(m), npf%dis%con%hwva(jas))
       return
     end if
+    ! -- no flow to or from an inactive cell, as in vcond
+    condf = DZERO
+    if (npf%ibound(n) == 0 .or. npf%ibound(m) == 0) return
     ! -- identify the upper (iu) and lower (il) cell; the shared face is at
     !    bot(iu) = top(il)
     if (npf%dis%bot(n) > npf%dis%bot(m)) then
@@ -1019,11 +1103,11 @@ contains
   !> @brief SWI NPF formulation: fluid-zone conductance for connection ipos.
   !! Freshwater zone (S^w - S^s, between zeta and the water table) or saltwater
   !! zone (S^s, between the bottom and zeta). The conductance follows the model's
-  !! Newton setting (via hcond): harmonic averaging for Picard, upstream weighting
-  !! for Newton. Floored at the conductance of a minimum-thickness zone to guard a
-  !! vanished fluid zone. Returns zero for vertical connections (SWI overrides
-  !! horizontal flow only). Shared by fc and cq so the matrix fill and the
-  !! cell-by-cell flow use the same conductance.
+  !! Newton setting (via hcond): the NPF cell averaging for Picard, upstream
+  !! weighting for Newton. Floored at the conductance of a minimum-thickness zone
+  !! to guard a vanished fluid zone. Vertical connections are passed to
+  !! swinpf_vcondf. Shared by fc and cq so the matrix fill and the cell-by-cell
+  !! flow use the same conductance.
   !<
   function swinpf_condf(this, n, m, ipos, hnew) result(condf)
     class(SwiNpfFormulationType), intent(inout) :: this
@@ -1500,8 +1584,7 @@ contains
   !! strgss/strgsy and flowja); the salt-column (S^s) correction is subtracted
   !! here. The interface-movement (drainable) rate is reported separately as the
   !! SWI storage term (swi%storage) -- the fresh<->salt conversion volume -- and
-  !! also added to flowja. COMMIT 1: reproduces the former swi_cq storage block
-  !! for the single-fluid freshwater model.
+  !! also added to flowja.
   !<
   subroutine swisto_cq_node(this, n, flowja, h_new, h_old)
     use TdisModule, only: delt
@@ -1682,9 +1765,9 @@ contains
   end subroutine swisto_fn_salt
 
   !> @brief SWI STO formulation (saltwater model): storage rate for cell n. The
-  !! salt-column storage is the saltwater model's own storage, reported through
-  !! the STO storage arrays (strgss/strgsy) and flowja; there is no separate SWI
-  !! conversion term for the saltwater model (swi%storage stays zero).
+  !! salt-column storage is the saltwater model's own storage. It is reported
+  !! through the SWI storage term (swi%storage) and flowja; the STO storage
+  !! arrays (strgss/strgsy) are set to zero for the cell.
   !<
   subroutine swisto_cq_salt(this, n, flowja, h_new, h_old)
     use TdisModule, only: delt
@@ -1762,6 +1845,7 @@ contains
     ! local
     integer(I4B) :: n
     !
+    call swisto_set_old_ss_sy(this)
     do n = 1, this%sto%dis%nodes
       if (.not. this%is_active(n)) cycle
       call swisto_fc_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
@@ -1781,6 +1865,7 @@ contains
     ! local
     integer(I4B) :: n
     !
+    call swisto_set_old_ss_sy(this)
     do n = 1, this%sto%dis%nodes
       if (.not. this%is_active(n)) cycle
       call swisto_fn_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
@@ -1797,11 +1882,35 @@ contains
     ! local
     integer(I4B) :: n
     !
+    call swisto_set_old_ss_sy(this)
     do n = 1, this%sto%dis%nodes
       if (.not. this%is_active(n)) cycle
       call swisto_cq_node(this, n, flowja, h_new, h_old)
     end do
   end subroutine swisto_cq
+
+  !> @brief SWI STO formulation: point at the STO Package's previous SS and SY
+  !!
+  !! When storage changes are integrated (TVS), STO keeps the previous time
+  !! step's SS and SY in arrays it allocates on first use, during sto_rp, so
+  !! the pointers are set here rather than in swi_ar.
+  !<
+  subroutine swisto_set_old_ss_sy(this)
+    class(SwiStoFormulationType), intent(inout) :: this
+    if (this%sto%integratechanges == 0) return
+    if (.not. associated(this%swi%oldss)) then
+      call mem_setptr(this%swi%oldss, 'OLDSS', this%sto%memoryPath)
+    end if
+    if (.not. associated(this%swi%oldsy)) then
+      ! STO keeps a previous SY only when some cell is convertible; otherwise
+      ! SY is used by SWI alone and does not change between time steps
+      if (this%sto%iusesy == 1) then
+        call mem_setptr(this%swi%oldsy, 'OLDSY', this%sto%memoryPath)
+      else
+        this%swi%oldsy => this%swi%sy
+      end if
+    end if
+  end subroutine swisto_set_old_ss_sy
 
   !> @brief SWI STO formulation: add SWI storage to the model budget
   !<

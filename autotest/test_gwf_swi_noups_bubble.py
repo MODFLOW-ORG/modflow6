@@ -166,10 +166,11 @@ def check_output(idx, test):
     zeta, hf, hs, zs, nouter = read_results(ws)
     print(f"{cases[idx]}: total outer iterations = {nouter}")
 
-    # interface from the two heads, identical in both models, inside the aquifer
-    assert np.allclose(zeta[-1], -alphaf * hf + alphas * hs), "zeta violates GH"
+    # interface from the two heads, identical in both models; the zeta output
+    # is limited to the cell, so compare with the clipped relation
+    zgh = np.clip(-alphaf * hf + alphas * hs, botm, top)
+    assert np.allclose(zeta[-1], zgh), "zeta violates GH"
     assert np.allclose(zeta[-1], zs), "fresh and salt zeta differ"
-    assert zeta.min() >= botm - 1.0e-6 and zeta.max() <= top + 1.0e-6
     check_budgets(ws)
 
     # the bubble must have grown: by the end of period 1 the interface is at

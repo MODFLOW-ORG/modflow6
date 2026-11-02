@@ -12,9 +12,9 @@ below sea level.
 
 What check_output verifies: the simulated interface elevation zeta obeys the
 Ghyben-Herzberg relation zeta = clip(-40*head + 41*saltwater_head, botm, top) at
-every cell (alphaf=40, alphas=41), the interface stays within the aquifer
-(botm <= zeta <= top), and the model's volumetric budget closes (percent
-discrepancy ~ 0).
+every cell (alphaf=40, alphas=41), and the model's volumetric budget closes
+(percent discrepancy ~ 0). The zeta output is limited to the cell, so the
+clipped relation is what is compared.
 """
 
 import flopy
@@ -161,10 +161,6 @@ def check_output(idx, test):
         f"zeta does not satisfy the Ghyben-Herzberg relation; "
         f"max diff {np.max(np.abs(zeta - zeta_expected))}"
     )
-
-    # the interface must remain within the aquifer
-    assert np.all(zeta >= botm_aquifer - 1.0e-6), "zeta below aquifer bottom"
-    assert np.all(zeta <= top_island + 1.0e-6), "zeta above aquifer top"
 
     # the model budget must conserve mass (absolute imbalance relative to peak
     # flow rather than the per-step PERCENT_DIFFERENCE)

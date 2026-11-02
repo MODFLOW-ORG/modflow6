@@ -59,14 +59,12 @@ module SwiSwiExchangeModule
     procedure :: exg_ac => swi_swi_ac
     procedure :: exg_mc => swi_swi_mc
     procedure :: exg_ar => swi_swi_ar
-    procedure :: exg_rp => swi_swi_rp
-    procedure :: exg_ad => swi_swi_ad
-    procedure :: exg_cf => swi_swi_cf
     procedure :: exg_fc => swi_swi_fc
     procedure :: exg_fn => swi_swi_fn
     procedure :: swi_fn_cross_storage
     procedure :: swi_fn_cross_flow
     procedure :: swi_cross_storage
+    procedure, private :: same_grid
     procedure :: exg_da => swi_swi_da
     procedure :: allocate_scalars
     procedure :: allocate_arrays
@@ -212,6 +210,18 @@ contains
       call store_error_filename(this%filename)
     end if
 
+    ! The exchange pairs cell n and connection ipos of one model with the same
+    ! cell and connection of the other, so the two grids must be identical
+    if (this%gwf_fresh%dis%nodes == this%gwf_salt%dis%nodes) then
+      if (.not. this%same_grid()) then
+        call store_error( &
+          'A SWI-SWI exchange is active, but the fresh and salt GWF models &
+          &do not have the same grid. Both models must have the same cell &
+          &connections, cell tops, cell bottoms, and cell areas.')
+        call store_error_filename(this%filename)
+      end if
+    end if
+
     ! Set the number of exchanges equal to the number of equations in
     ! the fresh or saltwater models
     this%nexg = this%gwf_fresh%dis%nodes
@@ -301,7 +311,7 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln !< the system matrix
     ! local
     integer(I4B) :: n, iglo, jglo
-    integer(I4B) :: ipos, m, idx
+    integer(I4B) :: ipos, m
 
     ! map same-cell fresh<->salt connections (must match swi_swi_ac inclusion)
     if (this%inocrossstorage == 0 .or. this%inocrossflow == 0) then
@@ -315,27 +325,23 @@ contains
 
     ! map cross-flow neighbor connections (must match swi_swi_ac inclusion)
     if (this%inocrossflow == 0) then
-      ! fresh node to salt nodes
-      idx = 1
+      ! fresh node to salt nodes, indexed by connection position
       do n = 1, this%gwf_fresh%dis%nodes
         iglo = n + this%gwf_fresh%moffset
         do ipos = this%gwf_salt%dis%con%ia(n), this%gwf_salt%dis%con%ia(n + 1) - 1
           m = this%gwf_salt%dis%con%ja(ipos)
           jglo = m + this%gwf_salt%moffset
-          this%idxjasalt(idx) = matrix_sln%get_position(iglo, jglo)
-          idx = idx + 1
+          this%idxjasalt(ipos) = matrix_sln%get_position(iglo, jglo)
         end do
       end do
-      ! salt node to fresh nodes
-      idx = 1
+      ! salt node to fresh nodes, indexed by connection position
       do n = 1, this%gwf_salt%dis%nodes
         iglo = n + this%gwf_salt%moffset
         do ipos = this%gwf_fresh%dis%con%ia(n), &
           this%gwf_fresh%dis%con%ia(n + 1) - 1
           m = this%gwf_fresh%dis%con%ja(ipos)
           jglo = m + this%gwf_fresh%moffset
-          this%idxjafresh(idx) = matrix_sln%get_position(iglo, jglo)
-          idx = idx + 1
+          this%idxjafresh(ipos) = matrix_sln%get_position(iglo, jglo)
         end do
       end do
     end if
@@ -363,6 +369,19 @@ contains
       call store_error_filename(this%filename)
     end if
 
+    ! The cross-storage terms use the freshwater model's specific yield for
+    ! both fluids, so the two models must agree on it
+    if (this%gwf_fresh%insto > 0 .and. this%gwf_salt%insto > 0) then
+      if (any(this%gwf_fresh%sto%sy /= this%gwf_salt%sto%sy)) then
+        write (errmsg, '(a,a,a,a,a)') &
+          'Specific yield (SY) must be the same in both models of a &
+          &two-fluid simulation. Models ', trim(this%gwf_fresh%name), &
+          ' and ', trim(this%gwf_salt%name), ' differ.'
+        call store_error(errmsg, terminate=.false.)
+        call store_error_filename(this%filename)
+      end if
+    end if
+
     ! Set head pointers for fresh and salt model swi packages.
     call this%gwf_fresh%swi%set_head_pointers(this%gwf_fresh%x, &
                                               this%gwf_salt%x, &
@@ -374,39 +393,12 @@ contains
                                              this%gwf_salt%xold)
   end subroutine swi_swi_ar
 
-  !> @ brief Read and prepare
-  !<
-  subroutine swi_swi_rp(this)
-    ! modules
-    use TdisModule, only: readnewdata
-    ! dummy
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-
-    ! -- Check with TDIS on whether or not it is time to RP
-    if (.not. readnewdata) return
-
-  end subroutine swi_swi_rp
-
-  !> @ brief Advance
-  !<
-  subroutine swi_swi_ad(this)
-    ! dummy
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-  end subroutine swi_swi_ad
-
-  !> @ brief Calculate coefficients
-  !<
-  subroutine swi_swi_cf(this, kiter)
-    ! dummy
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-    integer(I4B), intent(in) :: kiter
-  end subroutine swi_swi_cf
-
   !> @ brief Fill coefficients
   !!
   !! The SWI-SWI exchange contributes only Newton (Jacobian) cross terms; the
-  !! Picard cross-fluid coupling enters each model through the lagged interface
-  !! head in its own storage/flow fill. Dispatch the Newton terms to swi_swi_fn.
+  !! Picard cross-fluid coupling enters each model through the interface, which
+  !! each model computes in its own storage/flow fill from the other model's
+  !! head at the current iterate. Dispatch the Newton terms to swi_swi_fn.
   !<
   subroutine swi_swi_fc(this, kiter, matrix_sln, rhs_sln, inwtflag)
     ! dummy
@@ -433,8 +425,8 @@ contains
   !! Freshwater flow/storage depend on the saltwater head (and vice versa) through
   !! the interface zeta = -alphaf*hf + alphas*hs. These are the derivative terms
   !! coupling each fluid's equation to the other fluid's head; they cancel at
-  !! convergence (the Picard residual uses the lagged other-fluid head in the
-  !! model's own fc). Horizontal connections only; vertical flow is Picard.
+  !! convergence (the Picard residual in the model's own fc holds the other
+  !! fluid's head fixed at the current iterate). Horizontal connections only; vertical flow is Picard.
   !<
   subroutine swi_swi_fn(this, kiter, matrix_sln)
     ! dummy
@@ -500,72 +492,96 @@ contains
     class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
     class(MatrixBaseType), pointer :: matrix_sln
     ! local
-    integer(I4B) :: n, ipos, m, idx, ihc
+    integer(I4B) :: n, ipos, m, ihc
     real(DP) :: termf, terms, csat, q
+
+    ! The two models share the same grid (checked in swi_swi_df), so ipos
+    ! indexes the same connection in both, and idxjasalt and idxjafresh are
+    ! indexed by ipos. The diagonal position ia(n) is skipped.
 
     ! FRESHWATER EQUATIONS: the saltwater head in a connected cell affects the
     ! freshwater zone conductance, so it enters the freshwater equation.
-    idx = 1
-    do n = 1, this%gwf_fresh%dis%nodes
-      do ipos = this%gwf_fresh%dis%con%ia(n), &
-        this%gwf_fresh%dis%con%ia(n + 1) - 1
-        ihc = this%gwf_fresh%npf%dis%con%ihc( &
-              this%gwf_fresh%npf%dis%con%jas(ipos))
-        if (ihc == C3D_VERTICAL) then
-          idx = idx + 1
-          cycle
-        end if
-        m = this%gwf_fresh%dis%con%ja(ipos)
-        csat = this%gwf_fresh%npf%condsat(this%gwf_fresh%npf%dis%con%jas(ipos))
-        q = csat * (this%gwf_fresh%x(m) - this%gwf_fresh%x(n))
-        if (this%gwf_fresh%x(m) > this%gwf_fresh%x(n)) then
-          ! m is upstream: hs(m) affects the conductance
-          termf = this%get_dsfdhs(m, 2) * q
-          call matrix_sln%add_value_pos(this%idxjasalt(idx), termf)
-          this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + &
-                                  termf * this%gwf_salt%x(m)
-        else
-          ! n is upstream: hs(n) affects the conductance
-          termf = this%get_dsfdhs(n, 2) * q
-          call matrix_sln%add_value_pos(this%idxglo(n), termf)
-          this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + &
-                                  termf * this%gwf_salt%x(n)
-        end if
-        idx = idx + 1
+    associate (con => this%gwf_fresh%dis%con, ibound => this%gwf_fresh%ibound, &
+               hf => this%gwf_fresh%x, hs => this%gwf_salt%x)
+      do n = 1, this%gwf_fresh%dis%nodes
+        if (ibound(n) == 0) cycle
+        do ipos = con%ia(n) + 1, con%ia(n + 1) - 1
+          m = con%ja(ipos)
+          if (ibound(m) == 0) cycle
+          ihc = con%ihc(con%jas(ipos))
+          if (ihc == C3D_VERTICAL) cycle
+          csat = this%gwf_fresh%npf%condsat(con%jas(ipos))
+          q = csat * (hf(m) - hf(n))
+          if (hf(m) > hf(n)) then
+            ! m is upstream: hs(m) affects the conductance
+            termf = this%get_dsfdhs(m, 2) * q
+            call matrix_sln%add_value_pos(this%idxjasalt(ipos), termf)
+            this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + termf * hs(m)
+          else
+            ! n is upstream: hs(n) affects the conductance
+            termf = this%get_dsfdhs(n, 2) * q
+            call matrix_sln%add_value_pos(this%idxglo(n), termf)
+            this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + termf * hs(n)
+          end if
+        end do
       end do
-    end do
+    end associate
 
     ! SALTWATER EQUATIONS: the freshwater head in a connected cell affects the
     ! saltwater zone conductance, so it enters the saltwater equation.
-    idx = 1
-    do n = 1, this%gwf_salt%dis%nodes
-      do ipos = this%gwf_salt%dis%con%ia(n), this%gwf_salt%dis%con%ia(n + 1) - 1
-        ihc = this%gwf_salt%npf%dis%con%ihc(this%gwf_salt%npf%dis%con%jas(ipos))
-        if (ihc == C3D_VERTICAL) then
-          idx = idx + 1
-          cycle
-        end if
-        m = this%gwf_salt%dis%con%ja(ipos)
-        csat = this%gwf_salt%npf%condsat(this%gwf_salt%npf%dis%con%jas(ipos))
-        q = csat * (this%gwf_salt%x(m) - this%gwf_salt%x(n))
-        if (this%gwf_salt%x(m) > this%gwf_salt%x(n)) then
-          ! m is upstream: hf(m) affects the conductance
-          terms = this%get_dssdhf(m, 2) * q
-          call matrix_sln%add_value_pos(this%idxjafresh(idx), terms)
-          this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + &
-                                 terms * this%gwf_fresh%x(m)
-        else
-          ! n is upstream: hf(n) affects the conductance
-          terms = this%get_dssdhf(n, 2) * q
-          call matrix_sln%add_value_pos(this%idxsymglo(n), terms)
-          this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + &
-                                 terms * this%gwf_fresh%x(n)
-        end if
-        idx = idx + 1
+    associate (con => this%gwf_salt%dis%con, ibound => this%gwf_salt%ibound, &
+               hf => this%gwf_fresh%x, hs => this%gwf_salt%x)
+      do n = 1, this%gwf_salt%dis%nodes
+        if (ibound(n) == 0) cycle
+        do ipos = con%ia(n) + 1, con%ia(n + 1) - 1
+          m = con%ja(ipos)
+          if (ibound(m) == 0) cycle
+          ihc = con%ihc(con%jas(ipos))
+          if (ihc == C3D_VERTICAL) cycle
+          csat = this%gwf_salt%npf%condsat(con%jas(ipos))
+          q = csat * (hs(m) - hs(n))
+          if (hs(m) > hs(n)) then
+            ! m is upstream: hf(m) affects the conductance
+            terms = this%get_dssdhf(m, 2) * q
+            call matrix_sln%add_value_pos(this%idxjafresh(ipos), terms)
+            this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + terms * hf(m)
+          else
+            ! n is upstream: hf(n) affects the conductance
+            terms = this%get_dssdhf(n, 2) * q
+            call matrix_sln%add_value_pos(this%idxsymglo(n), terms)
+            this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + terms * hf(n)
+          end if
+        end do
       end do
-    end do
+    end associate
 
   end subroutine swi_fn_cross_flow
+
+  !> @brief Check that the fresh and salt models share the same grid
+  !<
+  function same_grid(this) result(same)
+    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
+    logical(LGP) :: same
+    ! local
+    integer(I4B) :: n, ipos
+    !
+    same = .false.
+    associate (dfr => this%gwf_fresh%dis, dsa => this%gwf_salt%dis)
+      if (dfr%con%nja /= dsa%con%nja) return
+      do n = 1, dfr%nodes + 1
+        if (dfr%con%ia(n) /= dsa%con%ia(n)) return
+      end do
+      do ipos = 1, dfr%con%nja
+        if (dfr%con%ja(ipos) /= dsa%con%ja(ipos)) return
+      end do
+      do n = 1, dfr%nodes
+        if (dfr%top(n) /= dsa%top(n)) return
+        if (dfr%bot(n) /= dsa%bot(n)) return
+        if (dfr%area(n) /= dsa%area(n)) return
+      end do
+    end associate
+    same = .true.
+  end function same_grid
 
   subroutine swi_cross_storage(this, n, termf, rtermf, terms, rterms)
     ! modules
@@ -589,6 +605,11 @@ contains
     real(DP) :: hf, hs
     real(DP) :: dssdhf
     real(DP) :: dsfdhs
+
+    termf = DZERO
+    rtermf = DZERO
+    terms = DZERO
+    rterms = DZERO
 
     ! set variables
     tled = DONE / delt
