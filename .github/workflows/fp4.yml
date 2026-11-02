@@ -28,8 +28,7 @@ jobs:
   fp4_gfortran:
     name: fp4 comparisons (GNU fortran)
     # only run for a pull_request with the fp4 label; schedule/dispatch always run.
-    # no ASCII-only fp4 comparisons exist yet; remove "false &&" once some are merged
-    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -219,8 +218,8 @@ jobs:
 
   fp4_intel_fortran:
     name: fp4 comparisons (Intel fortran)
-    # no ASCII-only fp4 comparisons exist yet; remove "false &&" once some are merged
-    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    # only run for a pull_request with the fp4 label; schedule/dispatch always run.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4')
     runs-on: ${{ matrix.os }}
     env:
       FC: intel-classic
