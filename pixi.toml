@@ -62,10 +62,14 @@ meson = ">=1.7.0,<1.11"
 install-flopy = "pip install --disable-pip-version-check git+https://github.com/modflowpy/flopy.git"
 install-pymake = "pip install --disable-pip-version-check git+https://github.com/modflowpy/pymake.git"
 install-modflowapi = "pip install --disable-pip-version-check git+https://github.com/MODFLOW-ORG/modflowapi.git"
+# the pinned devtools commit ships no registry cache; populate it where
+# the CLI exists (fp4), no-op elsewhere
+sync-registries = "mf sync || true"
 install = { depends-on = [
     "install-flopy",
     "install-pymake",
     "install-modflowapi",
+    "sync-registries",
 ] }
 
 # check format
@@ -161,14 +165,6 @@ install-flopy4-local = "pip install --disable-pip-version-check --no-deps -e"
 # marker-based, not a -k name filter: a netcdf fp4 comparison can be folded
 # into any base test file, whose name won't match "test_netcdf"
 test-netcdf = { cmd = "pytest -v --durations 0 --netcdf --fp4 -m netcdf", cwd = "autotest" }
-# the pinned devtools commit ships no registry cache; populate it
-sync-registries = "mf sync"
-install = { depends-on = [
-    "install-flopy",
-    "install-pymake",
-    "install-modflowapi",
-    "sync-registries",
-] }
 
 [feature.rtd.dependencies]
 numpy = ">=2.2.6,<3"
