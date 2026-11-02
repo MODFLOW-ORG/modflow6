@@ -58,6 +58,7 @@ module NumericalSolutionModule
   ! Eisenstat-Walker forcing term (choice 1) and backtracking parameters
   real(DP), parameter :: EW_ETA0 = DHALF !< forcing term for the first outer iteration
   real(DP), parameter :: EW_ETAMAX = 0.9_DP !< maximum forcing term
+  real(DP), parameter :: EW_ETAMIN = DEM4 !< minimum forcing term
   real(DP), parameter :: EW_ALPHA = 1.618033988749895_DP !< safeguard exponent, (1 + sqrt(5)) / 2
   real(DP), parameter :: EW_T = DEM4 !< backtracking sufficient decrease parameter
 
@@ -2872,9 +2873,9 @@ contains
 
   !> @brief Set the Eisenstat-Walker forcing term for the linear solve
   !!
-  !! Choice 1 of Eisenstat and Walker (1996) with its safeguards, from how
-  !! well the linear model predicted the residual at the start of this Picard
-  !! iteration.
+  !! Choice 1 of Eisenstat and Walker (1996) with its safeguards, bounded
+  !! below by EW_ETAMIN; zero once the previous Picard iteration met
+  !! OUTER_DVCLOSE.
   !<
   subroutine sln_forcing(this, kiter)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
@@ -2888,6 +2889,9 @@ contains
 
     if (kiter == 1 .or. this%fnorm_prev <= DZERO) then
       eta = EW_ETA0
+    else if (this%sln_has_converged(this%hncg(kiter - 1))) then
+      ! full-accuracy solve so the outer iteration can converge
+      eta = DZERO
     else
       eta = abs(fnorm - this%lnorm_prev) / this%fnorm_prev
       ! limit the decrease from the previous forcing term
@@ -2895,6 +2899,7 @@ contains
       if (eta_safe > DEM1) then
         eta = max(eta, eta_safe)
       end if
+      eta = max(eta, EW_ETAMIN)
     end if
 
     this%linear_settings%eta = min(eta, EW_ETAMAX)
