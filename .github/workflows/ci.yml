@@ -793,6 +793,8 @@ jobs:
           compiler: gcc
           version: 13
 
+      # netcdf tests require flopy4 to generate their NetCDF input, so this
+      # job always installs the fp4 pixi environment.
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.2
         with:
@@ -812,11 +814,10 @@ jobs:
 
       - name: Set markers
         id: set_markers
-        # marker-based, not a -k name filter: a netcdf/parallel fp4 comparison
-        # can be folded into any base test file, whose name won't match "test_netcdf"/"test_par".
-        # "fp4" is also included so an ascii-only comparison (no netcdf/parallel mark of its
-        # own) still runs somewhere, since no other CI job currently passes --fp4.
-        run: echo "markers=(netcdf or parallel or fp4) and not large" >> $GITHUB_OUTPUT
+        # marker-based, not -k: netcdf/parallel tests can be folded into any
+        # file by name. "parallel and not fp4" runs plain parallel tests but
+        # excludes parallel-based fp4 comparisons, which run only in fp4.yml.
+        run: echo "markers=(netcdf or (parallel and not fp4)) and not large" >> $GITHUB_OUTPUT
 
       - name: Set filters
         id: set_filters

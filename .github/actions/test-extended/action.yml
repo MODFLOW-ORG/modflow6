@@ -188,6 +188,8 @@ runs:
         MARKERS: ${{ env.MARKERS }}
         FILTERS: ${{ env.FILTERS }}
       run: |
+        # --fp4 is unconditional: netcdf tests need flopy4 to generate their
+        # NetCDF input.
         cmd="pixi run -e ${{ inputs.pixi-environment }} autotest --parallel --netcdf --fp4"
         if [[ "${{ env.MARKERS }}" != "" ]]; then
           cmd="$cmd -m '$MARKERS'"
