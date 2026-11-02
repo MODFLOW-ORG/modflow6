@@ -206,7 +206,7 @@ def _fmi_input_files(workspace: Path) -> set[str]:
     budget/head file, real or hand-fabricated), never this simulation's
     own regenerable output, even though such files often share extensions
     (e.g. .bud, .hds) with real output files."""
-    files = set()
+    files: set[str] = set()
     namefile = workspace / "mfsim.nam"
     if not namefile.is_file():
         return files
@@ -234,34 +234,36 @@ def _fmi_input_files(workspace: Path) -> set[str]:
 
 
 def _copy_for_fp4(
-    src: os.PathLike, dst: os.PathLike, sim_dirs: Iterable[os.PathLike]
+    src: os.PathLike, dst: os.PathLike, sim_dirs: Iterable[str | os.PathLike]
 ) -> list[Path]:
     """Copy `src` into `dst` (replaced if it exists) for a flopy4 re-write,
     skipping the simulations' outputs and other comparisons -- this keeps
     files flopy4 doesn't load (e.g. OBS, TS). Returns `sim_dirs` as paths."""
     src, dst = Path(src), Path(dst)
-    sim_dirs = [Path(d) for d in sim_dirs]
+    sim_dir_paths = [Path(d) for d in sim_dirs]
     skip_dirs = {c.value for c in Comparison} - {
-        d.parts[0] for d in sim_dirs if d.parts
+        d.parts[0] for d in sim_dir_paths if d.parts
     }
 
     # output files each simulation names (e.g. a .bin head file)
     named_outputs = {
         d: {Path(f).name for f in get_mf6_files(src / d / "mfsim.nam")[1]}
-        for d in sim_dirs
+        for d in sim_dir_paths
     }
     # FMI-referenced input files, never to be skipped regardless of extension
-    fmi_inputs = {d: _fmi_input_files(src / d) for d in sim_dirs}
+    # or which sim_dir's own package references them (an FMI reference often
+    # crosses into a sibling sim_dir, e.g. "flow/flow.bud")
+    fmi_inputs = set().union(*(_fmi_input_files(src / d) for d in sim_dir_paths))
 
     def ignore(dirpath, names):
         rel = Path(dirpath).relative_to(src)
         ignored = {n for n in names if rel == Path(".") and n in skip_dirs}
-        if rel in sim_dirs:
+        if rel in sim_dir_paths:
             ignored |= {
                 n
                 for n in names
                 if (Path(n).suffix.lower() in OUTPUT_EXT or n in named_outputs[rel])
-                and n not in fmi_inputs[rel]
+                and n not in fmi_inputs
                 and (Path(dirpath) / n).is_file()
             }
         return ignored
@@ -269,14 +271,14 @@ def _copy_for_fp4(
     if dst.is_dir():
         shutil.rmtree(dst)
     shutil.copytree(src, dst, ignore=ignore)
-    return sim_dirs
+    return sim_dir_paths
 
 
 def write_fp4_netcdf(
     src: os.PathLike,
     dst: os.PathLike,
     netcdf_format: str,
-    sim_dirs: Iterable[os.PathLike] = (".",),
+    sim_dirs: Iterable[str | os.PathLike] = (".",),
 ):
     """
     Re-write the simulations in `src` into `dst` with flopy4, with each
@@ -320,7 +322,7 @@ def write_fp4_netcdf(
 def write_fp4_ascii(
     src: os.PathLike,
     dst: os.PathLike,
-    sim_dirs: Iterable[os.PathLike] = (".",),
+    sim_dirs: Iterable[str | os.PathLike] = (".",),
 ):
     """
     Re-write the simulations in `src` into `dst` with flopy4, as plain
@@ -583,6 +585,31 @@ class TestFramework:
 
     # private
 
+    def _compare_file(self, fpth0, fpth1, outfile, htol, text, i, label=None) -> bool:
+        """Compare a single dependent-variable output file via compare_heads,
+        falling back to a byte-identical check for record layouts flopy's
+        generic HeadFile reader can't fully index (e.g. SFT's .sft.bin,
+        IST's .ist.ucn)."""
+        label = label or text
+        try:
+            success = compare_heads(
+                None,
+                None,
+                precision="double",
+                htol=htol,
+                text=text,
+                outfile=outfile,
+                files1=fpth0,
+                files2=fpth1,
+                verbose=self.verbose,
+            )
+        except EOFError:
+            success = filecmp.cmp(fpth0, fpth1, shallow=False)
+        print(
+            f"{label} comparison {i + 1}" + f"{self.name} ({os.path.basename(fpth0)})"
+        )
+        return success
+
     def _compare_heads(
         self,
         cpth=None,
@@ -678,30 +705,9 @@ class TestFramework:
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
             outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
-            try:
-                success = compare_heads(
-                    None,
-                    None,
-                    precision="double",
-                    htol=htol,
-                    text=EXTTEXT[extension],
-                    outfile=outfile,
-                    files1=fpth0,
-                    files2=fpth1,
-                    verbose=self.verbose,
-                )
-            except EOFError:
-                # some package-specific auxiliary output files (e.g. SFT's
-                # .sft.bin) have a record layout flopy's generic HeadFile
-                # reader can't fully index; fall back to a byte-identical
-                # check rather than failing the comparison over a file we
-                # can't structurally parse
-                success = filecmp.cmp(fpth0, fpth1, shallow=False)
-            print(
-                f"{EXTTEXT[extension]} comparison {i + 1}"
-                + f"{self.name} ({os.path.basename(fpth0)})"
-            )
-            if not success:
+            if not self._compare_file(
+                fpth0, fpth1, outfile, htol, EXTTEXT[extension], i
+            ):
                 return False
         return True
 
@@ -717,32 +723,10 @@ class TestFramework:
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
             outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
-            try:
-                success = compare_heads(
-                    None,
-                    None,
-                    precision="double",
-                    htol=htol,
-                    text=dependent_variable_text(fpth0, EXTTEXT[extension]),
-                    outfile=outfile,
-                    files1=fpth0,
-                    files2=fpth1,
-                    verbose=self.verbose,
-                )
-            except EOFError:
-                # some package-specific auxiliary output files (e.g. IST's
-                # .ist.ucn) have a record layout flopy's generic HeadFile
-                # reader can't fully index; fall back to a byte-identical
-                # check rather than failing the comparison over a file we
-                # can't structurally parse
-                success = filecmp.cmp(fpth0, fpth1, shallow=False)
-            print(
-                (
-                    f"{EXTTEXT[extension]} comparison {i + 1}"
-                    + f"{self.name} ({os.path.basename(fpth0)})",
-                )
-            )
-            if not success:
+            text = dependent_variable_text(fpth0, EXTTEXT[extension])
+            if not self._compare_file(
+                fpth0, fpth1, outfile, htol, text, i, label=EXTTEXT[extension]
+            ):
                 return False
         return True
 
@@ -769,21 +753,20 @@ class TestFramework:
                 return False
         return True
 
-    def _filtered_sims(self) -> list[tuple[MFSimulation, int]]:
-        """self.sims zipped with self.ncpus, filtered to MFSimulation instances."""
+    def _filtered_sims(self) -> list[tuple[MFSimulation, int, bool]]:
+        """self.sims zipped with self.ncpus and self.xfail, filtered to
+        MFSimulation instances, in the same order."""
         return [
-            (s, n) for s, n in zip(self.sims, self.ncpus) if isinstance(s, MFSimulation)
+            (s, n, x)
+            for s, n, x in zip(self.sims, self.ncpus, self.xfail)
+            if isinstance(s, MFSimulation)
         ]
-
-    def _filtered_xfail(self) -> list[bool]:
-        """self.xfail filtered to match self._filtered_sims(), in the same order."""
-        return [x for s, x in zip(self.sims, self.xfail) if isinstance(s, MFSimulation)]
 
     def _sim_dirs(self) -> list[Path]:
         """The test's MF6 simulation workspaces, relative to its own, in run order."""
         dirs = [
             Path(get_workspace(s)).absolute().relative_to(self.workspace)
-            for s, _ in self._filtered_sims()
+            for s, _, _ in self._filtered_sims()
         ]
         return dirs or [Path(".")]
 
@@ -815,7 +798,7 @@ class TestFramework:
             )
         elif comparison in FP4_COMPARISONS:
             sim_dirs = self._sim_dirs()
-            sim_xfail = self._filtered_xfail() or self.xfail[:1]
+            sim_xfail = [x for _, _, x in self._filtered_sims()] or self.xfail[:1]
             for sim_dir, xfail in zip(sim_dirs, sim_xfail):
                 if xfail:
                     # the simulation was expected to fail; flopy4's rewritten
@@ -1055,10 +1038,12 @@ class TestFramework:
                     # the simulation re-written by flopy4, with or without NetCDF
                     workspace = self.workspace / self.compare.value
                     sim_dirs = self._sim_dirs()
-                    # ncpus/xfail per sim_dir, from the same filtered pairing
-                    # _sim_dirs() uses
-                    sim_ncpus = [n for _, n in self._filtered_sims()] or self.ncpus[:1]
-                    sim_xfail = self._filtered_xfail() or self.xfail[:1]
+                    sim_ncpus = [n for _, n, _ in self._filtered_sims()] or self.ncpus[
+                        :1
+                    ]
+                    sim_xfail = [x for _, _, x in self._filtered_sims()] or self.xfail[
+                        :1
+                    ]
                     is_ascii = self.compare == Comparison.FP4_ASCII
                     if is_ascii:
                         write_fp4_ascii(self.workspace, workspace, sim_dirs)

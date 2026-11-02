@@ -817,6 +817,7 @@ jobs:
         # marker-based, not -k: netcdf/parallel tests can be folded into any
         # file by name. "parallel and not fp4" runs plain parallel tests but
         # excludes parallel-based fp4 comparisons, which run only in fp4.yml.
+        # kept in sync with release.yml's and fp4.yml's markers
         run: echo "markers=(netcdf or (parallel and not fp4)) and not large" >> $GITHUB_OUTPUT
 
       - name: Set filters

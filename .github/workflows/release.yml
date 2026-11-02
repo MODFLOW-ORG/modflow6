@@ -330,6 +330,7 @@ jobs:
             # runs plain parallel tests but excludes parallel-based fp4
             # comparisons, which run only in fp4.yml. releasemode runs
             # everything (above), so it's not scoped this way.
+            # kept in sync with ci.yml's and fp4.yml's markers
             markers="$markers and (netcdf or (parallel and not fp4))"
           fi
           echo "markers=$markers" >> $GITHUB_OUTPUT

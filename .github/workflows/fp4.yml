@@ -318,6 +318,7 @@ jobs:
       # a parallel-based fp4 comparison carries both marks: parallel (test
       # function) and fp4 (the comparison param). "parallel and fp4" finds
       # exactly those, leaving native parallel tests untouched.
+      # kept in sync with ci.yml's and release.yml's markers
       - name: Set markers
         id: set_markers
         run: echo "markers=parallel and fp4 and not large" >> $GITHUB_OUTPUT

@@ -27,6 +27,7 @@ To build and test an extended version of the program, first read the instruction
     - [`ruff`](#ruff)
     - [`mfpymake`](#mfpymake)
     - [`flopy`](#flopy)
+    - [`flopy4`](#flopy4)
     - [`modflow-devtools`](#modflow-devtools)
 - [Building](#building)
 - [Formatting](#formatting)
@@ -290,7 +291,7 @@ Like MODFLOW 6, `flopy` is modular &mdash; for each MODFLOW 6 package there is g
 
 #### `flopy4`
 
-[`flopy4`](https://github.com/modflowpy/pyphoenix-project) is used by the NetCDF input tests, which re-write test simulations with NetCDF input and compare them to the ASCII runs. It is installed only in the separate `fp4` pixi environment; see [EXTENDED.md](EXTENDED.md#netcdf-input-tests-with-flopy4).
+[`flopy4`](https://github.com/modflowpy/pyphoenix-project) generates the NetCDF input most NetCDF tests run against; without it those tests skip. (A few instead exercise MODFLOW 6's own NetCDF writer and need no flopy4.) It's needed only for NetCDF testing, not for parallel or other extended testing, and is installed in the separate `fp4` pixi environment; see [EXTENDED.md](EXTENDED.md#netcdf-input-tests-with-flopy4).
 
 #### `modflow-devtools`
 
