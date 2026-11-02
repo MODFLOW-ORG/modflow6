@@ -193,6 +193,7 @@ contains
     class(BaseModelType), pointer :: mb => null()
     type(GwfModelType), pointer :: gwfmodel => null()
     type(GwtModelType), pointer :: gwtmodel => null()
+    real(DP), dimension(:), allocatable :: satinit
     ! -- formats
     character(len=*), parameter :: fmtdiserr = &
       "('GWF and GWT Models do not have the same discretization for exchange&
@@ -268,6 +269,14 @@ contains
     call mem_checkin(gwtmodel%fmi%gwfsat, &
                      'GWFSAT', gwtmodel%fmi%memoryPath, &
                      'SAT', gwfmodel%npf%memoryPath)
+    !
+    ! -- give the transport model the saturation the simulation starts from
+    allocate (satinit(gwfmodel%dis%nodes))
+    call gwfmodel%npf%npf_initial_saturation(satinit)
+    call gwtmodel%fmi%set_initial_saturation(satinit)
+    deallocate (satinit)
+    gwtmodel%fmi%igwfiss => gwfmodel%iss
+    !
     gwtmodel%fmi%gwfspdis => gwfmodel%npf%spdis
     call mem_checkin(gwtmodel%fmi%gwfspdis, &
                      'GWFSPDIS', gwtmodel%fmi%memoryPath, &
