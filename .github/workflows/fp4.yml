@@ -323,8 +323,8 @@ jobs:
 
   fp4_parallel:
     name: fp4 comparisons (parallel)
-    # no parallel-based fp4 comparisons exist yet; remove "false &&" once some are merged
-    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    # only run for a pull_request with the fp4 label; schedule/dispatch always run.
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
