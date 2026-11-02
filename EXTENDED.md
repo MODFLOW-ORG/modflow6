@@ -214,7 +214,7 @@ $ pixi run install-flopy4-local /path/to/flopy4
 
 An explicit `pixi install` restores the pinned flopy4 (and FloPy), so re-run these afterwards.
 
-The flopy4 commit is pinned in `pixi.toml`. When updating it, keep `modflow-devtools` at the commit that flopy4 pins, in both its `pypi-dependencies` entry and `pypi-options.dependency-overrides`, and update the lock file.
+The flopy4 commit is pinned in `pixi.toml`. When updating it, keep `modflow-devtools` at the commit that flopy4 pins in `feature.fp4.pypi-options.dependency-overrides`, and update the lock file.
 
 ## Debugging
 
