@@ -6,7 +6,7 @@ Uses the bump problem with backtracking.
 Cases:
   - ew_nr  : Newton-Raphson with FORCING_TERMS; heads match the reference
              solution and the outer CSV output reports the forcing terms.
-  - ew_sd  : Newton-Raphson with FORCING_SUFFICIENT_DECREASE; heads match the
+  - ew_sd  : Newton-Raphson with BACKTRACKING_SUFFICIENT_DECREASE; heads match the
              reference solution.
   - ew_std : standard formulation with FORCING_TERMS, which has no effect and
              is reported as a warning.
@@ -39,7 +39,7 @@ chd_spd = [[0, i, 0, H1] for i in range(nrow)]
 chd_spd += [[0, i, ncol - 1, H2] for i in range(nrow)]
 
 FORCING_MSG = "Eisenstat-Walker forcing terms will be used"
-WARNING_MSG = "FORCING_TERMS has no effect"
+WARNING_MSG = "BACKTRACKING_SUFFICIENT_DECREASE have no effect"
 
 
 def build_models(idx, test):
@@ -53,7 +53,7 @@ def build_models(idx, test):
         print_option="ALL",
         csv_outer_output_filerecord=f"{name}.outer.csv",
         forcing_terms=True,
-        forcing_sufficient_decrease=name == "ew_sd",
+        backtracking_sufficient_decrease=name == "ew_sd",
         outer_maximum=nouter,
         outer_dvclose=hclose_outer,
         backtracking_number=20,

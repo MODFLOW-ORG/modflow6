@@ -162,22 +162,6 @@ longname no pseudo-transient continuation option
 description is an optional keyword that is used to define options for disabling pseudo-transient continuation (PTC). FIRST is an optional keyword to disable PTC for the first stress period, if steady-state and one or more model is using the Newton-Raphson formulation. ALL is an optional keyword to disable PTC for all steady-state stress periods for models using the Newton-Raphson formulation. If NO\_PTC\_OPTION is not specified, the NO\_PTC ALL option is used.
 
 block options
-name forcing_terms
-type keyword
-reader urword
-optional true
-longname use Eisenstat-Walker forcing terms
-description keyword that indicates the linear solve will also end when the L-2 norm of the residual is reduced by an Eisenstat-Walker forcing term that is recalculated every outer iteration. A linear solve ended by the forcing term does not allow the outer iteration to converge. The option has no effect if no model in the solution uses the Newton-Raphson formulation.
-
-block options
-name forcing_sufficient_decrease
-type keyword
-reader urword
-optional true
-longname use sufficient decrease backtracking
-description keyword that indicates Eisenstat-Walker forcing terms will be used and a backtracking step will be accepted only if it sufficiently reduces the L-2 norm of the residual. BACKTRACKING\_TOLERANCE is not used. The option has no effect if backtracking is not used or no model in the solution uses the Newton-Raphson formulation.
-
-block options
 name ats_outer_maximum_fraction
 type double precision
 reader urword
@@ -360,6 +344,22 @@ reader urword
 optional true
 longname limit to which the residual is reduced with backtracking
 description real value defining the limit to which the residual is reduced with backtracking. If the residual is smaller than BACKTRACKING\_RESIDUAL\_LIMIT, then further backtracking is not performed. A value of 100 is suitable for large problems and residual reduction to smaller values may only slow down computations. BACKTRACKING\_RESIDUAL\_LIMIT only needs to be specified if BACKTRACKING\_NUMBER is greater than zero.
+
+block nonlinear
+name forcing_terms
+type keyword
+reader urword
+optional true
+longname use Eisenstat-Walker forcing terms
+description keyword that indicates the linear solve will also end when the L-2 norm of the residual is reduced by an Eisenstat-Walker forcing term that is recalculated every outer iteration. A linear solve ended by the forcing term does not allow the outer iteration to converge. FORCING\_TERMS has no effect if no model in the solution uses the Newton-Raphson formulation.
+
+block nonlinear
+name backtracking_sufficient_decrease
+type keyword
+reader urword
+optional true
+longname use sufficient decrease backtracking
+description keyword that indicates a backtracking step will be accepted only if it reduces the L-2 norm of the residual by the amount required by the Eisenstat-Walker forcing term, in place of BACKTRACKING\_TOLERANCE. BACKTRACKING\_SUFFICIENT\_DECREASE also turns on FORCING\_TERMS. BACKTRACKING\_SUFFICIENT\_DECREASE only needs to be specified if BACKTRACKING\_NUMBER is greater than zero, and has no effect if no model in the solution uses the Newton-Raphson formulation.
 
 
 # --------------------- sln ims linear ---------------------
