@@ -683,10 +683,6 @@ contains
           this%iallowptc = ival
           write (IOUT, '(3x,A)') 'PSEUDO-TRANSIENT CONTINUATION DISABLED FOR'// &
             ' '//trim(adjustl(msg))//' STRESS-PERIOD(S)'
-        case ('FORCING_TERMS')
-          iforcing = max(iforcing, 1)
-        case ('FORCING_SUFFICIENT_DECREASE')
-          iforcing = 2
         case ('ATS_OUTER_MAXIMUM_FRACTION')
           rval = this%parser%GetDouble()
           if (rval < DZERO .or. rval > DHALF) then
@@ -841,6 +837,10 @@ contains
           this%breduc = this%parser%GetDouble()
         case ('BACKTRACKING_RESIDUAL_LIMIT')
           this%res_lim = this%parser%GetDouble()
+        case ('BACKTRACKING_SUFFICIENT_DECREASE')
+          iforcing = 2
+        case ('FORCING_TERMS')
+          iforcing = max(iforcing, 1)
         case default
           write (errmsg, '(3a)') &
             'Unknown IMS NONLINEAR keyword (', trim(keyword), ').'
@@ -972,9 +972,9 @@ contains
             'Walker sufficient decrease condition'
         end if
       else
-        write (msg, '(3a)') 'FORCING_TERMS has no effect because no '// &
-          'model in solution ', trim(this%name), &
-          ' uses the Newton-Raphson formulation.'
+        write (msg, '(3a)') 'FORCING_TERMS and BACKTRACKING_SUFFICIENT_'// &
+          'DECREASE have no effect because no model in solution ', &
+          trim(this%name), ' uses the Newton-Raphson formulation.'
         call store_warning(msg)
       end if
     end if
@@ -2854,7 +2854,7 @@ contains
   !> @brief Return the residual reduction factor that ends backtracking
   !!
   !! Uses the sufficient decrease condition of Eisenstat and Walker (1994)
-  !! when FORCING_SUFFICIENT_DECREASE is specified, and BACKTRACKING_TOLERANCE
+  !! when BACKTRACKING_SUFFICIENT_DECREASE is specified, and BACKTRACKING_TOLERANCE
   !! otherwise.
   !<
   function sln_backtracking_tol(this, eta) result(btol)
