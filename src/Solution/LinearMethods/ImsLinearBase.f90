@@ -31,7 +31,7 @@ contains
   SUBROUTINE ims_base_cg(ICNVG, ITMAX, INNERIT, &
                          NEQ, NJA, NIAPC, NJAPC, &
                          IPC, ICNVGOPT, NORTH, ISCL, RSCALE, HSCALE, &
-                         DVCLOSE, RCLOSE, L2NORM0, EPFACT, &
+                         DVCLOSE, RCLOSE, L2NORM0, EPFACT, ETA, &
                          IA0, JA0, A0, IAPC, JAPC, APC, &
                          X, B, D, P, Q, Z, &
                          NJLU, IW, JLU, &
@@ -55,6 +55,7 @@ contains
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
     real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence criteria for subsequent Picard iterations
+    real(DP), INTENT(IN) :: ETA !< forcing term (0 if not used)
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA0 !< CRS row pointers
     integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA0 !< CRS column pointers
     real(DP), DIMENSION(NJA), INTENT(IN) :: A0 !< coefficient matrix
@@ -210,7 +211,8 @@ contains
       END IF
       CALL ims_base_testcnvg(ICNVGOPT, ICNVG, INNERIT, &
                              deltax, rcnvg, &
-                             L2NORM0, EPFACT, DVCLOSE, RCLOSE)
+                             L2NORM0, EPFACT, DVCLOSE, RCLOSE, &
+                             l2norm, ETA)
       !
       ! -- CHECK FOR EXACT SOLUTION
       IF (rcnvg == DZERO) ICNVG = 1
@@ -255,7 +257,7 @@ contains
   SUBROUTINE ims_base_bcgs(ICNVG, ITMAX, INNERIT, &
                            NEQ, NJA, NIAPC, NJAPC, &
                            IPC, ICNVGOPT, NORTH, ISCL, RSCALE, HSCALE, &
-                           DVCLOSE, RCLOSE, L2NORM0, EPFACT, &
+                           DVCLOSE, RCLOSE, L2NORM0, EPFACT, ETA, &
                            IA0, JA0, A0, IAPC, JAPC, APC, &
                            X, B, D, P, Q, &
                            T, V, DHAT, PHAT, QHAT, &
@@ -280,6 +282,7 @@ contains
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
     real(DP), INTENT(IN) :: EPFACT !< factor for decreasing flow convergence criteria for subsequent Picard iterations
+    real(DP), INTENT(IN) :: ETA !< forcing term (0 if not used)
     integer(I4B), DIMENSION(NEQ + 1), INTENT(IN) :: IA0 !< CRS row pointers
     integer(I4B), DIMENSION(NJA), INTENT(IN) :: JA0 !< CRS column pointers
     real(DP), DIMENSION(NJA), INTENT(IN) :: A0 !< coefficient matrix
@@ -509,7 +512,8 @@ contains
       END IF
       CALL ims_base_testcnvg(ICNVGOPT, ICNVG, INNERIT, &
                              deltax, rcnvg, &
-                             L2NORM0, EPFACT, DVCLOSE, RCLOSE)
+                             L2NORM0, EPFACT, DVCLOSE, RCLOSE, &
+                             l2norm, ETA)
       !
       ! -- CHECK FOR EXACT SOLUTION
       IF (rcnvg == DZERO) ICNVG = 1
@@ -1139,7 +1143,8 @@ contains
   ! -- TEST FOR SOLVER CONVERGENCE
   SUBROUTINE ims_base_testcnvg(Icnvgopt, Icnvg, Iiter, &
                                Dvmax, Rmax, &
-                               Rmax0, Epfact, Dvclose, Rclose)
+                               Rmax0, Epfact, Dvclose, Rclose, &
+                               Rl2, Eta)
     ! -- dummy variables
     integer(I4B), INTENT(IN) :: Icnvgopt !< convergence option - see documentation for option
     integer(I4B), INTENT(INOUT) :: Icnvg !< flag indicating if convergence achieved (1) or not (0)
@@ -1150,6 +1155,8 @@ contains
     real(DP), INTENT(IN) :: Epfact !< factor for reducing convergence criteria in subsequent Picard iterations
     real(DP), INTENT(IN) :: Dvclose !< Maximum depenendent-variable change allowed
     real(DP), INTENT(IN) :: Rclose !< Maximum flow change allowed
+    real(DP), INTENT(IN) :: Rl2 !< current L2-norm
+    real(DP), INTENT(IN) :: Eta !< forcing term (0 if not used)
     ! -- code
     IF (Icnvgopt == 0) THEN
       IF (ABS(Dvmax) <= Dvclose .AND. ABS(Rmax) <= Rclose) THEN
@@ -1181,6 +1188,11 @@ contains
       ELSE IF (Rmax <= Rmax0 * Epfact) THEN
         Icnvg = -1
       END IF
+    END IF
+    !
+    ! -- forcing term ends the linear solve but not the outer iteration
+    IF (Icnvg == 0 .AND. Eta > DZERO) THEN
+      IF (Rl2 <= Eta * Rmax0) Icnvg = -1
     END IF
   end SUBROUTINE ims_base_testcnvg
 
