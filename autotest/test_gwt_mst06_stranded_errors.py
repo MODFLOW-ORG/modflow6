@@ -1,0 +1,232 @@
+"""
+Tests the errors, warnings, and notes of MST stranded mass, using the single
+cell of test_gwt_mst06_stranded_cell.py.
+
+Cases:
+  - fileout           : STRANDED FILEOUT with LEGACY_STORAGE is an error
+                        (xfail).
+  - zero_order        : zero-order decay runs, notes that stranded mass does not
+                        decay, and the stranded mass stays constant while the
+                        cell stays drained.
+  - sy_above_porosity : a specific yield greater than the porosity runs, warns
+                        that no solute is held back from residual water, and
+                        strands sorbed mass alone.
+  - fmi_first_step    : a transport model that reads its flows from files, with
+                        a water table that moves in the first time step,
+                        strands the sorbed mass from a starting saturation
+                        reconstructed with the specific yield taken as the
+                        porosity, and warns that no solute was held back from
+                        retained water then; a cell that the standard
+                        formulation dries in the first time step leaves no
+                        storage flow in the model, so the time step is taken
+                        as steady and nothing is stranded; a leading period in
+                        which the water table is still, or a cell whose head
+                        stays above its top while specific storage releases
+                        water, writes no warning.
+"""
+
+import flopy
+import numpy as np
+import pytest
+from framework import TestFramework
+from test_gwt_mst06_stranded_cell import (
+    assert_budget_closes,
+    cinit,
+    get_model,
+    held_mass,
+    paper,
+    porosity,
+    results,
+    strand_budget,
+)
+
+
+def listing_text(ws):
+    """Simulation listing with line breaks removed, for wrapped messages."""
+    return " ".join((ws / "mfsim.lst").read_text().split())
+
+
+def run_framework(function_tmpdir, targets, build, check, xfail=False):
+    TestFramework(
+        name="cell",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+        xfail=xfail,
+    ).run()
+
+
+def test_fileout(function_tmpdir, targets):
+    def build(test):
+        return get_model(
+            test.workspace,
+            paper,
+            1,
+            porosity,
+            True,
+            strand=False,
+            mst_kwargs={"stranded_filerecord": [("gwt.strand.bin",)]},
+        )
+
+    def check(test):
+        assert (
+            "STRANDED_ET FILEOUT was specified but stranded mass is not simulated"
+            in listing_text(test.workspace)
+        )
+
+    run_framework(function_tmpdir, targets, build, check, xfail=True)
+
+
+def test_zero_order(function_tmpdir, targets):
+    # pump for 2 d, then leave the cell drained for 2 d
+    periods = [(2.0, [(-25.0, 0.0)]), (2.0, [(0.0, 0.0)])]
+
+    def build(test):
+        return get_model(
+            test.workspace,
+            periods,
+            1,
+            porosity,
+            True,
+            mst_kwargs={
+                "zero_order_decay": True,
+                "decay": 1.0e-3,
+                "decay_sorbed": 1.0e-6,
+            },
+        )
+
+    def check(test):
+        ws = test.workspace
+        assert "Zero-order decay is active with stranded mass" in listing_text(ws)
+        assert_budget_closes(ws)
+        stranded = results(ws, True)[4]
+        assert stranded[0] > 0.0, f"no mass was stranded {stranded}"
+        assert np.isclose(stranded[1], stranded[0], rtol=1e-12, atol=0.0), (
+            f"stranded mass decayed {stranded}"
+        )
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+def test_sy_above_porosity(function_tmpdir, targets):
+    def build(test):
+        return get_model(test.workspace, paper, 1, 1.5 * porosity, True)
+
+    def check(test):
+        ws = test.workspace
+        assert "Specific yield is greater than the mobile porosity" in listing_text(ws)
+        assert_budget_closes(ws)
+        # at the end of the pumping, nothing was held from residual water
+        strand, _ = strand_budget(ws)
+        aq = held_mass(strand, "AQUEOUS")
+        srb = held_mass(strand, "SORBED")
+        assert aq[0] == 0.0, f"aqueous mass was stranded {aq}"
+        assert srb[0] > 0.0, f"no sorbed mass was stranded {srb}"
+
+    run_framework(function_tmpdir, targets, build, check)
+
+
+# the first stress period of each case, the starting head, the specific
+# storage, and whether the flow model uses the Newton formulation; only in the
+# moved and dry cases does the water table move in the first step
+first_step_cases = {
+    "moved": ([], 10.0, 0.0, True),
+    # the standard formulation dries the cell in the first time step
+    "dry": ([], 10.0, 0.0, False),
+    "lead": ([(1.0, [(0.0, 0.0)])], 10.0, 0.0, True),
+    # 1 m3/d lowers the head from 15 to 14 m through specific storage, above
+    # the 10 m top of the cell
+    "confined": ([(1.0, [(-1.0, 0.0)])], 15.0, 1.0e-3, True),
+}
+
+
+@pytest.mark.parametrize("case", list(first_step_cases))
+def test_fmi_first_step(function_tmpdir, targets, case):
+    """A warning is written only when the water table moves in the first step."""
+    lead, strt, ss, newton = first_step_cases[case]
+    exe = str(targets["mf6"])
+    periods = lead + paper
+
+    # the flow model alone, writing the head and budget files
+    flow_ws = function_tmpdir / "flow"
+    sim = get_model(
+        flow_ws,
+        periods,
+        1,
+        porosity,
+        True,
+        strt=strt,
+        ss=ss,
+        transport=False,
+        newton=newton,
+    )
+    sim.exe_name = exe
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"flow simulation failed\n{buff}"
+
+    # the transport model alone, reading the flows through FMI
+    ws = function_tmpdir / "transport"
+    sim = flopy.mf6.MFSimulation(sim_name="t", sim_ws=ws, exe_name=exe)
+    flopy.mf6.ModflowTdis(
+        sim,
+        time_units="DAYS",
+        nper=len(periods),
+        perioddata=[(perlen, 1, 1.0) for perlen, _ in periods],
+    )
+    flopy.mf6.ModflowIms(
+        sim, complexity="moderate", linear_acceleration="bicgstab", filename="t.ims"
+    )
+    gwt = flopy.mf6.ModflowGwt(sim, modelname="gwt", save_flows=True)
+    flopy.mf6.ModflowGwtdis(gwt, nrow=1, ncol=1, delr=10.0, delc=10.0, top=10.0)
+    flopy.mf6.ModflowGwtic(gwt, strt=cinit)
+    flopy.mf6.ModflowGwtmst(
+        gwt,
+        porosity=porosity,
+        sorption="linear",
+        bulk_density=1500.0,
+        distcoef=1.0e-4,
+        stranded_filerecord=[("gwt.strand.bin",)],
+    )
+    flopy.mf6.ModflowGwtfmi(
+        gwt,
+        packagedata=[
+            ("GWFHEAD", str(flow_ws / "gwf.hds"), None),
+            ("GWFBUDGET", str(flow_ws / "gwf.cbc"), None),
+        ],
+    )
+    flopy.mf6.ModflowGwtssm(gwt, sources=[["WEL-1", "AUX", "CONCENTRATION"]])
+    # stranded mass is written with the concentration
+    flopy.mf6.ModflowGwtoc(
+        gwt,
+        concentration_filerecord="gwt.ucn",
+        saverecord=[("CONCENTRATION", "ALL")],
+    )
+    sim.write_simulation(silent=True)
+    success, buff = sim.run_simulation(silent=True)
+    assert success, f"transport simulation failed\n{buff}"
+
+    text = listing_text(ws)
+    warned = (
+        "The water table moved during the first time step" in text
+        or "At least one cell was dry at the end of the first time step" in text
+    )
+    assert warned == (case == "moved"), (
+        f"a warning was expected only when the water table moved, {case=} {warned=}"
+    )
+    # the saturation the first time step starts from is not in the budget
+    # file and is reconstructed; with the specific yield equal to the porosity,
+    # the pumping strands all of the sorbed mass of the drained half of the
+    # cell, 7,500 g, as with a flow model solved in the same simulation.  The
+    # leading period makes the drainage happen in the second time step.
+    sf = flopy.utils.HeadFile(ws / "gwt.strand.bin", text="STRANDED")
+    stranded = np.array([sf.get_data(totim=t).ravel()[0] for t in sf.get_times()])
+    if case == "moved":
+        assert np.isclose(stranded[0], 7500.0), f"stranded {stranded}"
+    else:
+        assert stranded[0] == 0.0, (
+            f"mass was stranded in the first time step: {stranded}"
+        )
+    if case == "lead":
+        assert stranded[1] > 0.0, f"no mass was stranded after the lead: {stranded}"

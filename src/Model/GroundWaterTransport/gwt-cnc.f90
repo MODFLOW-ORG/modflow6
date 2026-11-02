@@ -278,9 +278,17 @@ contains
       do i = 1, this%nbound
         node = this%nodelist(i)
         idiag = this%dis%con%ia(node)
-        rate = DZERO
+        !
+        ! -- mass that other terms add to the cell, such as stranded mass that
+        !    returns when the cell rewets, leaves through the boundary
+        rate = -flowja(idiag)
         ratein = DZERO
         rateout = DZERO
+        if (rate < DZERO) then
+          rateout = -rate
+        else
+          ratein = rate
+        end if
         !
         ! -- Calculate the flow rate into the cell.
         do ipos = this%dis%con%ia(node) + 1, &

@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "Stranded mass can be given at the start of a simulation with the optional STRANDED\\_AQUEOUS, STRANDED\\_SORBED, and STRANDED\\_ET\\_SOLUTE arrays of the Mobile Storage and Transfer (MST) Package, as a mass for each cell; a reservoir that is not given starts empty. It is held in the part of the cell that is drained at the start and returned as that part resaturates. The new STRANDED\\_AQ, STRANDED\\_SRB, and STRANDED\\_ET FILEOUT options write the aqueous and sorbed stranded mass and the solute deposited by evapotranspiration to separate binary files, so a simulation can continue from the end of another."
