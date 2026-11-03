@@ -1,5 +1,6 @@
 # --------------------- exg gwfgwf options ---------------------
 # flopy multi-package
+# mf6 subpackage gwf-gnc
 
 block options
 name auxiliary
