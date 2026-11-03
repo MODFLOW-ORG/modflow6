@@ -1,0 +1,414 @@
+name: MODFLOW 6 flopy4 (fp4) comparisons
+on:
+  # Runs the flopy4 (fp4) comparisons that aren't a push/PR merge gate:
+  # general ASCII round-trip comparisons (fp4_gfortran/fp4_intel_fortran)
+  # and parallel-based comparisons (fp4_parallel). NetCDF-based comparisons
+  # run on every push instead, in ci.yml's extended_test, since flopy4 is
+  # required to generate NetCDF input.
+  schedule:
+    # 10:30 UTC is a low-traffic window for US and European contributors
+    # (5:30 AM EST / 6:30 AM EDT -- GitHub Actions cron is UTC and doesn't
+    # shift for DST, so this drifts by an hour across the year).
+    - cron: "30 10 * * *"
+  workflow_dispatch:
+  pull_request:
+    # labeled: fires when fp4 is applied. synchronize: fires on later
+    # pushes while labeled. The job-level label check below re-evaluates
+    # each time, so removing the label stops future runs automatically.
+    types: [labeled, synchronize]
+    branches:
+      - master
+      - develop
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  PIXI_BETA_WARNING_OFF: true
+jobs:
+  fp4_gfortran:
+    name: fp4 comparisons (GNU fortran)
+    # only run for a pull_request with the fp4 label; schedule/dispatch always run.
+    # no ASCII-only fp4 comparisons exist yet; remove "false &&" once some are merged
+    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            xcode-version: '16.4'
+          - os: ubuntu-22.04
+          - os: windows-2022
+    defaults:
+      run:
+        shell: bash
+    env:
+      FC: gfortran
+      FC_V: 13
+    steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          preinstalled-runtimes: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout MF6
+        uses: actions/checkout@v7
+        with:
+          path: modflow6
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: ${{ env.FC_V }}
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.11.2
+        with:
+          pixi-version: v0.82.1
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
+      - name: Set xcode version (macOS)
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: ${{ matrix.xcode-version }}
+
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          ${{ env.FC }} --version | head -1
+
+      # static link gfortran libs
+      - name: Hide dylibs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          version="${{ env.FC_V }}"
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
+          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
+          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak
+
+      # use classic xcode linker, static link libgcc
+      - name: Set LDFLAGS (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
+
+      - name: Update version files
+        working-directory: modflow6
+        run: pixi run update-version
+
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          pixi run setup builddir
+          pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Upload build log
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fp4-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}-meson-log.txt
+          path: modflow6/builddir/meson-logs/meson-log.txt
+
+      - name: Check arch/libs (macOS)
+        if: runner.os == 'macOS'
+        working-directory: modflow6/bin
+        run: |
+          otool -L mf6
+          otool -L libmf6.dylib
+          otool -L mf5to6
+          otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
+          lipo -info mf6
+          lipo -info libmf6.dylib
+          lipo -info mf5to6
+          lipo -info zbud6
+
+      # TODO remove after next executables release. only necessary because
+      # tests using gridgen were failing as the current gridgen depends on
+      # some dylibs. new executables all statically link gcc/gfortran libs
+      - name: Restore dylibs (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          version="${{ env.FC_V }}"
+          brew_prefix="$(brew --prefix)"
+          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
+          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
+          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
+          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
+
+      - name: Get executables
+        working-directory: modflow6/autotest
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes
+
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers=""
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            markers="not large and not developmode"
+          else
+            markers="not large"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        id: set_filters
+        run: |
+          filters=""
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # sfr rewet comparison fails on macos
+            filters="not test028_sfr_rewet"
+          fi
+          echo "filters=$filters" >> $GITHUB_OUTPUT
+
+      - name: Install fp4 pixi environment
+        working-directory: modflow6
+        run: pixi run -e fp4 install
+
+      # fp4 is a separate pixi env/install, so it needs its own flopy MF6
+      # class regen (matches what test-extended/test-extended-win already do)
+      # -- otherwise models using classes not yet in upstream flopy (CHF/OLF,
+      # etc.) fail with AttributeError here even though they pass natively.
+      - name: Update flopy (fp4 env)
+        working-directory: modflow6
+        run: pixi run -e fp4 update-flopy
+
+      - name: Test MF6 (flopy4 ASCII-only comparisons)
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run -e fp4 autotest -m "${{ steps.set_markers.outputs.markers }} and fp4 and not netcdf and not parallel and not external" -k "${{ steps.set_filters.outputs.filters }}" --fp4
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: failed-fp4-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
+          path: modflow6/autotest/.failed
+
+  fp4_intel_fortran:
+    name: fp4 comparisons (Intel fortran)
+    # no ASCII-only fp4 comparisons exist yet; remove "false &&" once some are merged
+    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    runs-on: ${{ matrix.os }}
+    env:
+      FC: intel-classic
+      FC_V: "2021.6"
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          preinstalled-runtimes: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout MF6
+        uses: actions/checkout@v7
+        with:
+          path: modflow6
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.11.2
+        with:
+          pixi-version: v0.82.1
+          manifest-path: "modflow6/pixi.toml"
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run install
+
+      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: ${{ env.FC }}
+          version: ${{ env.FC_V }}
+
+      - name: Update version files
+        working-directory: modflow6
+        run: pixi run update-version
+
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          pixi run setup builddir
+          pixi run build builddir
+          pixi run setup-mf5to6 builddir
+          pixi run build-mf5to6 builddir
+
+      - name: Show build log
+        if: failure()
+        working-directory: modflow6
+        run: cat builddir/meson-logs/meson-log.txt
+
+      - name: Get executables
+        working-directory: modflow6
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: pixi run get-exes
+
+      - name: Set markers
+        id: set_markers
+        run: |
+          markers=""
+          if [[ "${{ github.ref_name }}" == "master" ]]; then
+            markers="not large and not developmode"
+          else
+            markers="not large"
+          fi
+          echo "markers=$markers" >> $GITHUB_OUTPUT
+
+      - name: Install fp4 pixi environment
+        working-directory: modflow6
+        run: pixi run -e fp4 install
+
+      - name: Update flopy (fp4 env)
+        working-directory: modflow6
+        run: pixi run -e fp4 update-flopy
+
+      - name: Test MF6 (flopy4 ASCII-only comparisons)
+        working-directory: modflow6
+        env:
+          REPOS_PATH: ${{ github.workspace }}
+        run: pixi run -e fp4 autotest -m "${{ steps.set_markers.outputs.markers }} and fp4 and not netcdf and not parallel and not external" --fp4
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: failed-fp4-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
+          path: modflow6/autotest/.failed
+
+  fp4_parallel:
+    name: fp4 comparisons (parallel)
+    # no parallel-based fp4 comparisons exist yet; remove "false &&" once some are merged
+    if: false && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'fp4'))
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-15, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Free disk space (Ubuntu)
+        if: runner.os == 'Linux'
+        uses: jlumbroso/free-disk-space@main
+        with:
+          preinstalled-runtimes: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Checkout MF6
+        uses: actions/checkout@v7
+        with:
+          path: modflow6
+
+      - name: Setup gfortran
+        if: runner.os != 'Windows'
+        uses: fortran-lang/setup-fortran@v1
+        with:
+          compiler: gcc
+          version: 13
+
+      - name: Setup pixi
+        uses: prefix-dev/setup-pixi@v0.11.2
+        with:
+          pixi-version: v0.82.1
+          manifest-path: "modflow6/pixi.toml"
+          environments: fp4
+
+      - name: Custom pixi install
+        working-directory: modflow6
+        run: pixi run -e fp4 install
+
+      - name: Set LDFLAGS (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
+
+      # a parallel-based fp4 comparison carries both marks: parallel (test
+      # function) and fp4 (the comparison param). "parallel and fp4" finds
+      # exactly those, leaving native parallel tests untouched.
+      # kept in sync with ci.yml's and release.yml's markers
+      - name: Set markers
+        id: set_markers
+        run: echo "markers=parallel and fp4 and not large" >> $GITHUB_OUTPUT
+
+      - name: Set filters
+        id: set_filters
+        run: echo "filters=" >> $GITHUB_OUTPUT
+
+      - name: Test extended MF6
+        if: runner.os != 'Windows'
+        uses: ./modflow6/.github/actions/test-extended
+        with:
+          pixi-environment: fp4
+        env:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
+
+      - name: Test extended MF6
+        if: runner.os == 'Windows'
+        uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          pixi-environment: fp4
+        env:
+          MARKERS: ${{ steps.set_markers.outputs.markers }}
+          FILTERS: ${{ steps.set_filters.outputs.filters }}
+
+      - name: Upload failed test output
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: failed-fp4-${{ matrix.os }}-par
+          path: modflow6/autotest/.failed
+
