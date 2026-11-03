@@ -27,6 +27,7 @@ To build and test an extended version of the program, first read the instruction
     - [`ruff`](#ruff)
     - [`mfpymake`](#mfpymake)
     - [`flopy`](#flopy)
+    - [`flopy4`](#flopy4)
     - [`modflow-devtools`](#modflow-devtools)
 - [Building](#building)
 - [Formatting](#formatting)
@@ -287,6 +288,10 @@ The `mfpymake` package can build MODFLOW 6 and related programs and artifacts (e
 [`flopy`](https://github.com/modflowpy/flopy) is used throughout MODFLOW 6 tests to create, run and post-process models.
 
 Like MODFLOW 6, `flopy` is modular &mdash; for each MODFLOW 6 package there is generally a corresponding `flopy` package. Packages are generated dynamically from DFN files stored in this repository under `doc/mf6io/mf6ivar/dfn`.
+
+#### `flopy4`
+
+[`flopy4`](https://github.com/modflowpy/pyphoenix-project) generates the NetCDF input most NetCDF tests run against; without it those tests skip. (A few instead exercise MODFLOW 6's own NetCDF writer and need no flopy4.) It's needed only for NetCDF testing, not for parallel or other extended testing, and is installed in the separate `fp4` pixi environment; see [EXTENDED.md](EXTENDED.md#netcdf-input-tests-with-flopy4).
 
 #### `modflow-devtools`
 

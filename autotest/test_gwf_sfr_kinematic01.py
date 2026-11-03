@@ -22,6 +22,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="uses DEV_STORAGE_WEIGHT, a MF6 dev-only option flopy4 won't generate"
+)
+
 paktest = "sfr"
 cases = ("sfr-kwe01", "sfr-kwe02")
 storage_weights = (0.5, 1.0)

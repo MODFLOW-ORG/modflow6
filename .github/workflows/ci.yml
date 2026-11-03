@@ -793,15 +793,18 @@ jobs:
           compiler: gcc
           version: 13
 
+      # netcdf tests require flopy4 to generate their NetCDF input, so this
+      # job always installs the fp4 pixi environment.
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.2
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
+          environments: fp4
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e fp4 install
 
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
@@ -811,15 +814,21 @@ jobs:
 
       - name: Set markers
         id: set_markers
-        run: echo "markers=not large" >> $GITHUB_OUTPUT
+        # marker-based, not -k: netcdf/parallel tests can be folded into any
+        # file by name. "parallel and not fp4" runs plain parallel tests but
+        # excludes parallel-based fp4 comparisons, which run only in fp4.yml.
+        # kept in sync with release.yml's and fp4.yml's markers
+        run: echo "markers=(netcdf or (parallel and not fp4)) and not large" >> $GITHUB_OUTPUT
 
       - name: Set filters
         id: set_filters
-        run: echo "filters=test_par or test_netcdf" >> $GITHUB_OUTPUT
+        run: echo "filters=" >> $GITHUB_OUTPUT
 
       - name: Test extended MF6
         if: runner.os != 'Windows'
         uses: ./modflow6/.github/actions/test-extended
+        with:
+          pixi-environment: fp4
         env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}
@@ -827,6 +836,8 @@ jobs:
       - name: Test extended MF6
         if: runner.os == 'Windows'
         uses: ./modflow6/.github/actions/test-extended-win
+        with:
+          pixi-environment: fp4
         env:
           MARKERS: ${{ steps.set_markers.outputs.markers }}
           FILTERS: ${{ steps.set_filters.outputs.filters }}

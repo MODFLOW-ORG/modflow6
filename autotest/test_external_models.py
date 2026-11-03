@@ -12,6 +12,10 @@ from compare import (
 from framework import TestFramework
 from modflow_devtools.models import DEFAULT_REGISTRY, LocalRegistry
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="deferred, different scope: external model-registry runner, not single-model"
+)
+
 # prefixes into the model registry. only relevant for the "official" registry.
 # https://modflow-devtools.readthedocs.io/en/latest/md/models.html#model-names
 PREFIXES = ["mf6/test", "mf6/large", "mf2005"]
