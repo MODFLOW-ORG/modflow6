@@ -32,6 +32,9 @@ and NPF uses the HIGHEST_CELL_SATURATION option, so the saturation of B used
 in the conductance is calculated from the geometry of A.  The correction BUY
 applies to the NPF conductance must use the same adjusted saturations.
 
+The dry variant is also run with the BUY HHFORMULATION_RHS option, which
+moves the head-dependent part of the buoyancy term to the right-hand side.
+
 Each variant is run as a single DISU model and as two DIS models joined by a
 GWF-GWF exchange (which uses the interface model).  All must converge to the
 head in A computed independently below, and their budgets must close.  The
@@ -47,12 +50,14 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-# (name, layout, bottom of A, highest cell saturation)
+# (name, layout, bottom of A, highest cell saturation, HHFORMULATION_RHS)
 cases = [
-    ("buynwt_single", "single", 14.0, False),
-    ("buynwt_exg", "exchange", 14.0, False),
-    ("buynwt_hcs_single", "single", -2.0, True),
-    ("buynwt_hcs_exg", "exchange", -2.0, True),
+    ("buynwt_single", "single", 14.0, False, False),
+    ("buynwt_exg", "exchange", 14.0, False, False),
+    ("buynwt_hcs_single", "single", -2.0, True, False),
+    ("buynwt_hcs_exg", "exchange", -2.0, True, False),
+    ("buynwt_rhs_single", "single", 14.0, False, True),
+    ("buynwt_rhs_exg", "exchange", 14.0, False, True),
 ]
 
 # geometry and properties
@@ -122,7 +127,7 @@ def add_gwt(sim, name, dispkg, diskw, conc, cells):
     flopy.mf6.ModflowGwtoc(gwt)
 
 
-def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy, highcell):
+def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy, highcell, hhform):
     gwf = flopy.mf6.ModflowGwf(
         sim, modelname=name, newtonoptions="NEWTON UNDER_RELAXATION"
     )
@@ -135,6 +140,7 @@ def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy, highcell):
         flopy.mf6.ModflowGwfbuy(
             gwf,
             denseref=denseref,
+            hhformulation_rhs=hhform,
             packagedata=[(0, rhodc, 0.0, f"t{name}", "CONCENTRATION")],
         )
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data=chd)
@@ -147,7 +153,7 @@ def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy, highcell):
     )
 
 
-def build_sim(ws, exe, layout, bot_a, highcell, rhodc=drhodc, buy=True):
+def build_sim(ws, exe, layout, bot_a, highcell, hhform, rhodc=drhodc, buy=True):
     sim = flopy.mf6.MFSimulation(sim_name="buynwt", sim_ws=ws, exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
     ims_f = flopy.mf6.ModflowIms(
@@ -195,6 +201,7 @@ def build_sim(ws, exe, layout, bot_a, highcell, rhodc=drhodc, buy=True):
             rhodc,
             buy,
             highcell,
+            hhform,
         )
         add_gwt(sim, "tgwf", flopy.mf6.ModflowGwtdisu, diskw, [c_a, c_c, c_b], cells)
         gwfs = ["gwf"]
@@ -219,6 +226,7 @@ def build_sim(ws, exe, layout, bot_a, highcell, rhodc=drhodc, buy=True):
             rhodc,
             buy,
             highcell,
+            hhform,
         )
         add_gwf(
             sim,
@@ -230,6 +238,7 @@ def build_sim(ws, exe, layout, bot_a, highcell, rhodc=drhodc, buy=True):
             rhodc,
             buy,
             highcell,
+            hhform,
         )
         add_gwt(
             sim,
@@ -272,12 +281,12 @@ def read_heads(ws, layout):
 
 
 def build_models(idx, test):
-    _, layout, bot_a, highcell = cases[idx]
-    return build_sim(test.workspace, "mf6", layout, bot_a, highcell), None
+    _, layout, bot_a, highcell, hhform = cases[idx]
+    return build_sim(test.workspace, "mf6", layout, bot_a, highcell, hhform), None
 
 
 def check_output(idx, test):
-    _, layout, bot_a, highcell = cases[idx]
+    _, layout, bot_a, highcell, hhform = cases[idx]
     ws = Path(test.workspace)
 
     # head in A agrees with the independently computed solution
@@ -316,6 +325,7 @@ def check_output(idx, test):
             lay,
             bot_a,
             highcell,
+            hhform,
             rhodc=0.0,
             buy=buy,
         )
