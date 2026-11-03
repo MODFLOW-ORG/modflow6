@@ -180,13 +180,43 @@ The `TestSimulation` object that is being run from the framework should be confi
 $ pytest -s --parallel test_par_gwf01.py
 ```
 
-To run a test in NetCDF test mode, for example `autotest/test_netcdf_gwe_cnd.py`:
+Running without the `--parallel` flag will simply skip a parallel test; parallel testing needs no further setup.
+
+To run a test in NetCDF test mode, for example `autotest/test_netcdf_gwf_rch01.py`, you also need flopy4 (see below) and the `fp4` environment:
 
 ```
-$ pytest --netcdf test_netcdf_gwe_cnd.py
+$ pixi run -e fp4 pytest --netcdf --fp4 test_netcdf_gwf_rch01.py
 ```
 
-Running without the `--parallel` and `--netcdf` flags will simply skip these tests.
+Running without `--netcdf --fp4`, or outside the `fp4` environment, will simply skip the test instead of running it.
+
+### NetCDF input tests with flopy4
+
+Most NetCDF tests need [flopy4](https://github.com/modflowpy/pyphoenix-project) to generate their NetCDF input in the first place, not just for an optional comparison to the ASCII run — without it, these tests skip locally and fail in CI. A few NetCDF tests (marked `fp4_exclude`, e.g. `test_netcdf_format.py`) instead exercise MODFLOW 6's own NetCDF writer directly and need no flopy4 at all. This is specific to NetCDF testing: parallel testing and the rest of the test suite need no flopy4 or the `fp4` environment at all. flopy4 is installed only in the `fp4` pixi environment, which adds it, and the dependencies it brings, to the default environment.
+
+Set up the environment and FloPy in it:
+
+```
+$ pixi run -e fp4 install
+$ pixi run -e fp4 update-flopy
+```
+
+Run the NetCDF tests (extra arguments are passed to pytest):
+
+```
+$ pixi run test-netcdf
+$ pixi run test-netcdf -k test_gwf_rch01
+```
+
+To test a local flopy4 checkout, install it over the pinned version:
+
+```
+$ pixi run install-flopy4-local /path/to/flopy4
+```
+
+An explicit `pixi install` restores the pinned flopy4 (and FloPy), so re-run these afterwards.
+
+The flopy4 commit is pinned in `pixi.toml`. When updating it, keep `modflow-devtools` at the commit that flopy4 pins in `feature.fp4.pypi-options.dependency-overrides`, and update the lock file.
 
 ## Debugging
 

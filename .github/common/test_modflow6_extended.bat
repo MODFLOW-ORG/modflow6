@@ -7,4 +7,5 @@ copy /Y "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\zlib1.dll"   "%GITHUB_
 copy /Y "%GITHUB_WORKSPACE%\netcdf\netCDF4.9.3-NC4-64\bin\libcurl.dll" "%GITHUB_WORKSPACE%\modflow6\bin\"
 copy /Y "%GITHUB_WORKSPACE%\netcdf\netcdf-fortran-4.6.2\build\fortran\netcdff.dll" "%GITHUB_WORKSPACE%\modflow6\bin\"
 cd "%GITHUB_WORKSPACE%\modflow6\autotest"
-pixi run autotest -m "%MARKERS%" -k "%FILTERS%" --netcdf --parallel
+:: --fp4 is unconditional: netcdf tests need flopy4 to generate their NetCDF input.
+pixi run -e %PIXI_ENV% autotest -m "%MARKERS%" -k "%FILTERS%" --netcdf --parallel --fp4

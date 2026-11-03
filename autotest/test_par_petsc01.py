@@ -15,6 +15,10 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
+pytestmark = pytest.mark.fp4_exclude(
+    reason="tests PETSc .petscrc handling, which flopy4 doesn't model"
+)
+
 cases = ["par_petsc01a", "par_petsc01b"]
 ksp_type = ["cg", "bcgs"]
 

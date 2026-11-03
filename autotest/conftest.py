@@ -173,6 +173,12 @@ def pytest_addoption(parser):
         help="include netcdf test cases",
     )
     parser.addoption(
+        "--fp4",
+        action="store_true",
+        default=False,
+        help="include tests re-running and comparing a flopy4-rewritten simulation",
+    )
+    parser.addoption(
         "--plot",
         action="store_true",
         default=False,
@@ -205,6 +211,18 @@ def pytest_addoption(parser):
 
 
 def pytest_collection_modifyitems(config, items):
+    # derive "fp4" from each case's `compare` value rather than a hand-written
+    # mark, so the two can't drift apart. a case that bypasses `compare=`
+    # entirely still needs an explicit `@pytest.mark.fp4` (see
+    # test_netcdf_gwf_rch01.py).
+    from framework import FP4_COMPARISONS
+
+    for item in items:
+        callspec = getattr(item, "callspec", None)
+        compare_val = callspec.params.get("compare") if callspec else None
+        if compare_val in FP4_COMPARISONS:
+            item.add_marker(pytest.mark.fp4)
+
     if not config.getoption("--parallel"):
         skip_parallel = pytest.mark.skip(reason="need --parallel option to run")
         for item in items:
@@ -216,3 +234,9 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "netcdf" in item.keywords:
                 item.add_marker(skip_netcdf)
+
+    if not config.getoption("--fp4"):
+        skip_fp4 = pytest.mark.skip(reason="need --fp4 option to run")
+        for item in items:
+            if "fp4" in item.keywords:
+                item.add_marker(skip_fp4)

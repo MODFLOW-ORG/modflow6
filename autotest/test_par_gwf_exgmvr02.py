@@ -10,6 +10,7 @@ with a serial 'single'
 """
 
 import pytest
+from compare import Comparison
 from framework import TestFramework
 
 cases = ["par_exgmvr02"]
@@ -30,7 +31,8 @@ def check_output(idx, test):
 
 @pytest.mark.parallel
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-def test_mf6model(idx, name, function_tmpdir, targets):
+@pytest.mark.parametrize("compare", [None, pytest.param(Comparison.FP4_ASCII)])
+def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
@@ -39,6 +41,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
         parallel=True,
         ncpus=(2, 1),
-        compare=None,
+        compare=compare,
     )
     test.run()
