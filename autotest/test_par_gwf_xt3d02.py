@@ -32,9 +32,7 @@ def check_output(idx, test):
 
 @pytest.mark.parallel
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-@pytest.mark.parametrize(
-    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", [None, pytest.param(Comparison.FP4_ASCII)])
 def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,

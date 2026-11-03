@@ -13,9 +13,7 @@ cases = ["par_adv01a_gwtgwt", "par_adv01b_gwtgwt", "par_adv01c_gwtgwt"]
 @pytest.mark.parallel
 @pytest.mark.developmode
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-@pytest.mark.parametrize(
-    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", [None, pytest.param(Comparison.FP4_ASCII)])
 def test_mf6model(idx, name, compare, function_tmpdir, targets):
     from test_gwt_adv01_gwtgwt import build_models, check_output
 

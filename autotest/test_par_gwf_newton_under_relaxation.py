@@ -17,9 +17,7 @@ cases = ["par_nr_ur01", "par_nr_ur02"]
 
 @pytest.mark.parallel
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-@pytest.mark.parametrize(
-    "compare", [None, pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", [None, pytest.param(Comparison.FP4_ASCII)])
 def test_mf6model(idx, name, compare, function_tmpdir, targets):
     from test_gwf_newton_under_relaxation import build_models, check_output
 
