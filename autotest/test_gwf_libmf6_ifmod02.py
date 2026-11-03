@@ -400,7 +400,7 @@ def check_interface_models(mf6):
     "compare",
     [
         "auto",
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 @requires_pkg("modflowapi")

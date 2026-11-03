@@ -388,7 +388,7 @@ def cbc_compare(test):
     "compare",
     [
         "mf6_regression",
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 @pytest.mark.slow

@@ -546,7 +546,7 @@ def check_output(idx, test, ener_input):
     "compare",
     [
         "auto",
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 # - No need to change any code below

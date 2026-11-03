@@ -88,9 +88,7 @@ def check_output(idx, test):
     assert np.allclose(hres, head), "simulated head does not match with known solution."
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(

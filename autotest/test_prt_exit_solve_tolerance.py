@@ -189,7 +189,7 @@ def check_output(test):
     "compare",
     [
         None,
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 @pytest.mark.parametrize("name", cases)

@@ -515,9 +515,7 @@ def check_output(idx, test):
     assert isMonotonic(temp_diff[:, 1, 1][::-1][10:-1]), msg2
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

@@ -316,7 +316,7 @@ def cbc_compare(test):
     "compare",
     [
         "auto",
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 @pytest.mark.parametrize("idx, name", enumerate(cases))

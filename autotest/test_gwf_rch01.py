@@ -140,7 +140,7 @@ def check_output(idx, test):
     "compare",
     [
         "auto",
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 def test_mf6model(idx, name, compare, function_tmpdir, targets):

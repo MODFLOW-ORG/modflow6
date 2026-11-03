@@ -203,9 +203,7 @@ def check_model(sim, model_number):
     return
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.developmode
 def test_mf6model(idx, name, function_tmpdir, targets, compare):

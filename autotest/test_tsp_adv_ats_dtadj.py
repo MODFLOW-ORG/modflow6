@@ -223,9 +223,7 @@ def check_output(name, test):
     )
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize("name", cases)
 def test_mf6model(name, function_tmpdir, targets, compare):
     test = TestFramework(

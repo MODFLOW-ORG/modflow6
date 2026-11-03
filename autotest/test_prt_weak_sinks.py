@@ -397,9 +397,7 @@ def plot_output(idx, test):
     plt.savefig(gwf_ws / f"{name}.png")
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets, plot, compare):
     test = TestFramework(

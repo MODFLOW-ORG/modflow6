@@ -470,9 +470,7 @@ def check_output(idx, test):
     ), msg4
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

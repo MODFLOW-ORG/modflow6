@@ -194,9 +194,7 @@ def check_output(idx, test):
         assert total_q > 0.0, "Case 5: total well flow should be positive"
 
 
-@pytest.mark.parametrize(
-    "compare", ["auto", pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4)]
-)
+@pytest.mark.parametrize("compare", ["auto", pytest.param(Comparison.FP4_ASCII)])
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(

@@ -89,7 +89,7 @@ def api_func(exe, idx, model_ws=None):
     "compare",
     [
         None,
-        pytest.param(Comparison.FP4_ASCII, marks=pytest.mark.fp4),
+        pytest.param(Comparison.FP4_ASCII),
     ],
 )
 @requires_pkg("modflowapi")
