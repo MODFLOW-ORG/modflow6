@@ -145,6 +145,12 @@ pixi run -e gcc-extended-build gcc-extended-build-update
 
 This will update the `netcdf-fortran.pc` file with the correct include path.
 
+To run the Python autotests (or the `get-exes` task) in this environment, first install the development versions of flopy, pymake, and modflowapi, just as in the default environment:
+
+```bash
+pixi run -e gcc-extended-build install
+```
+
 The MODFLOW 6 meson build process is essentially the same except that it relies on tasks defined in `pixi.toml` and require that the `gcc-extended-build` environment be specified. The commands for setup, build, and testing are:
 
 ```bash
