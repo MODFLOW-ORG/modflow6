@@ -13,23 +13,30 @@ changes, and the solution can cycle between two states without converging.
 
 The model has three cells:
 
-    A  thin, dry, fresh cell (top 21, bottom 14)
+    A  thin, fresh cell (top 21)
     B  thick, saline cell (top 21, bottom -60), constant head 0.36
-    C  fresh cell below A (top 14, bottom -60), constant head 0.0
+    C  fresh cell below A (bottom -60), constant head 0.0
 
 A and B share a horizontal connection; A drains to C through a weak vertical
 connection, its only outlet.  The buoyancy term drives saline water from B
 into A, so at the solution the head in A is above the head in B while the
-flow is still from B into A.  When the upstream cell was selected from the
-head difference, A (with zero saturation) became upstream as soon as its
-head rose above the head in B, the flow dropped to zero, and the head in A
-flipped between two values on every outer iteration.
+flow is still from B into A.
 
-The model is run as a single DISU model and as two DIS models joined by a
-GWF-GWF exchange (which uses the interface model).  Both must converge to
-the head in A computed independently below, and their budgets must close.
-The same model with DRHODC = 0 must give the same heads as the model
-without the BUY package.
+In the "dry" variant A has a bottom of 14 and is dry.  When the upstream cell
+was selected from the head difference, A (with zero saturation) became
+upstream as soon as its head rose above the head in B, the flow dropped to
+zero, and the head in A flipped between two values on every outer iteration.
+
+In the "highcell" variant A has a bottom of -2 and is partially saturated,
+and NPF uses the HIGHEST_CELL_SATURATION option, so the saturation of B used
+in the conductance is calculated from the geometry of A.  The correction BUY
+applies to the NPF conductance must use the same adjusted saturations.
+
+Each variant is run as a single DISU model and as two DIS models joined by a
+GWF-GWF exchange (which uses the interface model).  All must converge to the
+head in A computed independently below, and their budgets must close.  The
+same model with DRHODC = 0 must give the same heads as the model without the
+BUY package.
 """
 
 import re
@@ -40,11 +47,17 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["buynwt_single", "buynwt_exg"]
+# (name, layout, bottom of A, highest cell saturation)
+cases = [
+    ("buynwt_single", "single", 14.0, False),
+    ("buynwt_exg", "exchange", 14.0, False),
+    ("buynwt_hcs_single", "single", -2.0, True),
+    ("buynwt_hcs_exg", "exchange", -2.0, True),
+]
 
 # geometry and properties
 top = 21.0
-bot_a, bot_b, bot_c = 14.0, -60.0, -60.0
+bot_b, bot_c = -60.0, -60.0
 delr = delc = 100.0
 area = delr * delc
 cl = 50.0  # distance from the cell centers of A and B to their shared face
@@ -58,31 +71,45 @@ drhodc = 0.0446
 c_a, c_b, c_c = 0.0, 35.0, 0.0
 
 
-def expected_head_a():
+def saturation(h, tp, bt):
+    return min(max((h - bt) / (tp - bt), 0.0), 1.0)
+
+
+def expected_head_a(bot_a, highcell):
     """Head in cell A from the Newton formulation of NPF and BUY with the
-    upstream cell selected from the total flow direction.  B is upstream
-    and A is dry, so the elevation of A is its bottom."""
+    upstream cell selected from the total flow direction."""
     t_a, t_b = kh * (top - bot_a), kh * (top - bot_b)
     condsat = delc * t_a * t_b / (t_a * cl + t_b * cl)
-    sat_b = (h_b - bot_b) / (top - bot_b)
-    elev_a = bot_a
+    sat_b = saturation(h_b, top, bot_b)
     elev_b = bot_b + 0.5 * sat_b * (top - bot_b)
+    # saturation of B in the horizontal conductance
+    sat_b_cond = saturation(h_b, top, bot_a) if highcell else sat_b
     rho_a = 1.0 + drhodc * c_a / denseref
     rho_b = 1.0 + drhodc * c_b / denseref
     wt = 0.5
     rhoterm = wt * rho_a + (1.0 - wt) * rho_b
-    elevnm = (1.0 - wt) * elev_a + wt * elev_b
     cv = area / (0.5 * (top - bot_a) / kv_a + 0.5 * (bot_a - bot_c) / kh)
 
     def residual(h_a):
+        sat_a = saturation(h_a, top, bot_a)
+        elev_a = bot_a + 0.5 * sat_a * (top - bot_a)
+        elevnm = (1.0 - wt) * elev_a + wt * elev_b
         gbuy = (rhoterm - 1.0) * (h_b - h_a) + (rho_b - rho_a) * (
             (1.0 - wt) * h_a + wt * h_b - elevnm
         )
-        return sat_b * condsat * (h_b - h_a + gbuy) - cv * (h_a - h_c)
+        drive = h_b - h_a + gbuy
+        sat_up = sat_b_cond if drive > 0.0 else sat_a
+        return sat_up * condsat * drive - cv * (h_a - h_c)
 
-    # the residual is linear in h_a
-    r0, r1 = residual(0.0), residual(1.0)
-    return -r0 / (r1 - r0)
+    # bisection; the residual decreases with h_a
+    lo, hi = h_c, 5.0
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if residual(mid) > 0.0:
+            lo = mid
+        else:
+            hi = mid
+    return 0.5 * (lo + hi)
 
 
 def add_gwt(sim, name, dispkg, diskw, conc, cells):
@@ -95,13 +122,15 @@ def add_gwt(sim, name, dispkg, diskw, conc, cells):
     flopy.mf6.ModflowGwtoc(gwt)
 
 
-def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy):
+def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy, highcell):
     gwf = flopy.mf6.ModflowGwf(
         sim, modelname=name, newtonoptions="NEWTON UNDER_RELAXATION"
     )
     dispkg(gwf, **diskw)
     flopy.mf6.ModflowGwfic(gwf, strt=0.4)
-    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=kh, k33=k33)
+    flopy.mf6.ModflowGwfnpf(
+        gwf, icelltype=1, k=kh, k33=k33, highest_cell_saturation=highcell
+    )
     if buy:
         flopy.mf6.ModflowGwfbuy(
             gwf,
@@ -118,7 +147,7 @@ def add_gwf(sim, name, dispkg, diskw, k33, chd, rhodc, buy):
     )
 
 
-def build_sim(ws, exe, layout, rhodc=drhodc, buy=True):
+def build_sim(ws, exe, layout, bot_a, highcell, rhodc=drhodc, buy=True):
     sim = flopy.mf6.MFSimulation(sim_name="buynwt", sim_ws=ws, exe_name=exe)
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
     ims_f = flopy.mf6.ModflowIms(
@@ -165,6 +194,7 @@ def build_sim(ws, exe, layout, rhodc=drhodc, buy=True):
             [((1,), h_c), ((2,), h_b)],
             rhodc,
             buy,
+            highcell,
         )
         add_gwt(sim, "tgwf", flopy.mf6.ModflowGwtdisu, diskw, [c_a, c_c, c_b], cells)
         gwfs = ["gwf"]
@@ -188,9 +218,18 @@ def build_sim(ws, exe, layout, rhodc=drhodc, buy=True):
             [((1, 0, 0), h_c)],
             rhodc,
             buy,
+            highcell,
         )
         add_gwf(
-            sim, "gwfb", flopy.mf6.ModflowGwfdis, db, kh, [((0, 0, 0), h_b)], rhodc, buy
+            sim,
+            "gwfb",
+            flopy.mf6.ModflowGwfdis,
+            db,
+            kh,
+            [((0, 0, 0), h_b)],
+            rhodc,
+            buy,
+            highcell,
         )
         add_gwt(
             sim,
@@ -219,33 +258,31 @@ def build_sim(ws, exe, layout, rhodc=drhodc, buy=True):
     return sim
 
 
-def layout(idx):
-    return "single" if idx == 0 else "exchange"
+def gwf_names(layout):
+    return ["gwf"] if layout == "single" else ["gwfa", "gwfb"]
 
 
-def gwf_names(idx):
-    return ["gwf"] if idx == 0 else ["gwfa", "gwfb"]
-
-
-def read_heads(ws, idx):
+def read_heads(ws, layout):
     return np.concatenate(
         [
             flopy.utils.HeadFile(Path(ws) / f"{name}.hds").get_data().ravel()
-            for name in gwf_names(idx)
+            for name in gwf_names(layout)
         ]
     )
 
 
 def build_models(idx, test):
-    return build_sim(test.workspace, "mf6", layout(idx)), None
+    _, layout, bot_a, highcell = cases[idx]
+    return build_sim(test.workspace, "mf6", layout, bot_a, highcell), None
 
 
 def check_output(idx, test):
+    _, layout, bot_a, highcell = cases[idx]
     ws = Path(test.workspace)
 
     # head in A agrees with the independently computed solution
-    h_a = read_heads(ws, idx)[0]
-    h_expected = expected_head_a()
+    h_a = read_heads(ws, layout)[0]
+    h_expected = expected_head_a(bot_a, highcell)
     print(f"head in A: {h_a:.6f}, expected {h_expected:.6f}, head in B {h_b}")
     assert h_a > h_b, "head in A should be above the head in B"
     assert np.isclose(h_a, h_expected, atol=1e-5), (
@@ -253,7 +290,7 @@ def check_output(idx, test):
     )
 
     # budgets close
-    for name in gwf_names(idx):
+    for name in gwf_names(layout):
         disc = [
             abs(float(v))
             for v in re.findall(
@@ -263,21 +300,37 @@ def check_output(idx, test):
         ]
         assert disc and max(disc) < 0.01, f"{name} budget discrepancy {disc}"
 
-    # DRHODC = 0 gives the same heads as a model without BUY
+    # DRHODC = 0 gives the same heads as a model without BUY. Without BUY
+    # a GWF-GWF exchange does not use the interface model, and the classic
+    # exchange does not apply HIGHEST_CELL_SATURATION, so in that case the
+    # reference is the single-model layout, which agrees to round-off.
+    ref_layout = layout
+    if layout == "exchange" and highcell:
+        ref_layout = "single"
     heads = {}
-    for tag, buy in (("zero", True), ("nobuy", False)):
+    for tag, buy, lay in (("zero", True, layout), ("nobuy", False, ref_layout)):
         ws_cmp = ws / tag
-        sim = build_sim(ws_cmp, test.targets["mf6"], layout(idx), rhodc=0.0, buy=buy)
+        sim = build_sim(
+            ws_cmp,
+            test.targets["mf6"],
+            lay,
+            bot_a,
+            highcell,
+            rhodc=0.0,
+            buy=buy,
+        )
         sim.write_simulation(silent=True)
         success, _ = sim.run_simulation(silent=True)
         assert success, f"{tag} comparison run failed"
-        heads[tag] = read_heads(ws_cmp, idx)
-    assert np.array_equal(heads["zero"], heads["nobuy"]), (
-        f"DRHODC = 0 heads {heads['zero']} differ from no-BUY {heads['nobuy']}"
-    )
+        heads[tag] = read_heads(ws_cmp, lay)
+    if ref_layout == layout:
+        same = np.array_equal(heads["zero"], heads["nobuy"])
+    else:
+        same = np.allclose(heads["zero"], heads["nobuy"], rtol=0.0, atol=1e-9)
+    assert same, f"DRHODC = 0 heads {heads['zero']} differ from no-BUY {heads['nobuy']}"
 
 
-@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("idx, name", enumerate(c[0] for c in cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,

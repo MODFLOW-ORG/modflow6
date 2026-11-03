@@ -66,6 +66,7 @@ module GwfBuyModule
     procedure, private :: calchhterms
     procedure, private :: calc_gbuy
     procedure, private :: buy_hcond
+    procedure, private :: npf_sats
     procedure, private :: upstream_cells
     procedure, private :: npf_cond_correction
     procedure, private :: add_newton_term
@@ -1339,6 +1340,28 @@ contains
     end if
   end subroutine calchhterms
 
+  !> @brief Saturations used by npf for a horizontal connection
+  !!
+  !! The cell saturations, adjusted as npf does when the
+  !! HIGHEST_CELL_SATURATION option is active.
+  !<
+  subroutine npf_sats(this, n, m, hn, hm, satn, satm)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    real(DP), intent(in) :: hn
+    real(DP), intent(in) :: hm
+    real(DP), intent(out) :: satn
+    real(DP), intent(out) :: satm
+    !
+    satn = this%npf%sat(n)
+    satm = this%npf%sat(m)
+    if (this%npf%ihighcellsat /= 0) then
+      call this%npf%highest_cell_saturation(n, m, hn, hm, satn, satm)
+    end if
+  end subroutine npf_sats
+
   !> @brief Horizontal conductance for the buoyancy flow
   !!
   !! Same as the npf conductance except that, with the Newton formulation,
@@ -1360,16 +1383,17 @@ contains
     real(DP) :: cond
     ! -- local
     integer(I4B) :: isympos, iuph, iupf
-    real(DP) :: gbuy
+    real(DP) :: gbuy, satn, satm
     !
     isympos = this%dis%con%jas(icon)
+    call this%npf_sats(n, m, hn, hm, satn, satm)
     cond = hcond(this%ibound(n), this%ibound(m), &
                  this%npf%icelltype(n), this%npf%icelltype(m), &
                  this%npf%inewton, &
                  this%dis%con%ihc(isympos), &
                  this%npf%icellavg, &
                  this%npf%condsat(isympos), &
-                 hn, hm, this%npf%sat(n), this%npf%sat(m), &
+                 hn, hm, satn, satm, &
                  hyn, hym, &
                  this%dis%top(n), this%dis%top(m), &
                  this%dis%bot(n), this%dis%bot(m), &
@@ -1382,7 +1406,13 @@ contains
     if (this%ibound(n) == 0 .or. this%ibound(m) == 0) return
     if (this%npf%icelltype(n) == 0 .and. this%npf%icelltype(m) == 0) return
     call this%upstream_cells(n, m, icon, hn, hm, iuph, iupf, gbuy)
-    if (iupf /= iuph) cond = this%npf%sat(iupf) * this%npf%condsat(isympos)
+    if (iupf /= iuph) then
+      if (iupf == n) then
+        cond = satn * this%npf%condsat(isympos)
+      else
+        cond = satm * this%npf%condsat(isympos)
+      end if
+    end if
   end function buy_hcond
 
   !> @brief Head-based and flow-based Newton upstream cells
@@ -1425,6 +1455,14 @@ contains
     end if
     iuph = nhi
     if (hlo > hhi) iuph = nlo
+    !
+    ! -- with equal densities the total flow is proportional to the head
+    !    difference, so both selections agree
+    if (this%dense(nlo) == this%dense(nhi)) then
+      gbuy = (this%dense(nlo) / this%denseref - DONE) * (hhi - hlo)
+      iupf = iuph
+      return
+    end if
     gbuy = this%calc_gbuy(nlo, nhi, icon, hlo, hhi)
     iupf = nhi
     if (hlo > hhi + gbuy) iupf = nlo
@@ -1448,7 +1486,7 @@ contains
     real(DP) :: dcond
     ! -- local
     integer(I4B) :: isympos, iposu, iuph, iupf
-    real(DP) :: gbuy
+    real(DP) :: gbuy, satn, satm
     !
     dcond = DZERO
     if (this%npf%inewton == 0) return
@@ -1465,8 +1503,12 @@ contains
     !
     call this%upstream_cells(n, m, ipos, hnew(n), hnew(m), iuph, iupf, gbuy)
     if (iupf /= iuph) then
-      dcond = this%npf%condsat(isympos) * &
-              (this%npf%sat(iupf) - this%npf%sat(iuph))
+      call this%npf_sats(n, m, hnew(n), hnew(m), satn, satm)
+      if (iupf == n) then
+        dcond = this%npf%condsat(isympos) * (satn - satm)
+      else
+        dcond = this%npf%condsat(isympos) * (satm - satn)
+      end if
     end if
   end function npf_cond_correction
 
