@@ -17,7 +17,6 @@ from test_gwf_vsc01 import cases
 
 
 @pytest.mark.netcdf
-@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

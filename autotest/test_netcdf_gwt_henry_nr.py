@@ -18,7 +18,6 @@ from test_gwt_henry_nr import cases
 
 @pytest.mark.slow
 @pytest.mark.netcdf
-@pytest.mark.fp4
 @pytest.mark.parametrize(
     "idx, name",
     list(enumerate(cases)),

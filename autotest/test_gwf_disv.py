@@ -76,9 +76,7 @@ def check_output(idx, test):
     "compare",
     [
         None,
-        pytest.param(
-            Comparison.FP4_LAYERED, marks=[pytest.mark.netcdf, pytest.mark.fp4]
-        ),
+        pytest.param(Comparison.FP4_LAYERED, marks=pytest.mark.netcdf),
     ],
 )
 def test_mf6model(idx, name, compare, function_tmpdir, targets):

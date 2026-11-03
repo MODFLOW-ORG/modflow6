@@ -44,6 +44,8 @@ def check_legacy_mesh_attr(idx, test):
 
 
 @pytest.mark.netcdf
+# hand-marked: edits the NetCDF file between write and rerun, so it can't
+# use the generic `compare=` dispatch conftest.py derives "fp4" from.
 @pytest.mark.fp4
 def test_mf6model_fp4_legacy_mesh_attr(function_tmpdir, targets):
     """A flopy4-generated NetCDF input file carrying only the legacy
