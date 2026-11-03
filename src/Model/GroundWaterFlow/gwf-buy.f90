@@ -1456,9 +1456,11 @@ contains
     iuph = nhi
     if (hlo > hhi) iuph = nlo
     !
-    ! -- with equal densities the total flow is proportional to the head
-    !    difference, so both selections agree
-    if (this%dense(nlo) == this%dense(nhi)) then
+    ! -- in the hydraulic head formulation the total flow is proportional to
+    !    the head difference when the densities are equal, so both
+    !    selections agree (not so in the equivalent freshwater head
+    !    formulation, where the buoyancy term depends on the elevations)
+    if (this%iform /= 0 .and. this%dense(nlo) == this%dense(nhi)) then
       gbuy = (this%dense(nlo) / this%denseref - DONE) * (hhi - hlo)
       iupf = iuph
       return
