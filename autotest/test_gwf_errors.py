@@ -305,7 +305,7 @@ def test_dis_passthrough_thickness_error(function_tmpdir, targets, dis_type):
     # ... and the explanation is folded into that one numbered item
     assert "2. CELL (" not in output
     assert (
-        "-- the top of this cell is the bottom elevation specified for the "
+        "The top of this cell is the bottom elevation specified for the "
         f"cell directly above it, cell {cell_above}." in output
     )
     assert "That cell is excluded (IDOMAIN <= 0)" in output
@@ -335,7 +335,7 @@ def test_dis_thickness_error_without_passthrough_note(function_tmpdir, targets):
 
     assert "CELL (3,1,1) THICKNESS <= 0." in output
     assert (
-        "-- the top of this cell is the bottom elevation specified for the "
+        "The top of this cell is the bottom elevation specified for the "
         "cell directly above it, cell (2,1,1)." in output
     )
     assert "pass-through" not in output

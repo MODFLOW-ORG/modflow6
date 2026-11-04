@@ -400,7 +400,7 @@ contains
       "('CELL (',i0,',',i0,',',i0,') THICKNESS <= 0. ', &
       &'TOP, BOT: ',2(1pg24.15))"
     character(len=*), parameter :: fmtdzt = &
-      "(' -- the top of this cell is the bottom elevation specified for ',&
+      "('. The top of this cell is the bottom elevation specified for ',&
       &'the cell directly above it, cell (',i0,',',i0,',',i0,').')"
     character(len=*), parameter :: msgdzi = &
       ' That cell is excluded (IDOMAIN <= 0), but an excluded cell still &
