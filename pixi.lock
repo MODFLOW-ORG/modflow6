@@ -2062,7 +2062,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.2.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/flaky-3.8.1-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.11.0-pyh5ded981_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-dejavu-sans-mono-2.37-hab24e00_0.tar.bz2
       - conda: https://conda.anaconda.org/conda-forge/noarch/font-ttf-inconsolata-3.000-h77eed37_0.tar.bz2
@@ -2193,7 +2192,6 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/execnet-2.1.2-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/filelock-4.2.4-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/flaky-3.8.1-pyhd8ed1ab_1.conda
-      - conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.11.0-pyh5ded981_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fortran-language-server-1.12.0-pyhd8ed1ab_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/fprettify-0.3.7-pyhd8ed1ab_1.conda
@@ -16786,50 +16784,6 @@ packages:
   run_exports: {}
   size: 22239
   timestamp: 1736040820816
-- conda: https://conda.anaconda.org/conda-forge/noarch/flopy-3.11.0-pyh5ded981_1.conda
-  sha256: 8186fdbf2706a4dc5e85f38ecec949ec0afd7df71c24093806cec5d4ee3a59d9
-  md5: dd38f4f4b8f21dab2f62d089430bb9bd
-  depends:
-  - python >=3.11
-  - numpy >=1.20.3,<3.0
-  - matplotlib-base >=1.4.0
-  - pandas >=2.0.0
-  - python
-  extra_depends:
-    codegen:
-    - boltons >=1.0
-    - jinja2 >=3.0
-    - modflow-devtools >=1.7.0,!=1.9.0,<2
-    - tomli
-    - tomli-w
-    optional:
-    - affine
-    - descartes
-    - fiona
-    - geojson
-    - geopandas
-    - gitpython
-    - h5py
-    - imageio
-    - netcdf4
-    - pooch
-    - pymetis
-    - pyproj
-    - pyshp
-    - pyvista
-    - rasterio
-    - rasterstats
-    - scikit-learn
-    - scipy
-    - shapely >=2.0
-    - vtk >=9.4.0
-    - xmipy
-  license: CC0-1.0
-  purls:
-  - pkg:pypi/flopy?source=compressed-mapping
-  run_exports: {}
-  size: 897145
-  timestamp: 1789508874838
 - conda: https://conda.anaconda.org/conda-forge/noarch/folium-0.20.0-pyhd8ed1ab_0.conda
   sha256: 782fa186d7677fd3bc1ff7adb4cc3585f7d2c7177c30bcbce21f8c177135c520
   md5: a6997a7dcd6673c0692c61dfeaea14ab
