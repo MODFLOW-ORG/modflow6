@@ -14,5 +14,6 @@ LKE & evaporation & lakeno or boundname & -- & Simulated evaporation rate from a
 LKE & runoff & lakeno or boundname & -- & Runoff rate applied to a lake or group of lakes multiplied by the runoff temperature. \\
 LKE & ext-inflow & lakeno or boundname & -- & Energy inflow into a lake or group of lakes calculated as the external inflow rate multiplied by the inflow temperature. \\
 LKE & withdrawal & lakeno or boundname & -- & Specified withdrawal rate from a lake or group of lakes multiplied by the simulated lake temperature. \\
-LKE & ext-outflow & lakeno or boundname & -- & External outflow from a lake or a group of lakes, through their outlets, to an external boundary.  If the water mover is active, the reported ext-outflow value plus the rate to mover is equal to the total outlet outflow.
+LKE & ext-outflow & lakeno or boundname & -- & External outflow from a lake or a group of lakes, through their outlets, to an external boundary.  If the water mover is active, the reported ext-outflow value plus the rate to mover is equal to the total outlet outflow. \\
+LKE & lakebed-cond & lakeno or boundname & -- & Amount of heat conductively exchanged with the lakebed material.  If a boundname is specified for ID, then the result is the total conductive exchange summed over all of the lakebed connections of the named lake.  Otherwise, the conductive exchange of the first lakebed connection of lake \texttt{lakeno} is observed.
 
