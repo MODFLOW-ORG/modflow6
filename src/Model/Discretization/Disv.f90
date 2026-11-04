@@ -403,14 +403,14 @@ contains
       "('CELL (',i0,',',i0,') THICKNESS <= 0. ', &
       &'TOP, BOT: ',2(1pg24.15))"
     character(len=*), parameter :: fmtdzt = &
-      "('. The top of this cell is the bottom elevation specified for the ',&
-      &'cell directly above it, cell (',i0,',',i0,').')"
+      "(' -- the top of this cell is the bottom elevation specified for ',&
+      &'the cell directly above it, cell (',i0,',',i0,').')"
     character(len=*), parameter :: msgdzi = &
-      ' That cell is inactive or a vertical pass-through cell (IDOMAIN <= &
-      &0); making a cell inactive does not change the geometry of its &
-      &neighboring cells. Set its BOTM so this cell has positive thickness &
-      &(for a pass-through cell, set its BOTM equal to the bottom elevation &
-      &of the cell above it, giving it negligible thickness).'
+      ' That cell is excluded (IDOMAIN <= 0), but an excluded cell still &
+      &defines the top of the cell below it. Raise the BOTM of that cell &
+      &or lower the BOTM of this cell. For a vertical pass-through cell &
+      &(IDOMAIN -1), set its BOTM equal to the bottom elevation of the &
+      &cell above it, giving it zero thickness.'
     character(len=*), parameter :: fmtnr = &
       "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
       &/1x, 'Number of user nodes: ',I0,&
