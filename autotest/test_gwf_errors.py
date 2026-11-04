@@ -9,7 +9,7 @@ import subprocess
 import flopy
 import numpy as np
 import pytest
-from flopy.utils.gridutil import get_disu_kwargs
+from flopy.utils.gridutil import get_disu_kwargs, get_disv_kwargs
 from framework import DNODATA
 
 
@@ -55,6 +55,7 @@ def get_minimal_gwf_simulation(
     imskwargs=None,
     diskwargs=None,
     disukwargs=None,
+    disvkwargs=None,
     ickwargs=None,
     npfkwargs=None,
     chdkwargs=None,
@@ -68,7 +69,7 @@ def get_minimal_gwf_simulation(
         gwfkwargs["modelname"] = name
     if imskwargs is None:
         imskwargs = {"print_option": "SUMMARY"}
-    if diskwargs is None and disukwargs is None:
+    if diskwargs is None and disukwargs is None and disvkwargs is None:
         diskwargs = {}
         diskwargs["nlay"] = 5
         diskwargs["nrow"] = 5
@@ -100,6 +101,8 @@ def get_minimal_gwf_simulation(
         dis = flopy.mf6.ModflowGwfdis(gwf, **diskwargs)
     elif disukwargs is not None:
         disu = flopy.mf6.ModflowGwfdisu(gwf, **disukwargs)
+    elif disvkwargs is not None:
+        disv = flopy.mf6.ModflowGwfdisv(gwf, **disvkwargs)
     ic = flopy.mf6.ModflowGwfic(gwf, **ickwargs)
     npf = flopy.mf6.ModflowGwfnpf(gwf, **npfkwargs)
     if "readarraygrid" in chdkwargs:
@@ -248,13 +251,15 @@ def run_mf6_normalized(ws, exe):
     return returncode, " ".join(" ".join(buff).split())
 
 
-def test_dis_passthrough_thickness_error(function_tmpdir, targets):
+@pytest.mark.parametrize("dis_type", ["dis", "disv"])
+def test_dis_passthrough_thickness_error(function_tmpdir, targets, dis_type):
     """A cell left with a nonpositive thickness beneath a vertical pass-through
     cell reports a single, self-explanatory THICKNESS <= 0 error that names the
     overlying cell and points at its IDOMAIN status."""
     mf6 = targets["mf6"]
 
     nlay, nrow, ncol = 4, 1, 3
+    top = 40.0
     botm = np.empty((nlay, nrow, ncol))
     botm[0] = 30.0
     botm[1] = 20.0
@@ -264,32 +269,47 @@ def test_dis_passthrough_thickness_error(function_tmpdir, targets):
     idomain = np.ones((nlay, nrow, ncol), dtype=int)
     idomain[2, 0, 1] = -1  # vertical pass-through at layer 3, column 2
 
-    diskwargs = {
-        "nlay": nlay,
-        "nrow": nrow,
-        "ncol": ncol,
-        "top": 40.0,
-        "botm": botm,
-        "idomain": idomain,
-    }
-    sim = get_minimal_gwf_simulation(str(function_tmpdir), exe=mf6, diskwargs=diskwargs)
+    if dis_type == "dis":
+        kwargs = {
+            "diskwargs": {
+                "nlay": nlay,
+                "nrow": nrow,
+                "ncol": ncol,
+                "top": top,
+                "botm": botm,
+                "idomain": idomain,
+            }
+        }
+        cell, cell_above = "(4,1,2)", "(3,1,2)"
+        others = ["(4,1,1)", "(4,1,3)"]
+    else:
+        disvkwargs = get_disv_kwargs(nlay, nrow, ncol, 1.0, 1.0, top, botm)
+        disvkwargs["idomain"] = idomain.reshape(nlay, nrow * ncol)
+        kwargs = {
+            "disvkwargs": disvkwargs,
+            "chdkwargs": {"stress_period_data": {0: [[(0, 0), 35.0]]}},
+        }
+        cell, cell_above = "(4,2)", "(3,2)"
+        others = ["(4,1)", "(4,3)"]
+
+    sim = get_minimal_gwf_simulation(str(function_tmpdir), exe=mf6, **kwargs)
     sim.write_simulation()
 
     returncode, output = run_mf6_normalized(str(function_tmpdir), mf6)
     assert returncode != 0, "mf6 should have failed on a nonpositive thickness"
 
     # only the pass-through column fails ...
-    assert "CELL (4,1,2) THICKNESS <= 0." in output
-    assert "CELL (4,1,1)" not in output
-    assert "CELL (4,1,3)" not in output
+    assert f"CELL {cell} THICKNESS <= 0." in output
+    for other in others:
+        assert f"CELL {other}" not in output
     # ... and the explanation is folded into that one numbered item
     assert "2. CELL (" not in output
     assert (
         "-- the top of this cell is the bottom elevation specified for the "
-        "cell directly above it, cell (3,1,2)." in output
+        f"cell directly above it, cell {cell_above}." in output
     )
     assert "That cell is excluded (IDOMAIN <= 0)" in output
-    assert "ERROR OCCURRED WHILE READING FILE 'test.dis'" in output
+    assert f"ERROR OCCURRED WHILE READING FILE 'test.{dis_type}'" in output
 
 
 def test_dis_thickness_error_without_passthrough_note(function_tmpdir, targets):
