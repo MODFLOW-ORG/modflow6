@@ -405,7 +405,7 @@ contains
     character(len=*), parameter :: fmtdzt = &
       "('. The top of this cell is the bottom elevation specified for the ',&
       &'cell directly above it, cell (',i0,',',i0,').')"
-    character(len=*), parameter :: fmtdzi = &
+    character(len=*), parameter :: msgdzi = &
       ' That cell is inactive or a vertical pass-through cell (IDOMAIN <= &
       &0); making a cell inactive does not change the geometry of its &
       &neighboring cells. Set its BOTM so this cell has positive thickness &
@@ -449,7 +449,7 @@ contains
               write (cellstr, fmt=fmtdzt) k - 1, j
               errmsg = trim(errmsg)//trim(cellstr)
               if (this%idomain(j, k - 1) < 1) then
-                errmsg = trim(errmsg)//fmtdzi
+                errmsg = trim(errmsg)//msgdzi
               end if
             end if
             call store_error(errmsg)
