@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "stress"
-description = "When the Buoyancy (BUY) Package was active, the density terms for General-Head Boundary (GHB) and River (RIV) Package boundaries used the conductance without the AUXMULTNAME multiplier, so a boundary with a multiplier other than one, including a multiplier of zero used to turn the boundary off, received a density-driven flow inconsistent with its conductance. The density terms now use the multiplied conductance."

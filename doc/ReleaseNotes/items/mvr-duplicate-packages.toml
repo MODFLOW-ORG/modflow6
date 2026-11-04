@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "internal"
-description = "The Water Mover (MVR) Package allowed a package to be listed more than once in the PACKAGES block. The duplicate package was double-counted in the mover budget written to the listing file, which overstated the package's totals, and produced empty terms with the same names in the budget file. The program now terminates with an error when a package is listed more than once in the PACKAGES block of a model or exchange mover. Packages with the same name in different models are still allowed in an exchange mover."

@@ -187,6 +187,7 @@ A list of all previous MODFLOW 6 releases is shown in table \ref{tab:releases}. 
 6.7.0 & February 6, 2026 & \url{https://doi.org/10.5066/P1IJAXDZ} \\
 6.8.0 & September 2, 2026 & \url{https://doi.org/10.5066/P1PGE9XW} \\
 6.8.1 & September 23, 2026 & \url{https://doi.org/10.5066/P1PGE9XW} \\
+6.8.2 & October 30, 2026 & \url{https://doi.org/10.5066/P1PGE9XW} \\
 \hline
 \label{tab:releases}
 \end{tabular*}
@@ -250,7 +251,7 @@ In addition to the issues shown here, a comprehensive and up-to-date list is ava
 
 % -------------------------------------------------
 \section{Distribution File}
-The MODFLOW~6 distribution is provided in the form of a compressed zip file.  Distributions are available for several different operating systems, including Windows, Mac, and Linux.  Distributions are marked with an operating system tag, called ``ostag''.  Values for ``ostag'' include ``win64'', ``mac'', and ``linux'', for example.  Distribution files for the current release are labeled as \texttt{\modflowversion\_[ostag].zip}.  Thus, the distribution file for Windows for the current release is \texttt{\modflowversion\_win64.zip}.
+The MODFLOW~6 distribution is provided in the form of a compressed zip file.  Distributions are available for several different operating systems, including Windows, Mac, and Linux.  Distributions are marked with an operating system tag, called ``ostag''.  Values for ``ostag'' are ``win64'' and ``win64ext'' (the extended version, with parallel and NetCDF support) for Windows, ``macarm'' for macOS on Apple silicon, and ``linux'' for Linux.  Distribution files for the current release are labeled as \texttt{\modflowversion\_[ostag].zip}.  Thus, the distribution file for Windows for the current release is \texttt{\modflowversion\_win64.zip}.
 
 It is recommended that no user files are kept in the release directory.  If you do plan to put your own files in the release directory, do so only by creating additional subdirectories.
 
@@ -266,9 +267,9 @@ To run MODFLOW~6, simply type \texttt{mf6} in a terminal window.  The current wo
 
 % -------------------------------------------------
 \section{Compiling MODFLOW~6}
-MODFLOW~6 has been compiled using Intel Fortran and GNU Fortran on Windows, macOS, and several Linux operating systems. All MODFLOW~6 distributions are currently compiled with Intel Fortran. Because the program uses relatively new Fortran functionality, recent versions of the compilers may be required for successful compilation. MODFLOW~6 has been successfully compiled with the latest versions of the Intel toolchain.
+MODFLOW~6 has been compiled using Intel Fortran and GNU Fortran on Windows, macOS, and several Linux operating systems. The Windows and Linux distributions are currently compiled with the Intel Fortran Compiler Classic, and the macOS distribution with GNU Fortran (\texttt{gfortran}). Because the program uses relatively new Fortran functionality, recent versions of the compilers may be required for successful compilation. MODFLOW~6 has been successfully compiled with the latest versions of the Intel toolchain.
 
-MODFLOW~6 is currently tested with gfortran 11-13 on Linux, macOS, and Windows. The gfortran version can be queried with ``\verb|gfortran --version|''.  Intel Fortran Compiler Classic version 2022.3.0 is currently tested on all three platforms. Some 2021 versions have also been reported compatible. MODFLOW~6 is also compatible with the next-generation Intel Fortran Compiler `ifx`; however, additional testing is underway.
+MODFLOW~6 is currently tested with gfortran 13 on Linux, macOS, and Windows. The gfortran version can be queried with ``\verb|gfortran --version|''.  Intel Fortran Compiler Classic version 2021.6 is currently tested on Linux and Windows. MODFLOW~6 is also compatible with the next-generation Intel Fortran Compiler `ifx`; however, additional testing is underway.
 
 Instructions for compiling the extended version of MODFLOW~6 are available through a dedicated page on the \href{https://github.com/MODFLOW-ORG/modflow6/wiki/Extended-MODFLOW-User-Guide}{MODFLOW~6 repository}.
 

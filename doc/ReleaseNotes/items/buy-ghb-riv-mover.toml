@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "stress"
-description = "When the Buoyancy (BUY) Package was active, the water that General-Head Boundary (GHB) and River (RIV) Package boundaries provided to the Water Mover (MVR) Package was calculated from the conductance and head difference only, so it did not include the density terms and differed from the boundary discharge reported in the budget. The water provided to the mover is now calculated from the full boundary discharge, including the density terms. A GHB or RIV boundary in a constant-head cell, which has no flow, also no longer provides water to the mover; previously it provided water that was not removed from the aquifer."

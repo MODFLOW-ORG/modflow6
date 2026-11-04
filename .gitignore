@@ -128,6 +128,7 @@ latex/
 html/
 xml/
 distribution/run-time-comparison.md
+distribution/run-time-comparison.json
 doc/ReleaseNotes/run-time-comparison.tex
 doc/ReleaseNotes/deprecations.tex
 doc/mf6io/mf6ivar/md

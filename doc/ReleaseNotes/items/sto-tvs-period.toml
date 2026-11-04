@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "internal"
-description = "Time-Varying Storage (TVS) PERIOD block input was silently ignored for any stress period without a corresponding Storage (STO) Package PERIOD block. TVS PERIOD blocks are now processed independently of STO PERIOD blocks. As a workaround for earlier versions, specify a STO PERIOD block for each stress period that has a TVS PERIOD block."

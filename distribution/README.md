@@ -272,12 +272,9 @@ python deprecations.py # or from the doc/mf6io/mf6ivar/ folder
 
 ### Benchmarking examples
 
-The `benchmark.py` script benchmarks the current development version of MODFLOW 6 against the latest release rebuilt in development mode, using the models from the `MODFLOW-ORG/modflow6-examples` repository.
+The `benchmark.py` script benchmarks the current development version of MODFLOW 6 against the latest release rebuilt in development mode, using the models from the `MODFLOW-ORG/modflow6-examples` repository. The examples are run and timed by `autotest/test_examples.py` (see the developer docs), and the results are written to a markdown table `run-time-comparison.md`, which `build_docs.py` converts to LaTeX for the release notes.
 
-Paths to pre-built binaries for both versions can be provided via the `--current-bin-path` (short `-c`) and `--previous-bin-path` (short `-p`) command line options. If bin paths are not provided, executables are rebuilt in the default locations:
-
-- `<project root>/bin`: current development version
-- `<project root>/bin/rebuilt`: previous version
+The `--bin-path` option sets the directory containing the current version, with the previous version in the `rebuilt` subdirectory. The default is `<project root>/bin`. Missing executables are built: the current version from source with Meson, and the previous version by rebuilding the latest release in develop mode (via `autotest/get_exes.py`).
 
 The examples repository must first be installed and prepared as described above. Its path may be explicitly provided with the `--examples-repo-path` (short `-e`) option. If no path is provided, the repository is assumed to be named `modflow6-examples` and live side-by-side with the `modflow6` repository on the filesystem.
 
@@ -332,7 +329,7 @@ The `check_dist.py` script runs some checks on the distribution, e.g.:
 
 ```shell
 pixi run check-dist --path $DISTDIR
-pytest -v -s check_dist.py --path $DISTDIR # or from the distributions/ folder
+pytest -v -n auto --dist loadgroup check_dist.py --path $DISTDIR # or from the distribution/ folder
 ```
 
 ### Testing scripts

@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "model"
-description = "The Streamflow Transport (SFT) Package started a time step that adaptive time stepping (ATS) repeated from the reach volume that the failed attempt ended with, rather than the reach volume at the start of the time step. Where the Streamflow Routing (SFR) Package does not route water through reach storage, the default, the solute mass of a reach whose volume changed during the time step was wrong after the repeat, although the budget still closed. The repeated time step now starts from the reach volume at the end of the previous time step."
