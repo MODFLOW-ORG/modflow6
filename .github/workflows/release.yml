@@ -5,7 +5,7 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: 'Branch, tag or commit SHA to release from. Resolved to a SHA once, so every job builds the same commit even if a branch moves during the run.'
+        description: 'Branch, tag or commit SHA to build, resolved to a SHA once so all jobs build the same commit. In release mode, the release metadata is committed on top of it.'
         required: true
         type: string
       compiler_toolchain:
@@ -34,28 +34,24 @@ on:
         type: boolean
         default: true
       version:
-        description: 'Version number to use for release.'
-        required: true
+        description: 'Version number. Required in release mode. In develop mode, defaults to version.txt on ref and must match it if given.'
+        required: false
         type: string
+        default: ''
       patch:
         description: 'Create a patch release. If true, only bug fixes and new examples will be included in generated documentation.'
         required: false
         type: boolean
         default: false
-      date:
-        description: 'Date (YYYY-MM-DD) of the release, used for timestamps so all jobs agree. Defaults to the current date in each job. Only used when update_version is true.'
+      doi:
+        description: 'Release DOI, e.g. https://doi.org/10.5066/P1PGE9XW, for the release history. Required for a new minor release unless ref has its row already. Patch releases reuse the previous DOI. Release mode only.'
         required: false
         type: string
         default: ''
-      update_version:
-        description: 'Apply update_version.py in each job. Set to false when ref is already a commit with version metadata applied (e.g. by a prepare job in the caller workflow), so each job does not need to reapply and recommit it.'
-        required: false
-        type: boolean
-        default: true
     outputs:
       sha:
-        description: 'Commit SHA the release was built from'
-        value: ${{ jobs.resolve.outputs.sha }}
+        description: 'SHA the release was built from. In release mode, a release commit on top of ref, unless ref already has the release metadata. The release commit is not pushed, but uploaded as the release-commit artifact (a git bundle with branch release).'
+        value: ${{ jobs.prepare.outputs.sha }}
       version:
         description: 'Version number used for release'
         value: ${{ jobs.build.outputs.version }}
@@ -65,19 +61,19 @@ on:
 env:
   PIXI_BETA_WARNING_OFF: true
 jobs:
-  resolve:
-    name: Resolve commit
+  prepare:
+    name: Prepare release
     runs-on: ubuntu-22.04
+    defaults:
+      run:
+        shell: bash
     outputs:
-      sha: ${{ steps.resolve.outputs.sha }}
+      sha: ${{ steps.prepare.outputs.sha }}
+      version: ${{ steps.version.outputs.version }}
+      date: ${{ steps.date.outputs.date }}
     steps:
-      # pin the ref to a SHA up front. build, docs and dist each check out
-      # separately, and docs/dist only start after build and tests finish,
-      # so checking out a branch name in each could pick up different commits
-      - name: Resolve ref to commit SHA
-        id: resolve
+      - name: Check ref
         env:
-          GH_TOKEN: ${{ github.token }}
           REF: ${{ inputs.ref }}
         run: |
           # required inputs can still be passed an empty string, e.g. from an
@@ -86,12 +82,122 @@ jobs:
             echo "::error::The ref input is empty. Pass the branch, tag or commit SHA to release from."
             exit 1
           fi
-          sha=$(gh api "repos/${{ github.repository_owner }}/modflow6/commits/$REF" --jq .sha)
-          echo "resolved $REF to $sha"
+
+      - name: Checkout modflow6
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ github.repository_owner }}/modflow6
+          path: modflow6
+          ref: ${{ inputs.ref }}
+
+      # pin ref to a SHA so all jobs build the same commit, even if a branch moves
+      - name: Resolve ref to commit SHA
+        id: resolve
+        working-directory: modflow6
+        run: |
+          sha=$(git rev-parse HEAD)
+          echo "resolved ${{ inputs.ref }} to $sha"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve version
+        id: version
+        working-directory: modflow6
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
+            if [[ -z "$VERSION" ]]; then
+              echo "::error::The version input is required in release mode."
+              exit 1
+            fi
+          else
+            # development builds use the committed version metadata as is
+            committed=$(cat version.txt)
+            if [[ -z "$VERSION" ]]; then
+              VERSION="$committed"
+            elif [[ "$committed" != "$VERSION" ]]; then
+              echo "::error::The version input $VERSION doesn't match version.txt ($committed) on ${{ inputs.ref }}. Omit it or pass the committed version."
+              exit 1
+            fi
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # one date for all jobs, in case the run crosses midnight
+      - name: Set date
+        id: date
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      - name: Setup pixi
+        if: inputs.releasemode == true
+        uses: prefix-dev/setup-pixi@v0.11.3
+        with:
+          pixi-version: v0.82.1
+          manifest-path: "modflow6/pixi.toml"
+
+      # in release mode, commit the release metadata once, so every job builds, and
+      # the release publishes, the same commit. develop mode builds ref as is
+      - name: Apply release metadata
+        id: prepare
+        working-directory: modflow6
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DATE: ${{ steps.date.outputs.date }}
+          DOI: ${{ inputs.doi }}
+          BASE: ${{ steps.resolve.outputs.sha }}
+        run: |
+          if [[ "${{ inputs.releasemode }}" != "true" ]]; then
+            echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          args=(-v "$VERSION" --date "$DATE")
+          if [[ -n "$DOI" ]]; then
+            args+=(--doi "$DOI")
+          fi
+          # frozen, so pixi.lock isn't modified and committed
+          pixi run --frozen prepare-release "${args[@]}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+
+          # the scripts only modify tracked files, so anything new is unexpected
+          untracked=$(git ls-files --others --exclude-standard)
+          if [[ -n "$untracked" ]]; then
+            echo "::error::prepare-release created untracked files:"
+            echo "$untracked"
+            exit 1
+          fi
+
+          # doc/version.py always changes (it embeds the run time), so ignore it.
+          # nothing else does if ref already has the metadata, e.g. a same-day rerun
+          if git diff --cached --quiet -- . ':(exclude)doc/version.py'; then
+            echo "${{ inputs.ref }} already has the release metadata for $VERSION"
+            echo "sha=$BASE" >> "$GITHUB_OUTPUT"
+            echo "committed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # the bundle only holds the release commit, so recipients need BASE
+          git switch -C release
+          git commit -m "ci(release): update version to $VERSION"
+          git bundle create ../release.bundle "$BASE..release"
+          sha=$(git rev-parse HEAD)
+          echo "committed $sha on top of $BASE"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "committed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Upload release commit
+        if: steps.prepare.outputs.committed == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-commit
+          path: release.bundle
+
   build:
     name: Build binaries (${{ matrix.os }}, extended=${{ matrix.extended }})
-    needs: resolve
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -101,11 +207,11 @@ jobs:
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
             extended: false
-          - os: macos-14
+          - os: macos-15
             compiler: gcc
             version: 13
             extended: false
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
@@ -125,7 +231,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: false
+          preinstalled-runtimes: false
           android: true
           dotnet: true
           haskell: true
@@ -133,12 +239,11 @@ jobs:
           docker-images: true
           swap-storage: true
 
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: actions/checkout@v7
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-testmodels
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -163,9 +268,9 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -176,30 +281,13 @@ jobs:
         id: set_version
         run: |
           # distribution name format is 'mf<major.minor.patch[label]>'
-          distname="mf${{ inputs.version }}"
+          distname="mf${{ needs.prepare.outputs.version }}"
 
           # set step outputs and environment variables
-          echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          echo "VERSION=${{ inputs.version }}" >> "$GITHUB_ENV"
+          echo "version=${{ needs.prepare.outputs.version }}" >> "$GITHUB_OUTPUT"
+          echo "VERSION=${{ needs.prepare.outputs.version }}" >> "$GITHUB_ENV"
           echo "distname=$distname" >> "$GITHUB_OUTPUT"
           echo "DISTNAME=$distname" >> "$GITHUB_ENV"
-
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ steps.set_version.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
 
       - name: Update flopy
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -256,6 +344,14 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version }}
 
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          gfortran --version | head -1
+
       # static link gfortran libs
       - name: Hide dylibs (macOS)
         if: runner.os == 'macOS'
@@ -308,6 +404,10 @@ jobs:
           otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
           lipo -info mf6 
           lipo -info libmf6.dylib
           lipo -info mf5to6
@@ -464,7 +564,7 @@ jobs:
   docs:
     name: Build docs
     needs:
-      - resolve
+      - prepare
       - build
     runs-on: ubuntu-22.04
     defaults:
@@ -474,7 +574,7 @@ jobs:
       - name: Free disk space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
           android: true
           dotnet: true
           haskell: true
@@ -482,12 +582,11 @@ jobs:
           docker-images: true
           swap-storage: true
 
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: actions/checkout@v7
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -515,37 +614,26 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
 
+      # develop mode builds ref as is, but dates the docs and metadata by the build
+      - name: Update version
+        if: inputs.releasemode == false
+        working-directory: modflow6
+        run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
+
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ inputs.compiler_toolchain }}
           version: ${{ inputs.compiler_version }}
-
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6/distribution
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ needs.build.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
 
       - name: Update flopy
         working-directory: modflow6
@@ -640,7 +728,7 @@ jobs:
   dist:
     name: Build distribution (${{ matrix.os }})
     needs:
-      - resolve
+      - prepare
       - build
       - docs
     runs-on: ${{ matrix.os }}
@@ -651,7 +739,7 @@ jobs:
           - os: ubuntu-22.04
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
-          - os: macos-14
+          - os: macos-15
             compiler: gcc
             version: 13
           - os: windows-2022
@@ -666,12 +754,11 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
+      # from develop, since release branches may predate the action
       - name: Checkout modflow6
-        uses: actions/checkout@v7
+        uses: MODFLOW-ORG/modflow6/.github/actions/checkout-release@develop
         with:
-          repository: ${{ github.repository_owner }}/modflow6
-          path: modflow6
-          ref: ${{ needs.resolve.outputs.sha }}
+          sha: ${{ needs.prepare.outputs.sha }}
 
       - name: Checkout modflow6-examples
         uses: actions/checkout@v7
@@ -686,32 +773,21 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
-      
-      - name: Update version
-        if: inputs.update_version
-        id: update_version
-        working-directory: modflow6/distribution
-        env:
-          DATE: ${{ inputs.date }}
-        run: |
-          ver="${{ needs.build.outputs.version }}"
-          cmd="pixi run update-version -v $ver"
-          if [[ "${{ inputs.releasemode }}" == "true" ]]; then
-            cmd="$cmd --releasemode"
-          fi
-          if [[ -n "$DATE" ]]; then
-            cmd="$cmd --date \"\$DATE\""
-          fi
-          eval "$cmd"
 
+      # develop mode builds ref as is, but dates the docs and metadata by the build
+      - name: Update version
+        if: inputs.releasemode == false
+        working-directory: modflow6
+        run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
+      
       - name: Get OS tag
         working-directory: modflow6
         id: ostag

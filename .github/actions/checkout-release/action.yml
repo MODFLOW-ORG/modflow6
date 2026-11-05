@@ -1,0 +1,57 @@
+name: Checkout release commit
+description: "Check out the commit the release workflow built from: the release commit if it made one, otherwise the commit it was asked to build."
+inputs:
+  sha:
+    description: 'SHA to check out. If the release workflow made a release commit, it is fetched from the release-commit artifact.'
+    required: true
+  path:
+    description: 'Path to check out modflow6 to'
+    required: false
+    default: modflow6
+runs:
+  using: "composite"
+  steps:
+    # a pattern, unlike a name, doesn't fail if there's no release-commit artifact
+    - name: Download release commit
+      uses: actions/download-artifact@v8
+      with:
+        pattern: release-commit
+        path: ${{ runner.temp }}/release-commit
+
+    # the bundle holds only the release commit, so check out its parent first.
+    # if the bundle doesn't hold sha (e.g. it's from an earlier run attempt), sha
+    # was pushed, so check it out directly
+    - name: Find base commit
+      id: base
+      shell: bash
+      env:
+        BUNDLE: ${{ runner.temp }}/release-commit/release.bundle
+        SHA: ${{ inputs.sha }}
+      run: |
+        sha="$SHA"
+        if [[ -f "$BUNDLE" ]]; then
+          if git bundle list-heads "$BUNDLE" refs/heads/release | grep -q "^$SHA "; then
+            sha=$(grep -a -m1 '^-' "$BUNDLE" | cut -d' ' -f1 | cut -c2-)
+          else
+            echo "::notice::The release-commit bundle doesn't hold $SHA, checking it out from the remote"
+          fi
+        fi
+        echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout base commit
+      uses: actions/checkout@v7
+      with:
+        repository: ${{ github.repository_owner }}/modflow6
+        path: ${{ inputs.path }}
+        ref: ${{ steps.base.outputs.sha }}
+
+    - name: Checkout release commit
+      if: steps.base.outputs.sha != inputs.sha
+      working-directory: ${{ inputs.path }}
+      shell: bash
+      env:
+        BUNDLE: ${{ runner.temp }}/release-commit/release.bundle
+        SHA: ${{ inputs.sha }}
+      run: |
+        git fetch "$BUNDLE" release
+        git checkout --detach "$SHA"

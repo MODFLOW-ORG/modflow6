@@ -1414,7 +1414,7 @@ contains
     type(CharacterStringType), dimension(:), pointer, intent(in), &
       optional :: auxname_cst
     logical(LGP), optional, intent(in) :: clear_strlocs !< if .false. strlocs are preserved for re-registration (default .true.)
-    integer(I4B), dimension(:), optional, intent(in) :: ifno_map !< if present, maps ts_strloc%row (PACKAGEDATA row) to its feature number, used as the TS link row address
+    integer(I4B), dimension(:), optional, intent(in) :: ifno_map !< if present, maps ts_strloc%row (block row) to its key, used as the TS link row address
     type(TSStringLocType), pointer :: ts_strloc
     type(TimeSeriesLinkType), pointer :: tsLink
     real(DP), pointer :: bndElem

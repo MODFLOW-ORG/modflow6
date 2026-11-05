@@ -47,6 +47,7 @@ contains
   subroutine ctrl_finish(this)
     use SimVariablesModule, only: iout
     use MemoryManagerModule, only: mem_write_usage, mem_da
+    use MemoryAliasModule, only: mem_alias_da
     use TimerModule, only: elapsed_time
     use SimModule, only: final_message
     class(RunControlType) :: this
@@ -57,6 +58,7 @@ contains
     ! -- Write memory usage, elapsed time and terminate
     call mem_write_usage(iout)
     call mem_da()
+    call mem_alias_da()
 
     ! stop and print timings
     call g_prof%stop(g_prof%tmr_finalize)

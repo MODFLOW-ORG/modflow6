@@ -200,29 +200,29 @@ contains
     ! -- confirm package is active
     if (this%inunit <= 0) return
     !
-    ! -- confirm loaded iper
-    if (this%iper /= kper) return
-    !
-    write (this%iout, '(//,1x,a)') 'PROCESSING STORAGE PERIOD DATA'
-    !
-    ! -- set period iss
-    if (this%storage == 'STEADY-STATE') then
-      this%iss = 1
-    else if (this%storage == 'TRANSIENT') then
-      this%iss = 0
-    else
-      write (errmsg, '(a,a)') 'Unknown STORAGE data tag: ', &
-        trim(this%storage)
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
+    ! -- process STO period data if loaded for this period
+    if (this%iper == kper) then
+      write (this%iout, '(//,1x,a)') 'PROCESSING STORAGE PERIOD DATA'
+      !
+      ! -- set period iss
+      if (this%storage == 'STEADY-STATE') then
+        this%iss = 1
+      else if (this%storage == 'TRANSIENT') then
+        this%iss = 0
+      else
+        write (errmsg, '(a,a)') 'Unknown STORAGE data tag: ', &
+          trim(this%storage)
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+      !
+      write (this%iout, '(1x,a)') 'END PROCESSING STORAGE PERIOD DATA'
+      !
+      write (this%iout, '(//1X,A,I0,A,A,/)') &
+        'STRESS PERIOD ', kper, ' IS ', trim(adjustl(css(this%iss)))
     end if
     !
-    write (this%iout, '(1x,a)') 'END PROCESSING STORAGE PERIOD DATA'
-    !
-    write (this%iout, '(//1X,A,I0,A,A,/)') &
-      'STRESS PERIOD ', kper, ' IS ', trim(adjustl(css(this%iss)))
-    !
-    ! -- TVS
+    ! -- TVS (has its own PERIOD blocks independent of STO)
     if (this%intvs /= 0) then
       call this%tvs%rp()
     end if

@@ -75,6 +75,7 @@ module GwtSftModule
     procedure :: bnd_da => sft_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => sft_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => sft_checkin_deprecated_names
     procedure :: find_apt_package => find_sft_package
     procedure :: apt_setting_value => sft_setting_value
     procedure :: pak_fc_expanded => sft_fc_expanded
@@ -643,6 +644,28 @@ contains
       this%vold(n) = DZERO
     end do
   end subroutine sft_allocate_arrays
+
+  !> @brief Alias deprecated SFT variable names to their current storage
+  !<
+  subroutine sft_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GwtSftType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%concrain, 'CONCRAIN', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%concevap, 'CONCEVAP', this%memoryPath, &
+                              'EVAPORATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%concroff, 'CONCROFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%conciflw, 'CONCIFLW', this%memoryPath, &
+                              'INFLOW', this%input_mempath, '6.8.2')
+  end subroutine sft_checkin_deprecated_names
 
   !> @brief Advance sft package routine
   !<

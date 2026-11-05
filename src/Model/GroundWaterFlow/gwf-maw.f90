@@ -58,6 +58,7 @@ module MawModule
   type :: MawInputType
     ! -- packagedata (TS-linked; set in maw_source_packagedata)
     real(DP), dimension(:), pointer, contiguous :: strt => null()
+    integer(I4B), dimension(:), pointer :: strt_tslink => null() !< nonzero for STRT rows linked to a time series
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -65,10 +66,6 @@ module MawModule
       contiguous :: setting => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: status => null()
-    integer(I4B), dimension(:), pointer, contiguous :: period_icon => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: connstatus => null()
-    real(DP), dimension(:), pointer, contiguous :: period_bottom => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: head_limit => null()
     real(DP), dimension(:), pointer, contiguous :: fwelev => null()
@@ -169,7 +166,6 @@ module MawModule
     !
     ! -- vector data for each connections
     integer(I4B), dimension(:), pointer, contiguous :: gwfnodes => NULL()
-    integer(I4B), dimension(:), pointer, contiguous :: iboundconn => NULL() !< connection status, 0 = inactive; a connection is simulated only if its well is also active
     real(DP), dimension(:), pointer, contiguous :: sradius => NULL()
     real(DP), dimension(:), pointer, contiguous :: hk => NULL()
     real(DP), dimension(:), pointer, contiguous :: satcond => NULL()
@@ -231,6 +227,7 @@ module MawModule
     procedure :: maw_allocate_scalars
     procedure :: maw_allocate_well_conn_arrays
     procedure :: maw_allocate_arrays
+    procedure :: maw_checkin_deprecated_names
     procedure :: source_options => maw_source_options
     procedure :: source_dimensions => maw_source_dimensions
     procedure :: read_initial_attr => maw_read_initial_attr
@@ -480,8 +477,6 @@ contains
     !
     ! -- allocate connection data
     call mem_allocate(this%gwfnodes, this%maxbound, 'GWFNODES', this%memoryPath)
-    call mem_allocate(this%iboundconn, this%maxbound, 'IBOUNDCONN', &
-                      this%memoryPath)
     call mem_allocate(this%sradius, this%maxbound, 'SRADIUS', this%memoryPath)
     call mem_allocate(this%hk, this%maxbound, 'HK', this%memoryPath)
     call mem_allocate(this%satcond, this%maxbound, 'SATCOND', this%memoryPath)
@@ -576,7 +571,6 @@ contains
     do j = 1, this%maxbound
       this%imap(j) = 0
       this%gwfnodes(j) = 0
-      this%iboundconn(j) = 1
       this%sradius(j) = DZERO
       this%hk(j) = DZERO
       this%satcond(j) = DZERO
@@ -612,6 +606,40 @@ contains
     ! -- allocate featureauxvar PACKAGEDATA variables
     call this%BndExtType%allocate_featureauxvar()
   end subroutine maw_allocate_arrays
+
+  !> @brief Alias deprecated MAW variable names to their current storage
+  !!
+  !! IDM integration moved several well variables into the input context,
+  !! renaming some. These aliases share memory with the relocated variables so
+  !! that programs addressing them through the API by their old package-path
+  !! names continue to resolve; each use is reported as deprecated.
+  !<
+  subroutine maw_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    call mem_alias_deprecated(this%rate, 'RATE', this%memoryPath, &
+                              'RATE', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%well_head, 'WELL_HEAD', this%memoryPath, &
+                              'WELL_HEAD', this%input_mempath, '6.8.2')
+    !
+    ! -- well auxiliary values, present (possibly empty) in the input context;
+    !    without auxiliary variables MAUXVAR is empty, where 6.8.1 allocated
+    !    one row of zeros
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'MAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, '6.8.2')
+    end if
+  end subroutine maw_checkin_deprecated_names
 
   !> @brief Source OPTIONS block from input context
   !<
@@ -790,6 +818,9 @@ contains
     ! -- read optional ANGLEDATA (non-vertical well connections)
     call this%maw_source_angledata()
     !
+    ! -- alias deprecated variable names
+    call this%maw_checkin_deprecated_names()
+    !
     ! -- Call define_listlabel
     call this%define_listlabel()
     !
@@ -813,9 +844,6 @@ contains
     call mem_setptr(this%ifno, 'IFNO', mempath)
     call mem_setptr(this%setting, 'SETTING', mempath)
     call mem_setptr(this%status, 'STATUS', mempath)
-    call mem_setptr(this%period_icon, 'PERIOD_ICON', mempath)
-    call mem_setptr(this%connstatus, 'CONNSTATUS', mempath)
-    call mem_setptr(this%period_bottom, 'PERIOD_BOTTOM', mempath)
     call mem_setptr(this%head_limit, 'HEAD_LIMIT', mempath)
     call mem_setptr(this%fwelev, 'FWELEV', mempath)
     call mem_setptr(this%fwcond, 'FWCOND', mempath)
@@ -835,13 +863,11 @@ contains
   subroutine maw_input_destroy(this)
     class(MawInputType), intent(inout) :: this
     nullify (this%strt)
+    nullify (this%strt_tslink)
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%setting)
     nullify (this%status)
-    nullify (this%period_icon)
-    nullify (this%connstatus)
-    nullify (this%period_bottom)
     nullify (this%head_limit)
     nullify (this%fwelev)
     nullify (this%fwcond)
@@ -872,6 +898,9 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: ngwfnodes => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: boundname => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: tslink => null()
+    type(CharacterStringType), dimension(:), pointer, &
+      contiguous :: tslinkvars => null()
     integer(I4B), allocatable :: nboundchk(:)
     ! -- formats
     character(len=*), parameter :: fmthdbot = &
@@ -886,6 +915,15 @@ contains
     call mem_setptr(radius, 'RADIUS', this%input_mempath)
     call mem_setptr(bottom, 'BOTTOM', this%input_mempath)
     call mem_setptr(this%input%strt, 'STRT', this%input_mempath)
+    call mem_setptr(tslink, 'TSLINK_PD', this%input_mempath)
+    call mem_setptr(tslinkvars, 'TSLINKVARS_PD', this%input_mempath)
+    do n = 1, size(tslinkvars)
+      if (tslinkvars(n) == 'STRT') this%input%strt_tslink => tslink(n, :)
+    end do
+    if (.not. associated(this%input%strt_tslink)) then
+      call store_error('Time series links for STRT not found in input.')
+      call store_error_filename(this%input_fname)
+    end if
     call mem_setptr(condeqn, 'CONDEQN', this%input_mempath)
     call mem_setptr(ngwfnodes, 'NGWFNODES', this%input_mempath)
     if (this%inamedbound /= 0) then
@@ -2093,11 +2131,6 @@ contains
     integer(I4B) :: j
     integer(I4B) :: jpos
     integer(I4B) :: jj
-    integer(I4B) :: nactive
-    integer(I4B) :: icon
-    integer(I4B), dimension(:), allocatable :: ibotset
-    integer(I4B), dimension(:), allocatable :: iheadset
-    integer(I4B), dimension(:), allocatable :: ilimset
     integer(I4B) :: istat
     integer(I4B) :: iheadlimit_warning
     ! -- formats
@@ -2142,17 +2175,6 @@ contains
       !
       ! -- set flag to check attributes
       this%check_attr = 1
-      ! -- wells with BOTTOM, WELL_HEAD, or HEAD_LIMIT set this period, which
-      !    are checked after all of the period's settings are applied
-      allocate (ibotset(this%nmawwells))
-      allocate (iheadset(this%nmawwells))
-      allocate (ilimset(this%nmawwells))
-      do imaw = 1, this%nmawwells
-        ibotset(imaw) = 0
-        iheadset(imaw) = 0
-        ilimset(imaw) = 0
-      end do
-      !
       do n = 1, this%input%nbound
         imaw = this%input%ifno(n)
         if (imaw < 1 .or. imaw > this%nmawwells) then
@@ -2185,44 +2207,13 @@ contains
           end select
         end if
         !
-        ! -- CONNECTION_STATUS (compound group)
-        if (trim(setting) == 'CONN_STATUS') then
-          icon = this%input%period_icon(n)
-          str = this%input%connstatus(n)
-          if (icon < 1 .or. icon > this%ngwfnodes(imaw)) then
-            write (errmsg, '(2(a,1x),i0,1x,a,1x,i0,a)') &
-              'ICON must be greater than 0 and', &
-              'less than or equal to ', this%ngwfnodes(imaw), &
-              'for maw well', imaw, '.'
-            call store_error(errmsg)
-          else
-            jpos = this%get_jpos(imaw, icon)
-            select case (trim(str))
-            case ('INACTIVE')
-              this%iboundconn(jpos) = 0
-            case ('ACTIVE')
-              this%iboundconn(jpos) = 1
-            case default
-              write (errmsg, '(2a)') &
-                'Unknown '//trim(this%text)//" maw connection status "// &
-                "keyword: '", trim(str)//"'."
-              call store_error(errmsg)
-            end select
-          end if
-        end if
-        !
-        ! -- BOTTOM
-        if (trim(setting) == 'PERIOD_BOTTOM') then
-          this%bot(imaw) = this%input%period_bottom(n)
-          ibotset(imaw) = 1
-        end if
-        !
         ! -- RATE / WELL_HEAD
         call this%maw_set_period_value(n, imaw, setting)
-        !
-        ! -- WELL_HEAD
         if (trim(setting) == 'WELL_HEAD') then
-          iheadset(imaw) = 1
+          if (this%well_head(imaw) < this%bot(imaw)) then
+            write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
+            call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
+          end if
         end if
         !
         ! -- HEAD_LIMIT
@@ -2237,8 +2228,10 @@ contains
               errmsg = 'Could not read HEAD_LIMIT value. '//trim(errmsgr)
               call store_error(errmsg)
             end if
+            if (this%shutofflevel(imaw) <= this%bot(imaw)) then
+              iheadlimit_warning = iheadlimit_warning + 1
+            end if
           end if
-          ilimset(imaw) = 1
         end if
         !
         ! -- FLOWING_WELL (compound group)
@@ -2293,14 +2286,6 @@ contains
             call this%inputtab%add_term(trim(str))
             call this%inputtab%add_term(' ')
             call this%inputtab%add_term(' ')
-          case ('CONN_STATUS')
-            call this%inputtab%add_term(icon)
-            call this%inputtab%add_term(trim(str))
-            call this%inputtab%add_term(' ')
-          case ('PERIOD_BOTTOM')
-            call this%inputtab%add_term(this%bot(imaw))
-            call this%inputtab%add_term(' ')
-            call this%inputtab%add_term(' ')
           case ('RATE')
             call this%inputtab%add_term(this%rate(imaw))
             call this%inputtab%add_term(' ')
@@ -2339,60 +2324,6 @@ contains
       if (this%iprpak /= 0) then
         call this%inputtab%finalize_table()
       end if
-      !
-      ! -- the well bottom, the datum for well storage, may not be above the
-      !    head or the screen bottom of an active connection; a CONSTANT well
-      !    is checked against its well head
-      do imaw = 1, this%nmawwells
-        if (ibotset(imaw) /= 0 .and. this%iboundpak(imaw) >= 0) then
-          if (this%bot(imaw) > this%xnewpak(imaw)) then
-            write (cstr, fmthdbot) this%xnewpak(imaw), this%bot(imaw)
-            call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
-          end if
-        end if
-        do jj = 1, this%ngwfnodes(imaw)
-          jpos = this%get_jpos(imaw, jj)
-          if (this%iboundconn(jpos) == 0) cycle
-          if (this%bot(imaw) > this%botscrn(jpos)) then
-            write (errmsg, '(a,g0,a,1x,i0,1x,a,1x,i0,1x,a,g0,a)') &
-              'BOTTOM (', this%bot(imaw), ') for maw well', imaw, &
-              'is above the screen bottom of active connection', jj, '(', &
-              this%botscrn(jpos), ').'
-            call store_error(errmsg)
-            exit
-          end if
-        end do
-        if (iheadset(imaw) /= 0 .or. this%iboundpak(imaw) < 0) then
-          if (this%well_head(imaw) < this%bot(imaw)) then
-            write (cstr, fmthdbot) this%well_head(imaw), this%bot(imaw)
-            call this%maw_set_attribute_error(imaw, 'WELL HEAD', trim(cstr))
-          end if
-        end if
-        if (ibotset(imaw) /= 0 .or. ilimset(imaw) /= 0) then
-          if (this%shutofflevel(imaw) <= this%bot(imaw)) then
-            iheadlimit_warning = iheadlimit_warning + 1
-          end if
-        end if
-      end do
-      deallocate (ibotset)
-      deallocate (iheadset)
-      deallocate (ilimset)
-      !
-      ! -- a well must keep at least one active connection; STATUS INACTIVE,
-      !    not CONNECTION_STATUS, is used to deactivate every connection
-      do imaw = 1, this%nmawwells
-        nactive = 0
-        do jj = 1, this%ngwfnodes(imaw)
-          jpos = this%get_jpos(imaw, jj)
-          if (this%iboundconn(jpos) /= 0) nactive = nactive + 1
-        end do
-        if (nactive == 0) then
-          write (errmsg, '(a,1x,i0,1x,a)') &
-            'Every connection of maw well', imaw, 'is inactive. Use '// &
-            'STATUS INACTIVE to deactivate all connections of a well.'
-          call store_error(errmsg)
-        end if
-      end do
       !
       ! -- using data from the last stress period
     else
@@ -2598,14 +2529,15 @@ contains
       end do
     end if
     !
-    ! -- copy xnew into xold; CONSTANT well heads track the PACKAGEDATA STRT
-    !    baseline until a PERIOD WELL_HEAD entry overrides it
+    ! -- copy xnew into xold; CONSTANT well heads track a PACKAGEDATA STRT
+    !    time series until a PERIOD WELL_HEAD entry overrides it
     do i = 1, this%nmawwells
       n = this%pkg_ifno(i)
       this%xoldpak(n) = this%xnewpak(n)
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then
-        if (.not. this%well_head_set(n)) then
+        if (.not. this%well_head_set(n) .and. &
+            this%input%strt_tslink(i) /= 0) then
           this%well_head(n) = this%input%strt(i)
         end if
         this%xnewpak(n) = this%well_head(n)
@@ -2785,8 +2717,8 @@ contains
       !
       ! -- process each maw/gwf connection
       do j = 1, this%ngwfnodes(n)
-        jpos = this%get_jpos(n, j)
-        if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
+        if (this%iboundpak(n) /= 0) then
+          jpos = this%get_jpos(n, j)
           igwfnode = this%get_gwfnode(n, j)
           hgwf = this%xnew(igwfnode)
           !
@@ -2915,8 +2847,8 @@ contains
       !
       ! -- process each maw/gwf connection
       do j = 1, this%ngwfnodes(n)
-        jpos = this%get_jpos(n, j)
-        if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
+        if (this%iboundpak(n) /= 0) then
+          jpos = this%get_jpos(n, j)
           igwfnode = this%get_gwfnode(n, j)
           hgwf = this%xnew(igwfnode)
           !
@@ -3203,7 +3135,6 @@ contains
       qmax = DZERO
       do j = 1, this%ngwfnodes(n)
         jpos = this%get_jpos(n, j)
-        if (this%iboundconn(jpos) == 0) cycle
         igwfnode = this%get_gwfnode(n, j)
         hgwf = this%xnew(igwfnode)
         bmaw = this%botscrn(jpos)
@@ -3541,7 +3472,6 @@ contains
     call mem_deallocate(this%gwfnodes)
     call mem_deallocate(this%sradius)
     call mem_deallocate(this%hk)
-    call mem_deallocate(this%iboundconn)
     call mem_deallocate(this%satcond)
     call mem_deallocate(this%simcond)
     call mem_deallocate(this%topscrn)
@@ -3783,11 +3713,8 @@ contains
               end if
             end if
           case ('MAW')
-            ! -- an inactive connection reports DNODATA, as an inactive well
             n = this%imap(jj)
-            nn = jj - this%iaconn(n) + 1
-            jpos = this%get_jpos(n, nn)
-            if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
+            if (this%iboundpak(n) /= 0) then
               v = this%qleak(jj)
             end if
           case ('RATE')
@@ -3852,9 +3779,9 @@ contains
             end if
           case ('CONDUCTANCE')
             n = this%imap(jj)
-            nn = jj - this%iaconn(n) + 1
-            jpos = this%get_jpos(n, nn)
-            if (this%iboundpak(n) /= 0 .and. this%iboundconn(jpos) /= 0) then
+            if (this%iboundpak(n) /= 0) then
+              nn = jj - this%iaconn(n) + 1
+              jpos = this%get_jpos(n, nn)
               v = this%simcond(jpos)
             end if
           case ('FW-CONDUCTANCE')
@@ -4742,7 +4669,6 @@ contains
     ! -- calculate inflow from aquifer
     do j = 1, this%ngwfnodes(n)
       jpos = this%get_jpos(n, j)
-      if (this%iboundconn(jpos) == 0) cycle
       igwfnode = this%get_gwfnode(n, j)
       call this%maw_calculate_saturation(n, j, igwfnode, sat)
       cmaw = this%satcond(jpos) * vscratio * sat
@@ -4795,7 +4721,7 @@ contains
         !
         ! -- use connection method so the gwf-maw budget flows
         !    are consistent with the maw-gwf budget flows
-        if (this%iboundpak(n) == 0 .or. this%iboundconn(jpos) == 0) then
+        if (this%iboundpak(n) == 0) then
           cmaw = DZERO
           term = DZERO
           cterm = DZERO
@@ -5054,9 +4980,9 @@ contains
         jpos = this%get_jpos(n, j)
         n2 = this%get_gwfnode(n, j)
         !
-        ! -- a connection that is not simulated has no wetted area, so it
-        !    exchanges no heat by conduction with the aquifer (MWE)
-        if (this%iboundpak(n) == 0 .or. this%iboundconn(jpos) == 0) then
+        ! -- an inactive well has no wetted area, so it exchanges no heat
+        !    by conduction with the aquifer (MWE)
+        if (this%iboundpak(n) == 0) then
           this%qauxcbc(1) = DZERO
         else
           tmaw = this%topscrn(jpos)

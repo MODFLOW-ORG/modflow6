@@ -158,6 +158,7 @@ module TspAptModule
     procedure :: allocate_scalars
     procedure :: apt_allocate_index_arrays
     procedure :: apt_allocate_arrays
+    procedure :: apt_checkin_deprecated_names
     procedure :: find_apt_package
     procedure :: apt_solve
     procedure :: pak_solve
@@ -325,6 +326,9 @@ contains
     !
     ! -- Allocate arrays
     call this%apt_allocate_arrays()
+    !
+    ! -- alias deprecated variable names
+    call this%apt_checkin_deprecated_names()
     !
     ! -- read optional initial package parameters
     call this%read_initial_attr()
@@ -1173,6 +1177,41 @@ contains
       this%concbudssm(:, n) = DZERO
     end do
   end subroutine apt_allocate_arrays
+
+  !> @brief Alias deprecated advanced transport variable names
+  !!
+  !! IDM integration moved the feature concentration (or temperature) and
+  !! auxiliary arrays into the input context, renaming both. These aliases
+  !! share memory with the relocated variables so that programs addressing
+  !! them through the API by their old package-path names continue to resolve;
+  !! each use is reported as deprecated. Each package overrides this routine
+  !! to alias its own deprecated names and must call this base routine first;
+  !! a package without an override only gets the names aliased here.
+  !<
+  subroutine apt_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    ! -- local
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- feature concentration (GWT) or temperature (GWE)
+    call mem_alias_deprecated(this%concfeat, 'CONCFEAT', this%memoryPath, &
+                              trim(this%depvartype), this%input_mempath, &
+                              '6.8.2')
+    !
+    ! -- feature auxiliary values, present (possibly empty) in the input context
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'LAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, '6.8.2')
+    end if
+  end subroutine apt_checkin_deprecated_names
 
   !> @ brief Deallocate memory
   !!

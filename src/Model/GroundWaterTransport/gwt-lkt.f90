@@ -73,6 +73,7 @@ module GwtLktModule
     procedure :: bnd_da => lkt_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => lkt_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => lkt_checkin_deprecated_names
     procedure :: find_apt_package => find_lkt_package
     procedure :: apt_setting_value => lkt_setting_value
     procedure :: pak_fc_expanded => lkt_fc_expanded
@@ -679,6 +680,28 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine lkt_allocate_arrays
+
+  !> @brief Alias deprecated LKT variable names to their current storage
+  !<
+  subroutine lkt_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GwtLktType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%concrain, 'CONCRAIN', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%concevap, 'CONCEVAP', this%memoryPath, &
+                              'EVAPORATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%concroff, 'CONCROFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%conciflw, 'CONCIFLW', this%memoryPath, &
+                              'EXT_INFLOW', this%input_mempath, '6.8.2')
+  end subroutine lkt_checkin_deprecated_names
 
   !> @brief Deallocate memory
   !<

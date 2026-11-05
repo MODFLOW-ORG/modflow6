@@ -60,6 +60,7 @@ module GwtUztModule
     procedure :: bnd_da => uzt_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => uzt_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => uzt_checkin_deprecated_names
     procedure :: find_apt_package => find_uzt_package
     procedure :: apt_setting_value => uzt_setting_value
     procedure :: pak_fc_expanded => uzt_fc_expanded
@@ -596,6 +597,24 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine uzt_allocate_arrays
+
+  !> @brief Alias deprecated UZT variable names to their current storage
+  !<
+  subroutine uzt_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GwtUztType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%concinfl, 'CONCINFL', this%memoryPath, &
+                              'INFILTRATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%concuzet, 'CONCUZET', this%memoryPath, &
+                              'UZET', this%input_mempath, '6.8.2')
+  end subroutine uzt_checkin_deprecated_names
 
   !> @brief Deallocate memory
   !!

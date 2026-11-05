@@ -86,6 +86,7 @@ module GweSfeModule
     procedure :: bnd_da => sfe_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => sfe_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => sfe_checkin_deprecated_names
     procedure :: apt_source_cvs => sfe_read_cvs
     procedure :: find_apt_package => find_sfe_package
     procedure :: apt_setting_value => sfe_setting_value
@@ -732,6 +733,28 @@ contains
       this%vold(n) = DZERO
     end do
   end subroutine sfe_allocate_arrays
+
+  !> @brief Alias deprecated SFE variable names to their current storage
+  !<
+  subroutine sfe_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GweSfeType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%temprain, 'TEMPRAIN', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%tempevap, 'TEMPEVAP', this%memoryPath, &
+                              'EVAPORATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%temproff, 'TEMPROFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%tempiflw, 'TEMPIFLW', this%memoryPath, &
+                              'INFLOW', this%input_mempath, '6.8.2')
+  end subroutine sfe_checkin_deprecated_names
 
   !> @brief Advance sfe package routine
   !<

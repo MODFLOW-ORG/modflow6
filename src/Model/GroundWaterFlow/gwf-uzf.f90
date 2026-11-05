@@ -132,6 +132,7 @@ module UzfModule
   contains
 
     procedure :: uzf_allocate_arrays
+    procedure :: uzf_checkin_deprecated_names
     procedure :: uzf_allocate_scalars
     procedure :: source_options => uzf_source_options
     procedure :: source_dimensions => uzf_source_dimensions
@@ -363,6 +364,42 @@ contains
     end do
   end subroutine uzf_allocate_arrays
 
+  !> @brief Alias deprecated UZF variable names to their current storage
+  !!
+  !! IDM integration moved the time-series aware cell variables and the
+  !! auxiliary array into the input context, renaming them. These aliases share
+  !! memory with the relocated variables so that programs addressing them
+  !! through the API by their old package-path names continue to resolve; each
+  !! use is reported as deprecated.
+  !<
+  subroutine uzf_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(UzfType), intent(inout) :: this
+    ! -- code
+    !
+    call mem_alias_deprecated(this%sinf_pvar, 'SINF_PVAR', this%memoryPath, &
+                              'FINF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%pet_pvar, 'PET_PVAR', this%memoryPath, &
+                              'PET', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%extdp, 'EXDP_PVAR', this%memoryPath, &
+                              'EXTDP', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%extwc_pvar, 'EXTWC_PVAR', this%memoryPath, &
+                              'EXTWC', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%ha_pvar, 'HA_PVAR', this%memoryPath, &
+                              'HA', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%hroot_pvar, 'HROOT_PVAR', this%memoryPath, &
+                              'HROOT', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%rootact_pvar, 'ROOTACT_PVAR', &
+                              this%memoryPath, 'ROOTACT', this%input_mempath, &
+                              '6.8.2')
+    !
+    ! -- cell auxiliary values, empty without auxiliary variables
+    call mem_alias_deprecated(this%uauxvar, 'UAUXVAR', this%memoryPath, &
+                              'AUXVAR', this%input_mempath, '6.8.2')
+  end subroutine uzf_checkin_deprecated_names
+
   !> @brief Source OPTIONS block from input context
   !!
   !! Overrides BndExtType%source_options
@@ -591,6 +628,9 @@ contains
     !
     ! -- Allocate arrays in package superclass
     call this%uzf_allocate_arrays()
+    !
+    ! -- alias deprecated variable names
+    call this%uzf_checkin_deprecated_names()
     !
     ! -- initialize uzf group object
     allocate (this%uzfobj)

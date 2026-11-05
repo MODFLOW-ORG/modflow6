@@ -66,6 +66,7 @@ module GweUzeModule
     procedure :: bnd_da => uze_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => uze_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => uze_checkin_deprecated_names
     procedure :: find_apt_package => find_uze_package
     procedure :: apt_setting_value => uze_setting_value
     procedure :: apt_fc_expanded => uze_fc_expanded
@@ -981,6 +982,24 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine uze_allocate_arrays
+
+  !> @brief Alias deprecated UZE variable names to their current storage
+  !<
+  subroutine uze_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GweUzeType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%tempinfl, 'TEMPINFL', this%memoryPath, &
+                              'INFILTRATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%tempuzet, 'TEMPUZET', this%memoryPath, &
+                              'UZET', this%input_mempath, '6.8.2')
+  end subroutine uze_checkin_deprecated_names
 
   !> @brief Deallocate memory
   !<

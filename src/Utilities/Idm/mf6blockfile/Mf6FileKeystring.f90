@@ -172,34 +172,42 @@ contains
     type(StructArrayType), pointer :: sa
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       auxnames => null()
-    integer(I4B), dimension(:), pointer, contiguous :: pkg_ifno => null()
+    integer(I4B), dimension(:), pointer, contiguous :: row_key => null()
     integer(I4B) :: n, naux
     ! init tsmanager (TDIS now available)
     call this%tsmanager%tsmanager_df()
     ! resolve aux names for PACKAGEDATA AUX TS registration
     call get_isize('AUXILIARY', this%mf6_input%mempath, naux)
     if (naux > 0) call mem_setptr(auxnames, 'AUXILIARY', this%mf6_input%mempath)
-    ! advanced packages: address AUX TS links by feature number (not
-    ! PACKAGEDATA row position), so a later PERIOD override finds it
-    if (this%ctx%is_advanced) then
-      call mem_setptr(pkg_ifno, 'PACKAGEDATA_IFNO', this%mf6_input%mempath)
-    end if
-    ! link static TS strlocs; preserve for re-registration after reset()
+    ! link static TS strlocs; preserve for re-registration after reset().
+    ! advanced packages address each link by its own block's key column,
+    ! not row position, so a later PERIOD override finds an AUX link and
+    ! listings report the key
     do n = 1, this%static_loader%ts_sa_count()
       sa => this%static_loader%get_ts_sa(n)
-      if (associated(sa)) then
-        if (associated(pkg_ifno)) then
-          call sa%ts_update(this%tsmanager, &
-                            this%mf6_input%subcomponent_name, &
-                            this%ctx%iprpak, this%input_name, &
-                            clear_strlocs=.false., auxname_cst=auxnames, &
-                            ifno_map=pkg_ifno)
-        else
-          call sa%ts_update(this%tsmanager, &
-                            this%mf6_input%subcomponent_name, &
-                            this%ctx%iprpak, this%input_name, &
-                            clear_strlocs=.false., auxname_cst=auxnames)
-        end if
+      if (.not. associated(sa)) cycle
+      nullify (row_key)
+      if (this%ctx%is_advanced) then
+        ! key columns are hardcoded for now: PACKAGEDATA IFNO and LAK
+        ! OUTLETS OUTLETNO. TODO: look these up from DFN pk/fk metadata
+        select case (sa%struct_vectors(1)%idt%blockname)
+        case ('PACKAGEDATA')
+          call mem_setptr(row_key, 'PACKAGEDATA_IFNO', this%mf6_input%mempath)
+        case ('OUTLETS')
+          call mem_setptr(row_key, 'OUTLETS_OUTLETNO', this%mf6_input%mempath)
+        end select
+      end if
+      if (associated(row_key)) then
+        call sa%ts_update(this%tsmanager, &
+                          this%mf6_input%subcomponent_name, &
+                          this%ctx%iprpak, this%input_name, &
+                          clear_strlocs=.false., auxname_cst=auxnames, &
+                          ifno_map=row_key)
+      else
+        call sa%ts_update(this%tsmanager, &
+                          this%mf6_input%subcomponent_name, &
+                          this%ctx%iprpak, this%input_name, &
+                          clear_strlocs=.false., auxname_cst=auxnames)
       end if
     end do
     ! allocate feature-addressed (DZERO) and node-addressed (DNODATA) items

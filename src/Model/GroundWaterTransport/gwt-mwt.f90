@@ -68,6 +68,7 @@ module GwtMwtModule
     procedure :: bnd_da => mwt_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => mwt_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => mwt_checkin_deprecated_names
     procedure :: find_apt_package => find_mwt_package
     procedure :: apt_setting_value => mwt_setting_value
     procedure :: pak_fc_expanded => mwt_fc_expanded
@@ -583,6 +584,22 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine mwt_allocate_arrays
+
+  !> @brief Alias deprecated MWT variable names to their current storage
+  !<
+  subroutine mwt_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GwtMwtType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%concrate, 'CONCRATE', this%memoryPath, &
+                              'RATE', this%input_mempath, '6.8.2')
+  end subroutine mwt_checkin_deprecated_names
 
   !> @brief Deallocate memory
   !<

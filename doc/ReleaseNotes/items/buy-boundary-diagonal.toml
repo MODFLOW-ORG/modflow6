@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "stress"
-description = "With the HHFORMULATION\\_RHS option of the Buoyancy (BUY) Package, part of the density term for General-Head Boundary (GHB) and River (RIV) Package boundaries was lagged on the right-hand side. Because that term scales with the head in the cell, outer iterations could cycle without converging when a river cell switched above and below the river bottom. The term only affects the diagonal of the matrix and is now always included in the matrix, so models that converged before reach the same solution."
