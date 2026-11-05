@@ -35,6 +35,7 @@ module IdmGwfDfnSelectorModule
   use GwfUzfInputModule
   use GwfVscInputModule
   use GwfVsspInputModule
+  use GwfVssbInputModule
   use GwfVsfInputModule
   use GwfVsetInputModule
   use GwfWelInputModule
@@ -135,6 +136,8 @@ contains
       call set_param_pointer(input_definition, gwf_vsc_param_definitions)
     case ('VSSP')
       call set_param_pointer(input_definition, gwf_vssp_param_definitions)
+    case ('VSSB')
+      call set_param_pointer(input_definition, gwf_vssb_param_definitions)
     case ('VSF')
       call set_param_pointer(input_definition, gwf_vsf_param_definitions)
     case ('VSET')
@@ -213,6 +216,8 @@ contains
       call set_param_pointer(input_definition, gwf_vsc_aggregate_definitions)
     case ('VSSP')
       call set_param_pointer(input_definition, gwf_vssp_aggregate_definitions)
+    case ('VSSB')
+      call set_param_pointer(input_definition, gwf_vssb_aggregate_definitions)
     case ('VSF')
       call set_param_pointer(input_definition, gwf_vsf_aggregate_definitions)
     case ('VSET')
@@ -291,6 +296,8 @@ contains
       call set_block_pointer(input_definition, gwf_vsc_block_definitions)
     case ('VSSP')
       call set_block_pointer(input_definition, gwf_vssp_block_definitions)
+    case ('VSSB')
+      call set_block_pointer(input_definition, gwf_vssb_block_definitions)
     case ('VSF')
       call set_block_pointer(input_definition, gwf_vsf_block_definitions)
     case ('VSET')
@@ -368,6 +375,8 @@ contains
       multi_package = gwf_vsc_multi_package
     case ('VSSP')
       multi_package = gwf_vssp_multi_package
+    case ('VSSB')
+      multi_package = gwf_vssb_multi_package
     case ('VSF')
       multi_package = gwf_vsf_multi_package
     case ('VSET')
@@ -448,6 +457,8 @@ contains
       is_advanced = gwf_vsc_is_advanced
     case ('VSSP')
       is_advanced = gwf_vssp_is_advanced
+    case ('VSSB')
+      is_advanced = gwf_vssb_is_advanced
     case ('VSF')
       is_advanced = gwf_vsf_is_advanced
     case ('VSET')
@@ -528,6 +539,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_vsc_subpackages)
     case ('VSSP')
       call set_subpkg_pointer(subpackages, gwf_vssp_subpackages)
+    case ('VSSB')
+      call set_subpkg_pointer(subpackages, gwf_vssb_subpackages)
     case ('VSF')
       call set_subpkg_pointer(subpackages, gwf_vsf_subpackages)
     case ('VSET')
@@ -605,6 +618,8 @@ contains
     case ('VSC')
       integrated = .true.
     case ('VSSP')
+      integrated = .true.
+    case ('VSSB')
       integrated = .true.
     case ('VSF')
       integrated = .true.
