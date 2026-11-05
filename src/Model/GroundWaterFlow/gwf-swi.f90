@@ -60,6 +60,7 @@ module GwfSwiModule
     real(DP), dimension(:), pointer, contiguous :: hfreshold => null() !< old head of freshwater
     real(DP), dimension(:), pointer, contiguous :: hsaltold => null() !< old head of saltwater
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
+    integer(I4B), dimension(:), pointer, contiguous :: icelltype => null() !< pointer to NPF cell type (0 confined, otherwise convertible)
 
     ! pointers for transient simulations
     integer(I4B), pointer :: insto => null() !< pointer to check of storage package is on
@@ -240,6 +241,10 @@ contains
 
     ! set pointer to ibound
     this%ibound => ibound
+
+    ! set pointer to the NPF cell type, used to place the saved zeta in a
+    ! convertible cell at or below the water table
+    this%icelltype => npf%icelltype
 
     ! stop if the model uses a package the SWI formulation does not support
     call this%check_compatibility(npf)
@@ -576,6 +581,7 @@ contains
 
     ! nullify pointers
     nullify (this%hfresh)
+    nullify (this%icelltype)
     nullify (this%hsalt)
     nullify (this%hfreshold)
     nullify (this%hsaltold)
@@ -876,6 +882,7 @@ contains
     class(GwfSwiType) :: this
     ! locals
     integer(I4B) :: n
+    real(DP) :: top
 
     ! Loop through each node and calculate zeta
     do n = 1, this%dis%nodes
@@ -888,10 +895,17 @@ contains
       ! Calculate zeta
       this%zeta(n) = this%get_zetanew(n)
 
-      ! todo: Do we want to constrain zeta to top and
-      !    bot of cell?
-      if (this%zeta(n) > this%dis%top(n)) then
-        this%zeta(n) = this%dis%top(n)
+      ! The saved zeta is limited to the saturated part of the cell: the top
+      ! of the saturated column (the cell top, or the water table in a
+      ! convertible cell where the freshwater head is below the cell top) and
+      ! the cell bottom. Where zeta is above the top of the saturated column
+      ! the cell holds no freshwater and saltwater fills the column, so the
+      ! interface is reported at the water table rather than the cell top.
+      ! Only the saved value is limited; the solve uses the unlimited zeta.
+      top = this%dis%top(n)
+      if (this%icelltype(n) /= 0) top = min(top, this%hfresh(n))
+      if (this%zeta(n) > top) then
+        this%zeta(n) = top
       end if
       if (this%zeta(n) < this%dis%bot(n)) then
         this%zeta(n) = this%dis%bot(n)
