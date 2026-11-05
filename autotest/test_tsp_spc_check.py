@@ -15,6 +15,7 @@ evapotranspiration, and that list-based SPC isn't.
 
 import flopy
 import pytest
+from framework import TestFramework
 
 ncol = 5
 qwell = 1.0
@@ -120,7 +121,9 @@ def add_tsp(sim, mtype, add_spc):
     return tsp
 
 
-def build(ws, exe, mtype, flows, flow_pkg, add_spc):
+def build(test, mtype, flows, flow_pkg, add_spc):
+    ws = test.workspace
+    exe = test.targets["mf6"]
     if flows == "exchange":
         sim = add_sim(ws, "spc", exe)
         add_gwf(sim, flow_pkg)
@@ -137,9 +140,6 @@ def build(ws, exe, mtype, flows, flow_pkg, add_spc):
 
     flow = add_sim(ws / "flow", "flow", exe)
     add_gwf(flow, flow_pkg)
-    flow.write_simulation(silent=True)
-    success, buff = flow.run_simulation(silent=True, report=True)
-    assert success, "\n".join(buff)
 
     sim = add_sim(ws, "spc", exe)
     tsp = add_tsp(sim, mtype, add_spc)
@@ -151,7 +151,7 @@ def build(ws, exe, mtype, flows, flow_pkg, add_spc):
             ("GWFBUDGET", "flow/gwf.bud", None),
         ],
     )
-    return sim
+    return flow, sim
 
 
 def list_spc(maxbound, spd):
@@ -172,14 +172,25 @@ def array_spc(spd):
     return add_spc
 
 
-def run(sim, errmsg=None):
-    sim.write_simulation(silent=True)
-    success, buff = sim.run_simulation(silent=True, report=True)
-    if errmsg is None:
-        assert success, "\n".join(buff)
-    else:
-        assert not success
-        assert errmsg in " ".join(" ".join(buff).split())
+def check(test, errmsg):
+    # xfail accepts any failure, so make sure it's the expected one
+    if errmsg is not None:
+        assert errmsg in " ".join(" ".join(test.buffs[-1]).split())
+
+
+def run(ws, targets, mtype, flows, flow_pkg, add_spc, errmsg=None):
+    fail = errmsg is not None
+    test = TestFramework(
+        name=f"{mtype}-{flows}",
+        workspace=ws,
+        targets=targets,
+        build=lambda t: build(t, mtype, flows, flow_pkg, add_spc),
+        check=lambda t: check(t, errmsg),
+        compare=None,
+        # with budget flows, the flow simulation runs first and should succeed
+        xfail=[fail] if flows == "exchange" else [False, fail],
+    )
+    test.run()
 
 
 @pytest.mark.parametrize("mtype", ["gwt", "gwe"])
@@ -187,32 +198,31 @@ def run(sim, errmsg=None):
 @pytest.mark.parametrize("case", well_cases)
 def test_maxbound(function_tmpdir, targets, mtype, flows, case):
     maxbound, spd = well_cases[case]
-    sim = build(
-        function_tmpdir, targets["mf6"], mtype, flows, "wel", list_spc(maxbound, spd)
-    )
-    run(sim, maxbound_err if case.startswith("small") else None)
+    errmsg = maxbound_err if case.startswith("small") else None
+    run(function_tmpdir, targets, mtype, flows, "wel", list_spc(maxbound, spd), errmsg)
 
 
 @pytest.mark.parametrize("flows", ["exchange", "budget"])
 def test_array_input_valid(function_tmpdir, targets, flows):
     """SPCA with array-based recharge passes the check in every period."""
-    sim = build(
-        function_tmpdir, targets["mf6"], "gwt", flows, "rcha", array_spc({0: 100.0})
-    )
-    run(sim)
+    run(function_tmpdir, targets, "gwt", flows, "rcha", array_spc({0: 100.0}))
 
 
 @pytest.mark.parametrize("flows", ["exchange", "budget"])
 def test_array_recharge_needs_array_input(function_tmpdir, targets, flows):
     """List-based SPC with array-based recharge, with no period block at all."""
-    sim = build(
-        function_tmpdir, targets["mf6"], "gwt", flows, "rcha", list_spc(ncol, {})
+    run(
+        function_tmpdir,
+        targets,
+        "gwt",
+        flows,
+        "rcha",
+        list_spc(ncol, {}),
+        needs_array_err,
     )
-    run(sim, needs_array_err)
 
 
 @pytest.mark.parametrize("flows", ["exchange", "budget"])
 def test_list_package_needs_list_input(function_tmpdir, targets, flows):
     """SPCA with a list-based flow package, with no period block at all."""
-    sim = build(function_tmpdir, targets["mf6"], "gwt", flows, "wel", array_spc({}))
-    run(sim, needs_list_err)
+    run(function_tmpdir, targets, "gwt", flows, "wel", array_spc({}), needs_list_err)
