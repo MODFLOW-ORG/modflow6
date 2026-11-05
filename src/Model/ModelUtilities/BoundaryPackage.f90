@@ -1020,7 +1020,7 @@ contains
   !<
   subroutine allocate_arrays(this, nodelist, auxvar)
     ! -- modules
-    use MemoryManagerModule, only: mem_allocate, mem_setptr
+    use MemoryManagerModule, only: mem_allocate, mem_setptr, mem_set_attrs
     ! -- dummy
     class(BndType) :: this !< BndType object
     integer(I4B), dimension(:), pointer, contiguous, optional :: nodelist !< package nodelist
@@ -1060,6 +1060,11 @@ contains
     !
     ! -- Allocate the simvals array
     call mem_allocate(this%simvals, this%maxbound, 'SIMVALS', this%memoryPath)
+    !
+    ! -- Set simvals array attributes
+    call mem_set_attrs('SIMVALS', this%memoryPath, readonly=.true., output=.true.)
+    !
+    ! -- Configure mover array
     if (this%imover == 1) then
       call mem_allocate(this%simtomvr, this%maxbound, 'SIMTOMVR', &
                         this%memoryPath)

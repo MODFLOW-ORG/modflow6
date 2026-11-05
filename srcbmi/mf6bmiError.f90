@@ -34,6 +34,8 @@ module mf6bmiError
   character(len=*), parameter :: fmt_invalid_mem_access = & !< Invalid memory access, args: variable name
                                  "('Fatal BMI Error, invalid access of memory &
                                  &for variable: ', a)"
+  character(len=*), parameter :: fmt_readonly_var = & !< Write to read-only variable, args: variable name
+                                 "('BMI Error, variable is read-only: ', a)"
   character(len=*), parameter :: fmt_fail_cvg_sol = & !< Solution failed to converge, args: detail
                                  "('BMI Error, Numerical Solution ', i3, &
                                  &' failed to converge')"
