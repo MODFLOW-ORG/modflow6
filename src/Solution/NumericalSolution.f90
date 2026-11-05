@@ -55,6 +55,13 @@ module NumericalSolutionModule
   integer(I4B), parameter :: IMS_SOLVER = 1
   integer(I4B), parameter :: PETSC_SOLVER = 2
 
+  ! Eisenstat-Walker forcing term (choice 1) and backtracking parameters
+  real(DP), parameter :: EW_ETA0 = DHALF !< forcing term for the first outer iteration
+  real(DP), parameter :: EW_ETAMAX = 0.9_DP !< maximum forcing term
+  real(DP), parameter :: EW_ETAMIN = DEM4 !< minimum forcing term
+  real(DP), parameter :: EW_ALPHA = 1.618033988749895_DP !< safeguard exponent, (1 + sqrt(5)) / 2
+  real(DP), parameter :: EW_T = DEM4 !< backtracking sufficient decrease parameter
+
   type, extends(BaseSolutionType) :: NumericalSolutionType
     character(len=LENMEMPATH) :: memory_path !< the path for storing solution variables in the memory manager
     character(len=LINELENGTH) :: fname !< input file name
@@ -102,6 +109,9 @@ module NumericalSolutionModule
     integer(I4B), pointer :: numtrack => null() !< maximum number of backtracks
     integer(I4B), pointer :: iprims => null() !< solver print option
     integer(I4B), pointer :: ibflag => null() !< backtracking flag (1) on (0) off
+    integer(I4B), pointer :: iforcing => null() !< Eisenstat-Walker forcing terms (0) off (1) on (2) on with sufficient decrease backtracking
+    real(DP), pointer :: fnorm_prev => null() !< L-2 norm of the residual at the start of the previous Picard iteration
+    real(DP), pointer :: lnorm_prev => null() !< L-2 norm of the linear residual at the end of the previous Picard iteration
     integer(I4B), dimension(:, :), pointer, contiguous :: lrch => null() !< location of the largest dependent-variable change at the end of a Picard iteration
     real(DP), dimension(:), pointer, contiguous :: hncg => null() !< largest dependent-variable change at the end of a Picard iteration
     real(DP), dimension(:), pointer, contiguous :: dxold => null() !< DBD under-relaxation previous dependent-variable change
@@ -187,6 +197,7 @@ module NumericalSolutionModule
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
     procedure :: sln_get_idvscale
+    procedure :: sln_get_inewton
     procedure :: sln_maxval
 
     ! private
@@ -195,6 +206,8 @@ module NumericalSolutionModule
     procedure, private :: sln_ls
     procedure, private :: sln_setouter
     procedure, private :: sln_backtracking
+    procedure, private :: sln_backtracking_tol
+    procedure, private :: sln_forcing
     procedure, private :: sln_calcdx
     procedure, private :: sln_calc_residual
     procedure, private :: sln_l2norm
@@ -319,6 +332,9 @@ contains
     call mem_allocate(this%res_lim, 'RES_LIM', this%memory_path)
     call mem_allocate(this%numtrack, 'NUMTRACK', this%memory_path)
     call mem_allocate(this%ibflag, 'IBFLAG', this%memory_path)
+    call mem_allocate(this%iforcing, 'IFORCING', this%memory_path)
+    call mem_allocate(this%fnorm_prev, 'FNORM_PREV', this%memory_path)
+    call mem_allocate(this%lnorm_prev, 'LNORM_PREV', this%memory_path)
     call mem_allocate(this%icsvouterout, 'ICSVOUTEROUT', this%memory_path)
     call mem_allocate(this%icsvinnerout, 'ICSVINNEROUT', this%memory_path)
     call mem_allocate(this%nitermax, 'NITERMAX', this%memory_path)
@@ -363,6 +379,9 @@ contains
     this%res_lim = DZERO
     this%numtrack = 0
     this%ibflag = 0
+    this%iforcing = 0
+    this%fnorm_prev = DZERO
+    this%lnorm_prev = DZERO
     this%icsvouterout = 0
     this%icsvinnerout = 0
     this%nitermax = 0
@@ -536,7 +555,8 @@ contains
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
     use SimVariablesModule, only: iout
-    use SimModule, only: store_error, count_errors, deprecation_warning
+    use SimModule, only: store_error, store_warning, count_errors, &
+                         deprecation_warning
     use InputOutputModule, only: getunit, openfile
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
@@ -548,6 +568,7 @@ contains
     character(len=linelength) :: msg
     integer(I4B) :: i
     integer(I4B) :: ifdparam, mxvl, npp
+    integer(I4B) :: iforcing
     integer(I4B) :: ierr
     logical(LGP) :: isfound, endOfBlock
     integer(I4B) :: ival
@@ -571,6 +592,7 @@ contains
     i = 1
     ifdparam = 1
     npp = 0
+    iforcing = 0
     mxvl = 0
     !
     ! -- get options block
@@ -816,6 +838,10 @@ contains
           this%breduc = this%parser%GetDouble()
         case ('BACKTRACKING_RESIDUAL_LIMIT')
           this%res_lim = this%parser%GetDouble()
+        case ('BACKTRACKING_SUFFICIENT_DECREASE')
+          iforcing = 2
+        case ('FORCING_TERMS')
+          iforcing = max(iforcing, 1)
         case default
           write (errmsg, '(3a)') &
             'Unknown IMS NONLINEAR keyword (', trim(keyword), ').'
@@ -935,6 +961,24 @@ contains
       !
     end if
 
+    !
+    ! -- Eisenstat-Walker forcing terms are only used with Newton-Raphson
+    if (iforcing > 0) then
+      if (this%sln_get_inewton() /= 0) then
+        this%iforcing = iforcing
+        write (iout, '(1x,a,/)') 'Eisenstat-Walker forcing terms will be '// &
+          'used for the linear solve'
+        if (iforcing > 1 .and. this%numtrack > 0) then
+          write (iout, '(1x,a,/)') 'Backtracking will use the Eisenstat-'// &
+            'Walker sufficient decrease condition'
+        end if
+      else
+        write (msg, '(3a)') 'FORCING_TERMS and BACKTRACKING_SUFFICIENT_'// &
+          'DECREASE have no effect because no model in solution ', &
+          trim(this%name), ' uses the Newton-Raphson formulation.'
+        call store_warning(msg)
+      end if
+    end if
     !
     ! determine if the x and rhs should be scaled
     this%idv_scale = this%sln_get_idvscale()
@@ -1249,6 +1293,9 @@ contains
     call mem_deallocate(this%res_lim)
     call mem_deallocate(this%numtrack)
     call mem_deallocate(this%ibflag)
+    call mem_deallocate(this%iforcing)
+    call mem_deallocate(this%fnorm_prev)
+    call mem_deallocate(this%lnorm_prev)
     call mem_deallocate(this%icsvouterout)
     call mem_deallocate(this%icsvinnerout)
     call mem_deallocate(this%nitermax)
@@ -1325,11 +1372,16 @@ contains
     !
     ! -- outer iteration csv header
     if (this%icsvouterout > 0) then
-      write (this%icsvouterout, '(*(G0,:,","))') &
+      write (this%icsvouterout, '(*(G0,:,","))', advance='NO') &
         'total_inner_iterations', 'totim', 'kper', 'kstp', 'nouter', &
         'inner_iterations', 'solution_outer_dvmax', &
         'solution_outer_dvmax_model', 'solution_outer_dvmax_package', &
         'solution_outer_dvmax_node'
+      if (this%iforcing > 0) then
+        write (this%icsvouterout, '(*(G0,:,","))', advance='NO') &
+          '', 'forcing_term', 'residual_l2norm', 'linear_residual_l2norm'
+      end if
+      write (this%icsvouterout, '(a)') ''
     end if
     !
     ! -- inner iteration csv header
@@ -1581,6 +1633,11 @@ contains
     call code_timer(1, ttform, this%ttform)
     call g_prof%stop(this%tmr_formulate)
 
+    ! forcing term for the linear solve
+    if (this%iforcing > 0) then
+      call this%sln_forcing(kiter)
+    end if
+
     ! x and rhs scaling
     if (this%idv_scale /= 0) then
       call this%sln_maxval(this%neq, this%x, this%dscale)
@@ -1593,6 +1650,14 @@ contains
     call this%sln_ls(kiter, kstp, kper, iter, iptc, ptcf)
     call g_prof%stop(this%tmr_linsolve)
     call code_timer(1, ttsoln, this%ttsoln)
+    !
+    ! -- linear residual for the next forcing term
+    if (this%iforcing > 0) then
+      call this%sln_l2norm(this%lnorm_prev)
+      if (this%idv_scale /= 0) then
+        this%lnorm_prev = this%lnorm_prev * this%dscale
+      end if
+    end if
     !
     ! -- increment counters storing the total number of linear and
     !    non-linear iterations for this timestep and the total
@@ -1810,9 +1875,14 @@ contains
         cpakout = cpak(1:ipos0 - 1)
       end if
 
-      write (this%icsvouterout, '(*(G0,:,","))') &
+      write (this%icsvouterout, '(*(G0,:,","))', advance='NO') &
         this%itertot_sim, totim, kper, kstp, kiter, iter, &
         outer_hncg, model_id, trim(cpakout), node_user
+      if (this%iforcing > 0) then
+        write (this%icsvouterout, '(*(G0,:,","))', advance='NO') &
+          '', this%linear_settings%eta, this%fnorm_prev, this%lnorm_prev
+      end if
+      write (this%icsvouterout, '(a)') ''
     end if
     !
     ! -- write to inner iteration csv file
@@ -2685,6 +2755,8 @@ contains
     integer(I4B) :: ibflag
     integer(I4B) :: ibtcnt
     real(DP) :: resin
+    real(DP) :: eta
+    real(DP) :: btol
     !
     ! -- initialize local variables
     ibflag = 0
@@ -2705,7 +2777,9 @@ contains
     end if
     ibtcnt = 0
     if (kiter > 1) then
-      if (this%res_new > this%res_prev * this%btol) then
+      eta = this%linear_settings%eta
+      btol = this%sln_backtracking_tol(eta)
+      if (this%res_new > this%res_prev * btol) then
         !
         ! -- iterate until backtracking complete
         btloop: do nb = 1, this%numtrack
@@ -2721,6 +2795,14 @@ contains
           !
           ibtcnt = nb
 
+          ! reduce the forcing term and linear residual with the step
+          if (this%iforcing > 0) then
+            eta = DONE - this%breduc * (DONE - eta)
+            this%lnorm_prev = (DONE - this%breduc) * this%fnorm_prev + &
+                              this%breduc * this%lnorm_prev
+            btol = this%sln_backtracking_tol(eta)
+          end if
+
           ! recalculate linear system (amat and rhs)
           call this%sln_buildsystem(kiter, inewton=0)
 
@@ -2733,7 +2815,7 @@ contains
             ibflag = 2
             exit btloop
           end if
-          if (this%res_new < this%res_prev * this%btol) then
+          if (this%res_new < this%res_prev * btol) then
             ibflag = 1
             exit btloop
           end if
@@ -2769,6 +2851,61 @@ contains
       call this%outertab%add_term(' ')
     end if
   end subroutine sln_backtracking
+
+  !> @brief Return the residual reduction factor that ends backtracking
+  !!
+  !! Uses the sufficient decrease condition of Eisenstat and Walker (1994)
+  !! when BACKTRACKING_SUFFICIENT_DECREASE is specified, and BACKTRACKING_TOLERANCE
+  !! otherwise.
+  !<
+  function sln_backtracking_tol(this, eta) result(btol)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    real(DP), intent(in) :: eta !< forcing term of the step
+    real(DP) :: btol !< residual reduction factor
+
+    if (this%iforcing > 1) then
+      btol = DONE - EW_T * (DONE - eta)
+    else
+      btol = this%btol
+    end if
+
+  end function sln_backtracking_tol
+
+  !> @brief Set the Eisenstat-Walker forcing term for the linear solve
+  !!
+  !! Choice 1 of Eisenstat and Walker (1996) with its safeguards, bounded
+  !! below by EW_ETAMIN; zero once the previous Picard iteration met
+  !! OUTER_DVCLOSE.
+  !<
+  subroutine sln_forcing(this, kiter)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(in) :: kiter !< Picard iteration number
+    ! local
+    real(DP) :: fnorm
+    real(DP) :: eta
+    real(DP) :: eta_safe
+
+    call this%sln_l2norm(fnorm)
+
+    if (kiter == 1 .or. this%fnorm_prev <= DZERO) then
+      eta = EW_ETA0
+    else if (this%sln_has_converged(this%hncg(kiter - 1))) then
+      ! full-accuracy solve so the outer iteration can converge
+      eta = DZERO
+    else
+      eta = abs(fnorm - this%lnorm_prev) / this%fnorm_prev
+      ! limit the decrease from the previous forcing term
+      eta_safe = this%linear_settings%eta**EW_ALPHA
+      if (eta_safe > DEM1) then
+        eta = max(eta, eta_safe)
+      end if
+      eta = max(eta, EW_ETAMIN)
+    end if
+
+    this%linear_settings%eta = min(eta, EW_ETAMAX)
+    this%fnorm_prev = fnorm
+
+  end subroutine sln_forcing
 
   !> @ brief Backtracking update of the dependent variable
   !!
@@ -2842,6 +2979,25 @@ contains
     end do
 
   end function sln_get_idvscale
+
+  !> @brief Return 1 if a model in the solution uses Newton-Raphson, 0 otherwise
+  !<
+  function sln_get_inewton(this) result(inewton)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B) :: inewton !< Newton-Raphson flag
+    ! local
+    class(NumericalModelType), pointer :: mp => null()
+    integer(I4B) :: i
+
+    inewton = 0
+    do i = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, i)
+      if (mp%inewton /= 0) then
+        inewton = 1
+      end if
+    end do
+
+  end function sln_get_inewton
 
   !> @brief Update x with backtracking
   !<

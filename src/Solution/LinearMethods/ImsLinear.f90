@@ -45,6 +45,7 @@ MODULE IMSLinearModule
     integer(I4B), POINTER :: NJAPC => NULL() !< preconditioner number of non-zero entries
     real(DP), POINTER :: EPFACT => NULL() !< factor for decreasing convergence criteria in seubsequent Picard iterations
     real(DP), POINTER :: L2NORM0 => NULL() !< initial L2 norm
+    real(DP), pointer :: ETA => null() !< forcing term (0 if not used)
     ! -- ilut variables
     integer(I4B), POINTER :: NJLU => NULL() !< length of jlu work vector
     integer(I4B), POINTER :: NJW => NULL() !< length of jw work vector
@@ -148,6 +149,7 @@ CONTAINS
     this%NORTH => linear_settings%north
     this%RELAX => linear_settings%relax
     this%LEVEL => linear_settings%level
+    this%ETA => linear_settings%eta
     this%DROPTOL => linear_settings%droptol
     !
     ! -- SET POINTERS TO SOLUTION STORAGE
@@ -749,7 +751,7 @@ CONTAINS
                        this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                        this%IPC, this%ICNVGOPT, this%NORTH, &
                        this%DVCLOSE, this%RCLOSE, this%L2NORM0, &
-                       this%EPFACT, this%IA0, this%JA0, this%A0, &
+                       this%EPFACT, this%ETA, this%IA0, this%JA0, this%A0, &
                        this%IAPC, this%JAPC, this%APC, &
                        this%X, this%RHS, this%D, this%P, this%Q, this%Z, &
                        this%NJLU, this%IW, this%JLU, &
@@ -763,7 +765,7 @@ CONTAINS
                          this%IPC, this%ICNVGOPT, this%NORTH, &
                          this%ISCL, this%DSCALE, &
                          this%DVCLOSE, this%RCLOSE, this%L2NORM0, &
-                         this%EPFACT, this%IA0, this%JA0, this%A0, &
+                         this%EPFACT, this%ETA, this%IA0, this%JA0, this%A0, &
                          this%IAPC, this%JAPC, this%APC, &
                          this%X, this%RHS, this%D, this%P, this%Q, &
                          this%T, this%V, this%DHAT, this%PHAT, this%QHAT, &
