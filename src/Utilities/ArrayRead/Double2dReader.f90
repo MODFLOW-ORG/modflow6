@@ -1,7 +1,7 @@
 module Double2dReaderModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, DONE
+  use ConstantsModule, only: DZERO, DONE, DNODATA
   use BlockParserModule, only: BlockParserType
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_unit
@@ -120,6 +120,8 @@ contains
     if (this%factor /= DZERO) then
       do i = 1, size(this%dbl2d, dim=2)
         do j = 1, size(this%dbl2d, dim=1)
+          ! no data values are not scaled
+          if (this%dbl2d(j, i) == DNODATA) cycle
           this%dbl2d(j, i) = this%dbl2d(j, i) * this%factor
         end do
       end do
