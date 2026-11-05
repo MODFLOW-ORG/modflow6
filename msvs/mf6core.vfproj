@@ -402,6 +402,7 @@
 					<File RelativePath="..\src\Model\ModelUtilities\Disv1dGeom.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\DisvGeom.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\FlowModelInterface.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\FlowReductionInterface.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GweCndOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GweInputData.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\GwfBuyInputData.f90"/>
