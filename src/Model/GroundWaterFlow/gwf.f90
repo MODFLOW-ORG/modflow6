@@ -99,6 +99,7 @@ module GwfModule
     procedure, private :: create_bndpkgs
     procedure, private :: log_namfile_options
     procedure, private :: steady_period_check
+    procedure, private :: check_vssb_overlap
     !
   end type GwfModelType
 
@@ -125,8 +126,8 @@ module GwfModule
   data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', '     ', & !  5
                    &'     ', 'RCH6 ', 'EVT6 ', 'CHD6 ', 'VSSP6', & ! 10
                    &'MAW6 ', 'SFR6 ', 'LAK6 ', 'UZF6 ', 'API6 ', & ! 15
-                   &'VSET6', & ! 16
-                   &34*'     '/ ! 50
+                   &'VSET6', 'VSSB6', & ! 17
+                   &33*'     '/ ! 50
 
   ! -- size of supported model package arrays
   integer(I4B), parameter :: NIUNIT_GWF = GWF_NBASEPKG + GWF_NMULTIPKG
@@ -391,6 +392,9 @@ contains
       call packobj%bnd_rp_log()
       call packobj%bnd_rp_obs()
     end do
+    !
+    ! -- Check that VSSB and VSSP do not exchange water through the same face
+    call this%check_vssb_overlap()
     !
     ! -- Check for steady state period
     call this%steady_period_check()
@@ -1278,6 +1282,7 @@ contains
     use UzfModule, only: uzf_create
     use ApiModule, only: api_create
     use GwfVsetModule, only: vset_create
+    use VssbModule, only: vssb_create
     ! -- dummy
     class(GwfModelType) :: this
     character(len=*), intent(in) :: filtyp
@@ -1332,6 +1337,9 @@ contains
                       pakname, mempath)
     case ('VSET6')
       call vset_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                       pakname, mempath)
+    case ('VSSB6')
+      call vssb_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                        pakname, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
@@ -1574,7 +1582,7 @@ contains
         this%inobs = inunit
       case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
             'EVT6', 'API6', 'CHD6', 'MAW6', 'SFR6', &
-            'LAK6', 'UZF6', 'VSSP6', 'VSET6')
+            'LAK6', 'UZF6', 'VSSP6', 'VSET6', 'VSSB6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
       case default
@@ -1665,5 +1673,83 @@ contains
       end if
     end if
   end subroutine steady_period_check
+
+  !> @brief Check the overlap of VSSB cells with other surface packages
+  !!
+  !! A cell can be listed in only one VSSB package, and a VSSB cell cannot be
+  !! listed in a VSSP package with a vertical face (IHC = 0), because VSSB owns
+  !! the top face of its cells.  IHC = 0 does not distinguish the top face from
+  !! the bottom face, so every vertical VSSP face on a VSSB cell is reported.
+  !! The check needs both packages and is therefore done by the model.
+  !!
+  !! TODO_VSF: reassess this routine when it is clear how to treat exfiltration
+  !! consistenly
+  !<
+  subroutine check_vssb_overlap(this)
+    ! -- modules
+    use VssbModule, only: VssbType
+    use VsspModule, only: VsspType
+    ! -- dummy
+    class(GwfModelType) :: this
+    ! -- local
+    class(BndType), pointer :: packobj
+    integer(I4B), dimension(:), allocatable :: vssbpkg
+    character(len=30) :: nodestr
+    integer(I4B) :: ip, i, node
+    logical :: found
+    !
+    ! -- nothing to check without a VSSB package
+    found = .false.
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VssbType)
+        found = .true.
+      end select
+    end do
+    if (.not. found) return
+    !
+    ! -- record the VSSB package of each cell
+    allocate (vssbpkg(this%dis%nodes))
+    vssbpkg(:) = 0
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VssbType)
+        do i = 1, packobj%nodes
+          node = packobj%igwfnode(i)
+          if (node < 1) cycle
+          if (vssbpkg(node) /= 0 .and. vssbpkg(node) /= ip) then
+            call this%dis%noder_to_string(node, nodestr)
+            write (errmsg, '(a,1x,a,1x,a,1x,a)') 'Cell', trim(adjustl(nodestr)), &
+              'is listed in more than one VSSB package:', &
+              trim(adjustl(packobj%packName))
+            call store_error(errmsg)
+          end if
+          vssbpkg(node) = ip
+        end do
+      end select
+    end do
+    !
+    ! -- check the vertical faces of the VSSP packages
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VsspType)
+        do i = 1, packobj%nbound
+          node = packobj%nodelist(i)
+          if (node < 1) cycle
+          if (vssbpkg(node) == 0 .or. packobj%ihc(i) /= 0) cycle
+          call this%dis%noder_to_string(node, nodestr)
+          write (errmsg, '(a,1x,a,1x,a,1x,a,a)') 'Cell', trim(adjustl(nodestr)), &
+            'is a VSSB surface cell and cannot be listed with IHC = 0 in the', &
+            trim(adjustl(packobj%packName)), ' package.'
+          call store_error(errmsg)
+        end do
+      end select
+    end do
+    deallocate (vssbpkg)
+    if (count_errors() > 0) call store_error_filename(this%filename)
+  end subroutine check_vssb_overlap
 
 end module GwfModule
