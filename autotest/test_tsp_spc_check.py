@@ -2,8 +2,8 @@
 Test that SPC input is checked against the flow package in every time step, not
 just in periods where the SPC file has a period block.
 
-List-based SPC's MAXBOUND must cover the flow package's bound count, or a flow
-package that outgrows MAXBOUND reads past the end of SPC's array. Flows come from
+List-based SPC's MAXBOUND must cover the flow package's bound count. If a flow
+package outgrows MAXBOUND, SSM reads past the end of SPC's array. Flows come from
 a GWF-GWT/GWE exchange or an FMI budget file. These differ because a budget file's
 bound counts aren't current until FMI advances, so a check made when reading the
 period is too early, even if the SPC file has a block.
