@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "exchanges"
-description = "When linking a GWE-GWE exchange to its corresponding GWF-GWF exchange, the GWF-GWF exchange was matched using only the connected node numbers, without checking that the GWF models matched those referenced by the GWE exchange. In a simulation with multiple GWF-GWF exchanges whose node lists coincide, this could link the GWE-GWE exchange to the wrong GWF-GWF exchange. The GWF model names referenced by the GWE exchange are now required to match before the node lists are compared, consistent with the GWF-GWT exchange."

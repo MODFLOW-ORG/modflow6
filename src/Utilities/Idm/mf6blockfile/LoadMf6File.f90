@@ -82,6 +82,7 @@ module LoadMf6FileModule
     procedure :: save_ts_sa
     procedure :: ts_sa_count
     procedure :: get_ts_sa
+    procedure :: alloc_tslink
     procedure :: cleanup
   end type LoadMf6FileType
 
@@ -727,9 +728,13 @@ contains
       ! read from ascii
       nrowsread = this%structarray%read_from_parser(this%parser, this%ts_active, &
                                                     this%iout, this%filename)
-      ! save structarray for deferred TS linking in df() if any strlocs were stored
-      if (this%ts_active) call this%save_ts_sa()
     end if
+
+    ! record which rows of time series capable columns are linked
+    call this%alloc_tslink(iblk)
+
+    ! save structarray for deferred TS linking in df() if any strlocs were stored
+    if (ibinary == 0 .and. this%ts_active) call this%save_ts_sa()
 
     ! an advanced package's PACKAGEDATA row count is published as
     ! MAXBOUND, the feature count the PERIOD block's load context needs
@@ -1346,6 +1351,70 @@ contains
       nullify (this%structarray)
     end if
   end subroutine save_ts_sa
+
+  !> @brief Allocate time series link flags for a static block
+  !!
+  !! For a block with time series capable double columns, allocate
+  !! TSLINK_<id>, an integer array (ncol, nrow) that is nonzero where a row's
+  !! value is linked to a time series, and TSLINKVARS_<id>, the names of its
+  !! columns, where <id> identifies the block (see tslink_id). Packages use
+  !! these to apply time series updates to linked values only.
+  !<
+  subroutine alloc_tslink(this, iblk)
+    use CharacterStringModule, only: CharacterStringType
+    use LoadContextModule, only: tslink_id
+    use StructVectorModule, only: MTYPE_DBL, TSStringLocType
+    class(LoadMf6FileType), intent(inout) :: this
+    integer(I4B), intent(in) :: iblk
+    type(StructVectorType), pointer :: svect
+    type(TSStringLocType), pointer :: ts_strloc
+    integer(I4B), dimension(:, :), pointer, contiguous :: tslink
+    type(CharacterStringType), dimension(:), pointer, contiguous :: tslinkvars
+    integer(I4B), dimension(:), allocatable :: icols
+    character(len=LINELENGTH) :: blockname
+    character(len=2) :: id
+    integer(I4B) :: m, n, ncol, nrow
+
+    ! find time series capable double columns
+    allocate (icols(0))
+    do m = 1, this%structarray%count()
+      svect => this%structarray%get(m)
+      if (svect%idt%timeseries .and. svect%memtype == MTYPE_DBL) then
+        icols = [icols, m]
+      end if
+    end do
+    ncol = size(icols)
+    if (ncol == 0) return
+
+    ! block identifier
+    blockname = this%mf6_input%block_dfns(iblk)%blockname
+    id = tslink_id(blockname)
+    if (id == '') then
+      write (errmsg, '(a)') 'Time series link identifier not defined for &
+        &block "'//trim(blockname)//'".'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+      return
+    end if
+
+    ! allocate
+    svect => this%structarray%get(icols(1))
+    nrow = size(svect%dbl1d)
+    call mem_allocate(tslink, ncol, nrow, 'TSLINK_'//id, this%mf6_input%mempath)
+    call mem_allocate(tslinkvars, LENVARNAME, ncol, 'TSLINKVARS_'//id, &
+                      this%mf6_input%mempath)
+
+    ! set column names and linked rows
+    tslink = 0
+    do m = 1, ncol
+      svect => this%structarray%get(icols(m))
+      tslinkvars(m) = svect%idt%mf6varname
+      do n = 1, svect%ts_strlocs%count()
+        ts_strloc => svect%get_ts_strloc(n)
+        tslink(m, ts_strloc%row) = 1
+      end do
+    end do
+  end subroutine alloc_tslink
 
   !> @brief Clean up saved static structarrays
   !!

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["tvs01", "tvs02", "tvs03"]
+cases = ["tvs01", "tvs02", "tvs03", "tvs04", "tvs05"]
 
 
 def build_models(idx, test):
@@ -32,13 +32,19 @@ def build_models(idx, test):
     for i in range(nper):
         tdis_rc.append((perlen[i], nstp[i], tsmult[i]))
 
-    transient = {}
-    for i in range(nper):
-        transient[i] = True
-
     name = cases[idx]
-    ts = idx == 1
+    ts = idx in (1, 4)
     disable_sc_int = idx == 2
+    sto_single_period = idx in (3, 4)
+
+    transient = {}
+    if sto_single_period:
+        # tvs04/tvs05: STO PERIOD block only in period 1 (TRANSIENT carries
+        # forward); later TVS PERIOD blocks must still be applied
+        transient[0] = True
+    else:
+        for i in range(nper):
+            transient[i] = True
 
     # build MODFLOW 6 files
     ws = test.workspace
@@ -213,7 +219,7 @@ def check_output(idx, test):
             )
         return
 
-    # tvs01 / tvs02: Check against manually calculated results
+    # tvs01 / tvs02 / tvs04 / tvs05: Check against manually calculated results
     expected_results = []
     expected_results.append(0.8)  # TVS SP1: No changes. Check initial solution.
     expected_results.append(3000.823)  # TVS SP2: Decrease SY1.

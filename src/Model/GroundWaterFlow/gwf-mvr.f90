@@ -876,6 +876,7 @@ contains
     use ConstantsModule, only: LINELENGTH
     use MemoryHelperModule, only: create_mem_path
     use SimModule, only: store_error, count_errors, store_error_unit
+    use ArrayHandlersModule, only: ifind
     ! -- dummy
     class(GwfMvrType), intent(inout) :: this
     ! -- local
@@ -909,6 +910,12 @@ contains
           call this%parser%GetStringCaps(word2)
           this%pckMemPaths(npak) = create_mem_path(word1, word2)
           word = word2
+        end if
+        if (ifind(this%pckMemPaths(1:npak - 1), this%pckMemPaths(npak)) > 0) then
+          write (errmsg, '(a,a,a)') 'Package ', trim(this%pckMemPaths(npak)), &
+            ' listed more than once in PACKAGES block.'
+          call store_error(errmsg)
+          call this%parser%StoreErrorUnit()
         end if
         this%paknames(npak) = trim(word)
         write (this%iout, '(3x,a,a)') 'INCLUDING PACKAGE: ', &

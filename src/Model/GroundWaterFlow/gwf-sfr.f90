@@ -64,6 +64,9 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: rhk => null()
     real(DP), dimension(:), pointer, contiguous :: man => null()
     real(DP), dimension(:), pointer, contiguous :: ustrf => null()
+    integer(I4B), dimension(:), pointer :: rhk_tslink => null() !< nonzero for RHK rows linked to a time series
+    integer(I4B), dimension(:), pointer :: man_tslink => null() !< nonzero for MAN rows linked to a time series
+    integer(I4B), dimension(:), pointer :: ustrf_tslink => null() !< nonzero for USTRF rows linked to a time series
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -208,6 +211,7 @@ module SfrModule
   contains
     procedure :: sfr_allocate_scalars
     procedure :: sfr_allocate_arrays
+    procedure :: sfr_checkin_deprecated_names
     procedure :: source_options => sfr_source_options
     procedure :: source_dimensions => sfr_source_dimensions
 
@@ -692,6 +696,60 @@ contains
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
   end subroutine sfr_allocate_arrays
 
+  !> @brief Alias deprecated SFR variable names to their current storage
+  !!
+  !! IDM integration moved several reach variables into the input context,
+  !! renaming some. These aliases share memory with the relocated variables so
+  !! that programs addressing them through the API by their old package-path
+  !! names continue to resolve; each use is reported as deprecated. DIVFLOW is
+  !! only set from the input context when diversions are present; otherwise an
+  !! empty DIVFLOW is allocated at the package path, as before IDM integration.
+  !<
+  subroutine sfr_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_allocate, mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(SfrType), intent(inout) :: this
+    ! -- local
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- reach auxiliary values, present (possibly empty) in the input context
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'RAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, '6.8.2')
+    end if
+    !
+    ! -- diversion flows
+    if (associated(this%divflow)) then
+      call mem_alias_deprecated(this%divflow, 'DIVFLOW', this%memoryPath, &
+                                'DIVFLOW', this%input_mempath, '6.8.2')
+    else
+      call mem_allocate(this%divflow, 0, 'DIVFLOW', this%memoryPath)
+    end if
+    !
+    call mem_alias_deprecated(this%rain, 'RAIN', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%evap, 'EVAP', this%memoryPath, &
+                              'EVAPORATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%inflow, 'INFLOW', this%memoryPath, &
+                              'INFLOW', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%runoff, 'RUNOFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%sstage, 'SSTAGE', this%memoryPath, &
+                              'STAGE', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%hk, 'HK', this%memoryPath, &
+                              'BEDK', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%rough, 'ROUGH', this%memoryPath, &
+                              'MANNING', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%ustrf, 'USTRF', this%memoryPath, &
+                              'UPSTREAM_FRAC', this%input_mempath, '6.8.2')
+  end subroutine sfr_checkin_deprecated_names
+
   !> @brief Source OPTIONS from input context
   !<
   subroutine sfr_source_options(this)
@@ -933,6 +991,9 @@ contains
     ! -- source diversions
     call this%sfr_source_diversions()
     !
+    ! -- alias deprecated variable names
+    call this%sfr_checkin_deprecated_names()
+    !
     ! -- source initialstages
     call this%sfr_source_initialstages()
     !
@@ -969,6 +1030,9 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: ndv => null()
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       boundname => null()
+    integer(I4B), dimension(:, :), pointer, contiguous :: tslink => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      tslinkvars => null()
     !
     write (this%iout, '(/1x,a)') &
       'PROCESSING '//trim(adjustl(this%text))//' PACKAGEDATA'
@@ -985,6 +1049,20 @@ contains
     call mem_setptr(this%input%man, 'MAN', this%input_mempath)
     call mem_setptr(ncon, 'NCON', this%input_mempath)
     call mem_setptr(this%input%ustrf, 'USTRF', this%input_mempath)
+    call mem_setptr(tslink, 'TSLINK_PD', this%input_mempath)
+    call mem_setptr(tslinkvars, 'TSLINKVARS_PD', this%input_mempath)
+    do n = 1, size(tslinkvars)
+      if (tslinkvars(n) == 'RHK') this%input%rhk_tslink => tslink(n, :)
+      if (tslinkvars(n) == 'MAN') this%input%man_tslink => tslink(n, :)
+      if (tslinkvars(n) == 'USTRF') this%input%ustrf_tslink => tslink(n, :)
+    end do
+    if (.not. (associated(this%input%rhk_tslink) .and. &
+               associated(this%input%man_tslink) .and. &
+               associated(this%input%ustrf_tslink))) then
+      call store_error('Time series links for RHK, MAN and USTRF not found &
+                       &in input.')
+      call store_error_filename(this%input_fname)
+    end if
     call mem_setptr(ndv, 'NDV', this%input_mempath)
     if (this%inamedbound /= 0) then
       call mem_setptr(boundname, 'BOUNDNAME', this%input_mempath)
@@ -1979,13 +2057,20 @@ contains
     end if
     !
     ! -- sync PACKAGEDATA and PERIOD TS fields from input context each
-    !    timestep; skipped when no TS6 files are configured
+    !    timestep; skipped when no TS6 files are configured. PACKAGEDATA
+    !    values are synced only for rows linked to a time series
     if (this%ts_active) then
       do i = 1, this%maxbound
         n = this%pkg_ifno(i)
-        if (.not. this%bedk_set(n)) this%hk(n) = this%input%rhk(i)
-        if (.not. this%manning_set(n)) this%rough(n) = this%input%man(i)
-        if (.not. this%ustrf_set(n)) this%ustrf(n) = this%input%ustrf(i)
+        if (.not. this%bedk_set(n) .and. &
+            this%input%rhk_tslink(i) /= 0) &
+          this%hk(n) = this%input%rhk(i)
+        if (.not. this%manning_set(n) .and. &
+            this%input%man_tslink(i) /= 0) &
+          this%rough(n) = this%input%man(i)
+        if (.not. this%ustrf_set(n) .and. &
+            this%input%ustrf_tslink(i) /= 0) &
+          this%ustrf(n) = this%input%ustrf(i)
       end do
       !
       if (this%input%nbound > 0) then
@@ -2855,7 +2940,15 @@ contains
     if (associated(this%divcprior)) then
       deallocate (this%divcprior)
     end if
-    nullify (this%divflow)
+    ! -- divflow is package-owned only when empty (no diversions); it is not
+    !    associated if the simulation stopped before it was set
+    if (associated(this%divflow)) then
+      if (size(this%divflow) == 0) then
+        call mem_deallocate(this%divflow)
+      else
+        nullify (this%divflow)
+      end if
+    end if
     call mem_deallocate(this%divq)
     call mem_deallocate(this%ndiv)
     !
@@ -5770,6 +5863,9 @@ contains
     nullify (this%rhk)
     nullify (this%man)
     nullify (this%ustrf)
+    nullify (this%rhk_tslink)
+    nullify (this%man_tslink)
+    nullify (this%ustrf_tslink)
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%status)

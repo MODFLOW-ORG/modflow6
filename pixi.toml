@@ -112,9 +112,10 @@ prepare-pull-request = { depends-on = [
 benchmark = { cmd = "python benchmark.py", cwd = "distribution" }
 build-docs = { cmd = "python build_docs.py", cwd = "distribution" }
 build-dist = { cmd = "python build_dist.py", cwd = "distribution" }
-check-dist = { cmd = "pytest -v -s check_dist.py", cwd = "distribution" }
+check-dist = { cmd = "pytest -v -n auto --dist loadgroup check_dist.py", cwd = "distribution" }
 test-dist-scripts = { cmd = "pytest -v --durations 0", cwd = "distribution", depends-on = ["test-release-history"] }
 update-version = { cmd = "python update_version.py", cwd = "distribution" }
+prepare-release = { cmd = "python prepare_release.py", cwd = "distribution" }
 collect-deprecations = { cmd = "python deprecations.py", cwd = "doc/mf6io/mf6ivar" }
 check-citations = "cffconvert --validate -i CITATION.cff"
 make-release-notes = { cmd = "python mk_releasenotes.py", cwd = "doc/ReleaseNotes" }
@@ -180,7 +181,6 @@ libnetcdf = "*"
 netcdf-fortran = "*"
 openmpi = "*"
 petsc = "<3.23.0"
-flopy = "*"  # so the get-exes task can run in this environment
 
 [feature.gcc-extended-build.target.linux-64.dependencies]
 gfortran = "13.*"

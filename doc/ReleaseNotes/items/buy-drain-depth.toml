@@ -1,3 +1,0 @@
-section = "fixes"
-subsection = "stress"
-description = "When the Buoyancy (BUY) Package was active, the density correction for Drain (DRN) Package discharge ignored the AUXMULTNAME and AUXDEPTHNAME options, and the water provided to the Water Mover (MVR) Package did not include the density correction. Drain discharge is now scaled by the relative density of the discharging water in both cases."

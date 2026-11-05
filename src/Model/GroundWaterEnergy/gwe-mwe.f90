@@ -77,6 +77,7 @@ module GweMweModule
     procedure :: bnd_da => mwe_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => mwe_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => mwe_checkin_deprecated_names
     procedure :: apt_source_cvs => mwe_read_cvs
     procedure :: find_apt_package => find_mwe_package
     procedure :: apt_setting_value => mwe_setting_value
@@ -687,6 +688,22 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine mwe_allocate_arrays
+
+  !> @brief Alias deprecated MWE variable names to their current storage
+  !<
+  subroutine mwe_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GweMweType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%temprate, 'TEMPRATE', this%memoryPath, &
+                              'RATE', this%input_mempath, '6.8.2')
+  end subroutine mwe_checkin_deprecated_names
 
   !> @brief Deallocate memory associated with MWE package
   !<

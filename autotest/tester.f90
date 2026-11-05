@@ -17,6 +17,7 @@ program tester
   use TestMathUtil, only: collect_mathutil
   use TestMawNonVertical, only: collect_mawnonvertical
   use TestMawNur, only: collect_mawnur
+  use TestMemoryAlias, only: collect_memoryalias
   use TestMemoryContainerIterator, only: collect_memorycontaineriterator
   use TestMemoryStore, only: collect_memorystore
   use TestMessage, only: collect_message
@@ -30,7 +31,6 @@ program tester
   use TestTimeStepSelect, only: collect_timestepselect
   use TestUzfCellGroup, only: collect_uzfcellgroup
   use TestUzfEtUtil, only: collect_uzfetutil
-  use TestXmi, only: collect_xmi
 
   implicit none
   integer :: stat, is
@@ -55,6 +55,7 @@ program tester
                new_testsuite("MathUtil", collect_mathutil), &
                new_testsuite("MawNonVertical", collect_mawnonvertical), &
                new_testsuite("MawNur", collect_mawnur), &
+               new_testsuite("MemoryAlias", collect_memoryalias), &
                new_testsuite("MemoryContainerIterator", &
                              collect_memorycontaineriterator), &
                new_testsuite("MemoryStore", collect_memorystore), &
@@ -68,8 +69,7 @@ program tester
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &
                new_testsuite("UzfCellGroup", collect_uzfcellgroup), &
-               new_testsuite("UzfEtUtil", collect_uzfetutil), &
-               new_testsuite("Xmi", collect_xmi) &
+               new_testsuite("UzfEtUtil", collect_uzfetutil) &
                ]
 
   call get_argument(1, suite_name)

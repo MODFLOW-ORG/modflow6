@@ -50,9 +50,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
 
       - name: Check Fortran source formatting
         run: pixi run check-format
@@ -96,9 +96,9 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
 
       - name: Setup MF6
         run: pixi run setup -Dwerror=true builddir
@@ -127,7 +127,7 @@ jobs:
       matrix:
         include:
           - os: ubuntu-22.04
-          - os: macos-14
+          - os: macos-15
     defaults:
       run:
         shell: bash
@@ -136,9 +136,9 @@ jobs:
         uses: actions/checkout@v7
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
 
       - name: Update netcdf-fortran.pc
         run: |
@@ -188,9 +188,9 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
 
       - name: Setup static MF6
         run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
@@ -265,9 +265,9 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -304,7 +304,7 @@ jobs:
       - name: Test MF6
         working-directory: modflow6
         run: |
-          if [ "${{ github.ref_name }}" == "master" ]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             pixi run autotest -m "not slow and not regression and not developmode"
           else
             pixi run autotest --smoke
@@ -329,13 +329,13 @@ jobs:
       matrix:
         include:
           # arm mac, release mode
-          - os: macos-14
+          - os: macos-15
             debug: false
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           # arm mac, debug mode
-          - os: macos-14
+          - os: macos-15
             debug: true
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           # ubuntu, release mode
           - os: ubuntu-22.04
             debug: false
@@ -356,7 +356,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
           android: true
           dotnet: true
           haskell: true
@@ -388,9 +388,9 @@ jobs:
           version: ${{ env.FC_V }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -402,6 +402,14 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: ${{ matrix.xcode-version }}
+
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          ${{ env.FC }} --version | head -1
 
       # static link gfortran libs
       - name: Hide dylibs (macOS)
@@ -429,7 +437,7 @@ jobs:
         run: |
           setupargs=""
           if [[ "${{ matrix.debug }}" == "true" ]]; then
-            setupargs="-Ddebug=true -Doptimization=0"
+            setupargs="--buildtype=debug"
           fi
           echo "MESON_SETUP_ARGS=$setupargs" >> $GITHUB_ENV
 
@@ -465,6 +473,10 @@ jobs:
           otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
           lipo -info mf6 
           lipo -info libmf6.dylib
           lipo -info mf5to6
@@ -501,7 +513,7 @@ jobs:
         id: set_markers
         run: |
           markers=""
-          if [[ "${{ github.ref_name }}" == "master" ]]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             markers="not large and not developmode"
           else
             markers="not large"
@@ -512,8 +524,8 @@ jobs:
         id: set_filters
         run: |
           filters=""
-          if [[ "${{ matrix.os }}" == "macos-14" ]]; then
-            # sfr rewet comparison fails on macos-14
+          if [[ "${{ runner.os }}" == "macOS" ]]; then
+            # sfr rewet comparison fails on macos
             filters="not test028_sfr_rewet"
           fi
           echo "filters=$filters" >> $GITHUB_OUTPUT
@@ -613,7 +625,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
           android: true
           dotnet: true
           haskell: true
@@ -639,9 +651,9 @@ jobs:
           path: modflow6-examples
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install
@@ -689,7 +701,7 @@ jobs:
         id: set_markers
         run: |
           markers=""
-          if [[ "${{ github.ref_name }}" == "master" ]]; then
+          if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
             markers="not large and not developmode"
           else
             markers="not large"
@@ -751,7 +763,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, macos-14, windows-2022]
+        os: [ubuntu-22.04, macos-15, windows-2022]
     defaults:
       run:
         shell: bash
@@ -761,7 +773,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
           android: true
           dotnet: true
           haskell: true
@@ -782,9 +794,9 @@ jobs:
           version: 13
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
-          pixi-version: v0.80.0
+          pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
       - name: Custom pixi install

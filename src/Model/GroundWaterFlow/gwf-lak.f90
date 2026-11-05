@@ -77,6 +77,10 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: outlets_width => null()
     real(DP), dimension(:), pointer, contiguous :: outlets_rough => null()
     real(DP), dimension(:), pointer, contiguous :: outlets_slope => null()
+    integer(I4B), dimension(:), pointer :: invert_tslink => null() !< nonzero for OUTLETS_INVERT rows linked to a time series
+    integer(I4B), dimension(:), pointer :: width_tslink => null() !< nonzero for OUTLETS_WIDTH rows linked to a time series
+    integer(I4B), dimension(:), pointer :: rough_tslink => null() !< nonzero for OUTLETS_ROUGH rows linked to a time series
+    integer(I4B), dimension(:), pointer :: slope_tslink => null() !< nonzero for OUTLETS_SLOPE rows linked to a time series
   contains
     procedure :: init => lak_input_init
     procedure :: destroy => lak_input_destroy
@@ -266,6 +270,7 @@ module LakModule
 
     procedure :: lak_allocate_scalars
     procedure :: lak_allocate_arrays
+    procedure :: lak_checkin_deprecated_names
     procedure :: source_options => lak_source_options
     procedure :: source_dimensions => lak_source_dimensions
     procedure :: read_initial_attr => lak_read_initial_attr
@@ -569,6 +574,72 @@ contains
     ! -- allocate viscratios to size 0
     call mem_allocate(this%viscratios, 2, 0, 'VISCRATIOS', this%memoryPath)
   end subroutine lak_allocate_arrays
+
+  !> @brief Alias deprecated LAK variable names to their current storage
+  !!
+  !! IDM integration (#3021) moved several lake and outlet variables into the
+  !! input context, renaming some, and renamed the lake connection cell array.
+  !! The legacy solver refactor (#2976) renamed the fallback variables. These
+  !! aliases share memory with the current variables so that programs
+  !! addressing them through the API by their old package-path names continue
+  !! to resolve; each use is reported as deprecated. Outlet names are only
+  !! aliased when outlets are present.
+  !<
+  subroutine lak_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryManagerModule, only: mem_setptr, get_isize
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    ! -- local
+    real(DP), dimension(:, :), pointer, contiguous :: aux => null()
+    integer(I4B) :: isize
+    ! -- code
+    !
+    ! -- lake period data
+    call mem_alias_deprecated(this%stage, 'STAGE', this%memoryPath, &
+                              'STAGE', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%rainfall, 'RAINFALL', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%evaporation, 'EVAPORATION', &
+                              this%memoryPath, 'EVAPORATION', &
+                              this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%runoff, 'RUNOFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%inflow, 'INFLOW', this%memoryPath, &
+                              'INFLOW', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%withdrawal, 'WITHDRAWAL', this%memoryPath, &
+                              'WITHDRAWAL', this%input_mempath, '6.8.2')
+    !
+    ! -- outlet period data
+    call mem_alias_deprecated(this%outrate, 'OUTRATE', this%memoryPath, &
+                              'RATE', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%outinvert, 'OUTINVERT', this%memoryPath, &
+                              'INVERT', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%outwidth, 'OUTWIDTH', this%memoryPath, &
+                              'WIDTH', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%outslope, 'OUTSLOPE', this%memoryPath, &
+                              'SLOPE', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%outrough, 'OUTROUGH', this%memoryPath, &
+                              'ROUGH', this%input_mempath, '6.8.2')
+    !
+    ! -- lake auxiliary values, present (possibly empty) in the input context
+    call get_isize('AUX', this%input_mempath, isize)
+    if (isize >= 0) then
+      call mem_setptr(aux, 'AUX', this%input_mempath)
+      call mem_alias_deprecated(aux, 'LAUXVAR', this%memoryPath, &
+                                'AUX', this%input_mempath, '6.8.2')
+    end if
+    !
+    ! -- renamed at the package path: CELLID by IDM integration (#3021),
+    !    IFALLBACK and IFORCEFB by the legacy solver refactor (#2976)
+    call mem_alias_deprecated(this%gwfconn, 'CELLID', this%memoryPath, &
+                              'GWFCONN', this%memoryPath, '6.8.2')
+    call mem_alias_deprecated(this%ilegacy, 'IFALLBACK', this%memoryPath, &
+                              'ILEGACY', this%memoryPath, '6.8.2')
+    call mem_alias_deprecated(this%iforceleg, 'IFORCEFB', this%memoryPath, &
+                              'IFORCELEG', this%memoryPath, '6.8.2')
+  end subroutine lak_checkin_deprecated_names
 
   !> @brief Source PACKAGEDATA block from input context
   !<
@@ -1575,6 +1646,9 @@ contains
     !
     ! -- read OUTLETS
     call this%lak_source_outlets()
+    !
+    ! -- alias deprecated variable names
+    call this%lak_checkin_deprecated_names()
     !
     ! -- Call define_listlabel
     call this%define_listlabel()
@@ -3082,6 +3156,11 @@ contains
     character(len=*), intent(in) :: mempath
     integer(I4B), intent(in) :: naux
     integer(I4B), intent(in) :: noutlets
+    ! -- local
+    integer(I4B), dimension(:, :), pointer, contiguous :: tslink => null()
+    type(CharacterStringType), dimension(:), pointer, contiguous :: &
+      tslinkvars => null()
+    integer(I4B) :: n
     !
     ! -- period
     call mem_setptr(this%nbound, 'NBOUND', mempath)
@@ -3099,6 +3178,15 @@ contains
       call mem_setptr(this%outlets_width, 'OUTLETS_WIDTH', mempath)
       call mem_setptr(this%outlets_rough, 'OUTLETS_ROUGH', mempath)
       call mem_setptr(this%outlets_slope, 'OUTLETS_SLOPE', mempath)
+      call mem_setptr(tslink, 'TSLINK_OL', mempath)
+      call mem_setptr(tslinkvars, 'TSLINKVARS_OL', mempath)
+      do n = 1, size(tslinkvars)
+        if (tslinkvars(n) == 'OUTLETS_INVERT') &
+          this%invert_tslink => tslink(n, :)
+        if (tslinkvars(n) == 'OUTLETS_WIDTH') this%width_tslink => tslink(n, :)
+        if (tslinkvars(n) == 'OUTLETS_ROUGH') this%rough_tslink => tslink(n, :)
+        if (tslinkvars(n) == 'OUTLETS_SLOPE') this%slope_tslink => tslink(n, :)
+      end do
     end if
   end subroutine lak_input_init
 
@@ -3119,6 +3207,10 @@ contains
     nullify (this%outlets_width)
     nullify (this%outlets_rough)
     nullify (this%outlets_slope)
+    nullify (this%invert_tslink)
+    nullify (this%width_tslink)
+    nullify (this%rough_tslink)
+    nullify (this%slope_tslink)
   end subroutine lak_input_destroy
 
   !> @brief Allocate and Read
@@ -3168,6 +3260,15 @@ contains
     !
     ! -- bind input context persistent pointers
     call this%input%init(this%input_mempath, this%naux, this%noutlets)
+    if (this%noutlets > 0) then
+      if (.not. (associated(this%input%invert_tslink) .and. &
+                 associated(this%input%width_tslink) .and. &
+                 associated(this%input%rough_tslink) .and. &
+                 associated(this%input%slope_tslink))) then
+        call store_error('Time series links for OUTLETS not found in input.')
+        call store_error_filename(this%input_fname)
+      end if
+    end if
     !
     ! -- setup pakmvrobj
     if (this%imover /= 0) then
@@ -3413,21 +3514,25 @@ contains
     !    sync_period_auxvar (inside bnd_ad) handles PERIOD AUXILIARY TS
     call this%BndExtType%bnd_ad()
     !
-    ! -- re-sync static OUTLETS TS values (invert, width, rough, slope);
-    ! -- skip any field a PERIOD-block setting has already overridden for
-    !    this outlet -- that override must persist until a later PERIOD
-    !    block changes it, not be overwritten by this baseline resync
+    ! -- re-sync static OUTLETS values (invert, width, rough, slope) linked
+    !    to a time series, skipping any field a PERIOD-block setting has
+    !    already overridden for this outlet -- that override must persist
+    !    until a later PERIOD block changes it
     if (this%ts_active .and. this%noutlets > 0) then
       do n = 1, size(this%input%outletno)
         itemno = this%input%outletno(n)
         if (itemno < 1 .or. itemno > this%noutlets) cycle
-        if (.not. this%outlet_invert_set(itemno)) &
+        if (.not. this%outlet_invert_set(itemno) .and. &
+            this%input%invert_tslink(n) /= 0) &
           this%outinvert(itemno) = this%input%outlets_invert(n)
-        if (.not. this%outlet_width_set(itemno)) &
+        if (.not. this%outlet_width_set(itemno) .and. &
+            this%input%width_tslink(n) /= 0) &
           this%outwidth(itemno) = this%input%outlets_width(n)
-        if (.not. this%outlet_rough_set(itemno)) &
+        if (.not. this%outlet_rough_set(itemno) .and. &
+            this%input%rough_tslink(n) /= 0) &
           this%outrough(itemno) = this%input%outlets_rough(n)
-        if (.not. this%outlet_slope_set(itemno)) &
+        if (.not. this%outlet_slope_set(itemno) .and. &
+            this%input%slope_tslink(n) /= 0) &
           this%outslope(itemno) = this%input%outlets_slope(n)
       end do
     end if

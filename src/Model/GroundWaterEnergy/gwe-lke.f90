@@ -82,6 +82,7 @@ module GweLkeModule
     procedure :: bnd_da => lke_da
     procedure :: allocate_scalars
     procedure :: apt_allocate_arrays => lke_allocate_arrays
+    procedure :: apt_checkin_deprecated_names => lke_checkin_deprecated_names
     procedure :: apt_source_cvs => lke_read_cvs
     procedure :: find_apt_package => find_lke_package
     procedure :: apt_setting_value => lke_setting_value
@@ -787,6 +788,28 @@ contains
     call this%TspAptType%apt_allocate_arrays()
     !
   end subroutine lke_allocate_arrays
+
+  !> @brief Alias deprecated LKE variable names to their current storage
+  !<
+  subroutine lke_checkin_deprecated_names(this)
+    ! -- modules
+    use MemoryAliasModule, only: mem_alias_deprecated
+    ! -- dummy
+    class(GweLkeType), intent(inout) :: this
+    ! -- code
+    !
+    ! -- names common to all advanced transport packages
+    call this%TspAptType%apt_checkin_deprecated_names()
+    !
+    call mem_alias_deprecated(this%temprain, 'TEMPRAIN', this%memoryPath, &
+                              'RAINFALL', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%tempevap, 'TEMPEVAP', this%memoryPath, &
+                              'EVAPORATION', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%temproff, 'TEMPROFF', this%memoryPath, &
+                              'RUNOFF', this%input_mempath, '6.8.2')
+    call mem_alias_deprecated(this%tempiflw, 'TEMPIFLW', this%memoryPath, &
+                              'EXT_INFLOW', this%input_mempath, '6.8.2')
+  end subroutine lke_checkin_deprecated_names
 
   !> @brief Deallocate memory
   !<

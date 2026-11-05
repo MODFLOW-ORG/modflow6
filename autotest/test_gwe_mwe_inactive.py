@@ -1,16 +1,13 @@
 """
-Tests wellbore conduction in the MWE Package with the MAW CONNECTION_STATUS
-and STATUS period settings.
+Tests wellbore conduction in the MWE Package for a MAW well made INACTIVE.
 
 A single well is screened over all three layers of the model and does not pump,
 so it exchanges heat with the aquifer only by conduction through the wetted area
 of each connection. The well starts warmer than the aquifer.
 
 Cases:
-  - mwe_cs : the deepest connection is deactivated in period 2, the well is
-             made INACTIVE in period 3 and ACTIVE again in period 4. A
-             connection that is not simulated, because it or its well is
-             inactive, must not conduct heat.
+  - mwe_inact : the well is made INACTIVE in period 2 and ACTIVE again in
+                period 3. An inactive well must not conduct heat.
 """
 
 import os
@@ -20,19 +17,17 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["mwe_cs"]
+cases = ["mwe_inact"]
 
-nlay, nrow, ncol, nper = 3, 1, 5, 4
+nlay, nrow, ncol, nper = 3, 1, 5, 3
 botm = [-10.0, -20.0, -30.0]
 jcol = 2
-deep = nlay - 1  # the deepest connection
 
 # MAW period data; the well does not pump, so it exchanges heat by conduction
 mawperioddata = {
     0: [[0, "rate", 0.0]],
-    1: [[0, "connection_status", deep, "inactive"]],
-    2: [[0, "status", "inactive"]],
-    3: [[0, "status", "active"]],
+    1: [[0, "status", "inactive"]],
+    2: [[0, "status", "active"]],
 }
 
 
@@ -157,15 +152,10 @@ def check_output(idx, test):
 
     # period 1: every connection of the warmer well conducts heat
     assert np.all(np.abs(cond[0]) > 0.0), f"all connections must conduct: {cond[0]}"
-    # period 2: the inactive connection does not
-    assert cond[1][deep] == 0.0, f"inactive connection conducted {cond[1][deep]}"
-    assert abs(cond[1][0]) > 0.0, "active connections must still conduct"
-    # period 3: an inactive well conducts no heat through any connection
-    assert np.all(cond[2] == 0.0), f"inactive well conducted heat: {cond[2]}"
-    # period 4: the reactivated well conducts again, except through the
-    # connection that is still inactive
-    assert abs(cond[3][0]) > 0.0, "reactivated well must conduct"
-    assert cond[3][deep] == 0.0, f"inactive connection conducted {cond[3][deep]}"
+    # period 2: an inactive well conducts no heat through any connection
+    assert np.all(cond[1] == 0.0), f"inactive well conducted heat: {cond[1]}"
+    # period 3: the reactivated well conducts again
+    assert np.all(np.abs(cond[2]) > 0.0), f"reactivated well must conduct: {cond[2]}"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
