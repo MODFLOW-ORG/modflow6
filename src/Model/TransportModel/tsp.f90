@@ -5,7 +5,7 @@
 !<
 
 module TransportModelModule
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENFTYPE, LINELENGTH, DZERO, LENPAKLOC, &
                              LENMEMPATH, LENVARNAME
   use SimVariablesModule, only: errmsg
@@ -76,6 +76,7 @@ module TransportModelModule
     procedure, public :: allocate_tsp_scalars
     procedure, public :: set_tsp_labels
     procedure, public :: ftype_check
+    procedure, public :: check_gwf_domain
     procedure, public :: get_idv_scale => tsp_get_idv_scale
     ! -- private
     procedure, private :: tsp_ot_obs
@@ -622,6 +623,152 @@ contains
       call store_error_filename(this%filename)
     end if
   end subroutine ftype_check
+
+  !> @brief Check that the model grid is a subset of a flow model grid
+  !!
+  !! Build the maps between the two grids when the flow model has active cells
+  !! that are excluded from this model.
+  !<
+  subroutine check_gwf_domain(this, gwfdis, exgname, exgfile)
+    ! -- modules
+    use BaseDisModule, only: DisBaseType
+    use ConstantsModule, only: DONE, DEM6
+    use SimModule, only: store_error, store_error_filename, count_errors
+    use TspAptModule, only: TspAptType
+    ! -- dummy
+    class(TransportModelType) :: this
+    class(DisBaseType), pointer, intent(in) :: gwfdis !< flow model discretization
+    character(len=*), intent(in) :: exgname !< exchange name
+    character(len=*), intent(in) :: exgfile !< exchange input file
+    ! -- local
+    class(BndType), pointer :: packobj => null()
+    integer(I4B) :: ip, j
+    integer(I4B) :: i, nu, n, nf, nerr, ngeo
+    integer(I4B) :: ipos
+    logical(LGP) :: same
+    character(len=20) :: nodestr
+    ! -- parameters
+    integer(I4B), parameter :: MAXCELLS = 20
+    ! -- formats
+    character(len=*), parameter :: fmtdiserr = &
+      "('GWF and ', a, ' Models do not have the same discretization for &
+      &exchange ',a,'.  Ensure the discretization packages define the &
+      &same grid.')"
+    character(len=*), parameter :: fmtgeoerr = &
+      "('Cell ', a, ' has a different top, bottom, or area in the ', a, &
+      &' Model than in the GWF Model for exchange ',a,'.')"
+    character(len=*), parameter :: fmtidomerr = &
+      "('Cell ', a, ' is active in the ', a, ' Model but is not active in the &
+      &GWF Model for exchange ',a,'.')"
+    character(len=*), parameter :: fmtidomsum = &
+      "('IDOMAIN for the ', a, ' Model is not a subset of IDOMAIN for the GWF &
+      &Model for exchange ',a,'.  ', i0, ' cells are active in the ', a, &
+      &' Model and inactive in the GWF Model.')"
+    character(len=*), parameter :: fmtapterr = &
+      "('Advanced transport package ',a,' is connected to cell ',a,', which &
+      &is not active in the ', a, ' Model.  Cells connected to an advanced &
+      &package must be included in the transport domain.')"
+    !
+    ! -- the user grids must be the same type and shape
+    same = same_type_as(this%dis, gwfdis) .and. &
+           size(this%dis%mshape) == size(gwfdis%mshape)
+    if (same) then
+      do i = 1, size(this%dis%mshape)
+        if (this%dis%mshape(i) /= gwfdis%mshape(i)) same = .false.
+      end do
+    end if
+    if (.not. same) then
+      write (errmsg, fmtdiserr) trim(this%macronym), trim(exgname)
+      call store_error(errmsg)
+      call store_error_filename(exgfile)
+    end if
+    !
+    ! -- every active transport cell must be active in the flow model and
+    !    have the same geometry
+    nerr = 0
+    ngeo = 0
+    do nu = 1, this%dis%nodesuser
+      n = this%dis%get_nodenumber(nu, 0)
+      if (n <= 0) cycle
+      nf = gwfdis%get_nodenumber(nu, 0)
+      if (nf > 0) then
+        if (differ(this%dis%top(n), gwfdis%top(nf)) .or. &
+            differ(this%dis%bot(n), gwfdis%bot(nf)) .or. &
+            differ(this%dis%area(n), gwfdis%area(nf))) then
+          ngeo = ngeo + 1
+          if (ngeo > MAXCELLS) cycle
+          call this%dis%nodeu_to_string(nu, nodestr)
+          write (errmsg, fmtgeoerr) trim(adjustl(nodestr)), &
+            trim(this%macronym), trim(exgname)
+          call store_error(errmsg)
+        end if
+        cycle
+      end if
+      nerr = nerr + 1
+      if (nerr > MAXCELLS) cycle
+      call this%dis%nodeu_to_string(nu, nodestr)
+      write (errmsg, fmtidomerr) trim(adjustl(nodestr)), &
+        trim(this%macronym), trim(exgname)
+      call store_error(errmsg)
+    end do
+    if (nerr > 0) then
+      write (errmsg, fmtidomsum) trim(this%macronym), trim(exgname), nerr, &
+        trim(this%macronym)
+      call store_error(errmsg)
+    end if
+    if (count_errors() > 0) call store_error_filename(exgfile)
+    !
+    ! -- nothing more to do if the two models use the same cells and
+    !    connections; vertical pass-through cells can change the connections
+    !    without changing the number of cells
+    if (this%dis%nodes == gwfdis%nodes .and. &
+        this%dis%con%nja == gwfdis%con%nja) then
+      same = .true.
+      do n = 1, this%dis%nodes + 1
+        if (this%dis%con%ia(n) /= gwfdis%con%ia(n)) then
+          same = .false.
+          exit
+        end if
+      end do
+      if (same) then
+        do ipos = 1, this%dis%con%nja
+          if (this%dis%con%ja(ipos) /= gwfdis%con%ja(ipos)) then
+            same = .false.
+            exit
+          end if
+        end do
+      end if
+      if (same) return
+    end if
+    !
+    call this%fmi%map_gwf_grid(gwfdis)
+    !
+    ! -- an advanced transport package works from flow model cell numbers
+    !    rather than from the mapped nodelist
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      class is (TspAptType)
+        do j = 1, packobj%flowbudptr%budterm(packobj%idxbudgwf)%nlist
+          nf = packobj%flowbudptr%budterm(packobj%idxbudgwf)%id2(j)
+          if (this%fmi%gwfnodeinv(nf) > 0) cycle
+          call gwfdis%noder_to_string(nf, nodestr)
+          write (errmsg, fmtapterr) trim(packobj%packName), &
+            trim(adjustl(nodestr)), trim(this%macronym)
+          call store_error(errmsg)
+        end do
+      end select
+    end do
+    if (count_errors() > 0) call store_error_filename(exgfile)
+  contains
+    !> @brief Compare two cell dimensions
+    !<
+    function differ(a, b) result(d)
+      real(DP), intent(in) :: a, b
+      logical(LGP) :: d
+      d = abs(a - b) > DEM6 * max(DONE, abs(a), abs(b))
+    end function differ
+  end subroutine check_gwf_domain
 
   !> @brief Write model name file options to list file
   !<
