@@ -16,6 +16,11 @@ Input to the Multi-Aquifer Well (MAW) Package is read from the file that has typ
 \advancedpackageperioddescription{well}{wells}
 
 \vspace{5mm}
+\noindent The CONNECTION\_STATUS setting represents a multi-aquifer well connection that has been sealed off from the well, such as a connection that has been backplugged or cased over. A connection is simulated only if both the multi-aquifer well and the connection are active, so a well with a STATUS of INACTIVE has no flow through any of its connections regardless of the status of the individual connections; the connection settings that were specified previously are used again when the well is made ACTIVE. Connection data must be specified for the maximum number of connections that a well will have at any time during the simulation, and a connection that represents a part of a well that has not yet been drilled should be given a CONNECTION\_STATUS of INACTIVE until it is completed.
+
+A packer that isolates part of a multi-aquifer well from the pumped interval, but leaves the isolated interval open to the aquifer, cannot be represented using CONNECTION\_STATUS because the isolated interval has its own water level. Each multi-aquifer well is simulated using a single head, so a well that is divided by a packer should be represented using a separate multi-aquifer well for each isolated interval.
+
+\vspace{5mm}
 \subsubsection{Explanation of Variables}
 \begin{description}
 \input{./mf6ivar/tex/gwf-maw-desc.tex}
@@ -33,7 +38,7 @@ Input to the Multi-Aquifer Well (MAW) Package is read from the file that has typ
 
 \vspace{5mm}
 \subsubsection{Available observation types}
-Multi-Aquifer Well Package observations include well head and all of the terms that contribute to the continuity equation for each multi-aquifer well. Additional LAK Package observations include the conductance for a well-aquifer connection conductance (\texttt{conductance}) and the calculated flowing well-aquifer connection conductance (\texttt{fw-conductance}). The data required for each MAW Package observation type is defined in table~\ref{table:gwf-mawobstype}. Negative and positive values for \texttt{maw} observations represent a loss from or gain to the GWF model, respectively. For all other flow terms, negative and positive values represent a loss from or gain to the MAW package, respectively.
+Multi-Aquifer Well Package observations include well head and all of the terms that contribute to the continuity equation for each multi-aquifer well. Additional MAW Package observations include the conductance for a well-aquifer connection conductance (\texttt{conductance}) and the calculated flowing well-aquifer connection conductance (\texttt{fw-conductance}). The data required for each MAW Package observation type is defined in table~\ref{table:gwf-mawobstype}. Negative and positive values for \texttt{maw} observations represent a loss from or gain to the GWF model, respectively. For all other flow terms, negative and positive values represent a loss from or gain to the MAW package, respectively. Observations of an inactive well, and \texttt{maw} and \texttt{conductance} observations of an inactive well-aquifer connection, are reported as DNODATA (3.0E+30).
 
 \begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
 \caption{Available MAW Package observation types} \tabularnewline
