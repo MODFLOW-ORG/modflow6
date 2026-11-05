@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "For SPC6 input, MAXBOUND was only checked against the flow package's number of boundaries in stress periods with an SPC6 PERIOD block or an active time series, and when flows came from a budget file the check used the previous stress period's number of boundaries. A flow package with more boundaries than MAXBOUND could then cause invalid concentrations or temperatures to be read without an error, producing wrong simulation results. The check now runs every time step."
