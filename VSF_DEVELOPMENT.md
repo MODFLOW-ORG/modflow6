@@ -39,12 +39,13 @@ In scope for v1:
 - exfiltration of groundwater through the same face (replaces the surface role of VSSP),
 - per-cell pond storage with a static maximum depth,
 - runoff as an MVR provider,
+- evaporation from ponded water and bare soil (potential `EVAPORATION` rate per surface cell;
+  implemented, see the design note below),
 - Newton and Picard formulations,
 - budget, observations, and optional pond-depth output.
 
 Out of scope for v1 (documented gaps or later work):
 
-- evaporation from ponded water (neither VSSB nor VSET handles it; a documented gap),
 - negative precipitation,
 - lateral movement of pond water; this belongs to the future surface-water (overland-flow)
   model that receives runoff,
@@ -61,7 +62,7 @@ Out of scope for v1 (documented gaps or later work):
 | Package | Relationship |
 |---|---|
 | VSF | Required. VSSB reads `KREL`/`DKRDH`, K and geometry from NPF, which VSF populates. VSF currently rejects mixed domains (`IVARSAT = 0` is fatal), so VSSB assumes every cell is a Richards cell. |
-| VSET | Independent. Root uptake stays in VSET. Evaporation from ponded water is not covered by either package. |
+| VSET | Independent. Root uptake (transpiration) stays in VSET. Evaporation from ponded water and bare soil is handled by VSSB; the potential `EVAPORATION` (VSSB) and potential transpiration (VSET) are independent and additive. |
 | VSSP | Remains for lateral/bottom seepage faces. A node may not be listed in both VSSB and VSSP when the VSSP entry has `IHC = 0` (see §7). |
 | RCH, EVT, UZF | Not replaced. VSSB is the Richards-domain surface boundary. |
 | MVR | VSSB is a provider only. Runoff is the provided water. |
@@ -350,7 +351,8 @@ Optional binary pond-depth file, like VSF's `PHEAD`.
   conductance), so VSSP can adopt it in the follow-up.
 - Model-level VSSB/VSSP overlap check (§7).
 - Docs: mf6io input description, release notes entry, a note that VSSB requires VSF, and a note
-  that evaporation from ponded water is not modelled.
+  that evaporation (from ponded water and bare soil) is simulated when a potential `EVAPORATION`
+  rate is specified.
 - Integration tests per §10; format Fortran with `fprettify` and Python with `ruff`.
 
 ### 12. Open details to settle during implementation
@@ -408,9 +410,10 @@ returns `qinf`, `pond`, `qro`, and the linearization (`hcof`, `rhs`, Newton
 (pond - pond0) * area / dt = qp - qinf - qro
 ```
 
-The current documentation already names the gap to be filled: *"Evaporation from
-ponded water is not simulated by the VSSB Package or by any other package"*
-(`doc/mf6io/gwf/vssb.tex`).
+This note originally recorded the design for the gap that the pre-evaporation
+documentation named: *"Evaporation from ponded water is not simulated by the VSSB
+Package or by any other package."* That gap is now closed — `doc/mf6io/gwf/vssb.tex`
+documents the implemented evaporation behavior described below.
 
 ### 2. Evaporation demand and wiring (decision: Option A)
 
@@ -1077,7 +1080,8 @@ plan (no column normalization, no coupled derivatives). This package can also
 serve as a **phase-0 scaffold** — wiring, budgets, and observations shared with
 a later VS2D kernel if both are eventually wanted.
 
-Soil evaporation remains a later, separate surface-boundary problem.
+Soil evaporation is a separate surface-boundary problem, handled by the VSSB
+Package rather than by this transpiration package.
 
 ### 4. Verification: agree on these before coding
 
@@ -1320,7 +1324,8 @@ coupled derivatives.
 3. Time-varying demand and vegetation parameters.
 4. Documentation and input-generation integration.
 
-Soil evaporation remains a later, separate surface-boundary problem, as selected.
+Soil evaporation is a separate surface-boundary problem, handled by the VSSB
+Package rather than by this transpiration package.
 
 #### 4. Verification: agree on these before coding
 
