@@ -129,7 +129,7 @@ jobs:
 
       - name: Setup pixi
         if: inputs.releasemode == true
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -207,11 +207,11 @@ jobs:
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
             extended: false
-          - os: macos-14
+          - os: macos-15
             compiler: gcc
             version: 13
             extended: false
-            xcode-version: '15.1.0'
+            xcode-version: '16.4'
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
@@ -231,7 +231,7 @@ jobs:
         if: runner.os == 'Linux'
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: false
+          preinstalled-runtimes: false
           android: true
           dotnet: true
           haskell: true
@@ -268,7 +268,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -344,6 +344,14 @@ jobs:
         with:
           xcode-version: ${{ matrix.xcode-version }}
 
+      - name: Show toolchain (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select -p
+          xcrun --show-sdk-version
+          ld -v 2>&1 | head -2
+          gfortran --version | head -1
+
       # static link gfortran libs
       - name: Hide dylibs (macOS)
         if: runner.os == 'macOS'
@@ -396,6 +404,10 @@ jobs:
           otool -L libmf6.dylib
           otool -L mf5to6
           otool -L zbud6
+          if otool -L mf6 libmf6.dylib mf5to6 zbud6 | grep -E 'libgfortran|libgcc_s|libquadmath'; then
+            echo "error: binaries dynamically link gcc/gfortran runtime libraries"
+            exit 1
+          fi
           lipo -info mf6 
           lipo -info libmf6.dylib
           lipo -info mf5to6
@@ -562,7 +574,7 @@ jobs:
       - name: Free disk space (Ubuntu)
         uses: jlumbroso/free-disk-space@main
         with:
-          tool-cache: true
+          preinstalled-runtimes: true
           android: true
           dotnet: true
           haskell: true
@@ -602,7 +614,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -727,7 +739,7 @@ jobs:
           - os: ubuntu-22.04
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
-          - os: macos-14
+          - os: macos-15
             compiler: gcc
             version: 13
           - os: windows-2022
@@ -761,7 +773,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"

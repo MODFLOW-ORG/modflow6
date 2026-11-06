@@ -37,13 +37,13 @@ def find_release_asset(release: dict) -> dict | None:
 
 
 @pytest.fixture
-def rebuilt_bin_path() -> Path:
-    return top_bin_path / "rebuilt"
+def rebuilt_bin_path(bin_path) -> Path:
+    return bin_path / "rebuilt"
 
 
 @pytest.fixture
-def downloaded_bin_path() -> Path:
-    return top_bin_path / "downloaded"
+def downloaded_bin_path(bin_path) -> Path:
+    return bin_path / "downloaded"
 
 
 @flaky(max_runs=3)
