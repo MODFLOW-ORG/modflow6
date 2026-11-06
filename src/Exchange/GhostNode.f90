@@ -769,7 +769,8 @@ contains
         call this%parser%GetNextLine(endOfBlock)
         if (endOfBlock) then
           write (errmsg, '(a,i0,a,i0,a)') &
-           'GNCDATA block has ', ignc - 1, ' rows, but NUMGNC is ', this%nexg, '.'
+            'GNCDATA block has ', ignc - 1, &
+            ' rows, but NUMGNC is ', this%nexg, '.'
           call store_error(errmsg)
           exit
         end if
