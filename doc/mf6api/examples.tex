@@ -1,0 +1,141 @@
+\subsection{Modifying Conductance and Storage}
+
+The internal flow properties---intercell conductance in the Node Property Flow
+Package and storage in the Storage Package---are the simplest variables to modify
+through the API, because MODFLOW 6 does not re-read them each stress period.
+\texttt{NPF/CONDSAT} is computed once during Allocate and Read and then used
+directly; \texttt{STO/SS} and \texttt{STO/SY} are read directly at every formulate
+step. In all three cases a value set once persists for the rest of the
+simulation, so it can be assigned a single time before the time loop and the
+high-level \texttt{update} routine used to advance the simulation. Set
+\texttt{CONDSAT} (not the hydraulic conductivity, which is inert after Allocate
+and Read) to change conductance, and set \texttt{SS} or \texttt{SY} directly to
+change storage.
+
+\begin{lstlisting}[style=pseudocode]
+initialize()
+set MODEL/NPF/CONDSAT = ...       # change intercell conductance (not K, which is inert)
+set MODEL/STO/SS = ...            # change confined (specific) storage
+set MODEL/STO/SY = ...            # change water-table storage (specific yield)
+while time < end_time:
+    update()                     # nothing re-reads these, so the change persists
+finalize()
+\end{lstlisting}
+
+\noindent A property can also be changed partway through a simulation by setting
+it before the time step from which the new value should take effect; it then
+persists until it is changed again.
+
+\begin{lstlisting}[style=pseudocode]
+initialize()
+while time < end_time:
+    if time >= change_time:
+        set MODEL/NPF/CONDSAT = ...   # takes effect from this step onward
+    update()
+finalize()
+\end{lstlisting}
+
+\noindent The set-once approach is valid only when MODFLOW 6 does not rewrite the
+variable. If time-varying hydraulic conductivity (TVK), time-varying storage
+(TVS), or the Viscosity (VSC) Package is active, the corresponding variable is
+refreshed every time step and must instead be set after \texttt{prepare\_time\_step}
+on each step, using the pattern shown next for stress-package input. Similarly, if
+the Horizontal Flow Barrier (HFB) Package is active, it overwrites \texttt{CONDSAT}
+on the connections it spans at every Read and Prepare, so those entries must be
+re-applied each step rather than set once.
+
+\subsection{Updating Stress-Package Input at Run Time}
+
+The values in a stress package are written by MODFLOW 6 inside
+\texttt{prepare\_time\_step}, which performs Read and Prepare (only on the first
+time step of a stress period that reads a new period-data block) and Advance
+(every time step). A value supplied as a constant in the package file is written
+during Read and Prepare; a value supplied by a time series is written during
+Advance. An API override must therefore be applied \emph{after}
+\texttt{prepare\_time\_step}; a value set before it is overwritten by whichever
+of those two steps writes the variable.
+
+In the simplest case the value can be set before the time step and the step
+advanced with the high-level convenience routine \texttt{update}, which runs an
+entire time step (\texttt{prepare\_time\_step}, the iteration loop, and
+\texttt{finalize\_time\_step}) in a single call. This works only when MODFLOW 6
+will not rewrite the value during the step. When it would---most commonly for
+time-series values---the lower-level routines are used instead so the value can
+be set after \texttt{prepare\_time\_step}. The pseudo-code uses the memory
+address \texttt{MODEL/PKG/COND} to stand for any stress-package input variable.
+
+\subsubsection{Simplest use case: setting a value before the time step}
+
+A value can be set before the time step (and the step advanced with
+\texttt{update}) when MODFLOW 6 will not rewrite it during that step. This is the
+case only when both of the following hold: the value is not supplied by a time
+series (a time series rewrites it every step during Advance), and the step is not
+the first step of a stress period that reads a new period-data block (Read and
+Prepare rewrites the named array then). Mid-period time steps, and stress periods
+that reuse the previous period's data, satisfy both conditions.
+
+\begin{lstlisting}[style=pseudocode]
+initialize()
+while time < end_time:
+    # valid only when, for this step, MF6 will not overwrite the value:
+    #   - the value is not driven by a time series, AND
+    #   - this is not the first step of a stress period with a new PERIOD block
+    if value_will_not_be_overwritten_this_step:
+        set MODEL/PKG/COND = ...
+    update()                     # = prepare_time_step + iteration loop + finalize_time_step
+finalize()
+\end{lstlisting}
+
+\subsubsection{Standard pattern: update after \texttt{prepare\_time\_step}}
+
+When the value may be rewritten during the step---most importantly a time-series
+value, which is refreshed every step during Advance---it must be set after
+\texttt{prepare\_time\_step}. Setting it every time step at that point, using the
+lower-level routines, is the safe and general pattern for both package-file and
+time-series values.
+
+\begin{lstlisting}[style=pseudocode]
+initialize()
+while time < end_time:
+    prepare_time_step(dt)        # Read and Prepare (period start) + Advance (time series)
+    set MODEL/PKG/COND = ...      # safe here: after MF6 has written its own value
+    prepare_solve()
+    repeat:
+        converged = solve()      # one outer (Picard/Newton) iteration
+    until converged
+    finalize_solve()
+    finalize_time_step()
+finalize()
+\end{lstlisting}
+
+\subsubsection{Head-dependent values within the iteration loop}
+
+Each \texttt{solve} call performs one outer (Picard or Newton) iteration, in which
+the stress packages are formulated from their input variables. Modifying a
+package input before each \texttt{solve} therefore re-linearizes the boundary at
+every iteration, which can be used to implement a value that depends on the
+current head (a custom head-dependent boundary or nonlinear coefficient). Modify
+the package input (for example \texttt{COND}); MODFLOW 6 recomputes the
+corresponding \texttt{HCOF} and \texttt{RHS} terms from it on each iteration. The
+outer iteration loop converges when the head and the value it depends on reach a
+consistent state.
+
+\begin{lstlisting}[style=pseudocode]
+initialize()
+while time < end_time:
+    prepare_time_step(dt)
+    prepare_solve()
+    repeat:                              # outer (Picard/Newton) iteration loop
+        head = get_value_ptr("MODEL/X")
+        set MODEL/PKG/COND = f(head)     # modify the package input before each solve
+        converged = solve()             # this iteration formulates with the new value
+    until converged                     # head and value reach self-consistency
+    finalize_solve()
+    finalize_time_step()
+finalize()
+\end{lstlisting}
+
+A complete, runnable version of the standard pattern---with one general-head
+boundary whose conductance is a constant in the package file and a second whose
+conductance is supplied by a time series---is provided in
+\texttt{doc/mf6api/examples/update\_stress\_via\_api.py}.
