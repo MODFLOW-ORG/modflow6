@@ -30,6 +30,7 @@ module GridArrayLoadModule
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
     logical(LGP), dimension(:), allocatable :: active !< user node IDOMAIN > 0
     logical(LGP) :: nodeulist_set = .false. !< nodeulist set in this block
+    integer(I4B), dimension(:), pointer, contiguous :: aux_reads => null() !< read state of each auxiliary variable
   contains
     procedure :: ainit
     procedure :: df
@@ -240,6 +241,7 @@ contains
       ! reset read state
       this%param_reads(n)%invar = 0
     end do
+    this%aux_reads = 0
   end subroutine reset
 
   subroutine params_alloc(this)
@@ -266,6 +268,11 @@ contains
       this%param_reads(iparam)%invar => intvar
       this%param_reads(iparam)%invar = 0
     end do
+
+    ! read state of each auxiliary variable
+    call mem_allocate(this%aux_reads, this%ctx%naux, 'INAUXVARS', &
+                      this%mf6_input%mempath)
+    this%aux_reads = 0
   end subroutine params_alloc
 
   subroutine param_load(this, parser, idt, mempath, layered, netcdf, iaux)
@@ -376,6 +383,7 @@ contains
         this%nodeulist_set = .true.
       end if
       deallocate (nodes)
+      this%aux_reads(iaux) = 1
     case default
       errmsg = 'IDM unimplemented. GridArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
