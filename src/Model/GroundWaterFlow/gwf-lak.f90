@@ -5058,14 +5058,16 @@ contains
             if (obsrv%ObsTypeId == 'LAK' .or. &
                 obsrv%ObsTypeId == 'CONDUCTANCE' .or. &
                 obsrv%ObsTypeId == 'WETTED-AREA') then
-              do j = 1, this%nlakes
-                do jj = this%idxlakeconn(j), this%idxlakeconn(j + 1) - 1
-                  if (this%boundname(jj) == bname) then
-                    jfound = .true.
-                    call obsrv%AddObsIndex(jj)
-                  end if
+              if (this%inamedbound /= 0) then
+                do j = 1, this%nlakes
+                  do jj = this%idxlakeconn(j), this%idxlakeconn(j + 1) - 1
+                    if (this%boundname(jj) == bname) then
+                      jfound = .true.
+                      call obsrv%AddObsIndex(jj)
+                    end if
+                  end do
                 end do
-              end do
+              end if
             else if (obsrv%ObsTypeId == 'EXT-OUTFLOW' .or. &
                      obsrv%ObsTypeId == 'TO-MVR' .or. &
                      obsrv%ObsTypeId == 'OUTLET') then

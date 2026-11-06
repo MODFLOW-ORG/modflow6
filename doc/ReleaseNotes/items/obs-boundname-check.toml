@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "An observation that named a boundary in a package without the BOUNDNAMES option read out of bounds. For a list-based package there was no error, and the observation wrote the no-data value. This is now an error."

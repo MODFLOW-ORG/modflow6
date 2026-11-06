@@ -7098,13 +7098,15 @@ contains
           ! -- Observation location(s) is(are) based on a boundary name.
           !    Iterate through all boundaries to identify and store
           !    corresponding index(indices) in bound array.
-          do j = 1, this%ninterbeds
-            if (this%boundname(j) == bname) then
-              obsrv%BndFound = .true.
-              obsrv%CurrentTimeStepEndValue = DZERO
-              call obsrv%AddObsIndex(j)
-            end if
-          end do
+          if (this%inamedbound /= 0) then
+            do j = 1, this%ninterbeds
+              if (this%boundname(j) == bname) then
+                obsrv%BndFound = .true.
+                obsrv%CurrentTimeStepEndValue = DZERO
+                call obsrv%AddObsIndex(j)
+              end if
+            end do
+          end if
           !
           ! -- one value per cell
         else if (obsrv%ObsTypeId == 'GSTRESS-CELL' .or. &
