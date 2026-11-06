@@ -25,7 +25,7 @@ module UzfModule
   use ObsModule, only: ObsType
   use InputOutputModule, only: URWORD, GetUnit, assign_iounit, openfile
   use SimVariablesModule, only: errmsg, warnmsg
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_error_filename, deprecation_warning
   use TableModule, only: TableType, table_cr
   use UzfETUtilModule
@@ -2260,6 +2260,8 @@ contains
     character(len=LENBOUNDNAME) :: bname
     class(ObserveType), pointer :: obsrv => null()
     ! -- formats
+10  format('Boundary "', a, '" for observation "', a, &
+           '" is invalid in package "', a, '"')
 60  format('Invalid node number in OBS input: ', i0)
     !
     if (kper == 1) then
@@ -2288,6 +2290,11 @@ contains
                 end if
               end if
             end do
+          end if
+          if (.not. obsrv%BndFound) then
+            write (errmsg, 10) trim(bname), trim(obsrv%Name), trim(this%packName)
+            call store_error(errmsg)
+            cycle
           end if
         else
           !
@@ -2358,7 +2365,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine uzf_rp_obs

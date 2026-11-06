@@ -7107,6 +7107,13 @@ contains
               end if
             end do
           end if
+          if (.not. obsrv%BndFound) then
+            write (errmsg, '(7a)') &
+              'Boundary "', trim(bname), '" for observation "', &
+              trim(obsrv%Name), '" is invalid in package "', &
+              trim(this%packName), '"'
+            call store_error(errmsg)
+          end if
           !
           ! -- one value per cell
         else if (obsrv%ObsTypeId == 'GSTRESS-CELL' .or. &
