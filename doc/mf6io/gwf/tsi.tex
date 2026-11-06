@@ -258,6 +258,8 @@ BEGIN PERIOD kper
 END PERIOD
 \end{lstlisting}
 
+Time-array series are read from the ASCII time-array series file. Other arrays in the same PERIOD block can be read from a NetCDF input file (NETCDF keyword). An array given as a time-array series is not written by the EXPORT\_ARRAY\_NETCDF option; its period values in the exported NetCDF file are the fill value. When an exported file is used as input, the TIMEARRAYSERIES entry must remain in the package file; reading the array with the NETCDF keyword would read the fill value. If a PERIOD block is written for every stress period, the TIMEARRAYSERIES entry must be repeated in each block while the series applies, because a link for array input (READASARRAYS) ends at the next PERIOD block.
+
 % Explanation of Variables Read from a Package Input File
 \noindent \textbf{Explanation of Variables Read from a Package Input File:}
 

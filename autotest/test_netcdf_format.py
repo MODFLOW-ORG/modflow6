@@ -2,7 +2,7 @@
 NetCDF structured/mesh format, attribute, and CF/UGRID/MF6 convention
 verification test.
 
-Builds a minimal transient GWF model (DIS, IC, NPF, STO, CHD, WEL, OC) and
+Builds a minimal transient GWF model (DIS, IC, NPF, STO, CHD, WEL, RCHA, OC) and
 verifies that both OUTPUT and INPUT NetCDF files carry the expected convention
 attributes for every combination of:
 
@@ -29,6 +29,9 @@ CF-1.13  (https://cfconventions.org/cf-conventions/cf-conventions.html)
   4.4  time coordinate: standard_name, units, calendar
   7.3  cell_methods on the dependent variable ("time: point" -- an
        instantaneous state, not a time mean/accumulation)
+  7.1  input NC: time bounds (time_bnds) delimiting each stress period
+  7.3  input NC: cell_methods "time: mean" on real period input (input in
+       effect over the period); none on integer period input (IRCH)
 
 UGRID-1.0  (https://ugrid-conventions.github.io/ugrid-conventions/)
   mesh topology variable; face-indexed data variables carrying mesh,
@@ -40,6 +43,8 @@ MF6 internal: modflow_model, modflow_grid, modflow_input
 import flopy
 import numpy as np
 import pytest
+import xarray as xr
+import xugrid as xu
 from framework import TestFramework
 
 nc = pytest.importorskip("netCDF4")
@@ -276,6 +281,9 @@ def build_models(test, fmt, ncf_config):
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data=CHD_SP)
 
     flopy.mf6.ModflowGwfwel(gwf, stress_period_data=WEL_SP)
+
+    # zero recharge: period input arrays for the input NC
+    flopy.mf6.ModflowGwfrcha(gwf, pname="rcha", irch=0, recharge=0.0)
 
     flopy.mf6.ModflowGwfoc(
         gwf,
@@ -695,11 +703,52 @@ def _check_data_var(var, vname, fmt, ncf_config, label=""):
             )
 
 
+def _check_period_time(ds, label):
+    """Input NC period data: stress period time bounds (CF-1.13 7.1) and
+    cell_methods (7.3)."""
+    ctx = f" ({label})"
+    time = ds.variables["time"]
+    assert time.getncattr("bounds") == "time_bnds", f"time bounds attr{ctx}"
+    bnds = ds.variables["time_bnds"]
+    assert bnds.dimensions == ("time", "bnd"), f"time_bnds dimensions{ctx}"
+    assert "units" not in bnds.ncattrs(), f"time_bnds must not have units{ctx}"
+    assert "calendar" not in bnds.ncattrs(), f"time_bnds must not have calendar{ctx}"
+    perlen = np.array([p[0] for p in PERIODDATA])
+    start = np.concatenate(([0.0], np.cumsum(perlen)[:-1]))
+    assert np.allclose(bnds[:], np.column_stack((start, start + perlen))), (
+        f"time_bnds must hold each stress period start and end{ctx}"
+    )
+    assert np.allclose(time[:], start), f"time must hold stress period starts{ctx}"
+    # contiguous periods share identical endpoints
+    assert (bnds[1:, 0] == bnds[:-1, 1]).all(), (
+        f"time_bnds period end must equal next period start{ctx}"
+    )
+    nperiod = 0
+    for vname, var in ds.variables.items():
+        if "modflow_input" not in var.ncattrs() or "time" not in var.dimensions:
+            continue
+        nperiod += 1
+        if np.issubdtype(var.dtype, np.floating):
+            assert var.getncattr("cell_methods") == "time: mean", (
+                f"{vname} cell_methods must be 'time: mean'{ctx}"
+            )
+        else:
+            assert "cell_methods" not in var.ncattrs(), (
+                f"{vname} (integer) must not have cell_methods{ctx}"
+            )
+    assert nperiod > 0, f"no period input variables{ctx}"
+
+
 def _check_output_nc(ds, name, fmt, ncf_config):
     _check_global_attrs(ds, name, fmt, ncf_config, label="output")
     _check_layer_coord(ds, label="output")
     _check_z_coord(ds, fmt, label="output")
     _check_time_coord(ds, label="output")
+    # time steps of instantaneous output: no period bounds
+    assert "time_bnds" not in ds.variables, "time_bnds must not be in output NC"
+    assert "bounds" not in ds.variables["time"].ncattrs(), (
+        "time must not have bounds in output NC"
+    )
     _check_projection(ds, fmt, ncf_config, label="output")
     _check_coord_gridmapping(ds, fmt, ncf_config, label="output")
 
@@ -711,6 +760,8 @@ def _check_output_nc(ds, name, fmt, ncf_config):
         assert ds.variables["head"].getncattr("cell_methods") == "time: point", (
             "head cell_methods must be 'time: point'"
         )
+        # head is a length (model LENGTH_UNITS, default meters)
+        assert ds.variables["head"].getncattr("units") == "m", "head units must be 'm'"
     else:
         for k in range(1, NLAY + 1):
             vname = f"head_l{k}"
@@ -851,7 +902,12 @@ def _check_input_nc(ds, name, fmt, ncf_config):
     _check_z_coord(ds, fmt, label="input")
     _check_projection(ds, fmt, ncf_config, label="input")
     _check_coord_gridmapping(ds, fmt, ncf_config, label="input")
-    # time coord only present on period-data variables; don't require it on input
+    _check_time_coord(ds, label="input")
+    _check_period_time(ds, label="input")
+    # package input variables: units are not known from the input
+    for vname, var in ds.variables.items():
+        if "modflow_input" in var.ncattrs():
+            assert "units" not in var.ncattrs(), f"{vname} must not have units"
 
     if fmt == "structured":
         for vname in _STRUCTURED_VARS_NONSPATIAL:
@@ -917,6 +973,18 @@ def _check_input_nc(ds, name, fmt, ncf_config):
                 )
 
 
+def _check_decode(path, fmt):
+    """File decodes with xarray (CF) and, for UGRID, xugrid."""
+    with xr.open_dataset(path) as ds:
+        ds.load()
+        if "time_bnds" in ds.variables:
+            assert (ds["time_bnds"][:, 0] == ds["time"]).all(), (
+                f"decoded time_bnds lower must equal time ({path.name})"
+            )
+        if fmt == "ugrid":
+            assert xu.UgridDataset(ds).grids, f"no UGRID grid found ({path.name})"
+
+
 def check_output(test, fmt, ncf_config, gridded_input):
     name = test.name
     ws = test.workspace
@@ -925,13 +993,14 @@ def check_output(test, fmt, ncf_config, gridded_input):
     with nc.Dataset(ws / f"{name}.nc") as ds:
         assert ds.data_model == "NETCDF4"
         _check_output_nc(ds, name, fmt, ncf_config)
+    _check_decode(ws / f"{name}.nc", fmt)
 
     # --- input NC (validate mode) ---
     if gridded_input == "ascii":
         return
 
     gwf = test.sims[0].gwf[0]
-    for pkg_name in ("DIS", "IC", "NPF", "STO"):
+    for pkg_name in ("DIS", "IC", "NPF", "STO", "rcha"):
         gwf.get_package(pkg_name).export_array_netcdf = True
 
     input_nc = _input_nc_name(name, fmt)
@@ -953,6 +1022,7 @@ def check_output(test, fmt, ncf_config, gridded_input):
     with nc.Dataset(ws / input_nc) as ds:
         assert ds.data_model == "NETCDF4"
         _check_input_nc(ds, name, fmt, ncf_config)
+    _check_decode(ws / input_nc, fmt)
 
 
 def _check_geo_crs_output(test, fmt):
