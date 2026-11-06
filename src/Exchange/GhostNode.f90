@@ -764,9 +764,15 @@ contains
     ! -- process GNC data
     if (isfound) then
       write (this%iout, '(1x,a)') 'PROCESSING GNCDATA'
+      endOfBlock = .false.
       do ignc = 1, this%nexg
         call this%parser%GetNextLine(endOfBlock)
-        if (endOfBlock) exit
+        if (endOfBlock) then
+          write (errmsg, '(a,i0,a,i0,a)') &
+           'GNCDATA block has ', ignc - 1, ' rows, but NUMGNC is ', this%nexg, '.'
+          call store_error(errmsg)
+          exit
+        end if
         call this%parser%GetCurrentLine(line)
         lloc = 1
         !
@@ -844,6 +850,16 @@ contains
         end do
         !
       end do
+      !
+      ! -- The block must end here, or rows past NUMGNC would be ignored
+      if (.not. endOfBlock) then
+        call this%parser%GetNextLine(endOfBlock)
+        if (.not. endOfBlock) then
+          write (errmsg, '(a,i0,a)') &
+            'GNCDATA block has more rows than NUMGNC, which is ', this%nexg, '.'
+          call store_error(errmsg)
+        end if
+      end if
       !
       ! -- Stop if errors
       nerr = count_errors()
