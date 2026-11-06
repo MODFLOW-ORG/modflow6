@@ -44,6 +44,7 @@ module DisNCStructuredModule
     integer(I4B) :: layer !< layer coordinate variable (discrete layer index, not a position)
     integer(I4B) :: elevation !< z auxiliary coordinate variable (cell center elevation, a real vertical position)
     integer(I4B) :: time !< time coordinate variable
+    integer(I4B) :: time_bnds !< time boundaries 2D array
     integer(I4B) :: dependent !< dependent variable
     integer(I4B) :: x_bnds !< x boundaries 2D array
     integer(I4B) :: y_bnds !< y boundaries 2D array
@@ -481,6 +482,9 @@ contains
       call nf_verify(nf90_put_att(this%ncid, varid, &
                                   '_FillValue', (/DNODATA/)), &
                      this%nc_fname)
+      ! input in effect over the stress period (CF-1.13 7.3)
+      call nf_verify(nf90_put_att(this%ncid, varid, 'cell_methods', &
+                                  'time: mean'), this%nc_fname)
     case ('INTEGER1D')
       if (idt%shape == 'NCPL' .or. &
           idt%shape == 'NAUX NCPL') then
@@ -517,8 +521,6 @@ contains
                        this%shuffle, this%nc_fname)
 
     ! variable attributes
-    call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &
                                 'long_name', longname), this%nc_fname)
 
@@ -564,7 +566,7 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use TdisModule, only: totim, kper
+    use TdisModule, only: totim, kper, perlen
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
     class(DisNCStructuredType), intent(inout) :: this
@@ -575,16 +577,17 @@ contains
     real(DP), dimension(:, :), pointer, contiguous :: dbl2d
     character(len=LINELENGTH) :: nc_tag
     integer(I4B) :: iaux, iparam, nvals, n
-    integer(I4B), pointer :: nbound
 
     ! initialize
     iaux = 0
 
-    ! export defined period input
+    ! update input in effect for this period
+    call export_pkg%update_state()
+
+    ! export period input in effect
     do iparam = 1, export_pkg%nparam
-      if (export_pkg%iper /= kper) cycle
-      ! check if variable was read this period
-      if (export_pkg%param_reads(iparam)%invar < 1) cycle
+      ! check if variable has input in effect
+      if (.not. export_pkg%param_state(iparam)) cycle
 
       ! set input definition
       idt => &
@@ -624,11 +627,7 @@ contains
           allocate (nodes(nvals))
           nodes = DNODATA
           call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
-          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
-          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
-          do n = 1, nbound
-            nodes(int1d(n)) = dbl1d(n)
-          end do
+          call export_pkg%user_nodes(dbl1d, nodes)
           call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
                                this%dis, idt, export_pkg%mf6_input%mempath, &
                                nc_tag, export_pkg%mf6_input%subcomponent_name, &
@@ -645,6 +644,7 @@ contains
           nvals = this%dis%nrow * this%dis%ncol
           allocate (nodes(nvals))
           do iaux = 1, size(dbl2d, dim=1) !naux
+            if (.not. export_pkg%aux_state(iaux)) cycle
             this%var_ids%export = export_pkg%varids_aux(iaux, 1)
             do n = 1, nvals
               nodes(n) = dbl2d(iaux, n)
@@ -660,14 +660,11 @@ contains
         case ('NAUX NODES')
           nvals = this%dis%nodesuser
           allocate (nodes(nvals))
-          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
-          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
           do iaux = 1, size(dbl2d, dim=1) ! naux
+            if (.not. export_pkg%aux_state(iaux)) cycle
             nodes = DNODATA
             this%var_ids%export = export_pkg%varids_aux(iaux, 1)
-            do n = 1, nbound
-              nodes(int1d(n)) = dbl2d(iaux, n)
-            end do
+            call export_pkg%user_nodes(dbl2d(iaux, :), nodes)
             call nc_export_array(nodes, this%ncid, this%dim_ids, this%var_ids, &
                                  this%dis, idt, export_pkg%mf6_input%mempath, &
                                  nc_tag, export_pkg%mf6_input%subcomponent_name, &
@@ -688,6 +685,18 @@ contains
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
                                 totim, start=(/kper/)), &
                    this%nc_fname)
+
+    ! write stress period time bounds; the period start is also the end
+    ! of the previous period
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%time_bnds, &
+                                (/totim, totim + perlen(kper)/), &
+                                start=(/1, kper/), count=(/2, 1/)), &
+                   this%nc_fname)
+    if (kper > 1) then
+      call nf_verify(nf90_put_var(this%ncid, this%var_ids%time_bnds, &
+                                  totim, start=(/2, kper - 1/)), &
+                     this%nc_fname)
+    end if
 
     ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
@@ -799,11 +808,18 @@ contains
                                   this%datetime), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'axis', 'T'), &
                      this%nc_fname)
-      !call nf_verify(nf90_put_att(ncid, var_ids%time, 'bounds', 'time_bnds'), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'standard_name', &
                                   'time'), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
                                   'time'), this%nc_fname)
+      ! stress period bounds of the time coordinate (CF-1.13 7.1)
+      if (isim_mode == MVALIDATE) then
+        call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'bounds', &
+                                    'time_bnds'), this%nc_fname)
+        call nf_verify(nf90_def_var(this%ncid, 'time_bnds', NF90_DOUBLE, &
+                                    (/this%dim_ids%bnd, this%dim_ids%time/), &
+                                    this%var_ids%time_bnds), this%nc_fname)
+      end if
     end if
 
     ! Z dimension
@@ -930,9 +946,12 @@ contains
     call ncvar_deflate(this%ncid, this%var_ids%dependent, this%deflate, &
                        this%shuffle, this%nc_fname)
 
-    ! put attr
-    call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
-                                'units', this%lenunits), this%nc_fname)
+    ! put attr; head is a length, other dependent variables have no
+    ! units known from the input
+    if (this%modeltype == 'GWF') then
+      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, &
+                                  'units', this%lenunits), this%nc_fname)
+    end if
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, 'long_name', &
                                 this%annotation%longname), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent, '_FillValue', &

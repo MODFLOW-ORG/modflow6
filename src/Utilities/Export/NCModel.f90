@@ -49,9 +49,19 @@ module NCModelExportModule
     integer(I4B) :: eper !< most recent period of netcdf package export
     integer(I4B) :: nparam !< number of in scope params
     integer(I4B) :: naux !< number of auxiliary variables
+    integer(I4B), dimension(:), pointer, &
+      contiguous :: aux_reads => null() !< read state of each auxiliary variable
+    logical(LGP), dimension(:), allocatable :: param_value !< param has input in effect
+    logical(LGP), dimension(:), allocatable :: param_series !< param linked to a series
+    logical(LGP), dimension(:), allocatable :: aux_value !< aux has input in effect
+    logical(LGP), dimension(:), allocatable :: aux_series !< aux linked to a series
   contains
     procedure :: init => epkg_init
     procedure :: destroy => epkg_destroy
+    procedure :: update_state
+    procedure :: param_state
+    procedure :: aux_state
+    procedure :: user_nodes
   end type ExportPackageType
 
   !> @brief netcdf export attribute annotations
@@ -191,7 +201,114 @@ contains
 
     ! set pointer to loaded input period
     call mem_setptr(this%iper, 'IPER', mf6_input%mempath)
+
+    ! read state of each auxiliary variable
+    call mem_setptr(this%aux_reads, 'INAUXVARS', mf6_input%mempath)
+
+    ! input in effect before the first period: the layer index array
+    ! (e.g. IRCH, IEVT) is 1, other arrays have no input
+    allocate (this%param_value(nparam), this%param_series(nparam))
+    allocate (this%aux_value(naux), this%aux_series(naux))
+    this%param_value = .false.
+    this%param_series = .false.
+    this%aux_value = .false.
+    this%aux_series = .false.
+    do n = 1, nparam
+      if (param_names(n) == 'I'//trim(mf6_input%subcomponent_type(1:3))) &
+        this%param_value(n) = .true.
+    end do
   end subroutine epkg_init
+
+  !> @brief Update input in effect from the period block read states
+  !!
+  !! A block gives an array as values or as a time-array series. Arrays
+  !! not given keep their input; a series link ends at a block that does
+  !! not give the array, which then has no input until given values.
+  !<
+  subroutine update_state(this)
+    use TdisModule, only: kper
+    class(ExportPackageType), intent(inout) :: this
+    integer(I4B) :: n
+    if (this%iper /= kper) return
+    do n = 1, this%nparam
+      call set_state(this%param_reads(n)%invar, this%param_value(n), &
+                     this%param_series(n))
+    end do
+    do n = 1, this%naux
+      call set_state(this%aux_reads(n), this%aux_value(n), this%aux_series(n))
+    end do
+  end subroutine update_state
+
+  !> @brief Set input in effect from a read state
+  !<
+  subroutine set_state(invar, has_value, series)
+    integer(I4B), intent(in) :: invar
+    logical(LGP), intent(inout) :: has_value
+    logical(LGP), intent(inout) :: series
+    select case (invar)
+    case (1)
+      has_value = .true.
+      series = .false.
+    case (2)
+      has_value = .false.
+      series = .true.
+    case default
+      if (series) then
+        has_value = .false.
+        series = .false.
+      end if
+    end select
+  end subroutine set_state
+
+  !> @brief .true. if a param has input in effect to export
+  !!
+  !! The auxiliary variable param has input if any auxiliary variable has.
+  !<
+  function param_state(this, iparam) result(exported)
+    class(ExportPackageType), intent(in) :: this
+    integer(I4B), intent(in) :: iparam
+    logical(LGP) :: exported
+    if (this%param_names(iparam) == 'AUX') then
+      exported = any(this%aux_value)
+    else
+      exported = this%param_value(iparam)
+    end if
+  end function param_state
+
+  !> @brief .true. if an auxiliary variable has input in effect to export
+  !<
+  function aux_state(this, iaux) result(exported)
+    class(ExportPackageType), intent(in) :: this
+    integer(I4B), intent(in) :: iaux
+    logical(LGP) :: exported
+    exported = .false.
+    if (iaux <= size(this%aux_value)) exported = this%aux_value(iaux)
+  end function aux_state
+
+  !> @brief Set user node values from a loaded period array
+  !!
+  !! Grid array input is indexed by boundary (NODEULIST, NBOUND), or by
+  !! user node when NODEULIST is empty. Other user nodes keep their value
+  !! in nodes.
+  !<
+  subroutine user_nodes(this, vals, nodes)
+    use MemoryManagerModule, only: mem_setptr
+    class(ExportPackageType), intent(in) :: this
+    real(DP), dimension(:), intent(in) :: vals !< loaded period array
+    real(DP), dimension(:), intent(inout) :: nodes !< user node values
+    integer(I4B), dimension(:), pointer, contiguous :: nodeulist
+    integer(I4B), pointer :: nbound
+    integer(I4B) :: n
+    call mem_setptr(nodeulist, 'NODEULIST', this%mf6_input%mempath)
+    if (size(nodeulist) == 0) then
+      nodes(1:size(vals)) = vals
+    else
+      call mem_setptr(nbound, 'NBOUND', this%mf6_input%mempath)
+      do n = 1, nbound
+        nodes(nodeulist(n)) = vals(n)
+      end do
+    end if
+  end subroutine user_nodes
 
   !> @brief destroy dynamic package export object
   !<
@@ -199,6 +316,11 @@ contains
     use InputDefinitionModule, only: InputParamDefinitionType
     class(ExportPackageType), intent(inout) :: this
     if (allocated(this%param_names)) deallocate (this%param_names)
+    if (allocated(this%param_value)) deallocate (this%param_value)
+    if (allocated(this%param_series)) deallocate (this%param_series)
+    if (allocated(this%aux_value)) deallocate (this%aux_value)
+    if (allocated(this%aux_series)) deallocate (this%aux_series)
+    nullify (this%aux_reads)
   end subroutine epkg_destroy
 
   !> @brief set netcdf file scoped attributes
