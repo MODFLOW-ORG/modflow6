@@ -1,0 +1,252 @@
+# --------------------- gwf vset options ---------------------
+# flopy multi-package
+# package-type stress-package
+
+block options
+name et_model
+type string
+valid feddes
+reader urword
+optional true
+longname model used for the root-water uptake reduction
+description is a text keyword to indicate which model is used to reduce potential transpiration to actual root-water uptake as a function of pressure head.  Currently only FEDDES is supported, which is also the default.
+
+block options
+name h1
+type double precision
+reader urword
+optional true
+longname feddes anoxia pressure head
+description is the pressure head ($L$) at and above which root-water uptake is zero because of oxygen stress (the anoxia point) in the Feddes model.  Pressure heads must satisfy H1 $>$ H2 $>$ H3 $>$ H4.
+
+block options
+name h2
+type double precision
+reader urword
+optional true
+longname feddes upper optimal pressure head
+description is the pressure head ($L$) below which root-water uptake is at the potential rate (the wet end of the optimal range) in the Feddes model.
+
+block options
+name h3
+type double precision
+reader urword
+optional true
+longname feddes lower optimal pressure head
+description is the pressure head ($L$) above which root-water uptake is at the potential rate (the dry end of the optimal range) in the Feddes model.
+
+block options
+name h4
+type double precision
+reader urword
+optional true
+longname feddes wilting point pressure head
+description is the pressure head ($L$) at and below which root-water uptake is zero because of water stress (the wilting point) in the Feddes model.
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Groundwater Flow'}
+
+block options
+name auxmultname
+type string
+shape
+reader urword
+optional true
+longname name of auxiliary variable for multiplier
+description REPLACE auxmultname {'{#1}': 'transpiration rate'}
+
+block options
+name boundnames
+type keyword
+shape
+reader urword
+optional true
+longname
+description REPLACE boundnames {'{#1}': 'transpiration'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'transpiration'}
+mf6internal iprpak
+
+block options
+name print_flows
+type keyword
+reader urword
+optional true
+longname print transpiration rates to listing file
+description REPLACE print_flows {'{#1}': 'transpiration'}
+mf6internal iprflow
+
+block options
+name save_flows
+type keyword
+reader urword
+optional true
+longname save transpiration rates to budget file
+description REPLACE save_flows {'{#1}': 'transpiration'}
+mf6internal ipakcb
+
+block options
+name ts_filerecord
+type record ts6 filein ts6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name ts6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname head keyword
+description keyword to specify that record corresponds to a time-series file.
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name ts6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of time series information
+description REPLACE timeseriesfile {}
+
+block options
+name obs_filerecord
+type record obs6 filein obs6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name obs6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname obs keyword
+description keyword to specify that record corresponds to an observations file.
+
+block options
+name obs6_filename
+type string
+preserve_case true
+in_record true
+tagged false
+reader urword
+optional false
+longname obs6 input filename
+description REPLACE obs6_filename {'{#1}': 'VSET', '{#2}': '\\ref{table:gwf-obstypetable}'}
+
+# --------------------- gwf vset dimensions ---------------------
+
+block dimensions
+name maxbound
+type integer
+reader urword
+optional false
+longname maximum number of transpiration cells
+description REPLACE maxbound {'{#1}': 'transpiration'}
+
+# --------------------- gwf vset period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name stress_period_data
+type recarray cellid rate aux boundname
+shape (maxbound)
+reader urword
+longname
+description
+mf6internal spd
+
+block period
+name cellid
+type integer
+shape (ncelldim)
+tagged false
+in_record true
+reader urword
+longname cell identifier
+description REPLACE cellid {}
+
+block period
+name rate
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+time_series true
+longname potential transpiration rate
+description is the potential transpiration flux rate ($LT^{-1}$) for the cell, interpreted as the root-fraction-weighted atmospheric demand assigned to this cell.  Actual root-water uptake is this rate reduced by the pressure-head stress response of the selected ET model.  If the Options block includes a TIMESERIESFILE entry (see the ``Time-Variable Input'' section), values can be obtained from a time series by entering the time-series name in place of a numeric value.
+
+block period
+name aux
+type double precision
+in_record true
+tagged false
+shape (naux)
+reader urword
+optional true
+time_series true
+longname auxiliary variables
+description REPLACE aux {'{#1}': 'transpiration'}
+mf6internal auxvar
+
+block period
+name boundname
+type string
+shape
+tagged false
+in_record true
+reader urword
+optional true
+longname transpiration name
+description REPLACE boundname {'{#1}': 'transpiration'}

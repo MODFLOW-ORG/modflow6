@@ -752,7 +752,7 @@ contains
     call model_budget%addentry(rin, rout, delt, budtxt(1), &
                                isuppress_output, '         STORAGE')
     !
-    ! -- Add unconfined storage rates to model budget (TODO_UZR: extension as a separate entry?)
+    ! -- Add unconfined storage rates to model budget (TODO_VSF: extension as a separate entry?)
     if (this%iusesy == 1) then
       call rate_accumulator(this%strgsy, rin, rout)
       call model_budget%addentry(rin, rout, delt, budtxt(2), &

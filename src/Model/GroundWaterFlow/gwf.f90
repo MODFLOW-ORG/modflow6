@@ -10,6 +10,7 @@ module GwfModule
   use BndModule, only: BndType, AddBndToList, GetBndFromList
   use GwfIcModule, only: GwfIcType
   use GwfNpfModule, only: GwfNpfType
+  use GwfVsfModule, only: GwfVsfType
   use Xt3dModule, only: Xt3dType
   use GwfBuyModule, only: GwfBuyType
   use GwfVscModule, only: GwfVscType
@@ -37,6 +38,7 @@ module GwfModule
 
     type(GwfIcType), pointer :: ic => null() ! initial conditions package
     type(GwfNpfType), pointer :: npf => null() ! node property flow package
+    type(GwfVsfType), pointer :: vsf => null() ! Richards flow package
     type(Xt3dType), pointer :: xt3d => null() ! xt3d option for npf
     type(GwfBuyType), pointer :: buy => null() ! buoyancy package
     type(GwfVscType), pointer :: vsc => null() ! viscosity package
@@ -51,6 +53,7 @@ module GwfModule
     integer(I4B), pointer :: inic => null() ! IC enabled flag
     integer(I4B), pointer :: inoc => null() ! unit number OC
     integer(I4B), pointer :: innpf => null() ! NPF enabled flag
+    integer(I4B), pointer :: invsf => null() ! VSF enabled flag
     integer(I4B), pointer :: inbuy => null() ! unit number BUY
     integer(I4B), pointer :: invsc => null() ! unit number VSC
     integer(I4B), pointer :: insto => null() ! STO enabled flag
@@ -96,6 +99,7 @@ module GwfModule
     procedure, private :: create_bndpkgs
     procedure, private :: log_namfile_options
     procedure, private :: steady_period_check
+    procedure, private :: check_vssb_overlap
     !
   end type GwfModelType
 
@@ -107,7 +111,7 @@ module GwfModule
   integer(I4B), parameter :: GWF_NBASEPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NBASEPKG) :: GWF_BASEPKG
   data GWF_BASEPKG/'DIS6 ', 'DISV6', 'DISU6', '     ', '     ', & !  5
-                  &'NPF6 ', 'BUY6 ', 'VSC6 ', 'GNC6 ', '     ', & ! 10
+                  &'NPF6 ', 'VSF6 ', 'BUY6 ', 'VSC6 ', 'GNC6 ', & ! 10
                   &'HFB6 ', 'STO6 ', 'IC6  ', 'CSUB6', '     ', & ! 15
                   &'MVR6 ', 'OC6  ', 'OBS6 ', '     ', '     ', & ! 20
                   &30*'     '/ ! 50
@@ -120,9 +124,10 @@ module GwfModule
   integer(I4B), parameter :: GWF_NMULTIPKG = 50
   character(len=LENPACKAGETYPE), dimension(GWF_NMULTIPKG) :: GWF_MULTIPKG
   data GWF_MULTIPKG/'WEL6 ', 'DRN6 ', 'RIV6 ', 'GHB6 ', '     ', & !  5
-                   &'RCH6 ', 'EVT6 ', 'CHD6 ', '     ', '     ', & ! 10
+                   &'     ', 'RCH6 ', 'EVT6 ', 'CHD6 ', 'VSSP6', & ! 10
                    &'MAW6 ', 'SFR6 ', 'LAK6 ', 'UZF6 ', 'API6 ', & ! 15
-                   &35*'     '/ ! 50
+                   &'VSET6', 'VSSB6', & ! 17
+                   &33*'     '/ ! 50
 
   ! -- size of supported model package arrays
   integer(I4B), parameter :: NIUNIT_GWF = GWF_NBASEPKG + GWF_NMULTIPKG
@@ -225,6 +230,7 @@ contains
     ! -- Define packages and utility objects
     call this%dis%dis_df()
     call this%npf%npf_df(this%dis, this%xt3d, this%ingnc, this%invsc)
+    if (this%invsf > 0) call this%vsf%vsf_df(this%dis, this%npf, this%sto)
     call this%oc%oc_df()
     call this%budget%budget_df(NIUNIT_GWF, 'VOLUME', 'L**3')
     if (this%inbuy > 0) call this%buy%buy_df(this%dis)
@@ -330,6 +336,7 @@ contains
     if (this%inhfb > 0) call this%hfb%hfb_ar(this%ibound, this%xt3d, this%dis, &
                                              this%invsc, this%vsc)
     if (this%insto > 0) call this%sto%sto_ar(this%dis, this%ibound)
+    if (this%invsf > 0) call this%vsf%vsf_ar(this%dis, this%npf, this%sto)
     if (this%incsub > 0) call this%csub%csub_ar(this%dis, this%ibound)
     if (this%inmvr > 0) call this%mvr%mvr_ar()
     if (this%inobs > 0) call this%obs%gwf_obs_ar(this%ic, this%x, this%flowja)
@@ -385,6 +392,9 @@ contains
       call packobj%bnd_rp_log()
       call packobj%bnd_rp_obs()
     end do
+    !
+    ! -- Check that VSSB and VSSP do not exchange water through the same face
+    call this%check_vssb_overlap()
     !
     ! -- Check for steady state period
     call this%steady_period_check()
@@ -767,6 +777,7 @@ contains
       this%flowja(i) = DZERO
     end do
     if (this%innpf > 0) call this%npf%npf_cq(this%x, this%flowja)
+    if (this%invsf > 0) call this%vsf%vsf_cq(this%x)
     if (this%inbuy > 0) call this%buy%buy_cq(this%x, this%flowja)
     if (this%inhfb > 0) call this%hfb%hfb_cq(this%x, this%flowja)
     if (this%ingnc > 0) call this%gnc%gnc_cq(this%flowja)
@@ -975,21 +986,28 @@ contains
     integer(I4B), intent(inout) :: ipflag
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
-    !
-    ! -- Save compaction to binary file
-    if (this%incsub > 0) call this%csub%csub_ot_dv(idvsave, idvprint)
-    !
-    ! -- save density to binary file
+
+    ! Save saturation and pressure head to binary file
+    if (this%invsf > 0) then
+      call this%vsf%vsf_ot_dv(idvsave)
+    end if
+
+    ! Save compaction to binary file
+    if (this%incsub > 0) then
+      call this%csub%csub_ot_dv(idvsave, idvprint)
+    end if
+
+    ! save density to binary file
     if (this%inbuy > 0) then
       call this%buy%buy_ot_dv(idvsave)
     end if
-    !
-    ! -- save viscosity to binary file
+
+    ! save viscosity to binary file
     if (this%invsc > 0) then
       call this%vsc%vsc_ot_dv(idvsave)
     end if
-    !
-    ! -- Print advanced package dependent variables
+
+    ! Print advanced package dependent variables
     do ip = 1, this%bndlist%Count()
       packobj => GetBndFromList(this%bndlist, ip)
       call packobj%bnd_ot_dv(idvsave, idvprint)
@@ -1089,6 +1107,7 @@ contains
     call this%dis%dis_da()
     call this%ic%ic_da()
     call this%npf%npf_da()
+    call this%vsf%vsf_da()
     call this%xt3d%xt3d_da()
     call this%buy%buy_da()
     call this%vsc%vsc_da()
@@ -1105,6 +1124,7 @@ contains
     deallocate (this%dis)
     deallocate (this%ic)
     deallocate (this%npf)
+    deallocate (this%vsf)
     deallocate (this%xt3d)
     deallocate (this%buy)
     deallocate (this%vsc)
@@ -1129,6 +1149,7 @@ contains
     call mem_deallocate(this%inoc)
     call mem_deallocate(this%inobs)
     call mem_deallocate(this%innpf)
+    call mem_deallocate(this%invsf)
     call mem_deallocate(this%inbuy)
     call mem_deallocate(this%invsc)
     call mem_deallocate(this%insto)
@@ -1208,6 +1229,7 @@ contains
     call mem_allocate(this%inic, 'INIC', this%memoryPath)
     call mem_allocate(this%inoc, 'INOC', this%memoryPath)
     call mem_allocate(this%innpf, 'INNPF', this%memoryPath)
+    call mem_allocate(this%invsf, 'INVSF', this%memoryPath)
     call mem_allocate(this%inbuy, 'INBUY', this%memoryPath)
     call mem_allocate(this%invsc, 'INVSC', this%memoryPath)
     call mem_allocate(this%insto, 'INSTO', this%memoryPath)
@@ -1222,6 +1244,7 @@ contains
     this%inic = 0
     this%inoc = 0
     this%innpf = 0
+    this%invsf = 0
     this%inbuy = 0
     this%invsc = 0
     this%insto = 0
@@ -1250,6 +1273,7 @@ contains
     use DrnModule, only: drn_create
     use RivModule, only: riv_create
     use GhbModule, only: ghb_create
+    use VsspModule, only: vssp_create
     use RchModule, only: rch_create
     use EvtModule, only: evt_create
     use MawModule, only: maw_create
@@ -1257,6 +1281,8 @@ contains
     use LakModule, only: lak_create
     use UzfModule, only: uzf_create
     use ApiModule, only: api_create
+    use GwfVsetModule, only: vset_create
+    use VssbModule, only: vssb_create
     ! -- dummy
     class(GwfModelType) :: this
     character(len=*), intent(in) :: filtyp
@@ -1288,6 +1314,9 @@ contains
     case ('GHB6')
       call ghb_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
+    case ('VSSP6')
+      call vssp_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                       pakname, mempath)
     case ('RCH6')
       call rch_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
@@ -1306,6 +1335,12 @@ contains
     case ('UZF6')
       call uzf_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
+    case ('VSET6')
+      call vset_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                       pakname, mempath)
+    case ('VSSB6')
+      call vssb_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
+                       pakname, mempath)
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
@@ -1445,6 +1480,7 @@ contains
     use DisvModule, only: disv_cr
     use DisuModule, only: disu_cr
     use GwfNpfModule, only: npf_cr
+    use GwfVsfModule, only: vsf_cr
     use Xt3dModule, only: xt3d_cr
     use GwfBuyModule, only: buy_cr
     use GwfVscModule, only: vsc_cr
@@ -1476,6 +1512,7 @@ contains
     character(len=LENMEMPATH) :: mempathbuy = ''
     character(len=LENMEMPATH) :: mempathcsub = ''
     character(len=LENMEMPATH) :: mempathhfb = ''
+    character(len=LENMEMPATH) :: mempathvsf = ''
     character(len=LENMEMPATH) :: mempathic = ''
     character(len=LENMEMPATH) :: mempathnpf = ''
     character(len=LENMEMPATH) :: mempathoc = ''
@@ -1513,6 +1550,9 @@ contains
       case ('NPF6')
         this%innpf = 1
         mempathnpf = mempath
+      case ('VSF6')
+        this%invsf = 1
+        mempathvsf = mempath
       case ('BUY6')
         this%inbuy = 1
         mempathbuy = mempath
@@ -1542,7 +1582,7 @@ contains
         this%inobs = inunit
       case ('WEL6', 'DRN6', 'RIV6', 'GHB6', 'RCH6', &
             'EVT6', 'API6', 'CHD6', 'MAW6', 'SFR6', &
-            'LAK6', 'UZF6')
+            'LAK6', 'UZF6', 'VSSP6', 'VSET6', 'VSSB6')
         call expandarray(bndpkgs)
         bndpkgs(size(bndpkgs)) = n
       case default
@@ -1552,6 +1592,7 @@ contains
     !
     ! -- Create packages that are tied directly to model
     call npf_cr(this%npf, this%name, mempathnpf, this%innpf, this%iout)
+    call vsf_cr(this%vsf, this%name, mempathvsf, this%invsf, this%iout)
     call xt3d_cr(this%xt3d, this%name, this%innpf, this%iout)
     call buy_cr(this%buy, this%name, mempathbuy, this%inbuy, this%iout)
     call vsc_cr(this%vsc, this%name, mempathvsc, this%invsc, this%iout)
@@ -1632,5 +1673,83 @@ contains
       end if
     end if
   end subroutine steady_period_check
+
+  !> @brief Check the overlap of VSSB cells with other surface packages
+  !!
+  !! A cell can be listed in only one VSSB package, and a VSSB cell cannot be
+  !! listed in a VSSP package with a vertical face (IHC = 0), because VSSB owns
+  !! the top face of its cells.  IHC = 0 does not distinguish the top face from
+  !! the bottom face, so every vertical VSSP face on a VSSB cell is reported.
+  !! The check needs both packages and is therefore done by the model.
+  !!
+  !! TODO_VSF: reassess this routine when it is clear how to treat exfiltration
+  !! consistenly
+  !<
+  subroutine check_vssb_overlap(this)
+    ! -- modules
+    use VssbModule, only: VssbType
+    use VsspModule, only: VsspType
+    ! -- dummy
+    class(GwfModelType) :: this
+    ! -- local
+    class(BndType), pointer :: packobj
+    integer(I4B), dimension(:), allocatable :: vssbpkg
+    character(len=30) :: nodestr
+    integer(I4B) :: ip, i, node
+    logical :: found
+    !
+    ! -- nothing to check without a VSSB package
+    found = .false.
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VssbType)
+        found = .true.
+      end select
+    end do
+    if (.not. found) return
+    !
+    ! -- record the VSSB package of each cell
+    allocate (vssbpkg(this%dis%nodes))
+    vssbpkg(:) = 0
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VssbType)
+        do i = 1, packobj%nodes
+          node = packobj%igwfnode(i)
+          if (node < 1) cycle
+          if (vssbpkg(node) /= 0 .and. vssbpkg(node) /= ip) then
+            call this%dis%noder_to_string(node, nodestr)
+            write (errmsg, '(a,1x,a,1x,a,1x,a)') 'Cell', trim(adjustl(nodestr)), &
+              'is listed in more than one VSSB package:', &
+              trim(adjustl(packobj%packName))
+            call store_error(errmsg)
+          end if
+          vssbpkg(node) = ip
+        end do
+      end select
+    end do
+    !
+    ! -- check the vertical faces of the VSSP packages
+    do ip = 1, this%bndlist%Count()
+      packobj => GetBndFromList(this%bndlist, ip)
+      select type (packobj)
+      type is (VsspType)
+        do i = 1, packobj%nbound
+          node = packobj%nodelist(i)
+          if (node < 1) cycle
+          if (vssbpkg(node) == 0 .or. packobj%ihc(i) /= 0) cycle
+          call this%dis%noder_to_string(node, nodestr)
+          write (errmsg, '(a,1x,a,1x,a,1x,a,a)') 'Cell', trim(adjustl(nodestr)), &
+            'is a VSSB surface cell and cannot be listed with IHC = 0 in the', &
+            trim(adjustl(packobj%packName)), ' package.'
+          call store_error(errmsg)
+        end do
+      end select
+    end do
+    deallocate (vssbpkg)
+    if (count_errors() > 0) call store_error_filename(this%filename)
+  end subroutine check_vssb_overlap
 
 end module GwfModule
