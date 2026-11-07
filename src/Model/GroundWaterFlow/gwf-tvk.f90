@@ -74,6 +74,7 @@ contains
     class(TvkType) :: this
     ! -- local
     character(len=LENMEMPATH) :: npfMemoryPath
+    integer(I4B), pointer :: invsc
     ! -- formats
     character(len=*), parameter :: fmttvk = &
       "(1x,/1x,'TVK -- TIME-VARYING K PACKAGE, VERSION 1, 08/18/2021', &
@@ -84,9 +85,19 @@ contains
     npfMemoryPath = create_mem_path(this%name_model, 'NPF')
     call mem_setptr(this%ik22overk, 'IK22OVERK', npfMemoryPath)
     call mem_setptr(this%ik33overk, 'IK33OVERK', npfMemoryPath)
-    call mem_setptr(this%k11, 'K11', npfMemoryPath)
-    call mem_setptr(this%k22, 'K22', npfMemoryPath)
-    call mem_setptr(this%k33, 'K33', npfMemoryPath)
+    !
+    ! -- with VSC active, change the K values that VSC scales by the
+    !    viscosity ratio each time step
+    call mem_setptr(invsc, 'INVSC', npfMemoryPath)
+    if (invsc > 0) then
+      call mem_setptr(this%k11, 'K11INPUT', npfMemoryPath)
+      call mem_setptr(this%k22, 'K22INPUT', npfMemoryPath)
+      call mem_setptr(this%k33, 'K33INPUT', npfMemoryPath)
+    else
+      call mem_setptr(this%k11, 'K11', npfMemoryPath)
+      call mem_setptr(this%k22, 'K22', npfMemoryPath)
+      call mem_setptr(this%k33, 'K33', npfMemoryPath)
+    end if
     call mem_setptr(this%kchangeper, 'KCHANGEPER', npfMemoryPath)
     call mem_setptr(this%kchangestp, 'KCHANGESTP', npfMemoryPath)
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
