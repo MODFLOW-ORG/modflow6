@@ -41,6 +41,9 @@ module GwfHfbModule
     real(DP), dimension(:), pointer, contiguous :: bot => null() !< pointer to model bot
     real(DP), dimension(:), pointer, contiguous :: hwva => null() !< pointer to model hwva
     real(DP), dimension(:), pointer, contiguous :: hnew => null() !< pointer to model xnew
+    integer(I4B), pointer :: kchangeper => null() !< pointer to npf last stress period with K changes
+    integer(I4B), pointer :: kchangestp => null() !< pointer to npf last time step with K changes
+    integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() !< pointer to npf flags of cells with K changes
     !
     ! -- viscosity flag
     integer(I4B), pointer :: ivsc => null() !< flag indicating if viscosity is active in the model
@@ -49,6 +52,7 @@ module GwfHfbModule
 
     procedure :: hfb_ar
     procedure :: hfb_rp
+    procedure :: hfb_ad
     procedure :: hfb_fc
     procedure :: hfb_cq
     procedure :: hfb_da
@@ -60,6 +64,7 @@ module GwfHfbModule
     procedure, private :: check_data
     procedure, private :: condsat_reset
     procedure, private :: condsat_modify
+    procedure, private :: condsat_barrier
 
   end type GwfHfbType
 
@@ -127,6 +132,12 @@ contains
     call mem_setptr(this%top, 'TOP', create_mem_path(this%name_model, 'DIS'))
     call mem_setptr(this%bot, 'BOT', create_mem_path(this%name_model, 'DIS'))
     call mem_setptr(this%hwva, 'HWVA', create_mem_path(this%name_model, 'CON'))
+    call mem_setptr(this%kchangeper, 'KCHANGEPER', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%kchangestp, 'KCHANGESTP', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%nodekchange, 'NODEKCHANGE', &
+                    create_mem_path(this%name_model, 'NPF'))
     !
     call this%source_options()
     call this%source_dimensions()
@@ -167,13 +178,50 @@ contains
     end if
   end subroutine hfb_rp
 
+  !> @brief Advance the barriers
+  !!
+  !! NPF recalculates the saturated conductance of the connections of
+  !! cells whose hydraulic conductivity changed in the time step (TVK,
+  !! VSC). Apply the barriers on those connections again.
+  !<
+  subroutine hfb_ad(this, hnew)
+    ! -- modules
+    use ConstantsModule, only: DONE
+    use TdisModule, only: kper, kstp
+    ! -- dummy
+    class(GwfHfbType) :: this
+    real(DP), dimension(:), intent(in) :: hnew !< model heads
+    ! -- local
+    integer(I4B) :: ihfb, n, m
+    real(DP) :: viscratio
+    !
+    ! -- no conductance changes in this time step, or condsat not used
+    if (this%kchangeper /= kper .or. this%kchangestp /= kstp) return
+    if (associated(this%xt3d%ixt3d)) then
+      if (this%xt3d%ixt3d > 0) return
+    end if
+    !
+    do ihfb = 1, this%nhfb
+      n = this%noden(ihfb)
+      m = this%nodem(ihfb)
+      if (this%nodekchange(n) /= 1 .and. this%nodekchange(m) /= 1) cycle
+      this%csatsav(ihfb) = this%condsat(this%jas(this%idxloc(ihfb)))
+      viscratio = DONE
+      if (this%ivsc /= 0) then
+        call this%vsc%get_visc_ratio(n, m, hnew(n), hnew(m), viscratio)
+      end if
+      call this%condsat_barrier(ihfb, viscratio)
+    end do
+  end subroutine hfb_ad
+
   !> @brief Fill matrix terms
   !!
   !! Fill amatsln for the following conditions:
   !!   1. XT3D
   !!     OR
   !!   2. Not Newton, and
-  !!   3. Cell type n is convertible or cell type m is convertible
+  !!   3. Cell type n is convertible or cell type m is convertible, or
+  !!      viscosity is active
   !<
   subroutine hfb_fc(this, kiter, matrix_sln, idxglo, rhs, hnew)
     ! -- modules
@@ -471,6 +519,9 @@ contains
     this%ja => null()
     this%jas => null()
     this%isym => null()
+    this%kchangeper => null()
+    this%kchangestp => null()
+    this%nodekchange => null()
     this%condsat => null()
     this%top => null()
     this%bot => null()
@@ -787,59 +838,78 @@ contains
 
   !> @brief Modify condsat
   !!
-  !! Modify condsat for the following conditions:
-  !!   1.  If Newton is active
-  !!   2.  If icelltype for n and icelltype for m is 0
+  !! Save condsat without the barriers and apply the barriers (see
+  !! condsat_barrier).
   !<
   subroutine condsat_modify(this)
+    ! -- modules
+    use ConstantsModule, only: DONE
+    ! -- dummy
+    class(GwfHfbType) :: this
+    ! -- local
+    integer(I4B) :: ihfb
+    !
+    do ihfb = 1, this%nhfb
+      this%csatsav(ihfb) = this%condsat(this%jas(this%idxloc(ihfb)))
+      call this%condsat_barrier(ihfb, DONE)
+    end do
+  end subroutine condsat_modify
+
+  !> @brief Apply a barrier to the saturated conductance of its connection
+  !!
+  !! The barrier is part of condsat for the Newton-Raphson formulation and
+  !! for confined cells without viscosity; otherwise it is applied in
+  !! hfb_fc. On entry, condsat holds the conductance without the barrier.
+  !<
+  subroutine condsat_barrier(this, ihfb, viscratio)
     ! -- modules
     use ConstantsModule, only: DHALF, DZERO
     ! -- dummy
     class(GwfHfbType) :: this
+    integer(I4B), intent(in) :: ihfb
+    real(DP), intent(in) :: viscratio !< viscosity ratio of the barrier
     ! -- local
-    integer(I4B) :: ihfb, n, m
+    integer(I4B) :: n, m
     integer(I4B) :: ipos
     real(DP) :: cond, condhfb
     real(DP) :: fawidth, faheight, faarea
     real(DP) :: topn, topm, botn, botm
     !
-    do ihfb = 1, this%nhfb
-      ipos = this%idxloc(ihfb)
-      cond = this%condsat(this%jas(ipos))
-      this%csatsav(ihfb) = cond
-      n = this%noden(ihfb)
-      m = this%nodem(ihfb)
+    ipos = this%idxloc(ihfb)
+    cond = this%condsat(this%jas(ipos))
+    n = this%noden(ihfb)
+    m = this%nodem(ihfb)
+    !
+    if (this%inewton == 1 .or. &
+        (this%icelltype(n) == 0 .and. this%icelltype(m) == 0 .and. &
+         this%ivsc == 0)) then
       !
-      if (this%inewton == 1 .or. &
-          (this%icelltype(n) == 0 .and. this%icelltype(m) == 0)) then
-        !
-        ! -- Calculate hfb conductance
-        topn = this%top(n)
-        topm = this%top(m)
-        botn = this%bot(n)
-        botm = this%bot(m)
-        if (this%ihc(this%jas(ipos)) == 2) then
-          faheight = min(topn, topm) - max(botn, botm)
-        else
-          faheight = DHALF * ((topn - botn) + (topm - botm))
-        end if
-
-        if (this%ihc(this%jas(ipos)) == 0) then
-          faarea = this%hwva(this%jas(ipos))
-        else
-          fawidth = this%hwva(this%jas(ipos))
-          faarea = fawidth * faheight
-        end if
-
-        if (this%hydchr(ihfb) > DZERO) then
-          condhfb = this%hydchr(ihfb) * faarea
-          cond = cond * condhfb / (cond + condhfb)
-        else
-          cond = -cond * this%hydchr(ihfb)
-        end if
-        this%condsat(this%jas(ipos)) = cond
+      ! -- Calculate hfb conductance
+      topn = this%top(n)
+      topm = this%top(m)
+      botn = this%bot(n)
+      botm = this%bot(m)
+      if (this%ihc(this%jas(ipos)) == 2) then
+        faheight = min(topn, topm) - max(botn, botm)
+      else
+        faheight = DHALF * ((topn - botn) + (topm - botm))
       end if
-    end do
-  end subroutine condsat_modify
+
+      if (this%ihc(this%jas(ipos)) == 0) then
+        faarea = this%hwva(this%jas(ipos))
+      else
+        fawidth = this%hwva(this%jas(ipos))
+        faarea = fawidth * faheight
+      end if
+
+      if (this%hydchr(ihfb) > DZERO) then
+        condhfb = this%hydchr(ihfb) * viscratio * faarea
+        cond = cond * condhfb / (cond + condhfb)
+      else
+        cond = -cond * this%hydchr(ihfb)
+      end if
+      this%condsat(this%jas(ipos)) = cond
+    end if
+  end subroutine condsat_barrier
 
 end module GwfHfbModule
