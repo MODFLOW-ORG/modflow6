@@ -72,9 +72,9 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
     real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
-    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
+    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity before VSC modification, including TVK changes
     integer(I4B), pointer :: iavgkeff => null() !< effective conductivity averaging (0: harmonic, 1: arithmetic)
     integer(I4B), pointer :: ik22 => null() !< flag that k22 is specified
     integer(I4B), pointer :: ik33 => null() !< flag that k33 is specified
