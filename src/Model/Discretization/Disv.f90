@@ -397,10 +397,20 @@ contains
     integer(I4B) :: node, noder, j, k
     real(DP) :: top
     real(DP) :: dz
+    character(len=LINELENGTH) :: cellstr
     ! -- formats
     character(len=*), parameter :: fmtdz = &
       "('CELL (',i0,',',i0,') THICKNESS <= 0. ', &
       &'TOP, BOT: ',2(1pg24.15))"
+    character(len=*), parameter :: fmtdzt = &
+      "('. The top of this cell is the bottom elevation specified for ',&
+      &'the cell directly above it, cell (',i0,',',i0,').')"
+    character(len=*), parameter :: msgdzi = &
+      ' That cell is excluded (IDOMAIN <= 0), but an excluded cell still &
+      &defines the top of the cell below it. Raise the BOTM of that cell &
+      &or lower the BOTM of this cell. For a vertical pass-through cell &
+      &(IDOMAIN -1), set its BOTM equal to the bottom elevation of the &
+      &cell above it, giving it zero thickness.'
     character(len=*), parameter :: fmtnr = &
       "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
       &/1x, 'Number of user nodes: ',I0,&
@@ -435,6 +445,13 @@ contains
           dz = top - this%bot2d(j, k)
           if (dz <= DZERO) then
             write (errmsg, fmt=fmtdz) k, j, top, this%bot2d(j, k)
+            if (k > 1) then
+              write (cellstr, fmt=fmtdzt) k - 1, j
+              errmsg = trim(errmsg)//trim(cellstr)
+              if (this%idomain(j, k - 1) < 1) then
+                errmsg = trim(errmsg)//msgdzi
+              end if
+            end if
             call store_error(errmsg)
           end if
         end if
