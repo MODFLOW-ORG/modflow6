@@ -86,6 +86,7 @@ module BndModule
     ! -- viscosity flag and safe-copy of conductance array
     integer(I4B), pointer :: ivsc => null() !< flag indicating if viscosity is active in the model
     real(DP), dimension(:), pointer, contiguous :: condinput => null() !< stores user-specified conductance values
+    real(DP), dimension(:), allocatable :: viscratio !< viscosity ratio applied to each boundary conductance
     !
     ! -- timeseries
     type(TimeSeriesManagerType), pointer :: TsManager => null() !< time series manager
@@ -863,6 +864,7 @@ contains
     call mem_deallocate(this%noupdateauxvar, 'NOUPDATEAUXVAR', this%memoryPath)
     call mem_deallocate(this%bound, 'BOUND', this%memoryPath)
     call mem_deallocate(this%condinput, 'CONDINPUT', this%memoryPath)
+    if (allocated(this%viscratio)) deallocate (this%viscratio)
     call mem_deallocate(this%hcof, 'HCOF', this%memoryPath)
     call mem_deallocate(this%rhs, 'RHS', this%memoryPath)
     call mem_deallocate(this%simvals, 'SIMVALS', this%memoryPath)
@@ -1941,16 +1943,20 @@ contains
     ! -- local
     integer(I4B) :: i
     !
-    ! -- Set ivsc and reallocate viscratios to be of size MAXBOUND
+    ! -- Set ivsc
     this%ivsc = 1
     !
     ! -- Allocate array for storing user-specified conductances
-    !    modified by updated viscosity values
+    !    (without the AUXMULTCOL multiplier)
     call mem_reallocate(this%condinput, this%maxbound, 'CONDINPUT', &
                         this%memoryPath)
     do i = 1, this%maxbound
       this%condinput(i) = DZERO
     end do
+    !
+    ! -- Allocate the viscosity ratio applied to each boundary conductance
+    allocate (this%viscratio(this%maxbound))
+    this%viscratio = DONE
     !
     ! -- Notify user via listing file viscosity accounted for by standard
     !    boundary package.

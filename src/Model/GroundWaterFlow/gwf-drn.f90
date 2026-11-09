@@ -617,7 +617,7 @@ contains
     !
     ! -- store backup copy of conductance values
     do n = 1, this%nbound
-      this%condinput(n) = this%cond_mult(n)
+      this%condinput(n) = this%cond(n)
     end do
   end subroutine drn_store_user_cond
 
@@ -637,6 +637,9 @@ contains
     else
       cond = this%cond(row)
     end if
+    !
+    ! -- apply the viscosity ratio
+    if (this%ivsc == 1) cond = cond * this%viscratio(row)
   end function cond_mult
 
   !> @brief Return requested boundary value
@@ -655,7 +658,11 @@ contains
     case (1)
       bndval = this%elev(row)
     case (2)
-      bndval = this%cond_mult(row)
+      ! input conductance with the AUXMULTCOL multiplier
+      bndval = this%cond(row)
+      if (this%iauxmultcol > 0) then
+        bndval = bndval * this%auxvar(this%iauxmultcol, row)
+      end if
     case default
       errmsg = 'Programming error. DRN bound value requested column '&
                &'outside range of ncolbnd (2).'
