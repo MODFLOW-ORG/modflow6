@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "internal"
+description = "The Time-Varying Storage (TVS) Package could change specific storage (SS) to a non-zero value in a model with the Skeletal Storage, Compaction, and Subsidence (CSUB) Package, which requires SS to be zero, so that storage was counted by both the Storage (STO) and CSUB Packages. This is now an input error, as it is for SS specified in the STO Package."
