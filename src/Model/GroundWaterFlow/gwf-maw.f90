@@ -202,6 +202,9 @@ module MawModule
     real(DP), dimension(:), pointer, contiguous :: gwfk22 => NULL()
     integer(I4B), pointer :: gwfik22 => NULL()
     real(DP), dimension(:), pointer, contiguous :: gwfsat => NULL()
+    integer(I4B), pointer :: kchangeper => null() !< npf last stress period with K changes
+    integer(I4B), pointer :: kchangestp => null() !< npf last time step with K changes
+    integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() !< npf flags of cells with K changes
     !
     ! -- arrays for handling the rows added to the solution matrix
     integer(I4B), dimension(:), pointer, contiguous :: idxlocnode => null() !map position in global rhs and x array of pack entry
@@ -265,6 +268,7 @@ module MawModule
     procedure, private :: maw_set_period_value
     procedure, private :: maw_calculate_saturation
     procedure, private :: maw_calculate_satcond
+    procedure, private :: maw_update_satcond
     procedure, private :: maw_calculate_conn_terms
     procedure, private :: maw_calculate_wellq
     procedure, private :: maw_calculate_qpot
@@ -1651,6 +1655,7 @@ contains
     integer(I4B) :: idx
     real(DP) :: k11
     real(DP) :: k22
+    integer(I4B), pointer :: invsc
     character(len=10), dimension(0:4) :: ccond
     character(len=30) :: nodestr
     ! -- data
@@ -1714,10 +1719,28 @@ contains
     !
     ! -- set pointer to gwf iss and gwf hk
     call mem_setptr(this%gwfiss, 'ISS', create_mem_path(this%name_model))
-    call mem_setptr(this%gwfk11, 'K11', create_mem_path(this%name_model, 'NPF'))
-    call mem_setptr(this%gwfk22, 'K22', create_mem_path(this%name_model, 'NPF'))
+    ! -- with VSC active, use K before the viscosity adjustment; the
+    !    package applies the viscosity ratio to the conductance
+    call mem_setptr(invsc, 'INVSC', create_mem_path(this%name_model, 'NPF'))
+    if (invsc > 0) then
+      call mem_setptr(this%gwfk11, 'K11INPUT', &
+                      create_mem_path(this%name_model, 'NPF'))
+      call mem_setptr(this%gwfk22, 'K22INPUT', &
+                      create_mem_path(this%name_model, 'NPF'))
+    else
+      call mem_setptr(this%gwfk11, 'K11', &
+                      create_mem_path(this%name_model, 'NPF'))
+      call mem_setptr(this%gwfk22, 'K22', &
+                      create_mem_path(this%name_model, 'NPF'))
+    end if
     call mem_setptr(this%gwfik22, 'IK22', create_mem_path(this%name_model, 'NPF'))
     call mem_setptr(this%gwfsat, 'SAT', create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%kchangeper, 'KCHANGEPER', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%kchangestp, 'KCHANGESTP', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%nodekchange, 'NODEKCHANGE', &
+                    create_mem_path(this%name_model, 'NPF'))
     !
     ! -- qa data
     call this%maw_check_attributes()
@@ -1855,12 +1878,6 @@ contains
         end do
       end do
     end if
-    !
-    ! -- finished with pointer to gwf hydraulic conductivity
-    this%gwfk11 => null()
-    this%gwfk22 => null()
-    this%gwfik22 => null()
-    this%gwfsat => null()
     !
     ! -- check for any error conditions
     if (count_errors() > 0) then
@@ -2504,6 +2521,9 @@ contains
     ! -- sync PACKAGEDATA AUX TS and advance observations;
     ! -- step auxvar period block overrides
     call this%BndExtType%bnd_ad()
+    !
+    ! -- aquifer hydraulic conductivity changes
+    call this%maw_update_satcond()
     !
     ! -- sync PERIOD TS from input context
     if (this%ts_active .and. this%input%nbound > 0) then
@@ -3417,6 +3437,10 @@ contains
     class(MawType) :: this
     ! -- local
     !
+    ! -- npf pointers
+    nullify (this%gwfk11, this%gwfk22, this%gwfik22, this%gwfsat)
+    nullify (this%kchangeper, this%kchangestp, this%nodekchange)
+    !
     ! -- budobj
     call this%budobj%budgetobject_da()
     deallocate (this%budobj)
@@ -4209,6 +4233,35 @@ contains
     ! -- set saturated conductance
     this%satcond(jpos) = c
   end subroutine maw_calculate_satcond
+
+  !> @brief Recalculate saturated conductance after aquifer K changes
+  !!
+  !! Recalculate the saturated conductance of connections to cells whose
+  !! hydraulic conductivity changed in the time step (e.g., TVK).
+  !<
+  subroutine maw_update_satcond(this)
+    ! -- modules
+    use TdisModule, only: kper, kstp
+    ! -- dummy
+    class(MawType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n, j, inode
+    !
+    if (this%kchangeper /= kper .or. this%kchangestp /= kstp) return
+    do n = 1, this%nmawwells
+      if (this%ieqn(n) == 0) cycle
+      do j = 1, this%ngwfnodes(n)
+        inode = this%get_gwfnode(n, j)
+        if (this%nodekchange(inode) /= 1) cycle
+        call this%maw_calculate_satcond(n, j, inode)
+      end do
+    end do
+    !
+    ! -- terminate if the recalculated conductance is not valid
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine maw_update_satcond
 
   !> @brief Calculate the saturation between the aquifer maw well_head
   !<

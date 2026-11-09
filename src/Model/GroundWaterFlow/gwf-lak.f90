@@ -241,6 +241,9 @@ module LakModule
     real(DP), dimension(:), pointer, contiguous :: gwfk33 => NULL()
     real(DP), dimension(:), pointer, contiguous :: gwfsat => NULL()
     integer(I4B), pointer :: gwfik33 => NULL()
+    integer(I4B), pointer :: kchangeper => null() !< npf last stress period with K changes
+    integer(I4B), pointer :: kchangestp => null() !< npf last time step with K changes
+    integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() !< npf flags of cells with K changes
     !
     ! -- package x, xold, and ibound
     integer(I4B), dimension(:), pointer, contiguous :: iboundpak => null() !package ibound
@@ -310,6 +313,8 @@ module LakModule
     procedure, private :: lak_set_attribute_error
     procedure, private :: lak_bound_update
     procedure, private :: lak_calculate_sarea
+    procedure, private :: lak_calc_satcond
+    procedure, private :: lak_update_satcond
     procedure, private :: lak_calculate_warea
     procedure, private :: lak_calculate_conn_warea
     procedure, public :: lak_calculate_vol
@@ -1674,9 +1679,7 @@ contains
     integer(I4B) :: idx
     real(DP) :: top
     real(DP) :: bot
-    real(DP) :: k
     real(DP) :: area
-    real(DP) :: length
     real(DP) :: s
     real(DP) :: dx
     real(DP) :: c
@@ -1687,6 +1690,7 @@ contains
     real(DP) :: c1
     real(DP) :: c2
     real(DP), allocatable, dimension(:) :: clb, caq
+    integer(I4B), pointer :: invsc
     character(len=14) :: cbedleak
     character(len=14) :: cbedcond
     character(len=10), dimension(0:3) :: ctype
@@ -1728,10 +1732,28 @@ contains
     !
     ! -- set pointer to gwf iss and gwf hk
     call mem_setptr(this%gwfiss, 'ISS', create_mem_path(this%name_model))
-    call mem_setptr(this%gwfk11, 'K11', create_mem_path(this%name_model, 'NPF'))
-    call mem_setptr(this%gwfk33, 'K33', create_mem_path(this%name_model, 'NPF'))
+    ! -- with VSC active, use K before the viscosity adjustment; the
+    !    package applies the viscosity ratio to the conductance
+    call mem_setptr(invsc, 'INVSC', create_mem_path(this%name_model, 'NPF'))
+    if (invsc > 0) then
+      call mem_setptr(this%gwfk11, 'K11INPUT', &
+                      create_mem_path(this%name_model, 'NPF'))
+      call mem_setptr(this%gwfk33, 'K33INPUT', &
+                      create_mem_path(this%name_model, 'NPF'))
+    else
+      call mem_setptr(this%gwfk11, 'K11', &
+                      create_mem_path(this%name_model, 'NPF'))
+      call mem_setptr(this%gwfk33, 'K33', &
+                      create_mem_path(this%name_model, 'NPF'))
+    end if
     call mem_setptr(this%gwfik33, 'IK33', create_mem_path(this%name_model, 'NPF'))
     call mem_setptr(this%gwfsat, 'SAT', create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%kchangeper, 'KCHANGEPER', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%kchangestp, 'KCHANGESTP', &
+                    create_mem_path(this%name_model, 'NPF'))
+    call mem_setptr(this%nodekchange, 'NODEKCHANGE', &
+                    create_mem_path(this%name_model, 'NPF'))
     !
     ! -- allocate temporary storage
     allocate (clb(this%MAXBOUND))
@@ -1749,12 +1771,6 @@ contains
           this%sarea(j) = area
           this%warea(j) = area
           this%sareamax(n) = this%sareamax(n) + area
-          if (this%gwfik33 == 0) then
-            k = this%gwfk11(nn)
-          else
-            k = this%gwfk33(nn)
-          end if
-          length = DHALF * (top - bot)
           ! horizontal connection
         else if (this%ictype(j) == 1) then
           area = (this%telev(j) - this%belev(j)) * this%connwidth(j)
@@ -1768,51 +1784,15 @@ contains
           this%sarea(j) = DZERO
           this%warea(j) = area
           this%sareamax(n) = this%sareamax(n) + DZERO
-          k = this%gwfk11(nn)
-          length = this%connlength(j)
-          ! embedded horizontal connection
-        else if (this%ictype(j) == 2) then
-          area = DONE
+          ! embedded connection
+        else
           this%sarea(j) = DZERO
-          this%warea(j) = area
+          this%warea(j) = DONE
           this%sareamax(n) = this%sareamax(n) + DZERO
-          k = this%gwfk11(nn)
-          length = this%connlength(j)
-          ! embedded vertical connection
-        else if (this%ictype(j) == 3) then
-          area = DONE
-          this%sarea(j) = DZERO
-          this%warea(j) = area
-          this%sareamax(n) = this%sareamax(n) + DZERO
-          if (this%gwfik33 == 0) then
-            k = this%gwfk11(nn)
-          else
-            k = this%gwfk33(nn)
-          end if
-          length = this%connlength(j)
         end if
-        if (is_close(this%bedleak(j), DNODATA)) then
-          clb(j) = DNODATA
-        else if (this%bedleak(j) > DZERO) then
-          clb(j) = DONE / this%bedleak(j)
-        else
-          clb(j) = DZERO
-        end if
-        if (k > DZERO) then
-          caq(j) = length / k
-        else
-          caq(j) = DZERO
-        end if
-        if (is_close(this%bedleak(j), DNODATA)) then
-          this%satcond(j) = area / caq(j)
-        else if (clb(j) * caq(j) > DZERO) then
-          this%satcond(j) = area / (clb(j) + caq(j))
-        else
-          this%satcond(j) = DZERO
-        end if
+        call this%lak_calc_satcond(j, clb(j), caq(j))
       end do
     end do
-    !
     ! -- write a summary of the conductance
     if (this%iprpak > 0) then
       write (this%iout, '(//,29x,a,/)') &
@@ -1909,16 +1889,88 @@ contains
       end do
     end if
     !
-    ! -- finished with pointer to gwf hydraulic conductivity
-    this%gwfk11 => null()
-    this%gwfk33 => null()
-    this%gwfsat => null()
-    this%gwfik33 => null()
     !
     ! -- deallocate temporary storage
     deallocate (clb)
     deallocate (caq)
   end subroutine lak_read_initial_attr
+
+  !> @brief Calculate the saturated conductance of a lake connection
+  !!
+  !! Combines the lakebed and aquifer resistances using the wetted area
+  !! of the connection.
+  !<
+  subroutine lak_calc_satcond(this, j, clb, caq)
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    integer(I4B), intent(in) :: j !< connection
+    real(DP), intent(out) :: clb !< lakebed resistance
+    real(DP), intent(out) :: caq !< aquifer resistance
+    ! -- local
+    integer(I4B) :: nn
+    real(DP) :: k
+    real(DP) :: length
+    !
+    nn = this%gwfconn(j)
+    if (this%ictype(j) == 0 .or. this%ictype(j) == 3) then
+      ! -- vertical connections
+      if (this%gwfik33 == 0) then
+        k = this%gwfk11(nn)
+      else
+        k = this%gwfk33(nn)
+      end if
+    else
+      ! -- horizontal connections
+      k = this%gwfk11(nn)
+    end if
+    if (this%ictype(j) == 0) then
+      length = DHALF * (this%dis%top(nn) - this%dis%bot(nn))
+    else
+      length = this%connlength(j)
+    end if
+    if (is_close(this%bedleak(j), DNODATA)) then
+      clb = DNODATA
+    else if (this%bedleak(j) > DZERO) then
+      clb = DONE / this%bedleak(j)
+    else
+      clb = DZERO
+    end if
+    if (k > DZERO) then
+      caq = length / k
+    else
+      caq = DZERO
+    end if
+    if (is_close(this%bedleak(j), DNODATA)) then
+      this%satcond(j) = this%warea(j) / caq
+    else if (clb * caq > DZERO) then
+      this%satcond(j) = this%warea(j) / (clb + caq)
+    else
+      this%satcond(j) = DZERO
+    end if
+  end subroutine lak_calc_satcond
+
+  !> @brief Recalculate saturated conductance after aquifer K changes
+  !!
+  !! Recalculate the saturated conductance of connections to cells whose
+  !! hydraulic conductivity changed in the time step (e.g., TVK).
+  !<
+  subroutine lak_update_satcond(this)
+    ! -- modules
+    use TdisModule, only: kper, kstp
+    ! -- dummy
+    class(LakType), intent(inout) :: this
+    ! -- local
+    integer(I4B) :: n, j
+    real(DP) :: clb, caq
+    !
+    if (this%kchangeper /= kper .or. this%kchangestp /= kstp) return
+    do n = 1, this%nlakes
+      do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
+        if (this%nodekchange(this%gwfconn(j)) /= 1) cycle
+        call this%lak_calc_satcond(j, clb, caq)
+      end do
+    end do
+  end subroutine lak_update_satcond
 
   !> @brief Perform linear interpolation of two vectors.
   !!
@@ -3514,6 +3566,9 @@ contains
     !    sync_period_auxvar (inside bnd_ad) handles PERIOD AUXILIARY TS
     call this%BndExtType%bnd_ad()
     !
+    ! -- aquifer hydraulic conductivity changes
+    call this%lak_update_satcond()
+    !
     ! -- re-sync static OUTLETS values (invert, width, rough, slope) linked
     !    to a time series, skipping any field a PERIOD-block setting has
     !    already overridden for this outlet -- that override must persist
@@ -4411,6 +4466,10 @@ contains
     !
     ! -- nullify input context runtime pointers
     call this%input%destroy()
+    !
+    ! -- npf pointers
+    nullify (this%gwfk11, this%gwfk33, this%gwfik33, this%gwfsat)
+    nullify (this%kchangeper, this%kchangestp, this%nodekchange)
     !
     ! -- arrays
     deallocate (this%lakename)
