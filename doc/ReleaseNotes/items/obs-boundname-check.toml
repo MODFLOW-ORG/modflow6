@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "model"
-description = "An observation that named a boundary in a package without the BOUNDNAMES option read out of bounds. For a list-based package there was no error, and the observation wrote the no-data value. This is now an error. An observation that named a boundary that doesn't exist is now also an error in the CSUB and UZF packages, with or without BOUNDNAMES. CSUB wrote the no-data value, and UZF wrote zero, except for WATER-CONTENT."
+description = "An observation that named a boundary without the BOUNDNAMES option read out of bounds. List-based and array-based packages gave no error and wrote the no-data value. This is now an error. An observation that named a nonexistent boundary is now also an error in CSUB and UZF, with or without BOUNDNAMES. CSUB wrote no-data and UZF wrote zero, though UZF WATER-CONTENT already stopped. UZF observation errors now name the input file instead of 'stderr'."
