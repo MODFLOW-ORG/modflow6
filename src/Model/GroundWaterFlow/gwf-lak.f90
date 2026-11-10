@@ -27,7 +27,7 @@ module LakModule
   use InputOutputModule, only: URWORD, extract_idnum_or_bndname, &
                                GetUnit, openfile, assign_iounit
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_warning, store_error_filename, &
                        deprecation_warning
   use MathUtilModule, only: is_close
@@ -5012,7 +5012,7 @@ contains
       !
       ! -- write summary of error messages
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine lak_bd_obs
@@ -5164,7 +5164,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine lak_rp_obs

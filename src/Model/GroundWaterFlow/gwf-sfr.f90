@@ -34,7 +34,7 @@ module SfrModule
   use ObserveModule, only: ObserveType
   use InputOutputModule, only: extract_idnum_or_bndname, upcase
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_error_filename, store_warning, deprecation_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use GwfSfrCrossSectionUtilsModule, only: get_saturated_topwidth, &

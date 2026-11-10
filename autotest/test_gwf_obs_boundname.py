@@ -91,7 +91,22 @@ def add_uzf(gwf, boundnames, obs):
     )
 
 
-PACKAGES = {"csub": add_csub, "uzf": add_uzf}
+def add_lak(gwf, boundnames, obs):
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        boundnames=boundnames,
+        nlakes=2,
+        packagedata=[
+            [i, 6.0, 1] + ([f"bnd{i}"] if boundnames else []) for i in range(2)
+        ],
+        connectiondata=[
+            [i, 0, (0, 0, i), "horizontal", 0.1, 0.0, 10.0, 5.0, 10.0] for i in range(2)
+        ],
+        observations={"obs.csv": obs},
+    )
+
+
+PACKAGES = {"csub": add_csub, "uzf": add_uzf, "lak": add_lak}
 
 
 @pytest.mark.parametrize(
@@ -101,6 +116,7 @@ PACKAGES = {"csub": add_csub, "uzf": add_uzf}
         ("csub", "delay-flowtop", ()),
         ("uzf", "uzf-gwrch", ()),
         ("uzf", "water-content", (0.5,)),
+        ("lak", "lak", ()),
     ],
 )
 @pytest.mark.parametrize("boundnames", [True, False])
