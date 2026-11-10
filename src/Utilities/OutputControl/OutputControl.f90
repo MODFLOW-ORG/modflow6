@@ -228,6 +228,7 @@ contains
   subroutine source_options(this)
     ! modules
     use MemoryManagerExtModule, only: mem_set_value
+    use SimModule, only: store_error, store_error_filename
     ! dummy
     class(OutputControlType) :: this !< this instance
     type(OutputControlDataType), pointer :: ocdobjptr
@@ -266,10 +267,14 @@ contains
       call this%set_ocfile('BUDGET', budgetfn, this%iout)
     end if
 
-    if (found_format(1) .and. &
-        found_format(2) .and. &
-        found_format(3) .and. &
-        found_format(4)) then
+    if (any(found_format(1:3)) .and. .not. all(found_format(1:3))) then
+      call store_error('PRINT_FORMAT must include COLUMNS, WIDTH and DIGITS. &
+                       &Syntax is: COLUMNS <columns> WIDTH <width> &
+                       &DIGITS <digits> [<format>].')
+      call store_error_filename(this%input_fname)
+    end if
+
+    if (all(found_format)) then
       write (print_format, '(a,i0,a,i0,a,i0,a)') 'COLUMNS ', columns, &
         ' WIDTH ', width, ' DIGITS ', ndigits, ' '//trim(prnfmt)//' '
       do ipos = 1, size(this%ocds)
