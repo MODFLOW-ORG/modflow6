@@ -77,3 +77,7 @@ The following behavior is not always apparent from the descriptions of the indiv
 
 \subsection{Other Models}
 The GWT and GWE Models follow the same approach as the GWF Model, with CONCENTRATION and TEMPERATURE, respectively, used in place of HEAD in Output Control, and with advanced transport packages (for example, the SFT, LKT, SFE, and LKE Packages) providing CONCENTRATION or TEMPERATURE FILEOUT options in place of STAGE or HEAD.  For the PRT Model, particle track output is written to binary and CSV files specified in the PRT Model Output Control file, for the tracking events selected there, and does not depend on SAVE and PRINT settings.  See the Output Control section for each model for details.
+
+\ifdevelopmode
+The CHF and OLF Models also follow the same approach.  In place of HEAD, Output Control for these models supports STAGE and QOUTFLOW, which can be printed to the Model Listing File and saved to binary files specified with the STAGE FILEOUT and QOUTFLOW FILEOUT options.
+\fi
