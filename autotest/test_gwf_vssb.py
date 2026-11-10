@@ -334,9 +334,9 @@ def build_models(idx, test):
     return sim, None
 
 
-def run_reference(ws, name="vssb"):
+def run_reference(ws, exe):
     sim = flopy.mf6.MFSimulation.load(sim_ws=str(ws), verbosity_level=0)
-    sim.exe_name = "mf6"
+    sim.exe_name = exe
     success, _ = sim.run_simulation(silent=True)
     assert success, f"reference model in {ws} failed"
 
@@ -368,7 +368,7 @@ def check_output(idx, test):
         assert (obs["RUNOFF"] == 0.0).all(), "no runoff expected"
         assert np.allclose(obs["INFILTRATION"], qp * area, rtol=1e-8)
         # the same flux applied with RCH
-        run_reference(ws / "rch")
+        run_reference(ws / "rch", test.targets["mf6"])
         href = flopy.utils.HeadFile(ws / "rch" / "gwf.hds").get_data(idx=-1).flatten()
         assert np.allclose(heads, href, atol=1e-6), "heads differ from RCH"
 
@@ -379,7 +379,7 @@ def check_output(idx, test):
             # Newton and Picard agree
             ws_picard = ws / "picard"
             build_column(ws_picard, name, dict(s, newton=False)).write_simulation()
-            run_reference(ws_picard)
+            run_reference(ws_picard, test.targets["mf6"])
             href = (
                 flopy.utils.HeadFile(ws_picard / "gwf.hds").get_data(idx=-1).flatten()
             )
@@ -417,7 +417,7 @@ def check_output(idx, test):
         assert (np.diff(after) <= 1e-12).all()
 
     elif name == "vssb-steady":
-        run_reference(ws / "tr")
+        run_reference(ws / "tr", test.targets["mf6"])
         otr = read_obs(ws / "tr")
         assert np.isclose(
             obs["INFILTRATION"].iloc[-1], otr["INFILTRATION"].iloc[-1], rtol=1e-4
@@ -520,12 +520,13 @@ validation_cases = {
 
 
 @pytest.mark.parametrize("name", validation_cases)
-def test_validation(name, function_tmpdir):
+def test_validation(name, function_tmpdir, targets):
     """Invalid input is reported at read time."""
     kwargs, message = validation_cases[name]
     s = get_settings("vssb-over")
     ws = function_tmpdir
     sim = build_column(ws, "vssb-" + name, s, extra=kwargs.get("extra"))
+    sim.exe_name = targets["mf6"]
     gwf = sim.get_model("gwf")
     if "vsf" in kwargs:
         gwf.remove_package("vsf")
