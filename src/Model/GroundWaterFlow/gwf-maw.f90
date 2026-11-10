@@ -3846,14 +3846,16 @@ contains
             jfound = .false.
             if (obsrv%ObsTypeId == 'MAW' .or. &
                 obsrv%ObsTypeId == 'CONDUCTANCE') then
-              do j = 1, this%nmawwells
-                do jj = this%iaconn(j), this%iaconn(j + 1) - 1
-                  if (this%boundname(jj) == bname) then
-                    jfound = .true.
-                    call obsrv%AddObsIndex(jj)
-                  end if
+              if (this%inamedbound /= 0) then
+                do j = 1, this%nmawwells
+                  do jj = this%iaconn(j), this%iaconn(j + 1) - 1
+                    if (this%boundname(jj) == bname) then
+                      jfound = .true.
+                      call obsrv%AddObsIndex(jj)
+                    end if
+                  end do
                 end do
-              end do
+              end if
             else
               do j = 1, this%nmawwells
                 if (this%cmawname(j) == bname) then
