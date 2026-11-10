@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "solution"
+description = "When the Newton-Raphson formulation was used and two connected cells had the same head, the upstream-weighted horizontal conductance used the saturation of whichever cell was listed second. A GWF-GWF exchange and the interface model list the two cells in different orders, so the conductance, and therefore the iteration history, of a multi-model simulation depended on how the models were distributed over processes in a parallel run. The larger of the two saturations is now used when the heads are equal. Converged heads are unaffected because there is no flow between cells with the same head."
