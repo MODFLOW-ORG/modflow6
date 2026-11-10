@@ -1,0 +1,83 @@
+\mf can write simulation results to a number of output files.  The options that control this output are distributed across the model Name File, the Output Control (OC) Package, individual package input files, and the solution input files.  Each option is described with the input file in which it is specified.  This section summarizes how these options work together.  The description is given in terms of the GWF Model; the other models follow the same approach, as described at the end of this section.
+
+\subsection{Types of Output}
+\mf output can be grouped into four general types: (1) the Simulation Listing File and Model Listing Files, which contain printed tables of dependent variables and budgets, as well as input summaries and solver information; (2) binary dependent-variable files, which contain simulated head for each model cell or simulated values for advanced package features, such as lake stage or stream stage; (3) binary budget files, which contain cell-by-cell flows for a model or flows for advanced package features; and (4) comma-separated values (CSV) files, which contain budget summaries, observations, solver convergence information, and other time series.  The formats of the binary output files are described in the ``\hyperref[sec:binaryoutput]{Description of Binary Output Files}'' section.
+
+\subsection{Print and Save Options}
+Most output is controlled at two levels.  Options in the model Name File and package input files determine what output can be written.  These include the PRINT\_INPUT, PRINT\_FLOWS, and SAVE\_FLOWS options and the FILEOUT records that specify the names of package output files.  SAVE and PRINT settings in the PERIOD block of the Output Control file determine the time steps for which this output is written.  Output that depends on Output Control is written only for time steps in which both conditions are met.  For example, cell-by-cell flows for the Well Package are written to the GWF Model budget file only if the SAVE\_FLOWS option is specified for the Well Package (or in the GWF Model Name File) and SAVE BUDGET is specified in Output Control for the time step.  If the SAVE\_FLOWS option is specified for a package but SAVE BUDGET is not specified in Output Control, the cell-by-cell flows for the package are not saved.
+
+Output written to CSV files does not depend on the SAVE and PRINT settings in Output Control.  Once a CSV output file is specified, it is written for every time step (or, for solver and package convergence output, for every iteration).
+
+The options that control each type of output are summarized in Table~\ref{table:outputsummary}.
+
+\begin{longtable}{p{4.5cm} p{5cm} p{5.5cm}}
+\caption{Summary of options that control GWF Model output} \tabularnewline
+
+\hline
+\hline
+\textbf{Output} & \textbf{Requested by} & \textbf{Written for} \\
+\hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}Summary of options that control GWF Model output.---Continued} \\
+
+\hline
+\hline
+\textbf{Output} & \textbf{Requested by} & \textbf{Written for} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\multicolumn{3}{l}{GWF Model Listing File} \\
+\hline
+Package input & PRINT\_INPUT in package or GWF Model Name File & stress periods in which input is read \\
+Volumetric budget & always written & time steps with PRINT BUDGET in Output Control, the last time step of each stress period, and time steps that fail to converge \\
+Package flows & PRINT\_FLOWS in package or GWF Model Name File & same time steps as volumetric budget \\
+Advanced package budget & always written & same time steps as volumetric budget \\
+Head & PRINT HEAD in Output Control & time steps with PRINT HEAD in Output Control, the last time step of each stress period, and time steps that fail to converge \\
+Advanced package stage or head & PRINT\_STAGE or PRINT\_HEAD in package & same time steps as head \\
+\hline
+\multicolumn{3}{l}{Binary output files} \\
+\hline
+Head & HEAD FILEOUT in Output Control & time steps with SAVE HEAD in Output Control \\
+Cell-by-cell flows & BUDGET FILEOUT in Output Control and SAVE\_FLOWS in package or GWF Model Name File & time steps with SAVE BUDGET in Output Control \\
+Specific discharge and saturation & BUDGET FILEOUT in Output Control and SAVE\_FLOWS and SAVE\_SPECIFIC\_DISCHARGE or SAVE\_SATURATION in NPF Package & time steps with SAVE BUDGET in Output Control \\
+Advanced package stage, head, or water content & STAGE, HEAD, or WATER\_CONTENT FILEOUT in package & time steps with SAVE HEAD in Output Control \\
+Advanced package budget & BUDGET FILEOUT in package & time steps with SAVE BUDGET in Output Control \\
+\hline
+\multicolumn{3}{l}{CSV output files} \\
+\hline
+Volumetric budget & BUDGETCSV FILEOUT in Output Control & every time step \\
+Advanced package budget & BUDGETCSV FILEOUT in package & every time step \\
+Observations & OBS6 file & every time step \\
+Advanced package convergence & PACKAGE\_CONVERGENCE FILEOUT in package & every iteration \\
+Solver convergence & CSV\_OUTER\_OUTPUT or CSV\_INNER\_OUTPUT FILEOUT in IMS & every outer or inner iteration \\
+\label{table:outputsummary}
+\end{longtable}
+
+\subsection{Additional Considerations}
+The following behavior is not always apparent from the descriptions of the individual input files.
+
+\begin{itemize}
+\item The PRINT\_INPUT, PRINT\_FLOWS, and SAVE\_FLOWS options in the GWF Model Name File apply to all packages in the model.  These options can be specified for an individual package to activate output that is not activated in the Name File, but output that is activated in the Name File cannot be deactivated for an individual package.
+
+\item The volumetric budget, package flows, and head are written to the GWF Model Listing File for the last time step of every stress period, regardless of the PRINT settings in Output Control.  They are also written for any time step that fails to converge, unless the CONTINUE option is specified in the simulation Name File.  There is no equivalent behavior for SAVE settings; binary output is written only for the time steps specified in Output Control.
+
+\item Advanced package budget files do not require the SAVE\_FLOWS option.  The SAVE\_FLOWS option for an advanced package only determines whether flows between the package and GWF Model cells are written to the GWF Model budget file.
+
+\item Advanced package stage, head, and water content files are written for the time steps with SAVE HEAD in Output Control, not SAVE BUDGET.
+
+\item If an Output Control file is not specified, the volumetric budget and head are written to the GWF Model Listing File at the end of each stress period, and binary head and budget files are not written.
+
+\item SAVE and PRINT settings in an Output Control PERIOD block continue to apply to subsequent stress periods until another PERIOD block is read.  An empty PERIOD block turns off all SAVE and PRINT output beginning with that stress period.
+\end{itemize}
+
+\subsection{Other Models}
+The GWT and GWE Models follow the same approach as the GWF Model, with CONCENTRATION and TEMPERATURE, respectively, used in place of HEAD in Output Control, and with advanced transport packages (for example, the SFT, LKT, SFE, and LKE Packages) providing CONCENTRATION or TEMPERATURE FILEOUT options in place of STAGE or HEAD.  For the PRT Model, particle track output is written to binary and CSV files specified in the PRT Model Output Control file, for the tracking events selected there, and does not depend on SAVE and PRINT settings.  See the Output Control section for each model for details.
+
+\ifdevelopmode
+The CHF and OLF Models also follow the same approach.  In place of HEAD, Output Control for these models supports STAGE and QOUTFLOW, which can be printed to the Model Listing File and saved to binary files specified with the STAGE FILEOUT and QOUTFLOW FILEOUT options.
+\fi
