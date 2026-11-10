@@ -1088,7 +1088,7 @@ contains
     !    scales: the interface switch smooths over a fraction of the thickness of
     !    the cell that holds the tested interface; the flow-direction switch
     !    smooths over the equivalent head band (a zeta change of `band` is a head
-    !    change of band/alpha).  TODO: expose the 0.1 fraction as input.
+    !    change of band/alpha). The fraction is fixed at 0.1.
     if (this%swi%isaltwater == 0) then
       ! freshwater: the tested interface zeta(iu) is in the UPPER cell
       band = 1.0d-1 * (npf%dis%top(iu) - npf%dis%bot(iu))
@@ -1219,8 +1219,7 @@ contains
     !    Symmetric for both models, it keeps a fully drained fluid zone from
     !    producing a zero/negative row -- a singular system, or an unphysical
     !    negative conductance where S^s > S^w -- without perturbing normally
-    !    saturated cells. TODO: replacing this fixed threshold with proper
-    !    dry-zone handling would let ZONE_MINIMUM_THICKNESS be removed entirely.
+    !    saturated cells.
     condf = max(condf, npf%condsat(jas) * ZONE_MINIMUM_THICKNESS / &
                 min(tthkn, tthkm))
   end function swinpf_condf
