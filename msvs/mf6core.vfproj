@@ -245,6 +245,7 @@
 				<File RelativePath="..\src\Idm\gwf-vscidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-vsetidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-vsfidm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-vssbidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welgidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welidm.f90"/>
 				<File RelativePath="..\src\Idm\gwt-advidm.f90"/>
@@ -384,6 +385,7 @@
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-vsc.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-vset.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-vsf.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-vssb.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-wel.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\TvBase.f90"/>
@@ -443,6 +445,7 @@
 					<File RelativePath="..\src\Model\ModelUtilities\VsfSoilModel.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfSoilModelFactory.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfStorage.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\VsfSurfaceExchange.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfVanGenuchten.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Xt3dAlgorithm.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Xt3dInterface.f90"/>

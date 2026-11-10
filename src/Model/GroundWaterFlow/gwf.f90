@@ -1683,7 +1683,7 @@ contains
   !! The check needs both packages and is therefore done by the model.
   !!
   !! TODO_VSF: reassess this routine when it is clear how to treat exfiltration
-  !! consistenly
+  !! consistently
   !<
   subroutine check_vssb_overlap(this)
     ! -- modules
