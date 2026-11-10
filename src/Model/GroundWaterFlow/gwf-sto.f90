@@ -42,6 +42,9 @@ module GwfStoModule
     real(DP), dimension(:), pointer, contiguous :: sy => null() !< specific yield
     real(DP), dimension(:), pointer, contiguous :: strgss => null() !< vector of specific storage rates
     real(DP), dimension(:), pointer, contiguous :: strgsy => null() !< vector of specific yield rates
+    integer(I4B), pointer :: isavvol => null() !< flag to save the storage volumes
+    real(DP), dimension(:), pointer, contiguous :: vss => null() !< volume of water in compressible storage
+    real(DP), dimension(:), pointer, contiguous :: satold => null() !< saturation at the end of the previous time step
     integer(I4B), dimension(:), pointer, contiguous :: ibound => null() !< pointer to model ibound
     real(DP), pointer :: satomega => null() !< newton-raphson saturation omega
     integer(I4B), pointer :: integratechanges => null() !< indicates if mid-simulation ss and sy changes should be integrated via an additional matrix formulation term
@@ -78,6 +81,8 @@ module GwfStoModule
     procedure, private :: fc_default_sto
     procedure, private :: fn_default_sto
     procedure, private :: cq_default_sto
+    procedure, private :: sto_calc_volume
+    procedure, private :: sto_save_volume
 
   end type
 
@@ -565,6 +570,9 @@ contains
       this%strgsy(n) = DZERO
     end do
     !
+    ! -- compressible storage volume at the end of the time step
+    call this%sto_calc_volume(hnew)
+    !
     if (this%iss == 1) return !< no storage for steady state period
     !
     ! -- Each active formulation runs over all cells and adds its storage
@@ -810,8 +818,76 @@ contains
                                    budtxt(2), cdatafmp, nvaluesp, &
                                    nwidthp, editdesc, dinact)
       end if
+      !
+      ! -- storage volumes
+      if (this%isavvol /= 0) call this%sto_save_volume(ibinun)
     end if
   end subroutine sto_save_model_flows
+
+  !> @brief Calculate the volume of water in compressible storage
+  !!
+  !! The change in the volume over a time step is the specific storage flow of
+  !! the time step.
+  !<
+  subroutine sto_calc_volume(this, hnew)
+    ! -- dummy variables
+    class(GwfStoType) :: this !< GwfStoType object
+    real(DP), dimension(:), contiguous, intent(in) :: hnew !< current head
+    ! -- local variables
+    integer(I4B) :: n
+    real(DP) :: tp, bt, tthk, sn, sc1
+    !
+    do n = 1, this%dis%nodes
+      this%vss(n) = DZERO
+      if (this%iformulation(n) /= DEFAULT_STORAGE) cycle
+      if (this%ibound(n) <= 0) cycle
+      tp = this%dis%top(n)
+      bt = this%dis%bot(n)
+      tthk = tp - bt
+      sc1 = SsCapacity(this%istor_coef, tp, bt, this%dis%area(n), this%ss(n))
+      !
+      ! -- the same volume that the SsTerms rate changes
+      if (this%iconvert(n) == 0) then
+        this%vss(n) = sc1 * (hnew(n) - bt - DHALF * tthk)
+      else
+        sn = sQuadraticSaturation(tp, bt, hnew(n), this%satomega)
+        if (this%iorig_ss /= 0) then
+          this%vss(n) = sc1 * sn * hnew(n)
+        else if (this%iconf_ss /= 0) then
+          if (sn == DONE) this%vss(n) = sc1 * (hnew(n) - tp)
+        else
+          this%vss(n) = sc1 * sn * (hnew(n) - bt - DHALF * tthk * sn)
+        end if
+      end if
+    end do
+  end subroutine sto_calc_volume
+
+  !> @brief Save the compressible storage volume and previous saturation
+  !<
+  subroutine sto_save_volume(this, ibinun)
+    ! -- dummy variables
+    class(GwfStoType) :: this !< GwfStoType object
+    integer(I4B), intent(in) :: ibinun !< budget file unit number
+    ! -- local variables
+    character(len=16) :: text
+    character(len=16), dimension(2) :: auxtxt
+    real(DP), dimension(2) :: a
+    integer(I4B) :: n
+    integer(I4B) :: naux
+    !
+    text = '     DATA-STOVOL'
+    naux = 2
+    auxtxt(:) = ['             vss', '          satold']
+    call this%dis%record_srcdst_list_header(text, this%name_model, &
+                                            this%packName, this%name_model, &
+                                            this%packName, naux, auxtxt, ibinun, &
+                                            this%dis%nodes, this%iout)
+    do n = 1, this%dis%nodes
+      a(1) = this%vss(n)
+      a(2) = this%satold(n)
+      call this%dis%record_mf6_list_entry(ibinun, n, n, DZERO, naux, a)
+    end do
+  end subroutine sto_save_volume
 
   !> @ brief Deallocate package memory
   !!
@@ -837,6 +913,8 @@ contains
       call mem_deallocate(this%sy)
       call mem_deallocate(this%strgss)
       call mem_deallocate(this%strgsy)
+      call mem_deallocate(this%vss)
+      call mem_deallocate(this%satold)
       call mem_deallocate(this%iformulation)
       !
       ! -- deallocate the default storage formulation
@@ -866,6 +944,7 @@ contains
     call mem_deallocate(this%satomega)
     call mem_deallocate(this%integratechanges)
     call mem_deallocate(this%intvs)
+    call mem_deallocate(this%isavvol)
     !
     ! -- deallocate parent
     call this%NumericalPackageType%da()
@@ -895,6 +974,7 @@ contains
     call mem_allocate(this%integratechanges, 'INTEGRATECHANGES', &
                       this%memoryPath)
     call mem_allocate(this%intvs, 'INTVS', this%memoryPath)
+    call mem_allocate(this%isavvol, 'ISAVVOL', this%memoryPath)
     !
     ! -- initialize scalars
     this%istor_coef = 0
@@ -904,6 +984,7 @@ contains
     this%satomega = DZERO
     this%integratechanges = 0
     this%intvs = 0
+    this%isavvol = 0
   end subroutine allocate_scalars
 
   !> @ brief Allocate package arrays
@@ -926,6 +1007,8 @@ contains
     call mem_allocate(this%sy, nodes, 'SY', this%memoryPath)
     call mem_allocate(this%strgss, nodes, 'STRGSS', this%memoryPath)
     call mem_allocate(this%strgsy, nodes, 'STRGSY', this%memoryPath)
+    call mem_allocate(this%vss, nodes, 'VSS', this%memoryPath)
+    call mem_allocate(this%satold, nodes, 'SATOLD', this%memoryPath)
     call mem_allocate(this%iformulation, nodes, 'IFORM', this%memoryPath)
     !
     ! -- set input context pointers
@@ -942,6 +1025,8 @@ contains
       this%sy(n) = DZERO
       this%strgss(n) = DZERO
       this%strgsy(n) = DZERO
+      this%vss(n) = DZERO
+      this%satold(n) = DONE
       if (this%integratechanges /= 0) then
         this%oldss(n) = DZERO
         if (this%iusesy /= 0) then
@@ -983,6 +1068,8 @@ contains
     !
     ! -- source package input
     call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
+    call mem_set_value(this%isavvol, 'ISAVVOL', this%input_mempath, &
+                       found%isavvol)
     call mem_set_value(this%istor_coef, 'ISTOR_COEF', this%input_mempath, &
                        found%istor_coef)
     call mem_set_value(this%iconf_ss, 'SS_CONFINED_ONLY', this%input_mempath, &
@@ -1055,6 +1142,11 @@ contains
     !
     if (found%ipakcb) then
       write (this%iout, fmtisvflow)
+    end if
+    !
+    if (found%isavvol) then
+      write (this%iout, '(4x,a)') 'Storage volumes will be written to &
+                                  &DATA-STOVOL in budget file when requested.'
     end if
     !
     if (found%istor_coef) then

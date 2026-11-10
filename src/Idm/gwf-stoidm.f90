@@ -14,6 +14,7 @@ module GwfStoInputModule
 
   type GwfStoParamFoundType
     logical :: ipakcb = .false.
+    logical :: isavvol = .false.
     logical :: istor_coef = .false.
     logical :: ss_confined_only = .false.
     logical :: tvs_filerecord = .false.
@@ -51,6 +52,25 @@ module GwfStoInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'keyword to save NPF flows', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfsto_isavvol = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'STO', & ! subcomponent
+    'OPTIONS', & ! block
+    'SAVE_STORAGE_VOLUME', & ! tag name
+    'ISAVVOL', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'keyword to save storage volumes', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -349,6 +369,7 @@ module GwfStoInputModule
     gwf_sto_param_definitions(*) = &
     [ &
     gwfsto_ipakcb, &
+    gwfsto_isavvol, &
     gwfsto_istor_coef, &
     gwfsto_ss_confined_only, &
     gwfsto_tvs_filerecord, &

@@ -398,6 +398,7 @@ contains
   subroutine gwf_ad(this)
     ! -- modules
     use SimVariablesModule, only: isimcheck, iFailedStepRetry
+    use TdisModule, only: kper, kstp
     ! -- dummy
     class(GwfModelType) :: this
     class(BndType), pointer :: packobj
@@ -420,6 +421,20 @@ contains
       do n = 1, this%dis%nodes
         this%x(n) = this%xold(n)
       end do
+    end if
+    !
+    ! -- saturation at the end of the previous time step, saved with the
+    !    storage volumes
+    if (this%insto > 0 .and. this%innpf > 0) then
+      if (this%sto%isavvol /= 0 .and. irestore == 0) then
+        if (kper == 1 .and. kstp == 1) then
+          call this%npf%npf_initial_saturation(this%sto%satold)
+        else
+          do n = 1, this%dis%nodes
+            this%sto%satold(n) = this%npf%sat(n)
+          end do
+        end if
+      end if
     end if
     !
     ! -- Advance
