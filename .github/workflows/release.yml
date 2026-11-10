@@ -129,7 +129,7 @@ jobs:
 
       - name: Setup pixi
         if: inputs.releasemode == true
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -268,7 +268,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -614,7 +614,7 @@ jobs:
         run: sudo ./install.sh --all-users
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
@@ -773,7 +773,7 @@ jobs:
           version: ${{ matrix.version }}
 
       - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.2
+        uses: prefix-dev/setup-pixi@v0.11.3
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
