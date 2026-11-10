@@ -12,7 +12,8 @@ set -euxo pipefail
 
 # load appropriate modules
 module switch PrgEnv-${PE_ENV,,} PrgEnv-intel
-module load cray-petsc cray-netcdf cray-hdf5 meson ninja
+# MESON_VERSION and PETSC_VERSION may be set to pin module versions
+module load "cray-petsc${PETSC_VERSION:+/$PETSC_VERSION}" cray-netcdf cray-hdf5 "meson${MESON_VERSION:+/$MESON_VERSION}" ninja
 export PKG_CONFIG_PATH=$CRAY_MPICH_DIR/lib/pkgconfig:$PETSC_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
 export PKG_CONFIG_PATH=$NETCDF_DIR/lib/pkgconfig:$HDF5_DIR/lib/pkgconfig:$PKG_CONFIG_PATH
 
