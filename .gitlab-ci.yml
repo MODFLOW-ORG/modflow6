@@ -18,13 +18,15 @@
 #  - DENALI_MF6_PREV_VERSION, version of modulefile to use as template
 #  - DENALI_MF6_PROJ_ROOT, path to modflow6 project root
 #  - DENALI_BUILD_SCRIPT, relpath of script to build mf6
+#  - DENALI_MESON_VERSION, meson module version (optional, default module if unset)
+#  - DENALI_PETSC_VERSION, petsc module version (optional, default module if unset)
 #
 # ...and likewise for HOVENWEEP_* or other systems
 
 image: ubuntu:24.04
 workflow:
   rules:
-    - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == 'push'
+    - if: $CI_PIPELINE_SOURCE == 'push' && ($CI_COMMIT_BRANCH == 'develop' || $CI_COMMIT_BRANCH == 'master')
 before_script:
   # install ssh agent
   - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client git -y )'
@@ -51,6 +53,8 @@ deploy_denali:
     MF6_PROJ_ROOT: $DENALI_MF6_PROJ_ROOT
     MF6_PREV_VERSION: $DENALI_MF6_PREV_VERSION
     BUILD_SCRIPT: $DENALI_BUILD_SCRIPT
+    MESON_VERSION: $DENALI_MESON_VERSION
+    PETSC_VERSION: $DENALI_PETSC_VERSION
 deploy_hovenweep:
   environment: hovenweep
   script: "$CI_PROJECT_DIR/.hpc/deploy.sh"
@@ -64,3 +68,5 @@ deploy_hovenweep:
     MF6_PROJ_ROOT: $HOVENWEEP_MF6_PROJ_ROOT
     MF6_PREV_VERSION: $HOVENWEEP_MF6_PREV_VERSION
     BUILD_SCRIPT: $HOVENWEEP_BUILD_SCRIPT
+    MESON_VERSION: $HOVENWEEP_MESON_VERSION
+    PETSC_VERSION: $HOVENWEEP_PETSC_VERSION

@@ -112,18 +112,19 @@ endif
 
 # parallel build options
 is_extended_build = get_option('extended')
-is_parallel_build = get_option('parallel') or is_extended_build
-is_netcdf_build = get_option('netcdf') or is_extended_build
 is_cray = get_option('cray')
 is_mpich = get_option('mpich')
 if is_cray and build_machine.system() != 'linux'
   error('cray only supported on linux systems')
 endif
-if is_cray and not is_parallel_build
+# cray implies an extended build unless parallel/extended was
+# requested explicitly; resolve this before deriving the flags below
+if is_cray and not (get_option('parallel') or is_extended_build)
   is_extended_build = true
-  is_parallel_build = true
   is_mpich = true
 endif
+is_parallel_build = get_option('parallel') or is_extended_build
+is_netcdf_build = get_option('netcdf') or is_extended_build
 if is_mpich
   if is_cray
     mpifort_name = 'mpichf90' 
