@@ -1,20 +1,36 @@
 """
-Test advanced transport observations with an invalid feature or connection.
-
-An observation of a feature's connections (LKT, SFT, MWT, UZT and the energy
-equivalents) on a feature with no rows in that budget term used to read an
-uninitialized index. An ID of 0 also passed the range check. Both are now
-errors.
+Test advanced transport observations that give a feature number (ID) or a
+connection number (ID2). ID must be between 1 and the number of features,
+and a feature must have the connection observed. Otherwise the simulation
+stops with an error.
 
 Lake 1 has one connection to the aquifer, lake 2 has none.
 """
 
 import flopy
 import pytest
+from framework import TestFramework
+
+cases = {
+    "no-conn": (
+        [("x", "lkt", 2, 1)],
+        "specifies iconn = 1, but this is not a valid connection for ID 2.",
+    ),
+    "id0-lkt": ([("x", "lkt", 0, 1)], "was assigned ID = 0. ID must be >= 1 and <= 2."),
+    "id0-conc": (
+        [("x", "concentration", 0)],
+        "was assigned ID = 0. ID must be >= 1 and <= 2.",
+    ),
+    "valid": (
+        [("c1", "concentration", 1), ("c2", "concentration", 2), ("q", "lkt", 1, 1)],
+        None,
+    ),
+}
 
 
-def build(ws, exe, obs):
-    sim = flopy.mf6.MFSimulation(sim_ws=str(ws), exe_name=exe)
+def build_models(name, test):
+    obs, _ = cases[name]
+    sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=test.workspace, exe_name="mf6")
     flopy.mf6.ModflowTdis(sim)
 
     gwf = flopy.mf6.ModflowGwf(sim, modelname="gwf", save_flows=True)
@@ -62,34 +78,26 @@ def build(ws, exe, obs):
     flopy.mf6.ModflowGwfgwt(
         sim, exgtype="GWF6-GWT6", exgmnamea=gwf.name, exgmnameb=gwt.name
     )
-    sim.write_simulation(silent=True)
-    return sim
+    return sim, None
 
 
-def run(sim):
-    success, buff = sim.run_simulation(silent=True, report=True)
-    return success, " ".join(" ".join(buff).split())
+def check_output(name, test):
+    _, error = cases[name]
+    if error is None:
+        assert (test.workspace / "obs.csv").is_file()
+    else:
+        output = " ".join(" ".join(test.buffs[0]).split())
+        assert error in output
 
 
-def test_obs_feature_without_connections(function_tmpdir, targets):
-    sim = build(function_tmpdir, targets["mf6"], [("x", "lkt", 2, 1)])
-    success, output = run(sim)
-    assert not success
-    assert "specifies iconn = 1, but this is not a valid connection for ID 2." in (
-        output
+@pytest.mark.parametrize("name", cases)
+def test_mf6model(name, function_tmpdir, targets):
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: build_models(name, t),
+        check=lambda t: check_output(name, t),
+        xfail=cases[name][1] is not None,
     )
-
-
-@pytest.mark.parametrize("obs", [("x", "lkt", 0, 1), ("x", "concentration", 0)])
-def test_obs_id_zero(function_tmpdir, targets, obs):
-    sim = build(function_tmpdir, targets["mf6"], [obs])
-    success, output = run(sim)
-    assert not success
-    assert "was assigned ID = 0. ID must be >= 1 and <= 2." in output
-
-
-def test_obs_valid(function_tmpdir, targets):
-    obs = [("c1", "concentration", 1), ("c2", "concentration", 2), ("q", "lkt", 1, 1)]
-    sim = build(function_tmpdir, targets["mf6"], obs)
-    success, output = run(sim)
-    assert success, output
+    test.run()
