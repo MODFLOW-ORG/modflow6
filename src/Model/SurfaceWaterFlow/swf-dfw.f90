@@ -808,7 +808,7 @@ contains
   !> @brief Calculate half cell conductance
   !!
   !! Calculate half-cell conductance for cell n
-  !< using conveyance and Manning's equation
+  !! using conveyance and Manning equation
   function get_cond_n(this, n, depth, dx, width, dhds) result(c)
     ! modules
     ! dummy

@@ -228,7 +228,7 @@ contains
   !> @brief Define the NPF package instance
   !!
   !! This is a hybrid routine: it either reads the options for this package
-  !! from the input file, or the optional argument @param npf_options
+  !! from the input file, or the optional argument @p npf_options
   !! should be passed. A consistency check is performed, and finally
   !! xt3d_df is called, when enabled.
   !<

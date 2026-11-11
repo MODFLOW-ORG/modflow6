@@ -1941,7 +1941,7 @@ contains
   end function gwf_gwf_get_iasym
 
   !> @brief Return true when this exchange provides matrix
-  !! coefficients for solving @param model
+  !! coefficients for solving @p model
   !<
   function gwf_gwf_connects_model(this, model) result(is_connected)
     ! -- dummy

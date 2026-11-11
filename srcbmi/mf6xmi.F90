@@ -300,7 +300,6 @@ contains
   !! This will determine convergence, reports, calculate flows and budgets, and more...
   !! It should always follow after a call to xmi_prepare_solve() and xmi_solve().
   !!
-  !! @param[in]   subcomponent_idx    the index of the subcomponent (Numerical Solution)
   !! @return      bmi_status          the BMI status code
   !<
   function xmi_finalize_solve(subcomponent_idx) result(bmi_status) &
