@@ -1,8 +1,18 @@
+!> @brief Seawater Intrusion (SWI) Package
+!!
+!! The SWI Package simulates a sharp interface between freshwater and
+!! saltwater. It supplies NPF conductance and STO storage formulations that
+!! are based on the saturated cell fraction of each fluid zone. The
+!! interface elevation (zeta) is computed from the freshwater and saltwater
+!! heads. In a single-fluid model the saltwater head is specified; in a
+!! two-fluid simulation a SWI-SWI exchange couples a freshwater and a
+!! saltwater GWF model.
+!<
 module GwfSwiModule
 
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LINELENGTH, DONE, DZERO, DHALF, LENBUDTXT, &
-                             MNORMAL, DHNOFLO, C3D_VERTICAL, LENMODELNAME, &
+                             MNORMAL, DHNOFLO, C3D_VERTICAL, C3D_STAGGERED, &
                              DEM6, LENMEMPATH
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_filename
@@ -31,17 +41,14 @@ module GwfSwiModule
     &['         STORAGE']
   integer(I4B), parameter :: FRESHWATER_ONE_FLUID = 0 !< freshwater model without swi-swi exchange
   integer(I4B), parameter :: FRESHWATER_TWO_FLUID = 1 !< freshwater model with swi-swi exchange
-  integer(I4B), parameter :: SALTWATER_ONE_FLUID = 2 !< saltwater model without swi-swi exchange, not supported
   integer(I4B), parameter :: SALTWATER_TWO_FLUID = 3 !< saltwater model with swi-swi exchange
   real(DP), parameter :: DEFAULT_RELDENSDIFF = 0.025D0 !< default relative density difference, (rhos - rhof) / rhof, for 1000. and 1025.
   real(DP), parameter :: ZONE_MINIMUM_THICKNESS = 1.d-3 !< minimum thickness of saltwater or freshwater zone to avoid numerical issues
+  real(DP), parameter :: VRESTRICT_SMOOTH_FRACTION = 1.0d-1 !< fraction of cell thickness over which the two-fluid vertical flow restriction is smoothed
 
   type, extends(NumericalPackageType) :: GwfSwiType
 
-    character(len=LENMODELNAME) :: freshwater_model_name = ''
-    character(len=LENMODELNAME) :: saltwater_model_name = ''
-
-    integer(I4B), pointer :: iconfiguration => null() !< 0 is freshwater, 1 is freshwater two fluid, 2 is saltwater, 3 is saltwater two fluid
+    integer(I4B), pointer :: iconfiguration => null() !< 0 is freshwater one fluid, 1 is freshwater two fluid, 3 is saltwater two fluid
     integer(I4B), pointer :: isaltwater => null() !< 0 is freshwater, 1 is saltwater
     integer(I4B), pointer :: izetaout => null() !< unit number for binary zeta output file
     integer(I4B), pointer :: intvg => null() !< flag: a TVG6 file supplies hsalt
@@ -50,7 +57,7 @@ module GwfSwiModule
     real(DP), dimension(:), pointer, contiguous :: zeta => null() !< interface elevation from the converged heads
     real(DP), dimension(:), pointer, contiguous :: storage => null() !< calculated swi storage
 
-    ! information needed for full implementation
+    ! interface coefficients and heads
     real(DP), pointer :: reldensdiff => null() !< relative density difference, (rhos - rhof) / rhof; user input, default 0.025
     real(DP), pointer :: alphaf => null() !< rhof / (rhos - rhof), derived from reldensdiff, default is 40
     real(DP), pointer :: alphas => null() !< rhos / (rhos - rhof), default is 41
@@ -72,11 +79,12 @@ module GwfSwiModule
     ! objects
     type(UtlTvgType) :: tvg_reader
 
-    ! SWI flow formulation (overrides the default NPF conductance)
+    ! SWI flow formulation (replaces the default NPF conductance)
     class(GwfNpfFormulationType), pointer :: npf_form => null()
-    ! SWI storage formulation (overrides the default STO terms; adds bd/save_flows)
+    ! SWI storage formulation (adds to or replaces the default STO terms;
+    ! adds bd/save_flows)
     class(GwfStoFormulationType), pointer :: sto_form => null()
-    ! SWI flow-reduction provider (answers stress packages that taper a
+    ! SWI flow-reduction provider (answers stress packages that reduce a
     ! withdrawal, such as WEL AUTO_FLOW_REDUCE, with the fluid-zone factor)
     class(FlowReductionType), pointer :: flowred => null()
 
@@ -84,28 +92,27 @@ module GwfSwiModule
 
     procedure :: swi_df
     procedure :: swi_ar
-    procedure, private :: check_compatibility
     procedure :: swi_rp
     procedure :: swi_ad
     procedure :: swi_cq
     procedure :: swi_ot_dv
     procedure :: swi_da
+    procedure, private :: check_compatibility
     procedure, private :: swi_load
+    procedure :: allocate_scalars
+    procedure, private :: allocate_arrays
     procedure, private :: source_options
     procedure, private :: log_options
     procedure, private :: set_alphas
-    procedure :: allocate_scalars
-    procedure, private :: allocate_arrays
-    procedure, private :: update_zeta
-
     procedure :: set_configuration
     procedure :: set_head_pointers
     procedure :: get_zetanew
     procedure :: get_zetaold
+    procedure, private :: update_zeta
 
   end type GwfSwiType
 
-  !> @brief NPF flow formulation for SWI. Overrides the default NPF connection
+  !> @brief NPF flow formulation for SWI. Replaces the default NPF connection
   !! conductance with the fluid-zone conductance (freshwater S^f = S^w - S^s, or
   !! saltwater S^s).
   !<
@@ -119,11 +126,11 @@ module GwfSwiModule
   end type SwiNpfFormulationType
 
   !> @brief Flow-reduction provider for SWI. Answers a stress package that
-  !! tapers a withdrawal (WEL AUTO_FLOW_REDUCE) with the factor for the fluid
-  !! zone this model simulates, so the withdrawal tapers as the zone thins
+  !! reduces a withdrawal (WEL AUTO_FLOW_REDUCE) with the factor for the fluid
+  !! zone this model simulates, so the withdrawal is reduced as the zone thins
   !! rather than as the cell empties, in confined cells too. The interface
   !! moves with the head, and the derivative carries that dependence, so the
-  !! well term is consistent with the Newton formulation and needs no lag.
+  !! well flow is consistent with the Newton formulation and needs no lag.
   !<
   type, extends(FlowReductionType) :: SwiFlowReductionType
     class(GwfSwiType), pointer :: swi => null() !< owning SWI package
@@ -167,7 +174,7 @@ contains
     class(DisBaseType), pointer, intent(in) :: dis
     ! formats
     character(len=*), parameter :: fmtswi = &
-      "(1x, /1x, 'SWI -- Seawater Intrusion Package, Version 8, 1/8/2024', &
+      "(1x, /1x, 'SWI -- Seawater Intrusion Package, Version 1, 11/10/2026', &
       &' input read from mempath: ', A, //)"
     !
     ! create SWI object
@@ -200,8 +207,7 @@ contains
   !<
   subroutine swi_df(this)
     ! dummy
-    class(GwfSwiType) :: this
-    ! local
+    class(GwfSwiType), intent(inout) :: this
 
     ! allocate arrays
     call this%allocate_arrays(this%dis%nodes)
@@ -228,7 +234,7 @@ contains
   !<
   subroutine swi_ar(this, ibound, npf, sto)
     ! dummy
-    class(GwfSwiType), target :: this
+    class(GwfSwiType), target, intent(inout) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ibound !< model ibound
     type(GwfNpfType), pointer, intent(inout) :: npf !< model NPF package
     type(GwfStoType), pointer, intent(inout) :: sto !< model STO package
@@ -316,7 +322,7 @@ contains
     end if
 
     ! register the SWI NPF flow formulation and flag ALL of its connections
-    ! (horizontal and vertical) so NPF dispatches them to the SWI override; the
+    ! (horizontal and vertical) so NPF dispatches them to the SWI formulation;
     ! formulation applies the fluid-zone conductance for horizontal connections
     ! and the buoyancy-restricted conductance for vertical connections
     allocate (npf_form)
@@ -360,48 +366,11 @@ contains
 
   end subroutine swi_ar
 
-  !> @brief Store an error for each model package the SWI formulation
-  !! does not support.
-  !!
-  !! XT3D replaces the NPF conductance terms, so the SWI fluid-zone
-  !! conductance would be dropped. GNC and HFB adjust the standard NPF
-  !! conductance, and BUY and VSC change the density and viscosity terms
-  !! that SWI already represents with its own formulation.
-  !<
-  subroutine check_compatibility(this, npf)
-    ! dummy
-    class(GwfSwiType) :: this
-    type(GwfNpfType), pointer, intent(in) :: npf
-    ! local
-    integer(I4B), pointer :: inpkg => null()
-    character(len=4), dimension(4) :: pkgs = ['GNC ', 'HFB ', 'BUY ', 'VSC ']
-    integer(I4B) :: i
-    logical(LGP) :: found
-    !
-    found = .false.
-    if (npf%ixt3d /= 0) then
-      found = .true.
-      call store_error('The SWI Package cannot be used with XT3D in the '// &
-                       'NPF Package.', terminate=.false.)
-    end if
-    do i = 1, size(pkgs)
-      call mem_setptr(inpkg, 'IN'//trim(pkgs(i)), &
-                      create_mem_path(this%name_model))
-      if (inpkg > 0) then
-        found = .true.
-        call store_error('The SWI Package cannot be used with the '// &
-                         trim(pkgs(i))//' Package.', terminate=.false.)
-      end if
-    end do
-    if (found) call store_error_filename(this%input_fname)
-  end subroutine check_compatibility
-
   !> @brief Read and prepare
   !<
   subroutine swi_rp(this)
     ! dummy
-    class(GwfSwiType) :: this
-    ! local
+    class(GwfSwiType), intent(inout) :: this
 
   end subroutine swi_rp
 
@@ -410,7 +379,7 @@ contains
   subroutine swi_ad(this, irestore)
     use TdisModule, only: kper, kstp
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     integer(I4B), intent(in) :: irestore
     ! local
     integer(I4B) :: n
@@ -447,12 +416,12 @@ contains
 
   end subroutine swi_ad
 
-  !> @ brief Calculate flows and storages for SWI package and adjust flowja
+  !> @brief Calculate flows and storages for SWI package and adjust flowja
   !!
   !<
   subroutine swi_cq(this)
     ! dummy variables
-    class(GwfSwiType) :: this !< GwfSwiType object
+    class(GwfSwiType), intent(inout) :: this !< GwfSwiType object
     ! local
     integer(I4B) :: n
     !
@@ -478,15 +447,14 @@ contains
     ! matrix fill in swinpf_fc; storage flows by the SWI STO formulation
     ! (swisto_cq). Both horizontal and vertical connections are handled: swinpf_cq
     ! shares swinpf_condf with swinpf_fc, which routes vertical connections to the
-    ! buoyancy-restricted conductance (test_gwf_swi_vcol2 exercises an all-vertical
-    ! saltwater column and confirms the budget balances).
+    ! buoyancy-restricted conductance.
   end subroutine swi_cq
 
   !> @brief Save zeta array to binary file
   !<
   subroutine swi_ot_dv(this, idvfl)
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     integer(I4B), intent(in) :: idvfl
     ! local
     character(len=1) :: cdatafmp = ' ', editdesc = ' '
@@ -530,7 +498,7 @@ contains
     use MemoryManagerExtModule, only: memorystore_remove
     use SimVariablesModule, only: idm_context
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
 
     ! deallocate IDM memory
     call memorystore_remove(this%name_model, 'SWI', idm_context)
@@ -590,24 +558,58 @@ contains
 
   end subroutine swi_da
 
+  !> @brief Store an error for each model package the SWI formulation
+  !! does not support.
+  !!
+  !! XT3D replaces the NPF conductance terms, so the SWI fluid-zone
+  !! conductance would be dropped. GNC and HFB adjust the standard NPF
+  !! conductance, and BUY and VSC change the density and viscosity terms
+  !! that SWI already represents with its own formulation.
+  !<
+  subroutine check_compatibility(this, npf)
+    ! dummy
+    class(GwfSwiType), intent(inout) :: this
+    type(GwfNpfType), pointer, intent(in) :: npf
+    ! local
+    integer(I4B), pointer :: inpkg => null()
+    character(len=4), dimension(4) :: pkgs = ['GNC ', 'HFB ', 'BUY ', 'VSC ']
+    integer(I4B) :: i
+    logical(LGP) :: found
+    !
+    found = .false.
+    if (npf%ixt3d /= 0) then
+      found = .true.
+      call store_error('The SWI Package cannot be used with XT3D in the '// &
+                       'NPF Package.', terminate=.false.)
+    end if
+    do i = 1, size(pkgs)
+      call mem_setptr(inpkg, 'IN'//trim(pkgs(i)), &
+                      create_mem_path(this%name_model))
+      if (inpkg > 0) then
+        found = .true.
+        call store_error('The SWI Package cannot be used with the '// &
+                         trim(pkgs(i))//' Package.', terminate=.false.)
+      end if
+    end do
+    if (found) call store_error_filename(this%input_fname)
+  end subroutine check_compatibility
+
   !> @brief Load data from IDM into package
   !<
   subroutine swi_load(this)
-    ! modules
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
 
     call this%source_options()
 
   end subroutine swi_load
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the SWI package. The base model
   !! allocate scalars method is also called.
   !<
   subroutine allocate_scalars(this)
-    ! modules
     ! dummy
     class(GwfSwiType) :: this
 
@@ -641,10 +643,8 @@ contains
   !> @brief Allocate arrays
   !<
   subroutine allocate_arrays(this, nodes)
-    ! modules
-    use MemoryManagerModule, only: mem_allocate
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     integer(I4B), intent(in) :: nodes
     ! local
     integer(I4B) :: n
@@ -668,12 +668,11 @@ contains
     use SourceCommonModule, only: filein_fname
     use OpenSpecModule, only: access, form
     use InputOutputModule, only: getunit, openfile
-    use MemoryManagerModule, only: mem_setptr
     use MemoryManagerExtModule, only: mem_set_value
     use CharacterStringModule, only: CharacterStringType
     use GwfSwiInputModule, only: GwfSwiParamFoundType
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     character(len=LINELENGTH) :: zeta_fname
     character(len=LINELENGTH) :: tvg_fname
     type(CharacterStringType), dimension(:), pointer, contiguous :: tvg6_mempaths
@@ -712,7 +711,6 @@ contains
         'ZETA information will be written to ', trim(zeta_fname)
     end if
 
-    ! open hsalt file
     ! TVG6 subpackage. The Input Data Model loads the file and records its
     ! memory path here; the reader is attached to that path in swi_df.
     tvg_fname = ''
@@ -736,10 +734,9 @@ contains
   !<
   subroutine log_options(this, found)
     ! modules
-    use KindModule, only: LGP
     use GwfSwiInputModule, only: GwfSwiParamFoundType
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     ! locals
     type(GwfSwiParamFoundType), intent(in) :: found
 
@@ -780,7 +777,7 @@ contains
   !<
   subroutine set_alphas(this)
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
 
     if (this%reldensdiff > DZERO) then
       this%alphaf = DONE / this%reldensdiff
@@ -796,16 +793,13 @@ contains
   !<
   subroutine set_configuration(this, config)
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     character(len=*), intent(in) :: config
 
     select case (config)
     case ("FRESHWATER_ONE_FLUID")
       this%iconfiguration = FRESHWATER_ONE_FLUID
       this%isaltwater = 0
-    case ("SALTWATER_ONE_FLUID")
-      this%iconfiguration = SALTWATER_ONE_FLUID
-      this%isaltwater = 1
     case ("FRESHWATER_TWO_FLUID")
       this%iconfiguration = FRESHWATER_TWO_FLUID
       this%isaltwater = 0
@@ -820,7 +814,7 @@ contains
   !! which has access to both fresh and salt models.
   !<
   subroutine set_head_pointers(this, hfresh, hsalt, hfreshold, hsaltold)
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     real(DP), dimension(:), target, intent(in) :: hfresh
     real(DP), dimension(:), target, intent(in) :: hsalt
     real(DP), dimension(:), target, intent(in) :: hfreshold
@@ -839,8 +833,8 @@ contains
   !<
   function get_zetanew(this, n, eps_fresh, eps_salt) result(zetanew)
     ! dummy
-    class(GwfSwiType) :: this !< this instance
-    integer(I4B) :: n !< cell number
+    class(GwfSwiType), intent(in) :: this !< this instance
+    integer(I4B), intent(in) :: n !< cell number
     real(DP), optional, intent(in) :: eps_fresh !< perturbation for fresh head
     real(DP), optional, intent(in) :: eps_salt !< perturbation for salt head
     ! return
@@ -853,7 +847,8 @@ contains
     ! (eps_s stays zero and hsalt holds the prescribed saltwater head), so the
     ! same expression serves both configurations. zeta is the unclamped
     ! Ghyben-Herzberg map -- a vanished fluid zone is handled by the smoothed
-    ! saturation and the minimum-zone conductance floor, not by clamping zeta.
+    ! saturated cell fraction and by the lower limit that the minimum zone
+    ! thickness places on the conductance, not by clamping zeta.
     eps_f = DZERO
     eps_s = DZERO
     if (present(eps_fresh)) eps_f = eps_fresh
@@ -866,8 +861,8 @@ contains
   !<
   function get_zetaold(this, n) result(zetaold)
     ! dummy
-    class(GwfSwiType) :: this !< this instance
-    integer(I4B) :: n !< cell number
+    class(GwfSwiType), intent(in) :: this !< this instance
+    integer(I4B), intent(in) :: n !< cell number
     ! return
     real(DP) :: zetaold
     zetaold = calc_zeta(this%alphaf, this%hfreshold(n), &
@@ -877,9 +872,8 @@ contains
   !> @brief Calculate zeta surface
   !<
   subroutine update_zeta(this)
-    ! modules
     ! dummy
-    class(GwfSwiType) :: this
+    class(GwfSwiType), intent(inout) :: this
     ! locals
     integer(I4B) :: n
     real(DP) :: top
@@ -915,6 +909,11 @@ contains
 
   end subroutine update_zeta
 
+  !> @brief Interface elevation from the freshwater and saltwater heads
+  !!
+  !! zeta = -alphaf * hf + alphas * hs. The result is not limited to the
+  !! cell; callers limit it where needed.
+  !<
   function calc_zeta(alphaf, hf, alphas, hs) result(zeta)
     real(DP), intent(in) :: alphaf
     real(DP), intent(in) :: hf
@@ -952,174 +951,223 @@ contains
     return
   end subroutine swi_thksat
 
-  !> @brief SWI flow-reduction provider: factor for a withdrawal from cell n,
-  !! and its derivative with respect to this model's head.
+  !> @brief SWI NPF formulation: fill coefficients over all SWI connections.
   !!
-  !! Freshwater model: the freshwater zone runs from the interface, or the cell
-  !! bottom where the interface is below it, up to the water table or the cell
-  !! top. The factor tapers up from the zone bottom over the taper length and
-  !! is evaluated at the zone top, so a confined cell whose head is far above
-  !! the cell top is still reduced as the interface fills the cell. The
-  !! interface moves with the head (dzeta/dh^f = -alphaf), so where it is the
-  !! zone bottom the derivative carries 1 + alphaf; where the water table is
-  !! above the cell top the zone top is fixed and the head term drops out.
-  !!
-  !! Saltwater model: the saltwater zone runs from the cell bottom up to the
-  !! interface or the cell top. The factor tapers up from the cell bottom and
-  !! is evaluated at the zone top; dzeta/dh^s = alphas.
+  !! The formulation owns its traversal: it visits every connection and
+  !! contributes only on the faces SWI claims through npf%iformulation, which
+  !! the default conductance formulation skips.
   !<
-  subroutine swi_reduce(this, n, h, taper, f, dfdh)
-    class(SwiFlowReductionType), intent(in) :: this
-    integer(I4B), intent(in) :: n
-    real(DP), intent(in) :: h
-    real(DP), intent(in) :: taper
-    real(DP), intent(out) :: f
-    real(DP), intent(out) :: dfdh
+  subroutine swinpf_fc(this, kiter, matrix_sln, idxglo, rhs, hnew)
+    class(SwiNpfFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: kiter
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(inout) :: rhs
+    real(DP), dimension(:), intent(inout) :: hnew
     ! local
-    real(DP) :: tp, bt, zeta, x, dxdh, bz, dbzdh
-    f = DONE
-    dfdh = DZERO
-    if (taper <= DZERO) return
-    tp = this%npf%dis%top(n)
-    bt = this%npf%dis%bot(n)
-    zeta = this%swi%get_zetanew(n)
-    if (this%swi%isaltwater == 0) then
-      ! freshwater zone: bottom at the interface (or the cell bottom), top at
-      ! the water table (or the cell top)
-      if (zeta > bt) then
-        bz = zeta
-        dbzdh = -this%swi%alphaf
-      else
-        bz = bt
-        dbzdh = DZERO
-      end if
-      if (this%npf%icelltype(n) /= 0 .and. h < tp) then
-        x = h
-        dxdh = DONE
-      else
-        x = tp
-        dxdh = DZERO
-      end if
-    else
-      ! saltwater zone: bottom at the cell bottom, top at the interface (or
-      ! the cell top)
-      bz = bt
-      dbzdh = DZERO
-      if (zeta < tp) then
-        x = zeta
-        dxdh = this%swi%alphas
-      else
-        x = tp
-        dxdh = DZERO
-      end if
-    end if
-    f = sQSaturation(bz + taper, bz, x)
-    dfdh = sQSaturationDerivative(bz + taper, bz, x) * (dxdh - dbzdh)
-  end subroutine swi_reduce
+    type(GwfNpfType), pointer :: npf
+    integer(I4B) :: n, m, ipos
+    !
+    npf => this%npf
+    do n = 1, npf%dis%nodes
+      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
+        if (npf%dis%con%mask(ipos) == 0) cycle
+        m = npf%dis%con%ja(ipos)
+        if (m < n) cycle
+        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
+        call swinpf_fc_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+      end do
+    end do
+  end subroutine swinpf_fc
 
-  !> @brief SWI NPF formulation: vertical conductance for a connection between an
-  !! upper and a lower cell.
-  !!
-  !! Single-fluid (freshwater-only): the interface is a diagnostic derived from a
-  !! continuous freshwater potential, so the standard (unrestricted) vertical
-  !! conductance is returned. SWI still owns the connection -- so the treatment
-  !! can be changed later -- but does not adjust it. Restricting the vertical flow
-  !! here would decouple the deep cells below the interface and leave the head
-  !! field underdetermined.
-  !!
-  !! Two-fluid (buoyancy-restricted): each fluid moves freely in its buoyant
-  !! direction -- freshwater up, saltwater down -- and is restricted in the other
-  !! by the fluid present at the shared face: freshwater flows down only if the
-  !! interface is below the face (fresh at the face); saltwater flows up only if
-  !! the interface is above the face (salt at the face). Both switches -- the
-  !! interface position and the flow direction -- are smoothed with sSCurve and
-  !! combined with a smooth OR, so the conductance stays differentiable as the
-  !! interface crosses the face. The smoothing band is a fraction of the thickness
-  !! of the cell whose interface is being tested (the upper cell for freshwater,
-  !! the lower cell for saltwater), so it is meaningful when the two cells differ
-  !! in thickness. The restricted case is reduced to a residual (1e-6)
-  !! conductance rather than zero, to avoid a singular row.
+  !> @brief SWI NPF formulation: Newton terms over all SWI connections.
   !<
-  function swinpf_vcondf(this, n, m, ipos, hnew) result(condf)
+  subroutine swinpf_fn(this, kiter, matrix_sln, idxglo, rhs, hnew)
+    class(SwiNpfFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: kiter
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(inout) :: rhs
+    real(DP), dimension(:), intent(inout) :: hnew
+    ! local
+    type(GwfNpfType), pointer :: npf
+    integer(I4B) :: n, m, ipos
+    !
+    npf => this%npf
+    do n = 1, npf%dis%nodes
+      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
+        if (npf%dis%con%mask(ipos) == 0) cycle
+        m = npf%dis%con%ja(ipos)
+        if (m < n) cycle
+        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
+        call swinpf_fn_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+      end do
+    end do
+  end subroutine swinpf_fn
+
+  !> @brief SWI NPF formulation: flows over all SWI connections.
+  !!
+  !! Masked connections are visited here, matching the default flow
+  !! formulation, which does not apply the connection mask in cq.
+  !<
+  subroutine swinpf_cq(this, hnew, flowja)
+    class(SwiNpfFormulationType), intent(inout) :: this
+    real(DP), dimension(:), intent(inout) :: hnew
+    real(DP), dimension(:), intent(inout) :: flowja
+    ! local
+    type(GwfNpfType), pointer :: npf
+    integer(I4B) :: n, m, ipos
+    !
+    npf => this%npf
+    do n = 1, npf%dis%nodes
+      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
+        m = npf%dis%con%ja(ipos)
+        if (m < n) cycle
+        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
+        call swinpf_cq_conn(this, n, m, ipos, flowja, hnew)
+      end do
+    end do
+  end subroutine swinpf_cq
+
+  !> @brief SWI NPF formulation: fill the matrix for connection ipos.
+  !!
+  !! Adds the fluid-zone conductance from swinpf_condf to the off-diagonal and
+  !! diagonal positions of both cells of the connection.
+  !<
+  subroutine swinpf_fc_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
     class(SwiNpfFormulationType), intent(inout) :: this
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: ipos
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
     real(DP), dimension(:), intent(in) :: hnew
-    real(DP) :: condf
     ! local
     type(GwfNpfType), pointer :: npf
-    integer(I4B) :: iu, il, jas, ihc
-    real(DP) :: zface, band, hband, dydx, factor, sface, sup, hyn, hym
+    integer(I4B) :: idiag, isymcon, idiagm
+    real(DP) :: condf
+    !
+    npf => this%npf
+    condf = swinpf_condf(this, n, m, ipos, hnew)
+    idiag = npf%dis%con%ia(n)
+    isymcon = npf%dis%con%isym(ipos)
+    idiagm = npf%dis%con%ia(m)
+    call matrix_sln%add_value_pos(idxglo(ipos), condf)
+    call matrix_sln%add_value_pos(idxglo(idiag), -condf)
+    call matrix_sln%add_value_pos(idxglo(isymcon), condf)
+    call matrix_sln%add_value_pos(idxglo(idiagm), -condf)
+  end subroutine swinpf_fc_conn
+
+  !> @brief SWI NPF formulation: Newton terms for connection ipos.
+  !! Mirrors fn_default_flow but uses the derivative of the fluid-zone saturated
+  !! cell fraction of the upstream cell: dS^f/dh^f = S'(h) + alphaf*S'(zeta) in
+  !! a freshwater model and dS^s/dh^s = alphas*S'(zeta) in a saltwater model.
+  !! Horizontal connections only.
+  !<
+  subroutine swinpf_fn_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
+    class(SwiNpfFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: ipos
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: hnew
+    ! local
+    type(GwfNpfType), pointer :: npf
+    integer(I4B) :: isymcon, idiag, idiagm, iups, idn, jas
+    real(DP) :: cond, consterm, derv, term, topup, botup, zetaup
     !
     npf => this%npf
     jas = npf%dis%con%jas(ipos)
-    !
-    ! -- single-fluid: standard (unrestricted) vertical conductance
-    if (this%swi%iconfiguration == FRESHWATER_ONE_FLUID) then
-      ihc = npf%dis%con%ihc(jas)
-      hyn = npf%hy_eff(n, m, ihc, ipos=ipos)
-      hym = npf%hy_eff(m, n, ihc, ipos=ipos)
-      condf = vcond(npf%ibound(n), npf%ibound(m), &
-                    npf%icelltype(n), npf%icelltype(m), npf%inewton, &
-                    npf%ivarcv, npf%idewatcv, npf%condsat(jas), &
-                    hnew(n), hnew(m), hyn, hym, npf%sat(n), npf%sat(m), &
-                    npf%dis%top(n), npf%dis%top(m), &
-                    npf%dis%bot(n), npf%dis%bot(m), npf%dis%con%hwva(jas))
-      return
+    ! Vertical connections have no Newton contribution.
+    if (npf%dis%con%ihc(jas) == C3D_VERTICAL) return
+    ! DEV_NO_UPSTREAM_WEIGHTING: the derivative below is the upstream cell's
+    ! fraction derivative. An averaged conductance depends on both cells'
+    ! fractions; that derivative is not implemented, so the flow term is
+    ! Picard and only the (weighting-independent) storage Newton terms remain.
+    if (this%swi%inoupstream /= 0) return
+    idiag = npf%dis%con%ia(n)
+    isymcon = npf%dis%con%isym(ipos)
+    ! determine upstream node (by freshwater head)
+    iups = m
+    if (hnew(m) < hnew(n)) iups = n
+    idn = n
+    if (iups == n) idn = m
+    topup = npf%dis%top(iups)
+    botup = npf%dis%bot(iups)
+    if (npf%dis%con%ihc(jas) == C3D_STAGGERED) then
+      topup = min(npf%dis%top(n), npf%dis%top(m))
+      botup = max(npf%dis%bot(n), npf%dis%bot(m))
     end if
-    ! -- no flow to or from an inactive cell, as in vcond
-    condf = DZERO
-    if (npf%ibound(n) == 0 .or. npf%ibound(m) == 0) return
-    ! -- identify the upper (iu) and lower (il) cell; the shared face is at
-    !    bot(iu) = top(il)
-    if (npf%dis%bot(n) > npf%dis%bot(m)) then
-      iu = n
-      il = m
+    ! saturated conductance and the derivative of the fluid-zone saturated cell
+    ! fraction of the upstream cell: freshwater
+    ! dS^f/dh^f = S'(h) + alphaf*S'(zeta); saltwater dS^s/dh^s = alphas*S'(zeta)
+    cond = npf%condsat(jas)
+    consterm = -cond * (hnew(iups) - hnew(idn))
+    zetaup = this%swi%get_zetanew(iups)
+    if (this%swi%isaltwater == 1) then
+      derv = this%swi%alphas * &
+             sQuadraticSaturationDerivative(topup, botup, zetaup, npf%satomega)
     else
-      iu = m
-      il = n
+      derv = sQuadraticSaturationDerivative(topup, botup, hnew(iups), &
+                                            npf%satomega) + &
+             this%swi%alphaf * &
+             sQuadraticSaturationDerivative(topup, botup, zetaup, npf%satomega)
     end if
-    zface = npf%dis%bot(iu)
-    !
-    ! -- each fluid passes if it is present at the face OR flows in its buoyant
-    !    direction (smooth "OR"): freshwater passes if fresh-at-face OR upflow;
-    !    saltwater passes if salt-at-face OR downflow (= 1 - upflow). Smoothing
-    !    scales: the interface switch smooths over a fraction of the thickness of
-    !    the cell that holds the tested interface; the flow-direction switch
-    !    smooths over the equivalent head band (a zeta change of `band` is a head
-    !    change of band/alpha). The fraction is fixed at 0.1.
-    if (this%swi%isaltwater == 0) then
-      ! freshwater: the tested interface zeta(iu) is in the UPPER cell
-      band = 1.0d-1 * (npf%dis%top(iu) - npf%dis%bot(iu))
-      hband = band / this%swi%alphaf
-      ! smoothed upflow indicator (1 for upflow, h_lower > h_upper; 0 for down)
-      call sSCurve((hnew(il) - hnew(iu)) + DHALF * hband, hband, dydx, sup)
-      ! sface = smoothed "fresh at the face" (interface in upper cell below face)
-      call sSCurve((zface - this%swi%get_zetanew(iu)) + DHALF * band, band, &
-                   dydx, sface)
-      factor = DONE - (DONE - sface) * (DONE - sup)
+    idiagm = npf%dis%con%ia(m)
+    if (iups == n) then
+      term = consterm * derv
+      rhs(n) = rhs(n) + term * hnew(n)
+      rhs(m) = rhs(m) - term * hnew(n)
+      call matrix_sln%add_value_pos(idxglo(idiag), term)
+      if (npf%ibound(m) > 0) then
+        call matrix_sln%add_value_pos(idxglo(isymcon), -term)
+      end if
     else
-      ! saltwater: the tested interface zeta(il) is in the LOWER cell
-      band = 1.0d-1 * (npf%dis%top(il) - npf%dis%bot(il))
-      hband = band / this%swi%alphas
-      ! smoothed upflow indicator (1 for upflow, h_lower > h_upper; 0 for down)
-      call sSCurve((hnew(il) - hnew(iu)) + DHALF * hband, hband, dydx, sup)
-      ! sface = smoothed "salt at the face" (interface in lower cell above face)
-      call sSCurve((this%swi%get_zetanew(il) - zface) + DHALF * band, band, &
-                   dydx, sface)
-      factor = DONE - (DONE - sface) * sup
+      term = -consterm * derv
+      rhs(n) = rhs(n) + term * hnew(m)
+      rhs(m) = rhs(m) - term * hnew(m)
+      if (npf%ibound(n) > 0) then
+        call matrix_sln%add_value_pos(idxglo(ipos), term)
+      end if
+      call matrix_sln%add_value_pos(idxglo(idiagm), -term)
     end if
-    ! -- reduce (not zero) to avoid a singular row where a fluid is blocked
-    condf = npf%condsat(jas) * max(factor, DEM6)
-  end function swinpf_vcondf
+  end subroutine swinpf_fn_conn
+
+  !> @brief SWI NPF formulation: intercell (FLOW-JA-FACE) flow for connection
+  !! ipos, using the same fluid-zone conductance as swinpf_fc so the cell-by-cell
+  !! flows are consistent with the matrix fill (and hence the CHD/GHB budgets,
+  !! which are recovered from the flowja residual). Handles both horizontal and
+  !! vertical connections: swinpf_condf routes vertical connections to the
+  !! buoyancy-restricted conductance (swinpf_vcondf).
+  !<
+  subroutine swinpf_cq_conn(this, n, m, ipos, flowja, h_new)
+    class(SwiNpfFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: ipos
+    real(DP), dimension(:), intent(inout) :: flowja
+    real(DP), dimension(:), intent(in) :: h_new
+    ! local
+    type(GwfNpfType), pointer :: npf
+    real(DP) :: condf, qnm
+    !
+    npf => this%npf
+    condf = swinpf_condf(this, n, m, ipos, h_new)
+    qnm = condf * (h_new(m) - h_new(n))
+    flowja(ipos) = qnm
+    flowja(npf%dis%con%isym(ipos)) = -qnm
+  end subroutine swinpf_cq_conn
 
   !> @brief SWI NPF formulation: fluid-zone conductance for connection ipos.
   !! Freshwater zone (S^w - S^s, between zeta and the water table) or saltwater
   !! zone (S^s, between the bottom and zeta). The conductance follows the model's
   !! Newton setting (via hcond): the NPF cell averaging for Picard, upstream
-  !! weighting for Newton. Floored at the conductance of a minimum-thickness zone
-  !! to guard a vanished fluid zone. Vertical connections are passed to
+  !! weighting for Newton. Limited from below by the conductance of a
+  !! minimum-thickness zone so that a vanished fluid zone keeps a nonzero
+  !! conductance. Vertical connections are passed to
   !! swinpf_vcondf. Shared by fc and cq so the matrix fill and the cell-by-cell
   !! flow use the same conductance.
   !<
@@ -1214,8 +1262,9 @@ contains
     else
       condf = cond - condsw
     end if
-    ! -- guard: floor the model's own fluid-zone conductance at the conductance of
-    !    a minimum-thickness zone (condsat scaled by ZONE_MINIMUM_THICKNESS/tthk).
+    ! -- limit the model's own fluid-zone conductance from below by the
+    !    conductance of a minimum-thickness zone (condsat scaled by
+    !    ZONE_MINIMUM_THICKNESS/tthk).
     !    Symmetric for both models, it keeps a fully drained fluid zone from
     !    producing a zero/negative row -- a singular system, or an unphysical
     !    negative conductance where S^s > S^w -- without perturbing normally
@@ -1224,217 +1273,168 @@ contains
                 min(tthkn, tthkm))
   end function swinpf_condf
 
-  subroutine swinpf_fc_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
-    class(SwiNpfFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: n
-    integer(I4B), intent(in) :: m
-    integer(I4B), intent(in) :: ipos
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    real(DP), dimension(:), intent(inout) :: rhs
-    integer(I4B), dimension(:), intent(in) :: idxglo
-    real(DP), dimension(:), intent(in) :: hnew
-    ! local
-    type(GwfNpfType), pointer :: npf
-    integer(I4B) :: idiag, isymcon, idiagm
-    real(DP) :: condf
-    !
-    npf => this%npf
-    condf = swinpf_condf(this, n, m, ipos, hnew)
-    idiag = npf%dis%con%ia(n)
-    isymcon = npf%dis%con%isym(ipos)
-    idiagm = npf%dis%con%ia(m)
-    call matrix_sln%add_value_pos(idxglo(ipos), condf)
-    call matrix_sln%add_value_pos(idxglo(idiag), -condf)
-    call matrix_sln%add_value_pos(idxglo(isymcon), condf)
-    call matrix_sln%add_value_pos(idxglo(idiagm), -condf)
-  end subroutine swinpf_fc_conn
-
-  !> @brief SWI NPF formulation: Newton terms for the freshwater flow override.
-  !! Mirrors fn_default_flow but uses the freshwater saturation derivative
-  !! dS^f/dh = S'(h) + alphaf*S'(zeta) of the upstream cell. Horizontal only.
+  !> @brief SWI NPF formulation: vertical conductance for a connection between an
+  !! upper and a lower cell.
+  !!
+  !! Single-fluid (freshwater-only): the interface is a diagnostic derived from a
+  !! continuous freshwater potential, so the standard (unrestricted) vertical
+  !! conductance is returned; the connection is handled by the SWI formulation
+  !! but the conductance is not adjusted. Restricting the vertical flow
+  !! here would decouple the deep cells below the interface and leave the head
+  !! field underdetermined.
+  !!
+  !! Two-fluid (buoyancy-restricted): each fluid moves freely in its buoyant
+  !! direction -- freshwater up, saltwater down -- and is restricted in the other
+  !! by the fluid present at the shared face: freshwater flows down only if the
+  !! interface is below the face (fresh at the face); saltwater flows up only if
+  !! the interface is above the face (salt at the face). Both switches -- the
+  !! interface position and the flow direction -- are smoothed with sSCurve and
+  !! combined with a smooth OR, so the conductance stays differentiable as the
+  !! interface crosses the face. The smoothing band is a fraction of the thickness
+  !! of the cell whose interface is being tested (the upper cell for freshwater,
+  !! the lower cell for saltwater), so it is meaningful when the two cells differ
+  !! in thickness. The restricted case is reduced to a residual (1e-6)
+  !! conductance rather than zero, to avoid a singular row.
   !<
-  subroutine swinpf_fn_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
-    use SmoothingModule, only: sQuadraticSaturationDerivative
+  function swinpf_vcondf(this, n, m, ipos, hnew) result(condf)
     class(SwiNpfFormulationType), intent(inout) :: this
     integer(I4B), intent(in) :: n
     integer(I4B), intent(in) :: m
     integer(I4B), intent(in) :: ipos
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    real(DP), dimension(:), intent(inout) :: rhs
-    integer(I4B), dimension(:), intent(in) :: idxglo
     real(DP), dimension(:), intent(in) :: hnew
+    real(DP) :: condf
     ! local
     type(GwfNpfType), pointer :: npf
-    integer(I4B) :: isymcon, idiag, idiagm, iups, idn, jas
-    real(DP) :: cond, consterm, derv, term, topup, botup, zetaup
+    integer(I4B) :: iu, il, jas, ihc
+    real(DP) :: zface, band, hband, dydx, factor, sface, sup, hyn, hym
     !
     npf => this%npf
     jas = npf%dis%con%jas(ipos)
-    ! Vertical connections use no Newton term (Picard only). A Newton term for
-    ! the two-fluid buoyancy-restricted vertical conductance was implemented and
-    ! tested (the restriction factor depends on both connected heads, via the
-    ! smoothed flow-direction switch and, through zeta, the interface-at-face
-    ! switch). It did not materially improve convergence -- outer-iteration counts
-    ! were within a few percent of Picard (and slightly higher) across interface
-    ! speeds of 0.1-0.4 m/step, with and without under-relaxation -- because the
-    ! vertical restriction is not the bottleneck (interface storage is). It
-    ! was therefore not included. Single-fluid vertical flow is unrestricted.
-    if (npf%dis%con%ihc(jas) == C3D_VERTICAL) return
-    ! DEV_NO_UPSTREAM_WEIGHTING: the derivative below is the upstream cell's
-    ! fraction derivative. An averaged conductance depends on both cells'
-    ! fractions; that derivative is not implemented, so the flow term is
-    ! Picard and only the (weighting-independent) storage Newton terms remain.
-    if (this%swi%inoupstream /= 0) return
-    idiag = npf%dis%con%ia(n)
-    isymcon = npf%dis%con%isym(ipos)
-    ! determine upstream node (by freshwater head)
-    iups = m
-    if (hnew(m) < hnew(n)) iups = n
-    idn = n
-    if (iups == n) idn = m
-    topup = npf%dis%top(iups)
-    botup = npf%dis%bot(iups)
-    if (npf%dis%con%ihc(jas) == 2) then
-      topup = min(npf%dis%top(n), npf%dis%top(m))
-      botup = max(npf%dis%bot(n), npf%dis%bot(m))
+    !
+    ! -- single-fluid: standard (unrestricted) vertical conductance
+    if (this%swi%iconfiguration == FRESHWATER_ONE_FLUID) then
+      ihc = npf%dis%con%ihc(jas)
+      hyn = npf%hy_eff(n, m, ihc, ipos=ipos)
+      hym = npf%hy_eff(m, n, ihc, ipos=ipos)
+      condf = vcond(npf%ibound(n), npf%ibound(m), &
+                    npf%icelltype(n), npf%icelltype(m), npf%inewton, &
+                    npf%ivarcv, npf%idewatcv, npf%condsat(jas), &
+                    hnew(n), hnew(m), hyn, hym, npf%sat(n), npf%sat(m), &
+                    npf%dis%top(n), npf%dis%top(m), &
+                    npf%dis%bot(n), npf%dis%bot(m), npf%dis%con%hwva(jas))
+      return
     end if
-    ! saturated conductance and the fluid saturation derivative of the upstream
-    ! cell: freshwater dS^f/dh^f = S'(h) + alphaf*S'(zeta); saltwater
-    ! dS^s/dh^s = alphas*S'(zeta)
-    cond = npf%condsat(jas)
-    consterm = -cond * (hnew(iups) - hnew(idn))
-    zetaup = this%swi%get_zetanew(iups)
-    if (this%swi%isaltwater == 1) then
-      derv = this%swi%alphas * &
-             sQuadraticSaturationDerivative(topup, botup, zetaup, npf%satomega)
+    ! -- no flow to or from an inactive cell, as in vcond
+    condf = DZERO
+    if (npf%ibound(n) == 0 .or. npf%ibound(m) == 0) return
+    ! -- identify the upper (iu) and lower (il) cell; the shared face is at
+    !    bot(iu) = top(il)
+    if (npf%dis%bot(n) > npf%dis%bot(m)) then
+      iu = n
+      il = m
     else
-      derv = sQuadraticSaturationDerivative(topup, botup, hnew(iups), &
-                                            npf%satomega) + &
-             this%swi%alphaf * &
-             sQuadraticSaturationDerivative(topup, botup, zetaup, npf%satomega)
+      iu = m
+      il = n
     end if
-    idiagm = npf%dis%con%ia(m)
-    if (iups == n) then
-      term = consterm * derv
-      rhs(n) = rhs(n) + term * hnew(n)
-      rhs(m) = rhs(m) - term * hnew(n)
-      call matrix_sln%add_value_pos(idxglo(idiag), term)
-      if (npf%ibound(m) > 0) then
-        call matrix_sln%add_value_pos(idxglo(isymcon), -term)
-      end if
+    zface = npf%dis%bot(iu)
+    !
+    ! -- each fluid passes if it is present at the face OR flows in its buoyant
+    !    direction (smooth "OR"): freshwater passes if fresh-at-face OR upflow;
+    !    saltwater passes if salt-at-face OR downflow (= 1 - upflow). Smoothing
+    !    scales: the interface switch smooths over a fraction of the thickness of
+    !    the cell that holds the tested interface; the flow-direction switch
+    !    smooths over the equivalent head band (a zeta change of `band` is a head
+    !    change of band/alpha). The fraction is VRESTRICT_SMOOTH_FRACTION.
+    if (this%swi%isaltwater == 0) then
+      ! freshwater: the tested interface zeta(iu) is in the UPPER cell
+      band = VRESTRICT_SMOOTH_FRACTION * (npf%dis%top(iu) - npf%dis%bot(iu))
+      hband = band / this%swi%alphaf
+      ! smoothed upflow indicator (1 for upflow, h_lower > h_upper; 0 for down)
+      call sSCurve((hnew(il) - hnew(iu)) + DHALF * hband, hband, dydx, sup)
+      ! sface = smoothed "fresh at the face" (interface in upper cell below face)
+      call sSCurve((zface - this%swi%get_zetanew(iu)) + DHALF * band, band, &
+                   dydx, sface)
+      factor = DONE - (DONE - sface) * (DONE - sup)
     else
-      term = -consterm * derv
-      rhs(n) = rhs(n) + term * hnew(m)
-      rhs(m) = rhs(m) - term * hnew(m)
-      if (npf%ibound(n) > 0) then
-        call matrix_sln%add_value_pos(idxglo(ipos), term)
-      end if
-      call matrix_sln%add_value_pos(idxglo(idiagm), -term)
+      ! saltwater: the tested interface zeta(il) is in the LOWER cell
+      band = VRESTRICT_SMOOTH_FRACTION * (npf%dis%top(il) - npf%dis%bot(il))
+      hband = band / this%swi%alphas
+      ! smoothed upflow indicator (1 for upflow, h_lower > h_upper; 0 for down)
+      call sSCurve((hnew(il) - hnew(iu)) + DHALF * hband, hband, dydx, sup)
+      ! sface = smoothed "salt at the face" (interface in lower cell above face)
+      call sSCurve((this%swi%get_zetanew(il) - zface) + DHALF * band, band, &
+                   dydx, sface)
+      factor = DONE - (DONE - sface) * sup
     end if
-  end subroutine swinpf_fn_conn
+    ! -- reduce (not zero) to avoid a singular row where a fluid is blocked
+    condf = npf%condsat(jas) * max(factor, DEM6)
+  end function swinpf_vcondf
 
-  !> @brief SWI NPF formulation: intercell (FLOW-JA-FACE) flow for connection
-  !! ipos, using the same fluid-zone conductance as swinpf_fc so the cell-by-cell
-  !! flows are consistent with the matrix fill (and hence the CHD/GHB budgets,
-  !! which are recovered from the flowja residual). Handles both horizontal and
-  !! vertical connections: swinpf_condf routes vertical connections to the
-  !! buoyancy-restricted conductance (swinpf_vcondf).
+  !> @brief SWI flow-reduction provider: factor for a withdrawal from cell n,
+  !! and its derivative with respect to this model's head.
+  !!
+  !! Freshwater model: the freshwater zone runs from the interface, or the cell
+  !! bottom where the interface is below it, up to the water table or the cell
+  !! top. The factor rises from zero at the zone bottom to one at the zone
+  !! bottom plus the reduction interval (argument taper), and is evaluated at
+  !! the zone top, so a confined cell whose head is far above the cell top is
+  !! still reduced as the interface fills the cell. The interface moves with
+  !! the head (dzeta/dh^f = -alphaf), so where it is the zone bottom the
+  !! derivative carries 1 + alphaf; where the water table is above the cell
+  !! top the zone top is fixed and the head drops out of the derivative.
+  !!
+  !! Saltwater model: the saltwater zone runs from the cell bottom up to the
+  !! interface or the cell top. The factor rises from the cell bottom and
+  !! is evaluated at the zone top; dzeta/dh^s = alphas.
   !<
-  subroutine swinpf_cq_conn(this, n, m, ipos, flowja, h_new)
-    class(SwiNpfFormulationType), intent(inout) :: this
+  subroutine swi_reduce(this, n, h, taper, f, dfdh)
+    class(SwiFlowReductionType), intent(in) :: this
     integer(I4B), intent(in) :: n
-    integer(I4B), intent(in) :: m
-    integer(I4B), intent(in) :: ipos
-    real(DP), dimension(:), intent(inout) :: flowja
-    real(DP), dimension(:), intent(in) :: h_new
+    real(DP), intent(in) :: h
+    real(DP), intent(in) :: taper
+    real(DP), intent(out) :: f
+    real(DP), intent(out) :: dfdh
     ! local
-    type(GwfNpfType), pointer :: npf
-    real(DP) :: condf, qnm
-    !
-    npf => this%npf
-    condf = swinpf_condf(this, n, m, ipos, h_new)
-    qnm = condf * (h_new(m) - h_new(n))
-    flowja(ipos) = qnm
-    flowja(npf%dis%con%isym(ipos)) = -qnm
-  end subroutine swinpf_cq_conn
-
-  !> @brief SWI NPF formulation: fill coefficients over all SWI connections.
-  !!
-  !! The formulation owns its traversal: it visits every connection and
-  !! contributes only on the faces SWI claims through npf%iformulation, which
-  !! the default conductance formulation skips.
-  !<
-  subroutine swinpf_fc(this, kiter, matrix_sln, idxglo, rhs, hnew)
-    class(SwiNpfFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: kiter
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    integer(I4B), dimension(:), intent(in) :: idxglo
-    real(DP), dimension(:), intent(inout) :: rhs
-    real(DP), dimension(:), intent(inout) :: hnew
-    ! local
-    type(GwfNpfType), pointer :: npf
-    integer(I4B) :: n, m, ipos
-    !
-    npf => this%npf
-    do n = 1, npf%dis%nodes
-      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
-        if (npf%dis%con%mask(ipos) == 0) cycle
-        m = npf%dis%con%ja(ipos)
-        if (m < n) cycle
-        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
-        call swinpf_fc_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
-      end do
-    end do
-  end subroutine swinpf_fc
-
-  !> @brief SWI NPF formulation: Newton terms over all SWI connections.
-  !<
-  subroutine swinpf_fn(this, kiter, matrix_sln, idxglo, rhs, hnew)
-    class(SwiNpfFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: kiter
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    integer(I4B), dimension(:), intent(in) :: idxglo
-    real(DP), dimension(:), intent(inout) :: rhs
-    real(DP), dimension(:), intent(inout) :: hnew
-    ! local
-    type(GwfNpfType), pointer :: npf
-    integer(I4B) :: n, m, ipos
-    !
-    npf => this%npf
-    do n = 1, npf%dis%nodes
-      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
-        if (npf%dis%con%mask(ipos) == 0) cycle
-        m = npf%dis%con%ja(ipos)
-        if (m < n) cycle
-        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
-        call swinpf_fn_conn(this, n, m, ipos, matrix_sln, rhs, idxglo, hnew)
-      end do
-    end do
-  end subroutine swinpf_fn
-
-  !> @brief SWI NPF formulation: flows over all SWI connections.
-  !!
-  !! Masked connections are visited here, matching the default flow
-  !! formulation, which does not apply the connection mask in cq.
-  !<
-  subroutine swinpf_cq(this, hnew, flowja)
-    class(SwiNpfFormulationType), intent(inout) :: this
-    real(DP), dimension(:), intent(inout) :: hnew
-    real(DP), dimension(:), intent(inout) :: flowja
-    ! local
-    type(GwfNpfType), pointer :: npf
-    integer(I4B) :: n, m, ipos
-    !
-    npf => this%npf
-    do n = 1, npf%dis%nodes
-      do ipos = npf%dis%con%ia(n) + 1, npf%dis%con%ia(n + 1) - 1
-        m = npf%dis%con%ja(ipos)
-        if (m < n) cycle
-        if (npf%iformulation(ipos) /= SWI_FLOW) cycle
-        call swinpf_cq_conn(this, n, m, ipos, flowja, hnew)
-      end do
-    end do
-  end subroutine swinpf_cq
+    real(DP) :: tp, bt, zeta, x, dxdh, bz, dbzdh
+    f = DONE
+    dfdh = DZERO
+    if (taper <= DZERO) return
+    tp = this%npf%dis%top(n)
+    bt = this%npf%dis%bot(n)
+    zeta = this%swi%get_zetanew(n)
+    if (this%swi%isaltwater == 0) then
+      ! freshwater zone: bottom at the interface (or the cell bottom), top at
+      ! the water table (or the cell top)
+      if (zeta > bt) then
+        bz = zeta
+        dbzdh = -this%swi%alphaf
+      else
+        bz = bt
+        dbzdh = DZERO
+      end if
+      if (this%npf%icelltype(n) /= 0 .and. h < tp) then
+        x = h
+        dxdh = DONE
+      else
+        x = tp
+        dxdh = DZERO
+      end if
+    else
+      ! saltwater zone: bottom at the cell bottom, top at the interface (or
+      ! the cell top)
+      bz = bt
+      dbzdh = DZERO
+      if (zeta < tp) then
+        x = zeta
+        dxdh = this%swi%alphas
+      else
+        x = tp
+        dxdh = DZERO
+      end if
+    end if
+    f = sQSaturation(bz + taper, bz, x)
+    dfdh = sQSaturationDerivative(bz + taper, bz, x) * (dxdh - dbzdh)
+  end subroutine swi_reduce
 
   !> @brief SWI STO formulation: is this cell handled by SWI storage?
   !<
@@ -1445,8 +1445,124 @@ contains
     is_active = .true.
   end function swisto_is_active
 
-  !> @brief SWI STO formulation: freshwater storage fill for cell n, in override
-  !! form. The freshwater storage is the difference of two bottom-referenced
+  !> @brief SWI STO formulation: storage coefficients over all SWI cells.
+  !!
+  !! The formulation owns its traversal. A freshwater model leaves its cells
+  !! unclaimed so the default storage formulation assembles the water column
+  !! first and SWI adds the salt-column correction; a saltwater model claims
+  !! its cells, so the default skips them and SWI supplies the salt column.
+  !<
+  subroutine swisto_fc(this, kiter, matrix_sln, rhs, idxglo, h_old, h_new)
+    class(SwiStoFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: kiter
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: h_old
+    real(DP), dimension(:), intent(in) :: h_new
+    ! local
+    integer(I4B) :: n
+    !
+    call swisto_set_old_ss_sy(this)
+    do n = 1, this%sto%dis%nodes
+      if (.not. this%is_active(n)) cycle
+      call swisto_fc_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
+    end do
+  end subroutine swisto_fc
+
+  !> @brief SWI STO formulation: storage Newton terms over all SWI cells.
+  !<
+  subroutine swisto_fn(this, kiter, matrix_sln, rhs, idxglo, h_old, h_new)
+    class(SwiStoFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: kiter
+    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
+    real(DP), dimension(:), intent(inout) :: rhs
+    integer(I4B), dimension(:), intent(in) :: idxglo
+    real(DP), dimension(:), intent(in) :: h_old
+    real(DP), dimension(:), intent(in) :: h_new
+    ! local
+    integer(I4B) :: n
+    !
+    call swisto_set_old_ss_sy(this)
+    do n = 1, this%sto%dis%nodes
+      if (.not. this%is_active(n)) cycle
+      call swisto_fn_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
+    end do
+  end subroutine swisto_fn
+
+  !> @brief SWI STO formulation: storage flows over all SWI cells.
+  !<
+  subroutine swisto_cq(this, flowja, h_new, h_old)
+    class(SwiStoFormulationType), intent(inout) :: this
+    real(DP), dimension(:), intent(inout) :: flowja
+    real(DP), dimension(:), intent(in) :: h_new
+    real(DP), dimension(:), intent(in) :: h_old
+    ! local
+    integer(I4B) :: n
+    !
+    call swisto_set_old_ss_sy(this)
+    do n = 1, this%sto%dis%nodes
+      if (.not. this%is_active(n)) cycle
+      call swisto_cq_node(this, n, flowja, h_new, h_old)
+    end do
+  end subroutine swisto_cq
+
+  !> @brief SWI STO formulation: add SWI storage to the model budget
+  !<
+  subroutine swisto_bd(this, isuppress_output, model_budget)
+    use TdisModule, only: delt
+    use BudgetModule, only: BudgetType, rate_accumulator
+    class(SwiStoFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: isuppress_output
+    type(BudgetType), intent(inout) :: model_budget
+    real(DP) :: rin, rout
+    call rate_accumulator(this%swi%storage, rin, rout)
+    call model_budget%addentry(rin, rout, delt, budtxt(1), &
+                               isuppress_output, '     SWI')
+  end subroutine swisto_bd
+
+  !> @brief SWI STO formulation: save SWI storage cell-by-cell flows
+  !<
+  subroutine swisto_save_flows(this, iprint, ibinun)
+    class(SwiStoFormulationType), intent(inout) :: this
+    integer(I4B), intent(in) :: iprint
+    integer(I4B), intent(in) :: ibinun
+    integer(I4B) :: nvaluesp, nwidthp
+    character(len=1) :: cdatafmp = ' ', editdesc = ' '
+    real(DP) :: dinact
+    if (ibinun /= 0) then
+      dinact = DZERO
+      call this%swi%dis%record_array(this%swi%storage, this%swi%iout, iprint, &
+                                     -ibinun, budtxt(1), cdatafmp, nvaluesp, &
+                                     nwidthp, editdesc, dinact)
+    end if
+  end subroutine swisto_save_flows
+
+  !> @brief SWI STO formulation: point at the STO Package's previous SS and SY
+  !!
+  !! When storage changes are integrated (TVS), STO keeps the previous time
+  !! step's SS and SY in arrays it allocates on first use, during sto_rp, so
+  !! the pointers are set here rather than in swi_ar.
+  !<
+  subroutine swisto_set_old_ss_sy(this)
+    class(SwiStoFormulationType), intent(inout) :: this
+    if (this%sto%integratechanges == 0) return
+    if (.not. associated(this%swi%oldss)) then
+      call mem_setptr(this%swi%oldss, 'OLDSS', this%sto%memoryPath)
+    end if
+    if (.not. associated(this%swi%oldsy)) then
+      ! STO keeps a previous SY only when some cell is convertible; otherwise
+      ! SY is used by SWI alone and does not change between time steps
+      if (this%sto%iusesy == 1) then
+        call mem_setptr(this%swi%oldsy, 'OLDSY', this%sto%memoryPath)
+      else
+        this%swi%oldsy => this%swi%sy
+      end if
+    end if
+  end subroutine swisto_set_old_ss_sy
+
+  !> @brief SWI STO formulation: freshwater storage fill for cell n.
+  !! The freshwater storage is the difference of two bottom-referenced
   !! columns, S^f = S^w - S^s: the water column (S^w) is filled by the STO
   !! default, and the salt column (S^s) is subtracted here. Each contribution is
   !! residual-consistent (its aterm*h - rhsterm equals the smoothed storage rate),
@@ -1487,7 +1603,7 @@ contains
     !    which runs first because a freshwater model does not claim its cells;
     !    SWI adds only the salt-column correction below
     !
-    ! -- salt column (S^s) smoothed saturations: S^s = sat(zeta)
+    ! -- salt column (S^s) smoothed saturated cell fractions: S^s = sat(zeta)
     ssnew = sQuadraticSaturation(tp, bt, this%swi%get_zetanew(n), sto%satomega)
     ssold = sQuadraticSaturation(tp, bt, this%swi%get_zetaold(n), sto%satomega)
     !
@@ -1592,8 +1708,8 @@ contains
     end if
   end subroutine swisto_fn_node
 
-  !> @brief SWI STO formulation: freshwater storage rate for cell n, in override
-  !! form. The water column (S^w) rate comes from the STO default (fills
+  !> @brief SWI STO formulation: freshwater storage rate for cell n.
+  !! The water column (S^w) rate comes from the STO default (fills
   !! strgss/strgsy and flowja); the salt-column (S^s) correction is subtracted
   !! here. The interface-movement (drainable) rate is reported separately as the
   !! SWI storage term (swi%storage) -- the fresh<->salt conversion volume -- and
@@ -1601,7 +1717,7 @@ contains
   !<
   subroutine swisto_cq_node(this, n, flowja, h_new, h_old)
     use TdisModule, only: delt
-    use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms, SyTerms
+    use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms
     class(SwiStoFormulationType), intent(inout) :: this
     integer(I4B), intent(in) :: n
     real(DP), dimension(:), intent(inout) :: flowja
@@ -1673,8 +1789,9 @@ contains
 
   !> @brief SWI STO formulation (saltwater model): storage fill for cell n. The
   !! saltwater storage is over the salt column S^s = sat(zeta), which is
-  !! bottom-referenced and driven by h^s (dzeta/dh^s = alphas). Residual-consistent
-  !! chord in fc; the smoothed interface tangent is added in swisto_fn_salt.
+  !! bottom-referenced and driven by h^s (dzeta/dh^s = alphas).
+  !! Residual-consistent chord in fc; the smoothed interface tangent is added
+  !! in swisto_fn_salt.
   !<
   subroutine swisto_fc_salt(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
     use TdisModule, only: delt
@@ -1839,121 +1956,5 @@ contains
     this%swi%storage(n) = ratess + ratesy
     flowja(idiag) = flowja(idiag) + this%swi%storage(n)
   end subroutine swisto_cq_salt
-
-  !> @brief SWI STO formulation: storage coefficients over all SWI cells.
-  !!
-  !! The formulation owns its traversal. A freshwater model leaves its cells
-  !! unclaimed so the default storage formulation assembles the water column
-  !! first and SWI adds the salt-column correction; a saltwater model claims
-  !! its cells, so the default skips them and SWI supplies the salt column.
-  !<
-  subroutine swisto_fc(this, kiter, matrix_sln, rhs, idxglo, h_old, h_new)
-    class(SwiStoFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: kiter
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    real(DP), dimension(:), intent(inout) :: rhs
-    integer(I4B), dimension(:), intent(in) :: idxglo
-    real(DP), dimension(:), intent(in) :: h_old
-    real(DP), dimension(:), intent(in) :: h_new
-    ! local
-    integer(I4B) :: n
-    !
-    call swisto_set_old_ss_sy(this)
-    do n = 1, this%sto%dis%nodes
-      if (.not. this%is_active(n)) cycle
-      call swisto_fc_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
-    end do
-  end subroutine swisto_fc
-
-  !> @brief SWI STO formulation: storage Newton terms over all SWI cells.
-  !<
-  subroutine swisto_fn(this, kiter, matrix_sln, rhs, idxglo, h_old, h_new)
-    class(SwiStoFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: kiter
-    class(MatrixBaseType), pointer, intent(inout) :: matrix_sln
-    real(DP), dimension(:), intent(inout) :: rhs
-    integer(I4B), dimension(:), intent(in) :: idxglo
-    real(DP), dimension(:), intent(in) :: h_old
-    real(DP), dimension(:), intent(in) :: h_new
-    ! local
-    integer(I4B) :: n
-    !
-    call swisto_set_old_ss_sy(this)
-    do n = 1, this%sto%dis%nodes
-      if (.not. this%is_active(n)) cycle
-      call swisto_fn_node(this, n, matrix_sln, rhs, idxglo, h_old, h_new)
-    end do
-  end subroutine swisto_fn
-
-  !> @brief SWI STO formulation: storage flows over all SWI cells.
-  !<
-  subroutine swisto_cq(this, flowja, h_new, h_old)
-    class(SwiStoFormulationType), intent(inout) :: this
-    real(DP), dimension(:), intent(inout) :: flowja
-    real(DP), dimension(:), intent(in) :: h_new
-    real(DP), dimension(:), intent(in) :: h_old
-    ! local
-    integer(I4B) :: n
-    !
-    call swisto_set_old_ss_sy(this)
-    do n = 1, this%sto%dis%nodes
-      if (.not. this%is_active(n)) cycle
-      call swisto_cq_node(this, n, flowja, h_new, h_old)
-    end do
-  end subroutine swisto_cq
-
-  !> @brief SWI STO formulation: point at the STO Package's previous SS and SY
-  !!
-  !! When storage changes are integrated (TVS), STO keeps the previous time
-  !! step's SS and SY in arrays it allocates on first use, during sto_rp, so
-  !! the pointers are set here rather than in swi_ar.
-  !<
-  subroutine swisto_set_old_ss_sy(this)
-    class(SwiStoFormulationType), intent(inout) :: this
-    if (this%sto%integratechanges == 0) return
-    if (.not. associated(this%swi%oldss)) then
-      call mem_setptr(this%swi%oldss, 'OLDSS', this%sto%memoryPath)
-    end if
-    if (.not. associated(this%swi%oldsy)) then
-      ! STO keeps a previous SY only when some cell is convertible; otherwise
-      ! SY is used by SWI alone and does not change between time steps
-      if (this%sto%iusesy == 1) then
-        call mem_setptr(this%swi%oldsy, 'OLDSY', this%sto%memoryPath)
-      else
-        this%swi%oldsy => this%swi%sy
-      end if
-    end if
-  end subroutine swisto_set_old_ss_sy
-
-  !> @brief SWI STO formulation: add SWI storage to the model budget
-  !<
-  subroutine swisto_bd(this, isuppress_output, model_budget)
-    use TdisModule, only: delt
-    use BudgetModule, only: BudgetType, rate_accumulator
-    class(SwiStoFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: isuppress_output
-    type(BudgetType), intent(inout) :: model_budget
-    real(DP) :: rin, rout
-    call rate_accumulator(this%swi%storage, rin, rout)
-    call model_budget%addentry(rin, rout, delt, budtxt(1), &
-                               isuppress_output, '     SWI')
-  end subroutine swisto_bd
-
-  !> @brief SWI STO formulation: save SWI storage cell-by-cell flows
-  !<
-  subroutine swisto_save_flows(this, iprint, ibinun)
-    class(SwiStoFormulationType), intent(inout) :: this
-    integer(I4B), intent(in) :: iprint
-    integer(I4B), intent(in) :: ibinun
-    integer(I4B) :: nvaluesp, nwidthp
-    character(len=1) :: cdatafmp = ' ', editdesc = ' '
-    real(DP) :: dinact
-    if (ibinun /= 0) then
-      dinact = DZERO
-      call this%swi%dis%record_array(this%swi%storage, this%swi%iout, iprint, &
-                                     -ibinun, budtxt(1), cdatafmp, nvaluesp, &
-                                     nwidthp, editdesc, dinact)
-    end if
-  end subroutine swisto_save_flows
 
 end module GwfSwiModule

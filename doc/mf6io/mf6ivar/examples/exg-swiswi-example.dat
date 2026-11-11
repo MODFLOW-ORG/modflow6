@@ -6,6 +6,4 @@
 # Both models use the same grid, so no exchange data are required.
 
 BEGIN OPTIONS
-  PRINT_INPUT
-  PRINT_FLOWS
 END OPTIONS

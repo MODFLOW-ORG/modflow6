@@ -61,8 +61,8 @@ in_record true
 reader urword
 tagged true
 optional false
-longname grid package component
-description keyword to specify that record corresponds to a time varying grid array input file.
+longname tvg keyword
+description keyword to specify that record corresponds to a Time-Varying Grid (TVG) input file.  The behavior of TVG and a description of the input file is provided separately.
 
 block options
 name filein
@@ -82,8 +82,8 @@ in_record true
 reader urword
 tagged false
 optional false
-longname file keyword
-description name of the time varying grid array input file.  The TVG file is a generic file for inputting time varying array data.  If the TVG file is specified in the options block, then the provided TVG file must have a SALTWATER\_HEAD auxiliary variable.  This SALTWATER\_HEAD auxiliary variable, which can vary during the simulation, will be assigned as the saltwater head used by the SWI Package. During solution of the freshwater flow equation, the provided SALTWATER\_HEAD array will remain fixed.  A common use case for providing SALTWATER\_HEAD in a TVG input file is to specify a sea level elevation that changes with time.  A description for the format of the TVG file is provided in a separate section.  If not specified, then the saltwater head will be set to zero, or to the saltwater\_head value that can be specified here as an option.
+longname file name of TVG information
+description name of the Time-Varying Grid (TVG) input file.  The TVG file is a generic file for specifying grid arrays that can change by stress period.  If the TVG file is specified in the options block, then the provided TVG file must have a SALTWATER\_HEAD auxiliary variable.  This SALTWATER\_HEAD auxiliary variable, which can vary during the simulation, will be assigned as the saltwater head used by the SWI Package. During solution of the freshwater flow equation, the provided SALTWATER\_HEAD array will remain fixed.  A common use case for providing SALTWATER\_HEAD in a TVG input file is to specify a sea level elevation that changes with time.  A description of the format of the TVG file is provided in a separate section.  If the TVG file is not specified, then the saltwater head is set to zero, or to the value specified with the SALTWATER\_HEAD option.
 
 block options
 name saltwater_head
@@ -91,7 +91,7 @@ type double precision
 reader urword
 optional true
 longname saltwater head
-description specified saltwater head value.  This saltwater head value will be assigned as the saltwater head used by the SWI Package. During solution of the freshwater flow equation the specified saltwater head will remain fixed.  A common use case for providing saltwater head is to set it equal to sea level, provided that sea level is not zero and does not change with time.  If not specified, and the TVG input option is not specified, then the default value for saltwater head is zero.  If the saltwater head option is specified and TVG input is also provided, then the TVG input will override the saltwater head option.
+description specified saltwater head value.  This saltwater head value will be assigned as the saltwater head used by the SWI Package. During solution of the freshwater flow equation the specified saltwater head will remain fixed.  A common use case for providing saltwater head is to set it equal to sea level, provided that sea level is not zero and does not change with time.  If not specified, and the TVG input option is not specified, then the default value for saltwater head is zero.  If the saltwater head option is specified and TVG input is also provided, then the saltwater head from the TVG input is used and the saltwater head option is ignored.
 mf6internal hsalt_user
 
 block options
@@ -110,5 +110,5 @@ type keyword
 reader urword
 optional true
 longname disable upstream weighting of the fluid-zone conductance
-description keyword to disable upstream weighting of the freshwater or saltwater zone thickness in the intercell conductance.  This is a developer option for evaluating the weighting bias.  When specified, the fluid-zone saturated fractions of the two connected cells are averaged with the NPF cell-averaging method (harmonic by default, or as set with ALTERNATIVE\_CELL\_AVERAGING), the flow-term Newton derivatives are omitted, and the cross-fluid flow Newton terms of the SWI-SWI Exchange are disabled.  The storage Newton terms, which do not depend on the weighting, are retained.  The converged solution differs from the upstream-weighted solution only by the discretization of the intercell thickness.  Because the flow term is then solved by Picard iteration, two-fluid simulations with this option require backtracking in the Iterative Model Solution and typically need several times as many outer iterations; the harmonic-mean averaging cannot grow a fluid zone from zero thickness, so AMT-LMK or AMT-HMK averaging should be used.
+description keyword to disable upstream weighting of the freshwater or saltwater zone thickness in the intercell conductance.  This is a developer option for evaluating the weighting bias.  When specified, the fluid-zone saturated cell fractions of the two connected cells are averaged with the NPF cell-averaging method (harmonic by default, or as set with ALTERNATIVE\_CELL\_AVERAGING), the flow-term Newton derivatives are omitted, and the cross-fluid flow Newton terms of the SWI-SWI Exchange are disabled.  The storage Newton terms, which do not depend on the weighting, are retained.  The converged solution differs from the upstream-weighted solution only by the discretization of the intercell thickness.  Because the flow term is then solved by Picard iteration, two-fluid simulations with this option require backtracking in the Iterative Model Solution and typically need several times as many outer iterations; the harmonic-mean averaging cannot grow a fluid zone from zero thickness, so AMT-LMK or AMT-HMK averaging should be used.
 mf6internal inoupstream

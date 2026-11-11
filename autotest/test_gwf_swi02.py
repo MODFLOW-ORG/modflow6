@@ -19,8 +19,6 @@ cases = [
     "swi02c",  # unconfined newton
 ]
 
-# should get three cases working here:
-#   1: confined, 2: unconfined, 3: unconfined/newton
 icelltype = [0, 1, 1]
 iconvert = [0, 1, 1]
 top = [0.0, 50.0, 50.0]
@@ -122,7 +120,7 @@ def plot_output(idx, test):
     times = zobj.times
 
     ax = plt.subplot(1, 1, 1)
-    pxs = flopy.plot.PlotCrossSection(gwf, line={"row": 0}, ax=ax)
+    flopy.plot.PlotCrossSection(gwf, line={"row": 0}, ax=ax)
     for t in times:
         zeta = zobj.get_data(totim=t).flatten()
         ax.plot(x, zeta, "k-")
@@ -139,7 +137,6 @@ def check_output(idx, test):
 
     ws = pl.Path(sim.sim_path)
     gwf = sim.gwf[0]
-    x = gwf.modelgrid.xcellcenters.flatten()
     fpth = pl.Path(ws) / f"{gwf.name}.zta"
     head = gwf.output.head().get_data().flatten()
     zeta = flopy.utils.HeadFile(fpth, text="zeta").get_data().flatten()

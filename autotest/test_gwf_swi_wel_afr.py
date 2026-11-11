@@ -1,32 +1,42 @@
 """
-WEL AUTO_FLOW_REDUCE under SWI: WEL asks the SWI flow-reduction provider for
-the factor instead of tapering over the whole cell. The provider tapers over
-the part of the cell occupied by the fluid the model simulates: a freshwater
-model from max(cell bottom, zeta) up to the water table or the cell top, a
-saltwater model from the cell bottom up to min(cell top, zeta). The interface
-is computed from the current heads inside the Newton iteration and the
-derivative carries its dependence on the head, so there is no lag. The
-reduction applies to confined cells too (in plain MODFLOW a confined cell
-cannot dewater, but under SWI its fluid zone can vanish as the interface
-moves through it).
+WEL AUTO_FLOW_REDUCE with the SWI Package. With SWI active, the well flow
+reduction is applied over the part of the cell occupied by the fluid the model
+simulates rather than over the whole cell. The reduction interval for a
+freshwater model extends from max(cell bottom, zeta) to the cell top, and for a
+saltwater model from the cell bottom to min(cell top, zeta). The reduced rate
+uses min(head, top of the reduction interval), so in an unconfined freshwater
+cell the controlling thickness is (hf - zeta).
+
+The reduction interval is updated once per outer iteration from the current
+heads: directly on the first outer iteration of a time step, and moved halfway
+toward the current interface on later iterations. No Newton derivative is
+included for the interface-controlled part of the reduction. Because the
+interval is lagged and under-relaxed, it can remain offset from the converged
+interface by up to one time step when the interface moves more than the
+reduction thickness in a single step. The reduction also applies to confined
+cells: in standard MODFLOW a confined cell cannot dewater, but with SWI its
+fluid zone can vanish as the interface moves through it.
 
 Cases:
-1. swi-welafr01 (single-fluid, unconfined): two-cell drawdown; the pumped
-   rate must match the analytic taper on (hf - zeta) at the converged heads,
-   and a no-SWI companion shows the cell-bottom taper stays inactive.
-2. swi-welafr02 (two-fluid, fresh well): vcol2-style column; the reported
-   rate must match the analytic taper at every step as the interface rises.
+1. swi-welafr01 (single-fluid, unconfined): two-cell drawdown; the simulated
+   rate must match the analytic flow reduction on (hf - zeta) at the converged
+   heads, and the same model without SWI must show no reduction.
+2. swi-welafr02 (two-fluid, freshwater well): a five-layer vertical column with
+   coupled freshwater and saltwater models; at every time step the simulated
+   rate must lie between the analytic rates for the current and the previous
+   reduction interval as the interface rises.
 3. swi-welafr03 (single-fluid, CONFINED): a deep pressurized cell
-   (icelltype=0, hf far above the cell top); the taper must fire on
-   (cell top - zeta) as the interface fills the cell, even though the head
-   never approaches the interval bottom.
-4. swi-welafr04 (two-fluid, SALT well): the saltwater model pumps the bottom
-   cell; the taper must fire on (zeta - cell bottom) as the salt zone drains
-   (topreduce = zeta once the interface enters the cell).
+   (icelltype=0, hf far above the cell top); the rate must be reduced on
+   (cell top - zeta) as the interface rises into the cell, even though the head
+   never approaches the bottom of the reduction interval.
+4. swi-welafr04 (two-fluid, saltwater well): the saltwater model pumps the
+   bottom cell; the rate must be reduced on (zeta - cell bottom) as the
+   saltwater zone drains (the top of the reduction interval equals zeta once
+   the interface enters the cell).
 5. swi-welafr05 (input check): an out-of-range per-well
-   AUTO_FLOW_REDUCE_AUXNAME value in a CONFINED cell must be caught by wel_ck
-   when the flow-reduction interval is active (without it, confined cells are
-   skipped by the check because they cannot be reduced).
+   AUTO_FLOW_REDUCE_AUXNAME value in a CONFINED cell must be rejected by the
+   WEL input check when SWI has modified the reduction interval (without SWI,
+   confined cells are skipped by the check because they cannot be reduced).
 """
 
 import flopy
@@ -60,7 +70,7 @@ def sQSaturation(top, bot, x):
 
 
 def expected_qmult(h, cell_top, cell_bot, ict, botred, topred, frac=afr):
-    """mirror of the wel_cf reduction with the [botreduce, topreduce] interval."""
+    """expected WEL rate multiplier for the reduction interval [botred, topred]."""
     if not (ict != 0 or botred > cell_bot or topred < cell_top):
         return 1.0
     band = frac * (cell_top - cell_bot)
@@ -93,10 +103,10 @@ def dbd_ims(sim, **kwargs):
 sf = {
     # unconfined: interface at the cell bottom at the supply head
     0: dict(top=1.0, bot=-40.0, icelltype=1, hchd=1.0, q=-1.0),
-    # confined: deep pressurized slab, interface enters the cell from below
+    # confined: deep pressurized cell, interface enters the cell from below
     2: dict(top=-30.0, bot=-40.0, icelltype=0, hchd=1.0, q=-0.1),
-    # confined + invalid per-well aux reduction value: must fail the wel_ck
-    # input check because the flow-reduction interval is active
+    # confined + invalid per-well auxiliary reduction value: must fail the WEL
+    # input check because SWI has modified the reduction interval
     4: dict(top=-30.0, bot=-40.0, icelltype=0, hchd=1.0, q=-0.1, afraux=0.0),
 }
 sf_k = 0.01
@@ -154,23 +164,25 @@ def check_output_sf(idx, test):
     )
     print(f"hf={hf:.6f} zeta={zeta:.4f} q_sim={q_sim:.6f} q_exp={q_exp:.6f}")
 
-    # -- the interface must be inside the cell (taper keyed on zeta)
+    # -- the interface must be inside the cell (reduction controlled by zeta)
     assert zeta > p["bot"] + 0.5, "test should move the interface into the cell"
     if p["icelltype"] == 0:
         # -- confined: the head must stay far above the cell top, proving the
-        #    taper fired on (top - zeta) via the min(h, topreduce) cap
+        #    reduction acted on (top - zeta) because min(h, top of the
+        #    reduction interval) is the cell top
         assert hf > p["top"] + 1.0, "cell should remain pressurized"
 
-    # -- the rate must be meaningfully reduced and match the analytic taper
+    # -- the rate must be meaningfully reduced and match the analytic rate
     assert abs(q_sim) < 0.9 * abs(p["q"]), (
-        f"rate should be reduced by the interface taper, got {q_sim}"
+        f"rate should be reduced by the interface, got {q_sim}"
     )
     assert abs(q_sim - q_exp) < 1.0e-6 + 1.0e-4 * abs(p["q"]), (
-        f"simulated rate {q_sim} != analytic taper {q_exp}"
+        f"simulated rate {q_sim} != analytic rate {q_exp}"
     )
 
-    # -- companion model without SWI: no reduction (unconfined case: taper on
-    #    the cell bottom stays inactive; confined case: AFR not applied at all)
+    # -- same model without SWI: no reduction (unconfined case: the head stays
+    #    above the reduction thickness over the cell bottom; confined case: the
+    #    flow reduction is not applied at all)
     ws = test.workspace / "noswi"
     sim2 = build_sim_sf(ws, test.targets["mf6"], p, with_swi=False)
     sim2.write_simulation(silent=True)
@@ -186,8 +198,9 @@ def check_output_sf(idx, test):
 # ---------- cases 2 and 4: two-fluid vertical column ----------
 
 nlay = 5
-# a little headroom above the initial water table keeps the fresh well's taper
-# on its own head (min(h, topreduce) = h): the capped branch is exercised by
+# a cell top a little above the initial water table keeps the freshwater
+# well's reduction controlled by its own head (min(h, top of the reduction
+# interval) = h); the case where the cell top or zeta controls is exercised by
 # the confined and saltwater cases instead
 tf_top = 0.05
 tf_botm = [-1.0, -2.0, -3.0, -4.0, -5.0]
@@ -197,12 +210,12 @@ zeta0 = -0.5
 tf = {
     # fresh well in the top cell, salt supplied by a bottom CHD
     1: dict(saltwell=False, q=-0.02, nstp=20),
-    # salt well in the bottom cell, fresh supplied by a top CHD. The taper
-    # band is half the cell (0.5 m) so that the band is wider than the 0.25 m
-    # the interface drops per step and the throttled state is resolved over
-    # several steps; with the 0.1 m band of the other cases the interface
-    # crossed the band within one step, the well pumped at full rate until
-    # the zone was gone and the throttling was never actually simulated.
+    # salt well in the bottom cell, fresh supplied by a top CHD. The reduction
+    # thickness is half the cell (0.5 m), wider than the 0.25 m the interface
+    # moves per step, so the reduced rate is resolved over several steps. With
+    # the 0.1 m reduction thickness of the other cases the interface would cross
+    # it within one step, and the well would pump at the full rate until the
+    # zone was gone without the reduction being simulated.
     3: dict(saltwell=True, q=-0.05, nstp=30, afr=0.5),
 }
 
@@ -225,8 +238,8 @@ def build_gwf_tf(sim, is_salt, p):
     )
     strt = 0.0 if is_salt else -zeta0 / alphaf
     flopy.mf6.ModflowGwfic(gwf, strt=strt)
-    # the salt model stays confined (icelltype=0): case 4 exercises the
-    # narrowed-interval activation without convertible cells
+    # the salt model stays confined (icelltype=0): case 4 checks that the flow
+    # reduction is active when SWI narrows the interval in a confined cell
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=0 if is_salt else 1, k=100.0)
     flopy.mf6.ModflowGwfsto(gwf, iconvert=0, ss=0.0, sy=tf_sy, transient=True)
     flopy.mf6.ModflowGwfswi(gwf, zeta_filerecord=name + ".zta")
@@ -297,10 +310,11 @@ def check_output_tf(idx, test):
         q_exp = p["q"] * expected_qmult(
             h_well, cell_top, cell_bot, ict, botred, topred, p.get("afr", afr)
         )
-        # the reduction interval is under-relaxed across outer iterations, so
-        # when the interface moves more than a band-width in one step the
-        # applied bound can lag the converged interface by up to one step:
-        # accept any rate between the tapers of the current and previous bounds
+        # the reduction interval is lagged and under-relaxed across outer
+        # iterations, so when the interface moves more than the reduction
+        # thickness in one step the interval used by WEL can be offset from the
+        # converged interface by up to one step: accept any rate between the
+        # rates computed with the current and the previous reduction interval
         q_lag = p["q"] * expected_qmult(
             h_well,
             cell_top,
@@ -317,15 +331,15 @@ def check_output_tf(idx, test):
             f"q_sim={q_sim:9.6f} q_exp={q_exp:9.6f} q_lag={q_lag:9.6f}"
         )
         assert lo <= q_sim <= hi, (
-            f"t={t}: simulated rate {q_sim} outside taper range "
+            f"t={t}: simulated rate {q_sim} outside expected range "
             f"[{lo}, {hi}] (current {q_exp}, lagged {q_lag})"
         )
         prev_bounds = (botred, topred)
         q_sim_last = q_sim
 
-    # -- the fluid zone is finite: the taper must have throttled the well
+    # -- the fluid zone is finite: the flow reduction must have reduced the well rate
     assert abs(q_sim_last) < 0.5 * abs(p["q"]), (
-        f"the well should be substantially throttled by the interface, "
+        f"the well rate should be substantially reduced by the interface, "
         f"got {q_sim_last} of requested {p['q']}"
     )
 

@@ -13,8 +13,6 @@ module ExgSwiswiInputModule
   public exg_swiswi_subpackages
 
   type ExgSwiswiParamFoundType
-    logical :: ipr_input = .false.
-    logical :: ipr_flow = .false.
     logical :: inocrossstorage = .false.
     logical :: inocrossflow = .false.
   end type ExgSwiswiParamFoundType
@@ -29,44 +27,6 @@ module ExgSwiswiInputModule
     ]
 
   type(InputParamDefinitionType), parameter :: &
-    exgswiswi_ipr_input = InputParamDefinitionType &
-    ( &
-    'EXG', & ! component
-    'SWISWI', & ! subcomponent
-    'OPTIONS', & ! block
-    'PRINT_INPUT', & ! tag name
-    'IPR_INPUT', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'keyword to print input to list file', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
-    exgswiswi_ipr_flow = InputParamDefinitionType &
-    ( &
-    'EXG', & ! component
-    'SWISWI', & ! subcomponent
-    'OPTIONS', & ! block
-    'PRINT_FLOWS', & ! tag name
-    'IPR_FLOW', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    'keyword to print swiswi flows to list file', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     exgswiswi_inocrossstorage = InputParamDefinitionType &
     ( &
     'EXG', & ! component
@@ -76,7 +36,7 @@ module ExgSwiswiInputModule
     'INOCROSSSTORAGE', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'disable cross-fluid storage newton terms', & ! longname
+    'disable cross-fluid storage Newton terms', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -95,7 +55,7 @@ module ExgSwiswiInputModule
     'INOCROSSFLOW', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'disable cross-fluid flow newton terms', & ! longname
+    'disable cross-fluid flow Newton terms', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -107,8 +67,6 @@ module ExgSwiswiInputModule
   type(InputParamDefinitionType), parameter :: &
     exg_swiswi_param_definitions(*) = &
     [ &
-    exgswiswi_ipr_input, &
-    exgswiswi_ipr_flow, &
     exgswiswi_inocrossstorage, &
     exgswiswi_inocrossflow &
     ]

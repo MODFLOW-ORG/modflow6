@@ -13,9 +13,8 @@
 module UtlTvgModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: LENMEMPATH, LENVARNAME, LENAUXNAME, &
-                             LENPACKAGENAME, LENCOMPONENTNAME, LINELENGTH, &
-                             DZERO
+  use ConstantsModule, only: LENMEMPATH, LENAUXNAME, LENPACKAGENAME, &
+                             LENCOMPONENTNAME
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, mem_deallocate, &

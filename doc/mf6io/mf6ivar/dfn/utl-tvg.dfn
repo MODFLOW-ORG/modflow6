@@ -20,7 +20,7 @@ shape (naux)
 reader urword
 optional true
 longname keyword to specify aux variables
-description REPLACE auxnames {'{#1}': 'Time Varying Grid arrays'}
+description REPLACE auxnames {'{#1}': 'Time-Varying Grid arrays'}
 
 block options
 name print_input
@@ -28,7 +28,7 @@ type keyword
 reader urword
 optional true
 longname print input to listing file
-description REPLACE print_input {'{#1}': 'time varying grid array input'}
+description REPLACE print_input {'{#1}': 'time-varying grid array input'}
 mf6internal iprpak
 
 block options

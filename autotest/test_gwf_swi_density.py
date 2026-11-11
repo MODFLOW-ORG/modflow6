@@ -7,7 +7,7 @@ The interface elevation follows from the two heads as
 
 where delta is the relative density difference, (rhos - rhof) / rhof. With the
 saltwater head at its default of zero this reduces to zeta = -hf / delta, which
-holds cell by cell regardless of the flow solution and so makes a direct check
+is satisfied cell by cell regardless of the flow solution and so makes a direct check
 that the option reached the formulation.
 
 Cases:

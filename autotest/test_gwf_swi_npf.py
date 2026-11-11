@@ -1,10 +1,9 @@
 """
-Reproduction test: with the interface (zeta) held well below the model bottom,
-the SWI Package must reproduce a plain NPF simulation. This confirms that SWI is
-a true no-op when there is no saltwater in the domain, and it exercises the
-horizontal and vertical SWI conductance in the all-freshwater limit -- the
-freshwater zone is the full cell (S^s = 0) and the vertical flow is unrestricted
-(factor = 1).
+Checks that the SWI Package gives the same heads as a plain NPF simulation when
+the interface (zeta) lies well below the model bottom. With no saltwater in the
+domain SWI must have no effect, and the test exercises the horizontal and
+vertical SWI conductance in the all-freshwater limit -- the freshwater zone is
+the full cell (S^s = 0) and vertical flow is unrestricted.
 
 To stress the conductance values, the model is confined and multi-layer with
 heterogeneous horizontal (k) and vertical (k33) hydraulic conductivity, and the
@@ -87,7 +86,7 @@ def check_output(idx, test):
     gwf_swi = test.sims[0].gwf[0]
 
     # -- self-check: the flow field must have both upward and downward vertical
-    #    flow, otherwise this is not a meaningful stress on the vertical term
+    #    flow, otherwise this is not a meaningful test of the vertical conductance
     spdis = gwf_swi.output.budget().get_data(text="DATA-SPDIS")[0]
     qz = spdis["qz"]
     print(f"qz range: [{qz.min():.3e}, {qz.max():.3e}]")

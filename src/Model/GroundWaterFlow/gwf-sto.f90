@@ -442,7 +442,6 @@ contains
         call this%sto_formulations(iform)%form%fn( &
           kiter, matrix_sln, rhs, idxglo, hold, hnew)
       end if
-
     end do
   end subroutine sto_fn
 
