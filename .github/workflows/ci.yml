@@ -323,9 +323,9 @@ jobs:
         working-directory: modflow6
         run: |
           if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
-            pixi run autotest -m "not slow and not regression and not developmode"
+            pixi run autotest -n logical -m "not slow and not regression and not developmode"
           else
-            pixi run autotest --smoke
+            pixi run autotest -n logical --smoke
           fi
 
       - name: Upload failed test output
@@ -551,19 +551,19 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -575,7 +575,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n auto test_scripts.py
+          pytest -v -n logical test_scripts.py
 
       - name: Test examples
         working-directory: modflow6
@@ -583,7 +583,7 @@ jobs:
         run: |
           cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n auto test_scripts.py
+          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n logical test_scripts.py
 
       - name: Upload failed test output
         if: failure()
@@ -729,19 +729,19 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external"
 
       - name: Test MF6 models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       # if on linux, test example models too
       - name: Install executables
@@ -755,7 +755,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n auto test_scripts.py
+          pytest -v -n logical test_scripts.py
 
       - name: Upload failed test output
         if: failure()
