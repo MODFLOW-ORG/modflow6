@@ -400,6 +400,14 @@ def check_output(idx, test):
         {"lak1": (1, 3), "lak2": (2, 4), "lak3": (3, 5)},
     )
 
+    # the aquifer and the lakes are all at head 0, so the lakes exchange
+    # nothing with the aquifer, and their concentrations come only from
+    # rainfall. The answers above rely on this.
+    fpth = os.path.join(test.workspace, "lak_obs.csv")
+    obs = np.genfromtxt(fpth, names=True, delimiter=",")
+    for obsname in ("LAK1", "LAK2", "LAK3"):
+        assert np.allclose(obs[obsname], 0.0), f"{obsname}: {obs[obsname]}"
+
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):

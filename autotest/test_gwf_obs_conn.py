@@ -1,10 +1,8 @@
 """
 Test LAK and MAW observations that give a connection number (ID2).
 
-The connection was found by counting from the feature's first connection across
-the whole package, so a connection number past the feature's last connection
-silently referred to the next feature's connections. Now it is an error unless
-1 <= ID2 <= the feature's number of connections.
+ID2 must be between 1 and the feature's number of connections, and ID must be
+a valid lake or well number. Otherwise the simulation stops with an error.
 
 Lake 1 and well 1 each have two connections, lake 2 and well 2 have one.
 """
