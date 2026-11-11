@@ -593,14 +593,14 @@ jobs:
           path: modflow6/autotest/.failed
 
       - name: Checkout usgslatex
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
 
       - name: Install TeX Live
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         run: |
           sudo apt-get update
           sudo apt install texlive-science \
@@ -610,11 +610,12 @@ jobs:
             texlive-fonts-extra
 
       - name: Install USGS LaTeX style files and Univers font
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         working-directory: usgslatex/usgsLaTeX
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
+        if: ${{ !matrix.debug }}
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -762,12 +763,6 @@ jobs:
         with:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
-
-      - name: Test scripts
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run test-dist-scripts
 
   extended_test:
     name: Extended testing
