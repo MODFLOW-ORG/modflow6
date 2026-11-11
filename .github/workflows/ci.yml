@@ -131,48 +131,6 @@ jobs:
           echo "code=$code"
           echo "code=$code" >> "$GITHUB_OUTPUT"
 
-  build:
-    name: Build
-    needs: changes
-    if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-22.04
-    env:
-      FC: gfortran
-      FC_V: 13
-    steps:
-      - name: Checkout MF6
-        uses: actions/checkout@v7
-
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
-
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.3
-        with:
-          pixi-version: v0.82.1
-
-      - name: Setup MF6
-        run: pixi run setup -Dwerror=true builddir
-
-      - name: Build MF6
-        run: pixi run build builddir
-
-      - name: Setup mf5to6
-        run: pixi run setup-mf5to6 -Dwerror=true builddir
-
-      - name: Build mf5to6
-        run: pixi run build-mf5to6 builddir
-
-      - name: Show build log
-        if: failure()
-        run: cat builddir/meson-logs/meson-log.txt
-
-      - name: Unit test MF6
-        run: pixi run test builddir
-
   pixi-gcc-extended-build:
     name: Pixi gcc-extended-build environment testing
     needs: changes
@@ -337,9 +295,9 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
+          pixi run setup -Dwerror=true builddir
           pixi run build builddir
-          pixi run setup-mf5to6 builddir
+          pixi run setup-mf5to6 -Dwerror=true builddir
           pixi run build-mf5to6 builddir
 
       - name: Show build log
@@ -381,7 +339,6 @@ jobs:
     name: Test GNU fortran
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -667,7 +624,6 @@ jobs:
     name: Test Intel fortran
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     env:
@@ -817,7 +773,6 @@ jobs:
     name: Extended testing
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:
