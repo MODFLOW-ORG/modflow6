@@ -3820,7 +3820,6 @@ contains
     ! -- local
     integer(I4B) :: i
     integer(I4B) :: j
-    integer(I4B) :: n
     integer(I4B) :: nn1
     integer(I4B) :: nn2
     integer(I4B) :: jj
@@ -3875,8 +3874,27 @@ contains
             if (obsrv%ObsTypeId == 'MAW' .or. &
                 obsrv%ObsTypeId == 'CONDUCTANCE') then
               nn2 = obsrv%NodeNumber2
-              j = this%iaconn(nn1) + nn2 - 1
-              call obsrv%AddObsIndex(j)
+              if (nn1 < 1 .or. nn1 > this%nmawwells) then
+                write (errmsg, '(5a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), &
+                  ' was assigned multi-aquifer well ', nn1, &
+                  '. Multi-aquifer well must be >= 1 and <= ', &
+                  this%nmawwells, '.'
+                call store_error(errmsg)
+              else if (nn2 < 1 .or. nn2 > this%ngwfnodes(nn1)) then
+                write (errmsg, '(5a,i0,a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), &
+                  ' was assigned connection ', nn2, &
+                  ' of multi-aquifer well ', nn1, &
+                  '. Connection must be >= 1 and <= ', &
+                  this%ngwfnodes(nn1), '.'
+                call store_error(errmsg)
+              else
+                j = this%iaconn(nn1) + nn2 - 1
+                call obsrv%AddObsIndex(j)
+              end if
             else
               call obsrv%AddObsIndex(nn1)
             end if
@@ -3903,14 +3921,12 @@ contains
             obsrv%ObsTypeId == 'CONDUCTANCE') then
           do j = 1, obsrv%indxbnds_count
             nn1 = obsrv%indxbnds(j)
-            n = this%imap(nn1)
-            nn2 = nn1 - this%iaconn(n) + 1
-            jj = this%iaconn(n + 1) - this%iaconn(n)
             if (nn1 < 1 .or. nn1 > this%maxbound) then
               write (errmsg, '(3(a,1x),i0,1x,a,i0,a)') &
                 trim(adjustl(obsrv%ObsTypeId)), &
                 'multi-aquifer well connection number must be greater than 0', &
-                'and less than', jj, '(specified value is ', nn2, ').'
+                'and less than or equal to', this%maxbound, &
+                '(specified value is ', nn1, ').'
               call store_error(errmsg)
             end if
           end do

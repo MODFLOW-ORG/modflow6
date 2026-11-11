@@ -168,7 +168,7 @@ def build_models(idx, test):
             ("lakevolume", "volume", 1),
             ("lak1", "lak", 1, 1),
             ("lak2", "lak", 1, 2),
-            ("lak3", "lak", 1, 3),
+            ("lak3", "lak", 2, 1),
         ]
     }
 
