@@ -1142,6 +1142,7 @@ contains
     deallocate (this%budget)
     deallocate (this%hfb)
     deallocate (this%mvr)
+    if (this%inswi > 0) deallocate (this%swi)
     deallocate (this%obs)
     deallocate (this%oc)
     !
