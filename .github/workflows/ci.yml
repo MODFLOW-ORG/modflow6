@@ -15,7 +15,14 @@ on:
       - "doc/**.py"
       - "doc/**.sh"
       - "doc/**.xlsx"
+      - "doc/**.pptx"
+      - "doc/**.svg"
+      - "doc/**.bst"
+      - "doc/ReleaseNotes/**"
+      - ".build_rtd_docs/**"
       - ".hpc/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/pr_policy.yml"
   pull_request:
     branches:
       - master
@@ -34,7 +41,14 @@ on:
       - "doc/**.py"
       - "doc/**.sh"
       - "doc/**.xlsx"
+      - "doc/**.pptx"
+      - "doc/**.svg"
+      - "doc/**.bst"
+      - "doc/ReleaseNotes/**"
+      - ".build_rtd_docs/**"
       - ".hpc/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/pr_policy.yml"
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
