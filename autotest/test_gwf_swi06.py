@@ -6,7 +6,7 @@ Conceptual model: the same flat strip-island geometry as swi05 (1 row, 100
 columns, top +50 m, bottom -50 m, a GHB cell at each end, recharge everywhere),
 but run transient over 10 stress periods of 3,650 days each (100 years total).
 Sea level rises linearly from 0 to 40 m. The time-varying saltwater head is
-supplied through the SWI Package's TVA (time-varying array) subpackage as a
+supplied through the TVG (Time-Varying Grid) Utility of the SWI Package as a
 SALTWATER_HEAD auxiliary variable, while the GHB heads track the same rising sea
 level. The Newton formulation is used.
 
@@ -16,7 +16,7 @@ zeta = clip(-40*head + 41*saltwater_head(t), botm, top) using that period's sea
 level (alphaf=40, alphas=41), and the model's volumetric budget closes for all
 periods. The zeta output is limited to the cell, so the clipped relation is
 what is compared.
-This case also exercises the TVA subpackage and transient interface movement.
+This case also exercises the TVG Utility and transient interface movement.
 """
 
 import flopy
@@ -85,7 +85,6 @@ def build_models(idx, test):
     npf = flopy.mf6.ModflowGwfnpf(
         gwf,
         save_specific_discharge=True,
-        # alternative_cell_averaging="amt-hmk",  # "harmonic",
         icelltype=1,
         k=hydraulic_conductivity,
     )
@@ -96,7 +95,7 @@ def build_models(idx, test):
         tvg6_filerecord=f"{name}.swi.tvg",
     )
 
-    # initialize the tvg subpackage with the saltwater head
+    # initialize the TVG Utility with the saltwater head
     sl = np.linspace(sealevel_start, sealevel_stop, nper)
     aux = {}
     for kper in range(nper):
@@ -164,7 +163,7 @@ def check_output(idx, test):
     gwf = sim.gwf[0]
     ws = sim.sim_path
 
-    # time-varying saltwater head (sea level) imposed through the TVA subpackage
+    # time-varying saltwater head (sea level) imposed through the TVG Utility
     sl = np.linspace(sealevel_start, sealevel_stop, nper)
     hobj = gwf.output.head()
     zobj = gwf.swi.output.zeta()

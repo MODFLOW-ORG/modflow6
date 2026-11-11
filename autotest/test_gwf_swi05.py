@@ -13,8 +13,8 @@ below sea level.
 What check_output verifies: the simulated interface elevation zeta obeys the
 Ghyben-Herzberg relation zeta = clip(-40*head + 41*saltwater_head, botm, top) at
 every cell (alphaf=40, alphas=41), and the model's volumetric budget closes
-(percent discrepancy ~ 0). The zeta output is limited to the cell, so the
-clipped relation is what is compared.
+(absolute imbalance small relative to the peak flow). The zeta output is
+limited to the cell, so the clipped relation is what is compared.
 """
 
 import flopy
@@ -80,7 +80,6 @@ def build_models(idx, test):
     npf = flopy.mf6.ModflowGwfnpf(
         gwf,
         save_specific_discharge=True,
-        # alternative_cell_averaging="amt-hmk",  # "harmonic",
         icelltype=1,
         k=hydraulic_conductivity,
     )

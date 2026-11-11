@@ -2,7 +2,7 @@
 Vertical-column test of SWI vertical flow, two-fluid case (coupled freshwater and
 saltwater models via the SWI-SWI exchange).
 
-This is the full slide-7 setup: a 1-D vertical column with a freshwater well at
+The model is a 1-D vertical column with a freshwater well at
 the top of the freshwater model and a fixed saltwater head at the bottom of the
 saltwater model. Injecting freshwater at the top pushes the interface down and
 displaces saltwater out the bottom boundary; extracting pulls the interface back
@@ -224,10 +224,11 @@ def check_output(idx, test):
     #    top displaces the sharp interface downward as saltwater is pushed out the
     #    bottom, and every unit of injected volume sweeps 1/(area*sy) of interface
     #    descent. So the cumulative descent over the injection period must equal
-    #    the analytical q/(area*sy)*perlen. This pins the buoyancy-restricted
-    #    vertical saltwater conductance quantitatively (a wrong vertical term would
-    #    move the interface at the wrong speed while still conserving mass). The small
-    #    excess is the interface smoothing as zeta crosses the two layer faces.
+    #    the analytical q/(area*sy)*perlen. This checks the buoyancy-restricted
+    #    vertical saltwater conductance quantitatively (a wrong vertical
+    #    conductance would move the interface at the wrong speed while still
+    #    conserving mass). The small excess is the interface smoothing as zeta
+    #    crosses the two layer faces.
     area = delr * delc
     perlen = float(nstp)  # perioddata uses perlen == nstp with tsmult 1.0
     descent = zeta0 - float(zeta_p1[-1])

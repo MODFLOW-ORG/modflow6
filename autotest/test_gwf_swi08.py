@@ -33,7 +33,7 @@ delc = 1.0
 botm = -80.0
 recharge = {0: 0.0075, 1: 0.0}
 k_fw = 10.0
-k_sw = 10.0  # 9.403669797
+k_sw = 10.0
 h0 = 0.0
 icelltype = [0, 1]
 iconvert = [0, 1]
@@ -71,7 +71,6 @@ def build_gwf_model(idx, sim, is_saltwater):
         gwf,
         save_specific_discharge=True,
         save_saturation=True,
-        # alternative_cell_averaging=None,
         icelltype=icelltype[idx],
         k=k_sw if is_saltwater else k_fw,
     )
@@ -110,7 +109,6 @@ def build_models(idx, test):
         sim_ws=ws,
         exe_name="mf6",
         memory_print_option="all",
-        # print_input=True,
     )
 
     # transient tdis
@@ -139,8 +137,6 @@ def build_models(idx, test):
 
     swiswi = flopy.mf6.ModflowSwiswi(
         sim,
-        print_input=True,
-        print_flows=True,
         exgtype="SWI6-SWI6",
         exgmnamea="freshwater",
         exgmnameb="saltwater",
@@ -163,7 +159,7 @@ def plot_output(idx, test):
     times = zobj.times
 
     ax = plt.subplot(1, 1, 1)
-    pxs = flopy.plot.PlotCrossSection(gwf, line={"row": 0}, ax=ax)
+    flopy.plot.PlotCrossSection(gwf, line={"row": 0}, ax=ax)
     for t in times:
         zeta = zobj.get_data(totim=t).flatten()
         ax.plot(x, zeta, "k-")
@@ -184,15 +180,12 @@ def check_output(idx, test):
     # fresh gwf model
     ws = pl.Path(sim.sim_path)
     gwf_fresh = sim.gwf[0]
-    x = gwf_fresh.modelgrid.xcellcenters.flatten()
     fpth = pl.Path(ws) / f"{gwf_fresh.name}.zta"
     head_f = gwf_fresh.output.head().get_data().flatten()
     zeta = flopy.utils.HeadFile(fpth, text="zeta").get_data().flatten()
 
     # salt gwf model
-    ws = pl.Path(sim.sim_path)
     gwf_salt = sim.gwf[1]
-    x = gwf_salt.modelgrid.xcellcenters.flatten()
     fpth = pl.Path(ws) / f"{gwf_salt.name}.zta"
     head_s = gwf_salt.output.head().get_data().flatten()
     zeta_s = flopy.utils.HeadFile(fpth, text="zeta").get_data().flatten()
@@ -204,7 +197,6 @@ def check_output(idx, test):
     assert np.allclose(zeta, zeta_s), (
         f"salt zeta not equal fresh zeta {zeta_s} /= {zeta}"
     )
-    # assert np.allclose(head_s, 0), f"salt head is not zero {head_s}"
 
     # both model budgets must conserve mass. Check the absolute imbalance
     # (TOTAL_IN - TOTAL_OUT) relative to the peak flow rather than the per-step

@@ -6,7 +6,7 @@ limits. The saved zeta is limited to the saturated part of the cell: the cell
 bottom, and the top of the saturated column. That top is the cell top in a
 confined cell, and the water table (the freshwater head) in a convertible cell
 where the head is below the cell top. Where zeta is above the top of the
-saturated column the cell holds no freshwater and saltwater fills the column,
+saturated column the cell contains no freshwater and saltwater fills the column,
 so the interface is reported at the water table, not at the cell top.
 
 A one-row, single-fluid model with three constant-head cells covers the three

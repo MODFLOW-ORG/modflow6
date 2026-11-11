@@ -17,8 +17,6 @@ cases = [
     "swi01c",  # unconfined newton
 ]
 
-# should get three cases working here:
-#   1: confined, 2: unconfined, 3: unconfined/newton
 top = [0.0, 50.0, 50.0]
 newtonoptions = [False, False, "newton"]
 icelltype = [0, 1, 1]
@@ -104,7 +102,6 @@ def make_cross_section_plot(sim, idx, title):
     gwf = sim.gwf[0]
     x = gwf.modelgrid.xcellcenters.flatten()
     botm = gwf.dis.botm.array.flatten()
-    ws = sim.sim_path
     fpth = ws / "mymodel.zta"
     head = gwf.output.head().get_data().flatten()
     zeta = flopy.utils.HeadFile(fpth, text="zeta").get_data().flatten()
@@ -134,7 +131,6 @@ def analytical_head_confined(x, recharge, a, k, alphaf):
 
 
 def get_heads_for_comparison(sim, idx):
-    ws = pl.Path(sim.sim_path)
     gwf = sim.gwf[0]
     ncol = gwf.dis.ncol.get_data()
     delr = gwf.dis.delr.get_data()[0]

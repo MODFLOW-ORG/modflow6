@@ -1,4 +1,4 @@
-!> @brief This module contains the SwiExchangeModule Module
+!> @brief This module contains the SwiSwiExchangeModule Module
 !!
 !! This module contains the code for connecting freshwater and
 !! saltwater GWF models.
@@ -7,7 +7,7 @@
 module SwiSwiExchangeModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, LINELENGTH, DONE, C3D_VERTICAL
+  use ConstantsModule, only: DZERO, LINELENGTH, DONE, DTWO, C3D_VERTICAL
   use SimModule, only: store_error, store_error_filename
   use SimVariablesModule, only: errmsg, model_loc_idx
   use MemoryHelperModule, only: create_mem_path
@@ -17,14 +17,18 @@ module SwiSwiExchangeModule
   use NumericalExchangeModule, only: NumericalExchangeType
   use GwfModule, only: GwfModelType
   use MatrixBaseModule
-  use SmoothingModule, only: sQuadraticSaturation, &
-                             sQuadraticSaturationDerivative
+  use SmoothingModule, only: sQuadraticSaturation
 
   implicit none
 
   private
   public :: swiswi_cr
   public :: SwiSwiExchangeType
+
+  !> @brief Head perturbation used for the central-difference derivatives of
+  !! the saturated cell fraction in get_dsfdhs and get_dssdhf
+  !<
+  real(DP), parameter :: DEREPS = 1.D-10
 
   !> @brief Derived type for SwiSwiExchangeType
   !!
@@ -34,13 +38,11 @@ module SwiSwiExchangeModule
   type, extends(NumericalExchangeType) :: SwiSwiExchangeType
 
     ! model pointers
-    class(GwfModelType), pointer :: gwf_fresh => null() !< pointer to GWF Model 1
-    class(GwfModelType), pointer :: gwf_salt => null() !< pointer to GWF Model 2
+    class(GwfModelType), pointer :: gwf_fresh => null() !< freshwater GWF model
+    class(GwfModelType), pointer :: gwf_salt => null() !< saltwater GWF model
 
     ! options
     character(len=LINELENGTH), pointer :: filename => null() !< name of the input file
-    integer(I4B), pointer :: ipr_input => null() !< flag to print input
-    integer(I4B), pointer :: ipr_flow => null() !< print flag for cell by cell flows
     integer(I4B), pointer :: inocrossstorage => null() !< dev flag: disable cross-fluid storage newton terms
     integer(I4B), pointer :: inocrossflow => null() !< dev flag: disable cross-fluid flow newton terms
 
@@ -61,11 +63,11 @@ module SwiSwiExchangeModule
     procedure :: exg_ar => swi_swi_ar
     procedure :: exg_fc => swi_swi_fc
     procedure :: exg_fn => swi_swi_fn
+    procedure :: exg_da => swi_swi_da
     procedure :: swi_fn_cross_storage
     procedure :: swi_fn_cross_flow
     procedure :: swi_cross_storage
     procedure, private :: same_grid
-    procedure :: exg_da => swi_swi_da
     procedure :: allocate_scalars
     procedure :: allocate_arrays
     procedure :: source_options
@@ -77,6 +79,11 @@ module SwiSwiExchangeModule
 
 contains
 
+  !> @brief Create SWI-SWI Exchange
+  !!
+  !! Create a new SWI-SWI Exchange object, add it to the list of exchanges,
+  !! and set pointers to the freshwater and saltwater GWF models.
+  !<
   subroutine swiswi_cr(filename, name, id, m1_id, m2_id, input_mempath)
     ! dummy
     character(len=*), intent(in) :: filename !< filename for reading
@@ -113,12 +120,9 @@ contains
       mb => GetBaseModelFromList(basemodellist, m1_index)
       select type (mb)
       type is (GwfModelType)
-        ! exchange%model1 => mb
         exchange%gwf_fresh => mb
       end select
     end if
-    ! exchange%v_model1 => get_virtual_model(m1_id)
-    ! exchange%is_datacopy = .not. exchange%v_model1%is_local
     !
     ! -- set gwf_salt
     m2_index = model_loc_idx(m2_id)
@@ -126,15 +130,13 @@ contains
       mb => GetBaseModelFromList(basemodellist, m2_index)
       select type (mb)
       type is (GwfModelType)
-        ! exchange%model2 => mb
         exchange%gwf_salt => mb
       end select
     end if
-    ! exchange%v_model2 => get_virtual_model(m2_id)
     !
     ! -- Verify that gwf model1 is of the correct type
     if (.not. associated(exchange%gwf_fresh) .and. m1_index > 0) then
-      write (errmsg, '(3a)') 'Problem with SWI-SWI exchange ', &
+      write (errmsg, '(3a)') 'Problem with SWI-SWI Exchange ', &
         trim(exchange%name), &
         '.  First specified GWF Model does not appear to be of the &
         &correct type.'
@@ -143,7 +145,7 @@ contains
     !
     ! -- Verify that gwf model2 is of the correct type
     if (.not. associated(exchange%gwf_salt) .and. m2_index > 0) then
-      write (errmsg, '(3a)') 'Problem with SWI-SWI exchange ', &
+      write (errmsg, '(3a)') 'Problem with SWI-SWI Exchange ', &
         trim(exchange%name), &
         '.  Second specified GWF Model does not appear to be of the &
         &correct type.'
@@ -152,9 +154,9 @@ contains
 
   end subroutine swiswi_cr
 
-  !> @ brief Define SWI SWI exchange
+  !> @ brief Define SWI-SWI Exchange
   !!
-  !! Define SWI to SWI exchange object.
+  !! Define SWI-SWI Exchange object.
   !<
   subroutine swi_swi_df(this)
     ! modules
@@ -169,9 +171,10 @@ contains
     ! -- Ensure models are in same solution
     if (associated(this%gwf_fresh) .and. associated(this%gwf_salt)) then
       if (this%gwf_fresh%idsoln /= this%gwf_salt%idsoln) then
-        call store_error('Two models are connected in a GWF '// &
-                         'exchange but they are in different solutions. '// &
-                         'GWF models must be in same solution: '// &
+        call store_error('Two models are connected in a SWI-SWI Exchange '// &
+                         'but they are in different solutions. The '// &
+                         'freshwater and saltwater GWF models must be in '// &
+                         'the same solution: '// &
                          trim(this%gwf_fresh%name)//' '// &
                          trim(this%gwf_salt%name))
         call store_error_filename(this%filename)
@@ -181,8 +184,8 @@ contains
     ! Ensure fresh model has active SWI Package
     if (this%gwf_fresh%inswi == 0) then
       call store_error( &
-        'A SWI-SWI exchange is active, but the freshwater GWF model &
-        &does not have an active Seawater Intrusion (Package).  Activate &
+        'A SWI-SWI Exchange is active, but the freshwater GWF model &
+        &does not have an active Seawater Intrusion (SWI) Package.  Activate &
         &the SWI Package for the freshwater GWF model.')
       call store_error_filename(this%filename)
     end if
@@ -190,8 +193,8 @@ contains
     ! Ensure salt model has active SWI Package
     if (this%gwf_salt%inswi == 0) then
       call store_error( &
-        'A SWI-SWI exchange is active, but the saltwater GWF model &
-        &does not have an active Seawater Intrusion (Package).  Activate &
+        'A SWI-SWI Exchange is active, but the saltwater GWF model &
+        &does not have an active Seawater Intrusion (SWI) Package.  Activate &
         &the SWI Package for the saltwater GWF model.')
       call store_error_filename(this%filename)
     end if
@@ -203,10 +206,10 @@ contains
     ! Check to make sure fresh and salt models have same number of nodes
     if (this%gwf_fresh%dis%nodes /= this%gwf_salt%dis%nodes) then
       call store_error( &
-        'A SWI-SWI exchange is active, but the fresh GWF model &
-        &does not have the same number of nodes as the salt &
+        'A SWI-SWI Exchange is active, but the freshwater GWF model &
+        &does not have the same number of nodes as the saltwater &
         &GWF model.  Both models must have the same discretization &
-        & properties.')
+        &properties.')
       call store_error_filename(this%filename)
     end if
 
@@ -215,9 +218,9 @@ contains
     if (this%gwf_fresh%dis%nodes == this%gwf_salt%dis%nodes) then
       if (.not. this%same_grid()) then
         call store_error( &
-          'A SWI-SWI exchange is active, but the fresh and salt GWF models &
-          &do not have the same grid. Both models must have the same cell &
-          &connections, cell tops, cell bottoms, and cell areas.')
+          'A SWI-SWI Exchange is active, but the freshwater and saltwater &
+          &GWF models do not have the same grid. Both models must have the &
+          &same cell connections, cell tops, cell bottoms, and cell areas.')
         call store_error_filename(this%filename)
       end if
     end if
@@ -250,7 +253,7 @@ contains
 
   !> @ brief Add connections
   !!
-  !! Override parent exg_ac so that connections can be added here.
+  !! Add the freshwater-saltwater connections to the solution sparse matrix.
   !<
   subroutine swi_swi_ac(this, sparse)
     ! modules
@@ -304,8 +307,6 @@ contains
   !! Map the connections in the global matrix
   !<
   subroutine swi_swi_mc(this, matrix_sln)
-    ! modules
-    use SparseModule, only: sparsematrix
     ! dummy
     class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
     class(MatrixBaseType), pointer :: matrix_sln !< the system matrix
@@ -395,7 +396,7 @@ contains
 
   !> @ brief Fill coefficients
   !!
-  !! The SWI-SWI exchange contributes only Newton (Jacobian) cross terms; the
+  !! The SWI-SWI Exchange contributes only Newton (Jacobian) cross terms; the
   !! Picard cross-fluid coupling enters each model through the interface, which
   !! each model computes in its own storage/flow fill from the other model's
   !! head at the current iterate. Dispatch the Newton terms to swi_swi_fn.
@@ -420,13 +421,14 @@ contains
     end if
   end subroutine swi_swi_fc
 
-  !> @ brief Fill Newton (Jacobian) cross terms for the SWI-SWI exchange
+  !> @ brief Fill Newton (Jacobian) cross terms for the SWI-SWI Exchange
   !!
-  !! Freshwater flow/storage depend on the saltwater head (and vice versa) through
-  !! the interface zeta = -alphaf*hf + alphas*hs. These are the derivative terms
-  !! coupling each fluid's equation to the other fluid's head; they cancel at
-  !! convergence (the Picard residual in the model's own fc holds the other
-  !! fluid's head fixed at the current iterate). Horizontal connections only; vertical flow is Picard.
+  !! Freshwater flow/storage depend on the saltwater head (and vice versa)
+  !! through the interface zeta = -alphaf*hf + alphas*hs. These are the
+  !! derivative terms coupling each fluid's equation to the other fluid's
+  !! head; they cancel at convergence (the Picard residual in the model's own
+  !! fc uses the other fluid's head at the current iterate). Horizontal
+  !! connections only; vertical flow is Picard.
   !<
   subroutine swi_swi_fn(this, kiter, matrix_sln)
     ! dummy
@@ -435,8 +437,9 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln
 
     ! -- cross-storage Jacobian is transient only; skip in a steady-state stress
-    !    period. The cross-flow Jacobian below is not storage and applies always.
-    !    Either can be turned off with a dev option (inocrossstorage/inocrossflow).
+    !    period. The cross-flow Jacobian below is not storage and applies
+    !    always. Either can be turned off with a dev option
+    !    (inocrossstorage/inocrossflow).
     if (this%inocrossstorage == 0 .and. this%gwf_fresh%iss == 0) then
       call this%swi_fn_cross_storage(matrix_sln)
     end if
@@ -446,6 +449,35 @@ contains
     end if
 
   end subroutine swi_swi_fn
+
+  !> @ brief Deallocate
+  !!
+  !! Deallocate memory associated with this object
+  !<
+  subroutine swi_swi_da(this)
+    ! modules
+    use MemoryManagerModule, only: mem_deallocate
+    use MemoryManagerExtModule, only: memorystore_remove
+    use SimVariablesModule, only: idm_context
+    ! dummy
+    class(SwiSwiExchangeType) :: this !< SwiSwiExchangeType
+
+    ! deallocate IDM memory
+    call memorystore_remove(this%name, '', idm_context)
+
+    ! arrays
+    call mem_deallocate(this%idxglo)
+    call mem_deallocate(this%idxsymglo)
+    call mem_deallocate(this%idxjasalt)
+    call mem_deallocate(this%idxjafresh)
+
+    ! scalars
+    deallocate (this%filename)
+    call mem_deallocate(this%inocrossstorage)
+    call mem_deallocate(this%inocrossflow)
+    call mem_deallocate(this%nexg)
+
+  end subroutine swi_swi_da
 
   !> @ brief Cross-fluid STORAGE Newton terms
   !!
@@ -514,12 +546,12 @@ contains
           q = csat * (hf(m) - hf(n))
           if (hf(m) > hf(n)) then
             ! m is upstream: hs(m) affects the conductance
-            termf = this%get_dsfdhs(m, 2) * q
+            termf = this%get_dsfdhs(m) * q
             call matrix_sln%add_value_pos(this%idxjasalt(ipos), termf)
             this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + termf * hs(m)
           else
             ! n is upstream: hs(n) affects the conductance
-            termf = this%get_dsfdhs(n, 2) * q
+            termf = this%get_dsfdhs(n) * q
             call matrix_sln%add_value_pos(this%idxglo(n), termf)
             this%gwf_fresh%rhs(n) = this%gwf_fresh%rhs(n) + termf * hs(n)
           end if
@@ -542,12 +574,12 @@ contains
           q = csat * (hs(m) - hs(n))
           if (hs(m) > hs(n)) then
             ! m is upstream: hf(m) affects the conductance
-            terms = this%get_dssdhf(m, 2) * q
+            terms = this%get_dssdhf(m) * q
             call matrix_sln%add_value_pos(this%idxjafresh(ipos), terms)
             this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + terms * hf(m)
           else
             ! n is upstream: hf(n) affects the conductance
-            terms = this%get_dssdhf(n, 2) * q
+            terms = this%get_dssdhf(n) * q
             call matrix_sln%add_value_pos(this%idxsymglo(n), terms)
             this%gwf_salt%rhs(n) = this%gwf_salt%rhs(n) + terms * hf(n)
           end if
@@ -557,36 +589,16 @@ contains
 
   end subroutine swi_fn_cross_flow
 
-  !> @brief Check that the fresh and salt models share the same grid
+  !> @brief Calculate cross-fluid storage coefficients for a cell
+  !!
+  !! Calculate the matrix coefficients and right-hand-side contributions that
+  !! couple freshwater storage in cell n to the saltwater head, and saltwater
+  !! storage in cell n to the freshwater head, through interface movement.
   !<
-  function same_grid(this) result(same)
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-    logical(LGP) :: same
-    ! local
-    integer(I4B) :: n, ipos
-    !
-    same = .false.
-    associate (dfr => this%gwf_fresh%dis, dsa => this%gwf_salt%dis)
-      if (dfr%con%nja /= dsa%con%nja) return
-      do n = 1, dfr%nodes + 1
-        if (dfr%con%ia(n) /= dsa%con%ia(n)) return
-      end do
-      do ipos = 1, dfr%con%nja
-        if (dfr%con%ja(ipos) /= dsa%con%ja(ipos)) return
-      end do
-      do n = 1, dfr%nodes
-        if (dfr%top(n) /= dsa%top(n)) return
-        if (dfr%bot(n) /= dsa%bot(n)) return
-        if (dfr%area(n) /= dsa%area(n)) return
-      end do
-    end associate
-    same = .true.
-  end function same_grid
-
   subroutine swi_cross_storage(this, n, termf, rtermf, terms, rterms)
     ! modules
     use TdisModule, only: delt
-    use GwfStorageUtilsModule, only: SsCapacity, SyCapacity, SsTerms, SyTerms
+    use GwfStorageUtilsModule, only: SyCapacity
     !
     class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
     ! dummy variables
@@ -627,194 +639,41 @@ contains
     sc2 = SyCapacity(this%gwf_fresh%dis%area(n), this%gwf_fresh%sto%sy(n))
     rho2 = sc2 * tled
 
-    dsfdhs = this%get_dsfdhs(n, itype=2)
+    dsfdhs = this%get_dsfdhs(n)
     termf = -rho2 * tthk * dsfdhs
     rtermf = termf * hs
 
-    dssdhf = this%get_dssdhf(n, itype=2)
+    dssdhf = this%get_dssdhf(n)
     terms = -rho2 * tthk * dssdhf
     rterms = terms * hf
 
   end subroutine swi_cross_storage
 
-  !> @ brief Calculate dSf/dhs for cross storage terms
-  !!
-  !! itype: 1 = forward difference, 2 = central difference, 3 = analytical.
-  !! Callers use the numerical central difference (2) rather than the analytical
-  !! form (3) on purpose. The analytical Jacobian (case 3) is exact and correct
-  !! (including at the top/bottom edges, see the comment there), but it is sharper
-  !! than the central difference, and the stiff two-fluid Newton overshoots with
-  !! it under bare solver settings (e.g. test_gwf_swi03 diverges with 3 but
-  !! converges once backtracking is on). The mildly-damped central difference is
-  !! more robust, so it is the default; switch callers to 3 if backtracking ever
-  !! becomes standard for the two-fluid case.
-  function get_dsfdhs(this, n, itype) result(dsfdhs)
-    ! dummy
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-    integer(I4B), intent(in) :: n !< node number
-    integer(I4B), intent(in) :: itype !< 1 fwd diff, 2 central diff, 3 analytical
-    real(DP) :: dsfdhs !< derivative of freshwater saturation with respect to saltwater head
-    ! local
-    real(DP) :: dereps !< perturbation for numerical derivative
-    real(DP) :: tp !< top elevation
-    real(DP) :: bt !< bottom elevation
-    real(DP) :: z !< zeta
-    real(DP) :: zp !< zeta with perturbation
-    real(DP) :: ss !< saltwater saturation
-    real(DP) :: ssp !< saltwater saturation with perturbation
-    real(DP) :: dssdzeta !< derivative of saltwater saturation with respect to zeta
-    real(DP) :: dsfdzeta !< derivative of freshwater saturation with respect to zeta
-    real(DP) :: dzetadhs !< derivative of zeta with respect to saltwater head
-
-    dereps = 1.D-10
-    tp = this%gwf_fresh%dis%top(n)
-    bt = this%gwf_fresh%dis%bot(n)
-    select case (itype)
-    case (1)
-      ! perturbation derivative forward difference
-      z = this%gwf_fresh%swi%get_zetanew(n)
-      zp = this%gwf_fresh%swi%get_zetanew(n, eps_salt=dereps)
-      ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
-      ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
-      ! sf = 1 - ss, sfp = 1 - ssp; sfp - sf = ss - ssp
-      dsfdhs = (ss - ssp) / dereps
-    case (2)
-      ! perturbation derivative central difference
-      z = this%gwf_fresh%swi%get_zetanew(n, eps_salt=-dereps)
-      zp = this%gwf_fresh%swi%get_zetanew(n, eps_salt=dereps)
-      ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
-      ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
-      ! sf = 1 - ss, sfp = 1 - ssp; sfp - sf = ss - ssp
-      dsfdhs = (ss - ssp) / (2.D0 * dereps)
-    case (3)
-      ! analytical derivative. sQuadraticSaturationDerivative is the exact
-      ! derivative of sQuadraticSaturation (used in the residual), including at
-      ! the top/bottom edges where the smoothing tapers it to zero; passing the
-      ! same satomega keeps the two smoothing bands aligned. dzetadhs = alphas is
-      ! constant because get_zetanew does not clamp zeta to [bot, top] -- if that
-      ! clamp is ever re-enabled, this factor is wrong inside the clamped region.
-      z = this%gwf_fresh%swi%get_zetanew(n)
-      dssdzeta = sQuadraticSaturationDerivative(tp, bt, z, &
-                                                this%gwf_fresh%sto%satomega)
-      dsfdzeta = -dssdzeta
-      dzetadhs = this%gwf_fresh%swi%alphas
-      dsfdhs = dsfdzeta * dzetadhs
-    case default
-      dsfdhs = DZERO
-    end select
-
-  end function get_dsfdhs
-
-  !> @ brief Calculate dSs/dhf for cross storage terms
-  !!
-  !! itype: 1 = forward difference, 2 = central difference, 3 = analytical.
-  !! See get_dsfdhs for why callers use the numerical central difference (2)
-  !! rather than the exact analytical form (3).
-  function get_dssdhf(this, n, itype) result(dssdhf)
-    ! dummy
-    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-    integer(I4B), intent(in) :: n !< node number
-    integer(I4B), intent(in) :: itype !< 1 fwd diff, 2 central diff, 3 analytical
-    real(DP) :: dssdhf !< derivative of saltwater saturation with respect to freshwater head
-    ! local
-    real(DP) :: dereps !< perturbation for numerical derivative
-    real(DP) :: tp !< top elevation
-    real(DP) :: bt !< bottom elevation
-    real(DP) :: z !< zeta
-    real(DP) :: zp !< zeta with perturbation
-    real(DP) :: ss !< saltwater saturation
-    real(DP) :: ssp !< saltwater saturation with perturbation
-    real(DP) :: dssdzeta !< derivative of saltwater saturation with respect to zeta
-    real(DP) :: dzetadhf !< derivative of zeta with respect to freshwater head
-
-    dereps = 1.D-10
-    tp = this%gwf_fresh%dis%top(n)
-    bt = this%gwf_fresh%dis%bot(n)
-    select case (itype)
-    case (1)
-      ! perturbation derivative forward difference
-      z = this%gwf_fresh%swi%get_zetanew(n)
-      zp = this%gwf_fresh%swi%get_zetanew(n, eps_fresh=dereps)
-      ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
-      ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
-      dssdhf = (ssp - ss) / dereps
-    case (2)
-      ! perturbation derivative central difference
-      z = this%gwf_fresh%swi%get_zetanew(n, eps_fresh=-dereps)
-      zp = this%gwf_fresh%swi%get_zetanew(n, eps_fresh=dereps)
-      ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
-      ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
-      dssdhf = (ssp - ss) / (2.D0 * dereps)
-    case (3)
-      ! analytical derivative. sQuadraticSaturationDerivative is the exact
-      ! derivative of sQuadraticSaturation (used in the residual), including at
-      ! the top/bottom edges where the smoothing tapers it to zero; passing the
-      ! same satomega keeps the two smoothing bands aligned. dzetadhf = -alphaf is
-      ! constant because get_zetanew does not clamp zeta to [bot, top] -- if that
-      ! clamp is ever re-enabled, this factor is wrong inside the clamped region.
-      z = this%gwf_fresh%swi%get_zetanew(n)
-      dssdzeta = sQuadraticSaturationDerivative(tp, bt, z, &
-                                                this%gwf_fresh%sto%satomega)
-      dzetadhf = -this%gwf_fresh%swi%alphaf
-      dssdhf = dssdzeta * dzetadhf
-    case default
-      dssdhf = DZERO
-    end select
-
-  end function get_dssdhf
-
-  !> @ brief Source options
-  !!
-  !! Source the options block
+  !> @brief Check that the fresh and salt models share the same grid
   !<
-  subroutine source_options(this, iout)
-    ! -- modules
-    use MemoryManagerExtModule, only: mem_set_value
-    use ExgSwiswiInputModule, only: ExgSwiswiParamFoundType
-    use SourceCommonModule, only: filein_fname
-    ! -- dummy
+  function same_grid(this) result(same)
     class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
-    integer(I4B), intent(in) :: iout
-    ! -- local
-    type(ExgSwiswiParamFoundType) :: found
+    logical(LGP) :: same
+    ! local
+    integer(I4B) :: n, ipos
     !
-    ! -- update defaults with idm sourced values
-    call mem_set_value(this%ipr_input, 'IPR_INPUT', this%input_mempath, &
-                       found%ipr_input)
-    call mem_set_value(this%ipr_flow, 'IPR_FLOW', this%input_mempath, &
-                       found%ipr_flow)
-    call mem_set_value(this%inocrossstorage, 'INOCROSSSTORAGE', &
-                       this%input_mempath, found%inocrossstorage)
-    call mem_set_value(this%inocrossflow, 'INOCROSSFLOW', &
-                       this%input_mempath, found%inocrossflow)
-    !
-    write (iout, '(1x,a)') 'Processing SWI-SWI exchange options'
-    !
-    if (found%ipr_input) then
-      write (iout, '(4x,a)') &
-        'Exchange information will be printed to the listing file.'
-    end if
-    !
-    if (found%ipr_flow) then
-      write (iout, '(4x,a)') &
-        'Exchange flows will be printed to list file.'
-    end if
-    !
-    if (found%inocrossstorage) then
-      write (iout, '(4x,a)') &
-        'Cross-fluid storage Newton terms are DISABLED (dev option).'
-    end if
-    !
-    if (found%inocrossflow) then
-      write (iout, '(4x,a)') &
-        'Cross-fluid flow Newton terms are DISABLED (dev option).'
-    end if
-    !
-    write (iout, '(1x,a)') 'End processing SWI-SWI exchange options'
-    !
-    ! -- Return
-    return
-  end subroutine source_options
+    same = .false.
+    associate (dfr => this%gwf_fresh%dis, dsa => this%gwf_salt%dis)
+      if (dfr%con%nja /= dsa%con%nja) return
+      do n = 1, dfr%nodes + 1
+        if (dfr%con%ia(n) /= dsa%con%ia(n)) return
+      end do
+      do ipos = 1, dfr%con%nja
+        if (dfr%con%ja(ipos) /= dsa%con%ja(ipos)) return
+      end do
+      do n = 1, dfr%nodes
+        if (dfr%top(n) /= dsa%top(n)) return
+        if (dfr%bot(n) /= dsa%bot(n)) return
+        if (dfr%area(n) /= dsa%area(n)) return
+      end do
+    end associate
+    same = .true.
+  end function same_grid
 
   !> @ brief Allocate scalars
   !!
@@ -823,57 +682,21 @@ contains
   subroutine allocate_scalars(this)
     ! modules
     use MemoryManagerModule, only: mem_allocate
-    use ConstantsModule, only: DZERO
     ! dummy
     class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
 
     allocate (this%filename)
     this%filename = ''
 
-    call mem_allocate(this%ipr_input, 'IPR_INPUT', this%memoryPath)
-    call mem_allocate(this%ipr_flow, 'IPR_FLOW', this%memoryPath)
     call mem_allocate(this%inocrossstorage, 'INOCROSSSTORAGE', this%memoryPath)
     call mem_allocate(this%inocrossflow, 'INOCROSSFLOW', this%memoryPath)
     call mem_allocate(this%nexg, 'NEXG', this%memoryPath)
 
-    this%ipr_input = 0
-    this%ipr_flow = 0
     this%inocrossstorage = 0
     this%inocrossflow = 0
     this%nexg = 0
 
   end subroutine allocate_scalars
-
-  !> @ brief Deallocate
-  !!
-  !! Deallocate memory associated with this object
-  !<
-  subroutine swi_swi_da(this)
-    ! modules
-    use MemoryManagerModule, only: mem_deallocate
-    use MemoryManagerExtModule, only: memorystore_remove
-    use SimVariablesModule, only: idm_context
-    ! dummy
-    class(SwiSwiExchangeType) :: this !< SwiSwiExchangeType
-
-    ! deallocate IDM memory
-    call memorystore_remove(this%name, '', idm_context)
-
-    ! arrays
-    call mem_deallocate(this%idxglo)
-    call mem_deallocate(this%idxsymglo)
-    call mem_deallocate(this%idxjasalt)
-    call mem_deallocate(this%idxjafresh)
-
-    ! scalars
-    deallocate (this%filename)
-    call mem_deallocate(this%ipr_input)
-    call mem_deallocate(this%ipr_flow)
-    call mem_deallocate(this%inocrossstorage)
-    call mem_deallocate(this%inocrossflow)
-    call mem_deallocate(this%nexg)
-
-  end subroutine swi_swi_da
 
   !> @ brief Allocate arrays
   !!
@@ -916,6 +739,109 @@ contains
     return
   end subroutine allocate_arrays
 
+  !> @ brief Source options
+  !!
+  !! Source the options block
+  !<
+  subroutine source_options(this, iout)
+    ! -- modules
+    use MemoryManagerExtModule, only: mem_set_value
+    use ExgSwiswiInputModule, only: ExgSwiswiParamFoundType
+    ! -- dummy
+    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
+    integer(I4B), intent(in) :: iout
+    ! -- local
+    type(ExgSwiswiParamFoundType) :: found
+    !
+    ! -- update defaults with idm sourced values
+    call mem_set_value(this%inocrossstorage, 'INOCROSSSTORAGE', &
+                       this%input_mempath, found%inocrossstorage)
+    call mem_set_value(this%inocrossflow, 'INOCROSSFLOW', &
+                       this%input_mempath, found%inocrossflow)
+    !
+    write (iout, '(1x,a)') 'Processing SWI-SWI Exchange options'
+    !
+    if (found%inocrossstorage) then
+      write (iout, '(4x,a)') &
+        'Cross-fluid storage Newton terms are DISABLED (dev option).'
+    end if
+    !
+    if (found%inocrossflow) then
+      write (iout, '(4x,a)') &
+        'Cross-fluid flow Newton terms are DISABLED (dev option).'
+    end if
+    !
+    write (iout, '(1x,a)') 'End processing SWI-SWI Exchange options'
+    !
+    ! -- Return
+    return
+  end subroutine source_options
+
+  !> @ brief Calculate dSf/dhs for the cross-fluid Newton terms
+  !!
+  !! Calculate the derivative of the freshwater saturated cell fraction with
+  !! respect to the saltwater head in cell n. The derivative is computed as a
+  !! central difference of the saturated cell fraction for saltwater head
+  !! perturbations of plus and minus DEREPS. A central difference is used
+  !! instead of the analytical derivative of the quadratic saturated cell
+  !! fraction function because it gives more robust convergence of the
+  !! two-fluid Newton iterations.
+  !<
+  function get_dsfdhs(this, n) result(dsfdhs)
+    ! dummy
+    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
+    integer(I4B), intent(in) :: n !< node number
+    real(DP) :: dsfdhs !< derivative of Sf with respect to hs
+    ! local
+    real(DP) :: tp !< top elevation
+    real(DP) :: bt !< bottom elevation
+    real(DP) :: z !< zeta with negative perturbation
+    real(DP) :: zp !< zeta with positive perturbation
+    real(DP) :: ss !< saltwater saturated cell fraction at z
+    real(DP) :: ssp !< saltwater saturated cell fraction at zp
+
+    tp = this%gwf_fresh%dis%top(n)
+    bt = this%gwf_fresh%dis%bot(n)
+    z = this%gwf_fresh%swi%get_zetanew(n, eps_salt=-DEREPS)
+    zp = this%gwf_fresh%swi%get_zetanew(n, eps_salt=DEREPS)
+    ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
+    ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
+    ! sf = 1 - ss, sfp = 1 - ssp; sfp - sf = ss - ssp
+    dsfdhs = (ss - ssp) / (DTWO * DEREPS)
+
+  end function get_dsfdhs
+
+  !> @ brief Calculate dSs/dhf for the cross-fluid Newton terms
+  !!
+  !! Calculate the derivative of the saltwater saturated cell fraction with
+  !! respect to the freshwater head in cell n. The derivative is computed as a
+  !! central difference of the saturated cell fraction for freshwater head
+  !! perturbations of plus and minus DEREPS. A central difference is used for
+  !! the same reason as in get_dsfdhs.
+  !<
+  function get_dssdhf(this, n) result(dssdhf)
+    ! dummy
+    class(SwiSwiExchangeType) :: this !<  SwiSwiExchangeType
+    integer(I4B), intent(in) :: n !< node number
+    real(DP) :: dssdhf !< derivative of Ss with respect to hf
+    ! local
+    real(DP) :: tp !< top elevation
+    real(DP) :: bt !< bottom elevation
+    real(DP) :: z !< zeta with negative perturbation
+    real(DP) :: zp !< zeta with positive perturbation
+    real(DP) :: ss !< saltwater saturated cell fraction at z
+    real(DP) :: ssp !< saltwater saturated cell fraction at zp
+
+    tp = this%gwf_fresh%dis%top(n)
+    bt = this%gwf_fresh%dis%bot(n)
+    z = this%gwf_fresh%swi%get_zetanew(n, eps_fresh=-DEREPS)
+    zp = this%gwf_fresh%swi%get_zetanew(n, eps_fresh=DEREPS)
+    ss = sQuadraticSaturation(tp, bt, z, this%gwf_fresh%sto%satomega)
+    ssp = sQuadraticSaturation(tp, bt, zp, this%gwf_fresh%sto%satomega)
+    dssdhf = (ssp - ss) / (DTWO * DEREPS)
+
+  end function get_dssdhf
+
   !> @brief Should return true when the exchange should be added to the
   !! solution where the model resides
   !<
@@ -936,6 +862,6 @@ contains
       end if
     end select
 
-  end function
+  end function swi_swi_connects_model
 
 end module SwiSwiExchangeModule

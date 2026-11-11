@@ -1,19 +1,19 @@
 """
 Premature-breakthrough test for the two-fluid SWI vertical flow.
 
-A 1-D vertical column of two coupled models (freshwater over saltwater) is driven
-by recharge on the freshwater top; the freshwater front descends as a sharp,
-storage-controlled front. The physical requirement -- the point of the vertical
-buoyancy restriction -- is that freshwater does NOT show up in a cell before the
-interface in the OVERLYING cell has reached that cell's bottom. In other words the
-freshwater saturation profile must be a sharp descending front: a cell may only
-acquire freshwater once the cell above it is full. Freshwater "leaking" ahead of
-the front (a deep cell wetting while a shallower cell is not yet full) is premature
+A 1-D vertical column of two coupled models (freshwater over saltwater) is driven by
+recharge on the freshwater top; the freshwater front descends as a sharp,
+storage-controlled front. The physical requirement -- the point of the vertical buoyancy
+restriction -- is that freshwater does NOT show up in a cell before the interface in
+the OVERLYING cell has reached that cell's bottom. In other words the profile of
+freshwater saturated cell fraction must be a sharp descending front: a cell may only
+acquire freshwater once the cell above it is full. Freshwater "leaking" ahead of the
+front (a deep cell wetting while a shallower cell is not yet full) is premature
 breakthrough -- an artifact of head-driven downward freshwater flow into the
 saltwater zone, which the buoyancy restriction suppresses.
 
-Without the restriction, the front leaves a small freshwater tail one cell ahead
-(Sf~0.04 while the overlying cell is ~0.46); with the restriction the cell below
+Without the restriction, a small amount of freshwater moves one cell ahead of the
+front (Sf~0.04 while the overlying cell is ~0.46); with the restriction the cell below
 the front stays dry until the front cell fills. This test asserts the restricted
 (correct) behavior and would fail if the vertical flow were unrestricted. It also
 checks that the front descends at the mass-balance rate and that both budgets
@@ -87,8 +87,9 @@ def build_models(idx, test):
         sim_name="mymodel", sim_ws=test.workspace, exe_name="mf6"
     )
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(perlen, nstp, 1.0)])
-    # complex handles the freshwater model's Neumann level (recharge only, no
-    # head BC -- it is anchored through the exchange to the saltwater bottom GHB)
+    # COMPLEX solver settings: the freshwater model has no head boundary
+    # (recharge only); its head level is set through the exchange with the
+    # saltwater model, which has the GHB at the bottom
     flopy.mf6.ModflowIms(
         sim,
         print_option="summary",
@@ -108,7 +109,7 @@ def build_models(idx, test):
 
 
 def _saturation(test):
-    """per-cell freshwater saturation over time, from the coupled heads."""
+    """per-cell freshwater saturated cell fraction over time, from the coupled heads."""
     ws = pl.Path(test.workspace)
     hf = flopy.utils.HeadFile(ws / "freshwater.hds")
     hs = flopy.utils.HeadFile(ws / "saltwater.hds")
@@ -172,7 +173,7 @@ def check_output(idx, test):
     ws = pl.Path(test.workspace)
     times, sf = _saturation(test)
 
-    # -- NO PREMATURE BREAKTHROUGH: a cell may only hold freshwater once the cell
+    # -- NO PREMATURE BREAKTHROUGH: a cell may only contain freshwater once the cell
     #    above it is full. Flag any cell that is wet while its overlying cell is
     #    not (freshwater leaked ahead of the storage front).
     wet, full = 0.02, 0.95

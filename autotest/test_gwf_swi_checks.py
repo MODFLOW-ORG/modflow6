@@ -4,18 +4,18 @@ features.
 
 swi-tvs
   transient single-fluid strip whose STO has a TVS file that changes SY in
-  the second stress period; the run must finish and conserve mass (SWI used
-  to dereference the previous-SS and previous-SY arrays without setting
-  them).
+  the second stress period; the run must finish and conserve mass, which
+  checks that SWI sets the previous-period SS and SY values before it uses
+  them.
 swi-tr2ss
-  transient period followed by a steady-state period; the SWI storage term
-  must be zero in the steady-state period rather than repeat the last
-  transient value.
+  transient period followed by a steady-state period; the SWI storage flow
+  (STORAGE(SWI) budget entry) must be zero in the steady-state period
+  rather than repeat the last transient value.
 swi-tvg-start
   saltwater head supplied through TVG at a value consistent with the
   starting freshwater head; the interface does not move, so the SWI storage
-  term must be zero from the first time step (the first TVG value used to be
-  ignored as the initial saltwater head).
+  flow must be zero from the first time step. This checks that the first TVG
+  value is used as the initial saltwater head.
 swi-picard
   SWI without Newton in a fully fresh confined strip; the interface is below
   the cells, so the flow must equal the flow without SWI.

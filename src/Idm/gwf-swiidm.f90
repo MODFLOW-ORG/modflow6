@@ -140,7 +140,7 @@ module GwfSwiInputModule
     'TVG6', & ! fortran variable
     'KEYWORD', & ! type
     '', & ! shape
-    'grid package component', & ! longname
+    'tvg keyword', & ! longname
     .true., & ! required
     .false., & ! developmode
     .true., & ! multi-record
@@ -178,7 +178,7 @@ module GwfSwiInputModule
     'TVG6_FILENAME', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
-    'file keyword', & ! longname
+    'file name of TVG information', & ! longname
     .true., & ! required
     .false., & ! developmode
     .true., & ! multi-record
