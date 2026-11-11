@@ -93,8 +93,48 @@ jobs:
             exit 1
           fi
 
+  changes:
+    name: Check changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.check.outputs.code }}
+    steps:
+      - name: Checkout MF6
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      # code=false if the only changes besides paths-ignore'd
+      # files are DFN descriptions, comments or blank lines
+      - name: Check for code changes
+        id: check
+        env:
+          BEFORE: ${{ github.event_name == 'push' && github.event.before || '' }}
+        run: |
+          code=true
+          base=""
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base=HEAD^1
+          elif [[ -n "$BEFORE" ]] && git fetch -q --depth=1 origin "$BEFORE"; then
+            base=$BEFORE
+          fi
+          if [[ -n "$base" ]] && files=$(git diff --name-only "$base" HEAD); then
+            ignore='\.(md|pdf|tex|jpg|jpeg|png|bbl|bib)$|^doc/.*\.(dat|ipynb|py|sh|xlsx|pptx|svg|bst)$|^doc/ReleaseNotes/|^\.build_rtd_docs/|^\.hpc/|^\.github/workflows/(docs|pr_policy)\.yml$'
+            files=$(grep -vE "$ignore" <<< "$files" || true)
+            if ! grep -qv '\.dfn$' <<< "$files" && \
+               ! git diff -U0 "$base" HEAD -- '*.dfn' \
+                 | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' \
+                 | grep -qvE '^[+-](description\b|#|\s*$)'; then
+              code=false
+            fi
+          fi
+          echo "code=$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-22.04
     env:
       FC: gfortran
@@ -135,6 +175,8 @@ jobs:
 
   pixi-gcc-extended-build:
     name: Pixi gcc-extended-build environment testing
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -178,6 +220,8 @@ jobs:
         
   build-static:
     name: Static gcc build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -259,6 +303,8 @@ jobs:
 
   smoke_test:
     name: Smoke test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-22.04
     defaults:
       run:
