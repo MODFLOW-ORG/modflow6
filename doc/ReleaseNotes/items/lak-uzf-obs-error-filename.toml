@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "Observation error messages in the Lake (LAK) and Unsaturated Zone Flow (UZF) packages now give the package input file name instead of 'stderr'."

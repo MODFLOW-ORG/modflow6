@@ -1030,6 +1030,13 @@ contains
     if (found%cimfile) then
       call this%ocd%set_ocfile(cim6_fname, this%iout)
     end if
+    if ((found%columns .or. found%width .or. found%digits) .and. &
+        .not. (found%columns .and. found%width .and. found%digits)) then
+      call store_error('PRINT_FORMAT must include COLUMNS, WIDTH and DIGITS. &
+                       &Syntax is: COLUMNS <columns> WIDTH <width> &
+                       &DIGITS <digits> [<format>].')
+      call store_error_filename(this%input_fname)
+    end if
     if (found%columns .and. found%width .and. &
         found%digits .and. found%format) then
       write (this%lstfmt, '(a,i0,a,i0,a,i0,a)') 'COLUMNS ', columns, &

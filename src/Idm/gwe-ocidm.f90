@@ -366,7 +366,7 @@ module GweOcInputModule
     'STRING', & ! type
     '', & ! shape
     'write format', & ! longname
-    .true., & ! required
+    .false., & ! required
     .false., & ! developmode
     .true., & ! multi-record
     .false., & ! preserve case

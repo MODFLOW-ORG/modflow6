@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "An observation that identifies its boundary by name now stops the simulation with an error if the package does not specify the BOUNDNAMES option. Previously the simulation ran, but the observation output contained incorrect values. In the CSUB and UZF packages, an observation whose name matches no boundary is also now an error, even with BOUNDNAMES. Simulated heads and flows were not affected."
