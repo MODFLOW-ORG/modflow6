@@ -4,11 +4,12 @@ module TestImsLinear
   use testdrive, only: check, error_type, new_unittest, test_failed, &
                        to_string, unittest_type
   use ConvergenceSummaryModule, only: ConvergenceSummaryType
-  use ImsLinearSettingsModule, only: IPC_ILU0
+  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0
   use IMSLinearBaseModule, only: ims_base_cg, ims_base_bcgs, &
                                  ims_base_scale, ims_base_cnvg_scale, &
                                  ims_base_pccrs, ims_base_pcilu0, &
-                                 ims_base_residual
+                                 ims_base_residual, ims_base_pcu, &
+                                 ims_base_ilu0a
   implicit none
   private
   public :: collect_imslinear
@@ -28,7 +29,9 @@ contains
                 new_unittest("cg_diagonal", test_cg_diagonal), &
                 new_unittest("cg_l2norm", test_cg_l2norm), &
                 new_unittest("bcgs_diagonal", test_bcgs_diagonal), &
-                new_unittest("bcgs_l2norm", test_bcgs_l2norm) &
+                new_unittest("bcgs_l2norm", test_bcgs_l2norm), &
+                new_unittest("pcilu0_bad_pivot", test_pcilu0_bad_pivot), &
+                new_unittest("pcu_bad_pivot", test_pcu_bad_pivot) &
                 ]
   end subroutine collect_imslinear
 
@@ -221,5 +224,76 @@ contains
     type(error_type), allocatable, intent(out) :: error
     call check_one_iteration(error, 2, 2)
   end subroutine test_bcgs_l2norm
+
+  !> @brief Build a 3 by 3 matrix whose MILU0 pivot changes sign
+  !<
+  subroutine setup_bad_pivot(ia, ja, a, iapc, japc)
+    integer(I4B), dimension(4), intent(out) :: ia, iapc
+    integer(I4B), dimension(7), intent(out) :: ja, japc
+    real(DP), dimension(7), intent(out) :: a
+    real(DP), parameter :: c = 0.95d0
+
+    ia = [1, 4, 6, 8]
+    ja = [1, 2, 3, 2, 1, 3, 1]
+    a = [DONE, c, c, DONE, c, DONE, c]
+    call ims_base_pccrs(3, 7, ia, ja, iapc, japc)
+  end subroutine setup_bad_pivot
+
+  !> @brief A bad pivot is reported to the caller
+  !<
+  subroutine test_pcilu0_bad_pivot(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), dimension(4) :: ia, iapc
+    integer(I4B), dimension(7) :: ja, japc
+    integer(I4B), dimension(3) :: iw
+    real(DP), dimension(7) :: a, apc
+    real(DP), dimension(3) :: w
+    integer(I4B) :: ipcflag
+
+    call setup_bad_pivot(ia, ja, a, iapc, japc)
+    ipcflag = 0
+    call ims_base_pcilu0(7, 3, a, ia, ja, apc, iapc, japc, iw, w, &
+                         0.97d0, ipcflag, DZERO)
+    call check(error, ipcflag == 1, 'ipcflag '//to_string(ipcflag))
+  end subroutine test_pcilu0_bad_pivot
+
+  !> @brief The retries end with a complete, finite factorization
+  !<
+  subroutine test_pcu_bad_pivot(error)
+    use, intrinsic :: ieee_arithmetic, only: ieee_is_finite
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), dimension(4) :: ia, iapc
+    integer(I4B), dimension(7) :: ja, japc
+    integer(I4B), dimension(3) :: iw
+    integer(I4B), dimension(1) :: jlu, jw
+    real(DP), dimension(7) :: a, apc
+    real(DP), dimension(3) :: w, r, d
+    real(DP), dimension(1) :: wlu
+    real(DP), parameter :: SENTINEL = -9.0d30
+    integer(I4B) :: iout, n
+
+    call setup_bad_pivot(ia, ja, a, iapc, japc)
+    do n = 1, 7
+      apc(n) = SENTINEL
+    end do
+    open (newunit=iout, status='scratch')
+    call ims_base_pcu(iout, 7, 3, 3, 7, IPC_MILU0, 0.97d0, a, ia, ja, &
+                      apc, iapc, japc, iw, w, 0, DZERO, 1, 1, 1, jlu, jw, wlu)
+    close (iout)
+    do n = 1, 7
+      call check(error, apc(n) /= SENTINEL, &
+                 'apc not set at '//to_string(n))
+      if (allocated(error)) return
+    end do
+
+    do n = 1, 3
+      r(n) = DONE
+    end do
+    call ims_base_ilu0a(7, 3, apc, iapc, japc, r, d)
+    do n = 1, 3
+      call check(error, ieee_is_finite(d(n)), 'd not finite at '//to_string(n))
+      if (allocated(error)) return
+    end do
+  end subroutine test_pcu_bad_pivot
 
 end module TestImsLinear

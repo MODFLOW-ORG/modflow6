@@ -883,6 +883,11 @@ contains
       END IF
       icount = icount + 1
       !
+      ! -- replace bad pivots on the last attempt so it completes
+      if (icount == 10) then
+        ipcflag = 2
+      end if
+      !
       ! -- terminate pcscale loop if not making progress
       if (icount > 10) then
         exit PCSCALE
@@ -1070,8 +1075,9 @@ contains
       END DO
     END DO MAIN
     !
-    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN
-    IPCFLAG = 0
+    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN, WHICH LEAVES
+    !    n = NEQ + 1; AFTER EXIT MAIN IPCFLAG STAYS 1 SO THE CALLER RETRIES
+    IF (n > NEQ) IPCFLAG = 0
   end SUBROUTINE ims_base_pcilu0
 
   !> @ brief Apply the ILU0 and MILU0 preconditioners
