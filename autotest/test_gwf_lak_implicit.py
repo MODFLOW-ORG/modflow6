@@ -1327,9 +1327,8 @@ def test_buy_errors(function_tmpdir, targets):
 
 
 def test_connectionless_lake_errors(function_tmpdir, targets):
-    # a lake with no groundwater connections is not supported, with or without
-    # the IMPLICIT option, so it must terminate with an informative error
-    # rather than producing a meaningless stage.
+    # a lake with no connections is not supported, so the simulation must
+    # terminate with an informative error.
     def build(test):
         sim_i, _ = _write_implicit(test, _build_drylake)
         _make_connectionless(str(test.workspace / "lk.lak"))

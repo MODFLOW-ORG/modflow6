@@ -188,8 +188,8 @@ def build_nlakeconn_sum(test):
 
 
 def build_nlakeconn_zero(test):
-    # NLAKES=3: lake 1 (not the last lake) and lake 3 (the last lake) have
-    # no connections, lake 2 has one.
+    # NLAKES=3: lakes 1 and 3 have no connections and must be rejected, both
+    # before another lake and as the last lake; lake 2 has one and must not.
     name = cases[4]
     sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=test.workspace)
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])

@@ -74,7 +74,7 @@ contains
   !! Lake-to-lake outlet routing is lagged one outer iteration through simoutrate.
   !! A constant-stage lake holds its row at the specified stage; an inactive lake
   !! is disconnected from the aquifer. A lake row whose diagonal is still (near)
-  !! zero (no conductance and no storage) is kept solvable with a small diagonal
+  !! zero (no wet connections and no storage) is kept solvable with a small diagonal
   !! term that holds the stage at its current value and becomes zero at
   !! convergence. A lake flagged for the legacy solver (lak_set_legacy)
   !! is instead solved by the default substitution solver and assembled like a
