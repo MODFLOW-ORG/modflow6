@@ -5098,8 +5098,24 @@ contains
                 obsrv%ObsTypeId == 'CONDUCTANCE' .or. &
                 obsrv%ObsTypeId == 'WETTED-AREA') then
               nn2 = obsrv%NodeNumber2
-              j = this%idxlakeconn(nn1) + nn2 - 1
-              call obsrv%AddObsIndex(j)
+              if (nn1 < 1 .or. nn1 > this%nlakes) then
+                write (errmsg, '(5a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), ' was assigned lake ', &
+                  nn1, '. Lake must be >= 1 and <= ', this%nlakes, '.'
+                call store_error(errmsg)
+              else if (nn2 < 1 .or. nn2 > this%nlakeconn(nn1)) then
+                write (errmsg, '(5a,i0,a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), &
+                  ' was assigned connection ', nn2, ' of lake ', nn1, &
+                  '. Connection must be >= 1 and <= ', &
+                  this%nlakeconn(nn1), '.'
+                call store_error(errmsg)
+              else
+                j = this%idxlakeconn(nn1) + nn2 - 1
+                call obsrv%AddObsIndex(j)
+              end if
             else
               call obsrv%AddObsIndex(nn1)
             end if
