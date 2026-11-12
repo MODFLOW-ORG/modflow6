@@ -3,7 +3,7 @@
 !! Loaders record how and when input parameter values are written into
 !! the input context. Packages that must apply a value only when it is
 !! written read this information (see IdmParamMetaViewModule):
-!!  - TSLINK_<id>, TSLINKVARS_<id> (static blocks): (ncol, nrow), nonzero
+!!  - TSLINK_\<id\>, TSLINKVARS_\<id\> (static blocks): (ncol, nrow), nonzero
 !!    where a row's value is linked to a time series, and the column
 !!    names. A linked value is written each time step.
 !!  - PARAM_ISTEP, PARAM_VARS (PERIOD blocks): (ncol, nfeatures), the
@@ -65,7 +65,7 @@ contains
   !> @brief Time series link identifier for a block
   !!
   !! Return the identifier used to name a block's time series link
-  !! variables (TSLINK_<id>, TSLINKVARS_<id>), or an empty string if the
+  !! variables (TSLINK_\<id\>, TSLINKVARS_\<id\>), or an empty string if the
   !! block has none.
   !<
   function tslink_id(blockname) result(id)
@@ -83,7 +83,7 @@ contains
 
   !> @brief Allocate time series link flags for a block
   !!
-  !! Allocate TSLINK_<id> (zero) and TSLINKVARS_<id> (set to varnames) for
+  !! Allocate TSLINK_\<id\> (zero) and TSLINKVARS_\<id\> (set to varnames) for
   !! ncol columns and nrow rows. The caller sets the linked rows.
   !<
   subroutine tslink_allocate(id, varnames, nrow, mempath, tslink)

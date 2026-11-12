@@ -29,7 +29,7 @@ module TvBaseModule
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input cellids of time varying value
     type(STLVecInt) :: tracked_nodeu !< user nodes given in any PERIOD block
     character(len=LENVARNAME), dimension(:), allocatable :: fieldnames !< input fields, in the order they are applied
-    type(IdmParamMetaViewType) :: written !< input loading information of the fields
+    type(IdmParamMetaViewType) :: input_meta !< input loading information of the fields
   contains
     procedure :: init
     procedure :: ar
@@ -215,7 +215,7 @@ contains
     call mem_setptr(this%cellid, 'CELLID', this%input_mempath)
     call this%tracked_nodeu%init()
     if (allocated(this%fieldnames)) then
-      call this%written%init(this%fieldnames, this%input_mempath)
+      call this%input_meta%init(this%fieldnames, this%input_mempath)
     else
       call store_error('Input fields not set for '// &
                        trim(adjustl(this%packName))//'.')
@@ -273,12 +273,12 @@ contains
     logical(LGP) :: changed
     integer(I4B) :: i, j, nodeu, node
     !
-    call this%written%update()
+    call this%input_meta%update()
     changed = .false.
     do i = 1, this%tracked_nodeu%size
       nodeu = this%tracked_nodeu%at(i)
       do j = 1, size(this%fieldnames)
-        fields(j) = this%written%is_written(j, nodeu)
+        fields(j) = this%input_meta%is_written(j, nodeu)
       end do
       if (.not. any(fields)) cycle
       if (.not. changed) then
@@ -330,7 +330,7 @@ contains
     class(TvBaseType) :: this
     !
     nullify (this%cellid)
-    call this%written%destroy()
+    call this%input_meta%destroy()
     if (allocated(this%fieldnames)) deallocate (this%fieldnames)
     call this%tracked_nodeu%destroy()
     call this%NumericalPackageType%da()
