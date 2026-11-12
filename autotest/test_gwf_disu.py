@@ -3,7 +3,9 @@ Test of GWF DISU Package.  Use the flopy disu tool to create
 a simple regular grid example, but using DISU instead of DIS.
 The first case is just a simple test.  For the second case, set
 one of the cells inactive and test to make sure connectivity
-in binary grid file is correct.
+in binary grid file is correct.  The third case is like the second,
+but active cells have IDOMAIN values greater than 1, which should be
+treated the same as 1.
 """
 
 from pathlib import Path
@@ -14,7 +16,7 @@ import pytest
 from flopy.utils.gridutil import get_disu_kwargs
 from framework import TestFramework
 
-cases = ["disu01a", "disu01b"]
+cases = ["disu01a", "disu01b", "disu01c"]
 grb_filename = "disu.grb"
 crs = "EPSG:26915"
 
@@ -30,9 +32,13 @@ def build_models(idx, test):
     top = 0
     botm = [-10, -20, -30]
     disukwargs = get_disu_kwargs(nlay, nrow, ncol, delr, delc, top, botm)
-    if idx == 1:
-        # for the second test, set one cell to idomain = 0 and assign a crs
+    if idx in (1, 2):
+        # for the second test, set one cell to idomain = 0 and assign a crs.
+        # the third test is the same, but with active idomain values > 1.
         idomain = np.ones((nlay, nrow * ncol), dtype=int)
+        if idx == 2:
+            idomain[1] = 2
+            idomain[2] = 3
         idomain[0, 1] = 0
         disukwargs["idomain"] = idomain
         disukwargs["crs"] = crs
@@ -67,7 +73,7 @@ def check_output(idx, test):
         assert grbobj.crs is None
         assert np.array_equal(idomain, np.array(27 * [1]), int)
 
-    if idx == 1:
+    if idx in (1, 2):
         # crs assigned, binary grid file should be version 2
         assert grbobj.version == 2
         assert grbobj.crs == crs
@@ -76,7 +82,10 @@ def check_output(idx, test):
         assert ia[-1] == 126
         assert ia.shape[0] == 28, "ia should have size of 28"
         assert ja.shape[0] == 126, "ja should have size of 126"
-        assert np.array_equal(idomain, np.array([1, 0] + 25 * [1]), int)
+        expected = (
+            [1, 0] + 25 * [1] if idx == 1 else [1, 0] + 7 * [1] + 9 * [2] + 9 * [3]
+        )
+        assert np.array_equal(idomain, np.array(expected), int)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

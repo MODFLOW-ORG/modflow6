@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "The DISU Package now accepts IDOMAIN values greater than 1, which mark the cell as active, as in the DIS and DISV packages and as the DISU input instructions already described. Previously, DISU stopped with an error for any IDOMAIN value other than 0 or 1. Negative IDOMAIN values remain invalid for DISU."
