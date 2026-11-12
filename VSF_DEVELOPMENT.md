@@ -6,6 +6,7 @@ Consolidated specifications and design notes for the Variably Saturated Flow (VS
 
 1. [VSSB: Variably Saturated Surface Boundary package — v1 specification](#vssb-variably-saturated-surface-boundary-package--v1-specification) — formerly `VSSB_SPEC.md`
 2. [Design note: soil and pond evaporation in VSSB](#design-note-soil-and-pond-evaporation-in-vssb) — formerly `VSSB-EVAPORATION-DESIGN.md`
+   - [Potential-rate partitioning: basis and choices](#7-potential-rate-partitioning-basis-and-choices) — literature and partitioning decisions
 3. [VSSP (Seepage) Package — Status Handoff](#vssp-seepage-package--status-handoff) — formerly `VSSP_SEEPAGE_NOTES.md`
 4. [Uncapped river leakage for Richards flow](#uncapped-river-leakage-for-richards-flow) — formerly `RIV_RICHARDS_LEAKAGE.md`
 5. [Feddes transpiration for MODFLOW 6 VSF](#feddes-transpiration-for-modflow-6-vsf) — formerly `feddes-transpiration-proposal.md`
@@ -720,6 +721,152 @@ In short, 2D slope seepage is a modest extension, but the 3D case is a
 non-trivial geometry engine (surface–grid intersection, polygon clipping,
 robustness handling) that is realistically a project in its own right, separate
 from and much larger than the evaporation work.
+
+### 7. Potential-rate partitioning: basis and choices
+
+This section records *why* the evaporation partitioning in Sections 2–3 is set
+up the way it is, and which parts are forced by physics versus deliberate
+modeling choices. It is the literature anchor for reviewers deciding whether to
+keep the current scheme or extend it.
+
+#### 7.1 The partitioning is two distinct problems, not one ordering
+
+The atmospheric demand is split at two levels with **different physical bases**;
+conflating them is the usual source of confusion.
+
+```
+Atmospheric PET
+  ├── Level 1 (energy / canopy cover): split PET into
+  │     ├── E_pot  — bare-soil + open-water evaporation   → VSSB
+  │     └── T_pot  — plant transpiration                  → VSET (Feddes)
+  └── Level 2 (area / supply, internal to VSSB): split E_pot into
+        ├── pond (open-water) evaporation   — from pond storage
+        └── bare-soil evaporation           — from the top cell
+```
+
+The key reframing for Level 2: **pond vs. soil is not a time ordering** ("pond
+first, then soil"); it is a **spatial competition for the same evaporative
+energy over the same cell footprint**. Where the surface is ponded it evaporates
+as open water; where it is bare it evaporates as soil. The current
+"pond-first, residual to soil" formulation (§3.2, §3.5) is the limiting case of
+an area weighting in which the pond, while present, is treated as covering the
+full cell (see §7.4).
+
+#### 7.2 Literature by sub-problem
+
+**Level-1 (E vs. T) partition — canopy / LAI.**
+
+- Ritchie, J.T. (1972), *Model for predicting evaporation from a row crop with
+  incomplete cover*, Water Resources Research 8(5):1204–1213. The canonical
+  Beer's-law split `E_pot = PET·exp(−β·LAI)`, `T_pot = PET·(1 − exp(−β·LAI))`;
+  used by SWAP, DSSAT, and most agro-hydrology models.
+- Shuttleworth, W.J. & Wallace, J.S. (1985), *Evaporation from sparse crops — an
+  energy combination theory*, Q.J.R. Meteorol. Soc. 111:839–855. The physically
+  rigorous dual-source (soil + canopy) model with coupled resistances, if more
+  than Beer's law is ever needed.
+- Allen, R.G., Pereira, L.S., Raes, D. & Smith, M. (1998), *Crop
+  evapotranspiration*, FAO Irrigation and Drainage Paper 56. The operational
+  **dual crop coefficient** `Kc = Kcb (transpiration) + Ke (evaporation)`; maps
+  directly onto the Option A choice (§2.3) of two independent input series.
+
+**Level-2 bare-soil evaporation reduction (the soil-drying limiter).** Three
+families exist:
+
+| Family | Mechanism | Example codes / refs | Fit for a Richards solver |
+|---|---|---|---|
+| (a) Hydraulic / Darcy-limited | soil supplies only what the unsaturated flux allows, via `krel` | **VSSB (this work)** | native — reuses the flow kernel's `krel` |
+| (b) Critical surface pressure head | cap `E` when surface `ψ` would drop below atmospheric equilibrium `h_crit` | HYDRUS (Šimůnek et al.); VS2DT (Lappala, Wallace & Healy, 1987) | compatible, head-based |
+| (c) Empirical two-stage (cumulative) | energy-limited stage 1 → `√t` / falling-rate stage 2 | Black, Gardner & Thurtell (1969); Boesten & Stroosnijder (1986); Ritchie (1972) — the SWAP options | adds a second, calibrated drying law |
+
+VSSB uses **(a)**: `E_soil = krel · E_soil_pot`. It is the physically consistent
+choice because `krel` is the *same* relative permeability already driving
+infiltration/exfiltration (NPF `KREL`/`DKRDH`), so no new empiricism and no new
+input are introduced (§2.4). It is equivalent in spirit to the head-based cap in
+HYDRUS/VS2DT.
+
+**Open-water / pond evaporation.**
+
+- Penman, H.L. (1948), *Natural evaporation from open water, bare soil and
+  grass*, Proc. R. Soc. London A 193:120–145.
+- Priestley, C.H.B. & Taylor, R.J. (1972), *On the assessment of surface heat
+  flux and evaporation using large-scale parameters*, Mon. Weather Rev.
+  100:81–92.
+
+The robust fact these establish: **open water is energy-limited, not
+supply-limited** — it evaporates at (near) the potential rate until it is gone.
+This is what justifies giving the pond the potential rate before the soil
+(§3.5), independent of the ordering question.
+
+**MODFLOW-specific conventions (for user-expectation consistency).**
+
+- Niswonger, R.G., Prudic, D.E. & Regan, R.S. (2006), *UZF1 Package*, USGS
+  Techniques and Methods 6-A19 — `PET`, extinction depth, extinction water
+  content.
+- Shah, N., Nachabe, M. & Ross, M. (2007), *Extinction depth and
+  evapotranspiration from ground water under selected land cover classes*,
+  Ground Water 45(3):329–338 — bare-soil ET vs. water-table / extinction depth;
+  the usual reference for groundwater-ET parameterization in the MODFLOW
+  community.
+
+#### 7.3 What is forced vs. what is a choice
+
+- **Forced by physics (keep):** pond at the potential (energy-limited) rate;
+  soil reduced by a drying limiter; total actual evaporation `≤ E_pot`;
+  `krel`-based limiting is the internally consistent limiter for a Richards
+  kernel. These are not ambiguous.
+- **A deliberate choice (Option A, §2.3):** Level-1 (E/T) partition is pushed
+  **upstream** to the user / preprocessor as two independent time series, with
+  Ritchie (1972) / FAO-56 dual-`Kc` as the recommended basis. Nothing enforces
+  `E_pot + T_pot ≤ PET`; this is the same trust model as separate RCH/EVT.
+- **The one genuinely open Level-2 choice:** strict **pond-first** vs.
+  **area-weighted** pond/soil evaporation (§7.4).
+
+#### 7.4 The open choice: pond-first vs. area-weighted
+
+Strict pond-first (current) implicitly assumes that, whenever a pond exists, it
+covers enough of the cell to meet the demand at the potential rate *and* that
+the residual still evaporates from bare soil on the same footprint — a mild
+inconsistency, since a patch is either ponded or bare. The principled
+generalization is an **area weighting** by a ponded-area fraction `f_pond(d)`:
+
+```
+E = f_pond · E_pot_openwater  +  (1 − f_pond) · krel · E_pot_soil
+```
+
+where `f_pond` is a smooth, C1 ramp of pond depth `d` toward 1 that → 0 as the
+pond vanishes (e.g. `f_pond = smooth(d / d_scale)`). This removes the
+"pond-covers-soil-but-soil-still-evaporates" artifact, preserves all invariants
+(C1 in head, exact mass balance, total `≤ E_pot`), and **reduces to the current
+pond-first behavior in the thin-but-present-pond limit** (`f_pond → 1`). It is
+the Shuttleworth–Wallace / FAO-56 area idea reduced to a single tunable number.
+
+**Recommendation.** Scope this as an application-driven decision rather than a
+physics gap:
+
+- For thin, transient ponding (most infiltration/runoff problems), **keep
+  pond-first** and document it explicitly as the `f_pond → 1` limit of §7.4.
+- Add `f_pond(d)` area weighting only if **partial-area ponding** matters
+  (playa, intermittent wetland, long-residence ponds), where simultaneous
+  open-water and bare-soil evaporation over one cell is physically real.
+
+Either way, hold the invariants fixed: total actual evaporation `≤ E_pot`, C1 in
+head, exact pond-balance closure, and the soil limiter is the same `krel` that
+drives the flow kernel (`surface_exchange` in
+`src/Model/ModelUtilities/VsfSurfaceExchange.f90`).
+
+#### 7.5 Verification targets
+
+Compare a 1-D, fine-vertical column (VSSB + VSET) against a code that resolves
+these processes rigorously — SWAP (Ritchie partition + Black / Boesten–
+Stroosnijder soil limiters) or HYDRUS (head-based limiter) — for:
+
+1. a drying bare-soil column — does `krel`-limiting reproduce the stage-1 →
+   stage-2 (energy- to supply-limited) falling rate? (Analytical/lysimeter
+   two-stage benchmarks: Ritchie 1972; Idso et al. 1974.)
+2. a ponded-then-evaporating case — the pond → soil handoff and water-balance
+   closure (§3.4);
+3. a shallow-water-table ET case — compare the extinction-depth behavior against
+   Shah et al. (2007).
 
 ---
 
