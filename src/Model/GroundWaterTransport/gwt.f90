@@ -800,6 +800,9 @@ contains
     case ('API6')
       call api_create(packobj, ipakid, ipaknum, inunit, iout, this%name, &
                       pakname, mempath)
+      ! api_create points the package at the ICELLTYPE of an NPF package,
+      ! which a transport model does not have
+      packobj%ictMemPath = ''
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)

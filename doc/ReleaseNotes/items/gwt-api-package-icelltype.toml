@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A GWT model with an API package stopped during setup with a memory manager error reporting that the variable ICELLTYPE does not exist in the NPF package of the transport model. An API package can now be used in a GWT model, so that a program using the MODFLOW API can add terms to the transport equation."
