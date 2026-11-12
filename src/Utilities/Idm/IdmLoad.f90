@@ -36,8 +36,10 @@ contains
   !<
   subroutine idm_df()
     use InputLoadTypeModule, only: GetDynamicModelFromList
+    use IdmParamMetaModule, only: input_step_allocate
     class(ModelDynamicPkgsType), pointer :: model_dynamic_input
     integer(I4B) :: n
+    call input_step_allocate()
     do n = 1, model_inputs%Count()
       model_dynamic_input => GetDynamicModelFromList(model_inputs, n)
       call model_dynamic_input%df()
@@ -48,8 +50,10 @@ contains
   !<
   subroutine idm_rp()
     use InputLoadTypeModule, only: GetDynamicModelFromList
+    use IdmParamMetaModule, only: input_step_update
     class(ModelDynamicPkgsType), pointer :: model_dynamic_input
     integer(I4B) :: n
+    call input_step_update()
     do n = 1, model_inputs%Count()
       model_dynamic_input => GetDynamicModelFromList(model_inputs, n)
       call model_dynamic_input%rp()
