@@ -111,7 +111,7 @@ module PrtModule
                   &'ADV6 ', 'DSP6 ', 'SSM6 ', 'MIP6 ', 'CNC6 ', & ! 10
                   &'OC6  ', '     ', 'FMI6 ', '     ', 'IST6 ', & ! 15
                   &'LKT6 ', 'SFT6 ', 'MWT6 ', 'UZT6 ', 'MVT6 ', & ! 20
-                  &'API6 ', '     ', '     ', '     ', '     ', & ! 25
+                  &'     ', '     ', '     ', '     ', '     ', & ! 25
                   25*'     '/ ! 50
 
   !> @brief PRT multi package array descriptors
@@ -972,7 +972,6 @@ contains
                             inunit, iout)
     ! modules
     use ConstantsModule, only: LINELENGTH
-    use ApiModule, only: api_create
     ! dummy
     class(PrtModelType) :: this
     character(len=*), intent(in) :: filtyp
@@ -993,9 +992,6 @@ contains
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
                       this%name, pakname, this%fmi, mempath)
-    case ('API6')
-      call api_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)
