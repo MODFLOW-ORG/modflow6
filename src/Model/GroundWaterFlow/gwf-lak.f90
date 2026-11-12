@@ -4711,7 +4711,7 @@ contains
                       this%memoryPath)
     !
     ! -- lake rows: a per-lake diagonal position and the per-connection
-    !    lake->cell off-diagonals. The diagonal is stored per lake (idxdiag).
+    !    lake->cell off-diagonals.
     ipos = 1
     do n = 1, this%nlakes
       iglo = moffset + this%dis%nodes + this%ioffset + n
