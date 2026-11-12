@@ -1,0 +1,16 @@
+Input to the Variably Saturated Flow (VSF) Package is read from the file that has type ``VSF6'' in the Name File.  A single VSF Package can be activated in a GWF model.  When the VSF Package is present, the model solves the variably saturated (Richards) form of the groundwater flow equation, so that unsaturated flow and storage above the water table are represented; the VSF Package must also be active for the VSET, VSSB, and VSSP Packages to be used.
+
+The cells in which the Richards formulation is applied are flagged by the IUNSAT array in the GRIDDATA block.  The VSF formulation must be applied to the entire active domain: IUNSAT must be set for every active cell, and applying Richards flow to only part of the domain is not supported.  Because the unsaturated formulation supersedes the convertible-cell logic of the Node Property Flow (NPF) Package, every VSF cell must be a non-convertible cell (ICELLTYPE equal to zero in NPF).
+
+The functions that relate pressure head, water saturation, moisture capacity, and relative permeability are selected with the SOIL\_MODEL option (Brooks-Corey, Haverkamp, or Van Genuchten).  The soil-property arrays that must be supplied in the GRIDDATA block depend on the selected model; the arrays that do not apply to the chosen model are omitted.  Simulated water saturation and pressure head can be written to separate binary output files whenever heads are written to the binary head file, as controlled by the Output Control (OC) Package.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vsf-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vsf-griddata.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-vsf-desc.tex}
+\end{description}

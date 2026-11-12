@@ -1,0 +1,24 @@
+Input to the Variably Saturated Seepage (VSSP) Package is read from the file that has type ``VSSP6'' in the Name File.  The VSSP Package simulates seepage faces on cells of a model that uses the Variably Saturated Flow (VSF) Package, which must be active in the same GWF model.  Any number of VSSP Packages can be specified for a single GWF model.
+
+Each entry in the PERIOD block describes one seepage face on a cell.  The face discharges groundwater when the cell is saturated at the face (the head is above the face elevation) and does nothing otherwise, so that seepage is a result of the solution rather than a prescribed flow.  The conductance of the face is derived from the hydraulic conductivity of the Node Property Flow (NPF) Package and the relative permeability of the cell, so no conductance is specified.  The geometry of the face is given per entry: IHC is the connection type (0 for a vertical connection, that is a horizontal face with its normal aligned with the z axis, and 1 for a horizontal connection, that is a vertical face with its normal in the x-y plane); CL1 is the distance from the cell center to the face; HWVA is the area of the face; and ANGLDEGX is the angle of the outward normal with the x axis, used only when IHC is 1 and the horizontal hydraulic conductivity is anisotropic.
+
+The VSSB Package owns the top face of its surface cells, including the seepage (exfiltration) there, so a cell that is listed in a VSSB Package cannot be listed with IHC equal to zero in a VSSP Package.  Water that discharges through a seepage face leaves the model; it cannot currently be routed with the Water Mover (MVR) Package.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssp-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssp-dimensions.dat}
+
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssp-period.dat}
+\advancedpackageperioddescription{seepage cell}{seepage cells}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-vssp-desc.tex}
+\end{description}

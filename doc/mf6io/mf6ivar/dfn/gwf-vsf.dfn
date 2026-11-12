@@ -133,7 +133,7 @@ reader readarray
 layered true
 optional false
 longname unsaturated zone indicator
-description this is the long description of iunsat.
+description is an integer flag that activates the variably saturated (Richards) formulation for a cell. A value greater than zero activates unsaturated flow; a value of zero deactivates it. The formulation must currently be activated for every cell in the active domain.
 default_value 0
 
 block griddata
