@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "In the Lake (LAK) Package, a lake with NLAKECONN equal to zero in the PACKAGEDATA block now stops the simulation with an error. The input instructions have always required NLAKECONN to be greater than zero, but zero was accepted unless the IMPLICIT option was used. A lake with no connections has no bottom elevation, so its results were not meaningful: a lake with CONSTANT status was given a stage of 1e20, and one with ACTIVE status could fail to converge. Such a lake could also cause the simulation to crash, or cause the input for another lake to be misread."

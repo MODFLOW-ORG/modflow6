@@ -6,6 +6,8 @@
   checked against NOUTLETS, not NLAKES, in both directions.
 - CONNECTIONDATA's total row count (SUM(NLAKECONN)) is summed across
   lakes with different connection counts, not taken from just one.
+- A lake with no connections (NLAKECONN = 0) is rejected, whether or not
+  it is the last lake.
 """
 
 import flopy
@@ -18,6 +20,7 @@ cases = [
     "lak-noutlets-gt-nlakes",
     "lak-noutlets-lt-nlakes",
     "lak-nlakeconn-sum",
+    "lak-nlakeconn-zero",
 ]
 
 
@@ -184,12 +187,41 @@ def build_nlakeconn_sum(test):
     return sim
 
 
+def build_nlakeconn_zero(test):
+    # NLAKES=3: lake 1 (not the last lake) and lake 3 (the last lake) have
+    # no connections, lake 2 has one.
+    name = cases[4]
+    sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=test.workspace)
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
+    flopy.mf6.ModflowIms(sim, print_option="NONE")
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="lak-zero", save_flows=True)
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=1, nrow=1, ncol=3, delr=100.0, delc=100.0, top=10.0, botm=[0.0]
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
+    flopy.mf6.ModflowGwfic(gwf, strt=5.0)
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[[(0, 0, 0), 5.0]])
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        nlakes=3,
+        packagedata=[(0, 5.0, 0), (1, 5.0, 1), (2, 5.0, 0)],
+        connectiondata=[
+            (1, 0, (0, 0, 1), "horizontal", 0.0, 0.0, 5.0, 10.0, 10.0),
+        ],
+        perioddata={0: [(i, "status", "active") for i in range(3)]},
+        pname="lak-1",
+    )
+    flopy.mf6.ModflowGwfoc(gwf, budget_filerecord=f"{name}.cbc")
+    return sim
+
+
 def build_models(idx, test):
     return [
         build_ifno_errors,
         build_noutlets_gt,
         build_noutlets_lt,
         build_nlakeconn_sum,
+        build_nlakeconn_zero,
     ][idx](test)
 
 
@@ -231,10 +263,26 @@ def check_nlakeconn_sum(test):
     )
 
 
-def check_output(idx, test):
-    [check_ifno_errors, check_noutlets_gt, check_noutlets_lt, check_nlakeconn_sum][idx](
-        test
+def check_nlakeconn_zero(test):
+    with open(test.workspace / "mfsim.lst") as f:
+        lst = f.read()
+    for ilak in (1, 3):
+        assert f"NLAKECONN for lake {ilak} must be greater than zero" in lst, (
+            f"expected lake {ilak} (no connections) to be rejected; got:\n" + lst
+        )
+    assert "NLAKECONN for lake 2" not in lst, (
+        "lake 2 has a connection and should not have been rejected"
     )
+
+
+def check_output(idx, test):
+    [
+        check_ifno_errors,
+        check_noutlets_gt,
+        check_noutlets_lt,
+        check_nlakeconn_sum,
+        check_nlakeconn_zero,
+    ][idx](test)
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
