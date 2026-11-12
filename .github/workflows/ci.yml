@@ -15,7 +15,14 @@ on:
       - "doc/**.py"
       - "doc/**.sh"
       - "doc/**.xlsx"
+      - "doc/**.pptx"
+      - "doc/**.svg"
+      - "doc/**.bst"
+      - "doc/ReleaseNotes/**"
+      - ".build_rtd_docs/**"
       - ".hpc/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/pr_policy.yml"
   pull_request:
     branches:
       - master
@@ -34,7 +41,14 @@ on:
       - "doc/**.py"
       - "doc/**.sh"
       - "doc/**.xlsx"
+      - "doc/**.pptx"
+      - "doc/**.svg"
+      - "doc/**.bst"
+      - "doc/ReleaseNotes/**"
+      - ".build_rtd_docs/**"
       - ".hpc/**"
+      - ".github/workflows/docs.yml"
+      - ".github/workflows/pr_policy.yml"
   workflow_dispatch:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -79,48 +93,48 @@ jobs:
             exit 1
           fi
 
-  build:
-    name: Build
-    runs-on: ubuntu-22.04
-    env:
-      FC: gfortran
-      FC_V: 13
+  changes:
+    name: Check changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.check.outputs.code }}
     steps:
       - name: Checkout MF6
         uses: actions/checkout@v7
-
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
         with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
+          fetch-depth: 2
 
-      - name: Setup pixi
-        uses: prefix-dev/setup-pixi@v0.11.3
-        with:
-          pixi-version: v0.82.1
-
-      - name: Setup MF6
-        run: pixi run setup -Dwerror=true builddir
-
-      - name: Build MF6
-        run: pixi run build builddir
-
-      - name: Setup mf5to6
-        run: pixi run setup-mf5to6 -Dwerror=true builddir
-
-      - name: Build mf5to6
-        run: pixi run build-mf5to6 builddir
-
-      - name: Show build log
-        if: failure()
-        run: cat builddir/meson-logs/meson-log.txt
-
-      - name: Unit test MF6
-        run: pixi run test builddir
+      # code=false if the only changes besides paths-ignore'd
+      # files are DFN descriptions, comments or blank lines
+      - name: Check for code changes
+        id: check
+        env:
+          BEFORE: ${{ github.event_name == 'push' && github.event.before || '' }}
+        run: |
+          code=true
+          base=""
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base=HEAD^1
+          elif [[ -n "$BEFORE" ]] && git fetch -q --depth=1 origin "$BEFORE"; then
+            base=$BEFORE
+          fi
+          if [[ -n "$base" ]] && files=$(git diff --name-only "$base" HEAD); then
+            ignore='\.(md|pdf|tex|jpg|jpeg|png|bbl|bib)$|^doc/.*\.(dat|ipynb|py|sh|xlsx|pptx|svg|bst)$|^doc/ReleaseNotes/|^\.build_rtd_docs/|^\.hpc/|^\.github/workflows/(docs|pr_policy)\.yml$'
+            files=$(grep -vE "$ignore" <<< "$files" || true)
+            if ! grep -qv '\.dfn$' <<< "$files" && \
+               ! git diff -U0 "$base" HEAD -- '*.dfn' \
+                 | grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' \
+                 | grep -qvE '^[+-](description\b|#|\s*$)'; then
+              code=false
+            fi
+          fi
+          echo "code=$code"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
 
   pixi-gcc-extended-build:
     name: Pixi gcc-extended-build environment testing
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -164,6 +178,8 @@ jobs:
         
   build-static:
     name: Static gcc build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -245,6 +261,8 @@ jobs:
 
   smoke_test:
     name: Smoke test
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-22.04
     defaults:
       run:
@@ -277,9 +295,9 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
+          pixi run setup -Dwerror=true builddir
           pixi run build builddir
-          pixi run setup-mf5to6 builddir
+          pixi run setup-mf5to6 -Dwerror=true builddir
           pixi run build-mf5to6 builddir
 
       - name: Show build log
@@ -305,9 +323,9 @@ jobs:
         working-directory: modflow6
         run: |
           if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
-            pixi run autotest -m "not slow and not regression and not developmode"
+            pixi run autotest -n logical -m "not slow and not regression and not developmode"
           else
-            pixi run autotest --smoke
+            pixi run autotest -n logical --smoke
           fi
 
       - name: Upload failed test output
@@ -321,7 +339,6 @@ jobs:
     name: Test GNU fortran
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -534,19 +551,19 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -558,7 +575,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n auto test_scripts.py
+          pytest -v -n logical test_scripts.py
 
       - name: Test examples
         working-directory: modflow6
@@ -566,7 +583,7 @@ jobs:
         run: |
           cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n auto test_scripts.py
+          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n logical test_scripts.py
 
       - name: Upload failed test output
         if: failure()
@@ -576,14 +593,14 @@ jobs:
           path: modflow6/autotest/.failed
 
       - name: Checkout usgslatex
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         uses: actions/checkout@v7
         with:
           repository: MODFLOW-ORG/usgslatex
           path: usgslatex
 
       - name: Install TeX Live
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         run: |
           sudo apt-get update
           sudo apt install texlive-science \
@@ -593,11 +610,12 @@ jobs:
             texlive-fonts-extra
 
       - name: Install USGS LaTeX style files and Univers font
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && !matrix.debug
         working-directory: usgslatex/usgsLaTeX
         run: sudo ./install.sh --all-users
 
       - name: Test distribution scripts
+        if: ${{ !matrix.debug }}
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -607,7 +625,6 @@ jobs:
     name: Test Intel fortran
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     env:
@@ -712,19 +729,19 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external"
 
       - name: Test MF6 models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       # if on linux, test example models too
       - name: Install executables
@@ -738,7 +755,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n auto test_scripts.py
+          pytest -v -n logical test_scripts.py
 
       - name: Upload failed test output
         if: failure()
@@ -747,17 +764,10 @@ jobs:
           name: failed-${{ matrix.os }}-${{ env.FC }}-${{ env.FC_V }}
           path: modflow6/autotest/.failed
 
-      - name: Test scripts
-        working-directory: modflow6
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run test-dist-scripts
-
   extended_test:
     name: Extended testing
     needs:
       - lint
-      - build
       - smoke_test
     runs-on: ${{ matrix.os }}
     strategy:

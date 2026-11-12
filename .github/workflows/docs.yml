@@ -12,6 +12,7 @@ on:
     paths-ignore:
       - '.github/workflows/release.yml'
       - '.hpc/**'
+  workflow_dispatch:
 env:
   PIXI_BETA_WARNING_OFF: true
 concurrency:
@@ -44,6 +45,8 @@ jobs:
     env:
       FC: gfortran
       FC_V: 12
+      # benchmarks take ~40m, only run them on develop or on request
+      BENCHMARK: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/develop') }}
     steps:
       - name: Checkout modflow6
         uses: actions/checkout@v7
@@ -99,7 +102,14 @@ jobs:
           compiler: gcc
           version: ${{ env.FC_V }}
 
+      - name: Build MF6
+        working-directory: modflow6
+        run: |
+          pixi run setup builddir
+          pixi run build builddir
+
       - name: Cache modflow6 examples
+        if: env.BENCHMARK == 'true'
         id: cache-examples
         uses: actions/cache@v6
         with:
@@ -107,19 +117,19 @@ jobs:
           key: modflow6-examples-${{ hashFiles('modflow6-examples/scripts/**') }}
 
       - name: Update FloPy
-        if: steps.cache-examples.outputs.cache-hit != 'true'
+        if: env.BENCHMARK == 'true' && steps.cache-examples.outputs.cache-hit != 'true'
         working-directory: modflow6/autotest
         run: pixi run update-flopy
 
       # the example models also need mf2005, triangle and gridgen
       - name: Install extra executables
-        if: steps.cache-examples.outputs.cache-hit != 'true'
+        if: env.BENCHMARK == 'true' && steps.cache-examples.outputs.cache-hit != 'true'
         uses: modflowpy/install-modflow-action@v1
         with:
           subset: mf2005,triangle,gridgen
 
       - name: Build example models
-        if: steps.cache-examples.outputs.cache-hit != 'true'
+        if: env.BENCHMARK == 'true' && steps.cache-examples.outputs.cache-hit != 'true'
         working-directory: modflow6
         shell: pixi run bash -e {0}
         run: |
@@ -128,20 +138,29 @@ jobs:
           ls -lh ../examples/
 
       - name: Run benchmarks
+        if: env.BENCHMARK == 'true'
         working-directory: modflow6
         run: pixi run benchmark
         env:
           GITHUB_TOKEN: ${{ github.token }}
       
       - name: Show benchmarks
+        if: env.BENCHMARK == 'true'
         working-directory: modflow6/distribution
         run: cat run-time-comparison.md
     
       - name: Upload benchmarks
+        if: env.BENCHMARK == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: run-time-comparison
           path: modflow6/distribution/run-time-comparison.md
+
+      # sphinx expects the benchmark table
+      - name: Stub benchmarks
+        if: env.BENCHMARK != 'true'
+        working-directory: modflow6/distribution
+        run: echo "Benchmarks are run on pushes to develop." > run-time-comparison.md
 
       - name: Collect deprecations
         working-directory: modflow6
