@@ -14,6 +14,24 @@ module TestImsLinear
   private
   public :: collect_imslinear
 
+  interface
+    subroutine ilut(n, a, ja, ia, lfil, droptol, alu, jlu, ju, iwk, w, jw, &
+                    ierr, relax, izero, delta)
+      integer(kind=4) :: n
+      real(kind=8) :: a(*), alu(*), w(n + 1), droptol
+      integer(kind=4) :: ja(*), ia(n + 1), jlu(*), ju(n), jw(2 * n), lfil, &
+                         iwk, ierr
+      real(kind=8) :: relax
+      integer(kind=4) :: izero
+      real(kind=8) :: delta
+    end subroutine ilut
+    subroutine lusol(n, y, x, alu, jlu, ju)
+      integer(kind=4) :: n
+      real(kind=8) :: x(n), y(n), alu(*)
+      integer(kind=4) :: jlu(*), ju(*)
+    end subroutine lusol
+  end interface
+
   ! 4 by 4 five-point grid
   integer(I4B), parameter :: NC = 4
   integer(I4B), parameter :: NEQ = NC * NC
@@ -31,7 +49,9 @@ contains
                 new_unittest("bcgs_diagonal", test_bcgs_diagonal), &
                 new_unittest("bcgs_l2norm", test_bcgs_l2norm), &
                 new_unittest("pcilu0_bad_pivot", test_pcilu0_bad_pivot), &
-                new_unittest("pcu_bad_pivot", test_pcu_bad_pivot) &
+                new_unittest("pcu_bad_pivot", test_pcu_bad_pivot), &
+                new_unittest("lusol_apply_exact", test_lusol_apply_exact), &
+                new_unittest("lusol_bit_identical", test_lusol_bit_identical) &
                 ]
   end subroutine collect_imslinear
 
@@ -295,5 +315,142 @@ contains
       if (allocated(error)) return
     end do
   end subroutine test_pcu_bad_pivot
+
+  !> @brief ILUT and MILUT factor a tridiagonal matrix exactly, so lusol
+  !! returns the solution
+  !<
+  subroutine test_lusol_apply_exact(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: NT = 6
+    integer(I4B), parameter :: NNZ = 3 * NT - 2
+    integer(I4B), parameter :: IWK = 2 * NNZ + NT + 1
+    integer(I4B), dimension(NT + 1) :: ia
+    integer(I4B), dimension(NNZ) :: ja
+    integer(I4B), dimension(IWK) :: jlu
+    integer(I4B), dimension(NT) :: ju
+    integer(I4B), dimension(2*NT) :: jw
+    real(DP), dimension(NNZ) :: a
+    real(DP), dimension(IWK) :: alu
+    real(DP), dimension(NT + 1) :: w
+    real(DP), dimension(NT) :: xtrue, y, x
+    real(DP) :: relax
+    integer(I4B) :: i, k, n, ierr, izero
+
+    k = 0
+    do n = 1, NT
+      ia(n) = k + 1
+      if (n > 1) then
+        k = k + 1
+        ja(k) = n - 1
+        a(k) = -1.0d0
+      end if
+      k = k + 1
+      ja(k) = n
+      a(k) = 4.0d0
+      if (n < NT) then
+        k = k + 1
+        ja(k) = n + 1
+        a(k) = -2.0d0
+      end if
+      xtrue(n) = real(n, DP)
+    end do
+    ia(NT + 1) = k + 1
+    do n = 1, NT
+      y(n) = DZERO
+      do i = ia(n), ia(n + 1) - 1
+        y(n) = y(n) + a(i) * xtrue(ja(i))
+      end do
+    end do
+
+    do i = 0, 1
+      relax = real(i, DP)
+      izero = 0
+      call ilut(NT, a, ja, ia, NT, DZERO, alu, jlu, ju, IWK, w, jw, ierr, &
+                relax, izero, DZERO)
+      call check(error, ierr == 0, 'ierr '//to_string(ierr))
+      if (allocated(error)) return
+      call lusol(NT, y, x, alu, jlu, ju)
+      do n = 1, NT
+        call check(error, abs(x(n) - xtrue(n)) <= 1.0d-12 * xtrue(n), &
+                   'x wrong at '//to_string(n))
+        if (allocated(error)) return
+      end do
+    end do
+  end subroutine test_lusol_apply_exact
+
+  !> @brief lusol gives the same result, to the bit, as the original
+  !! sparskit algorithm for an inexact factorization, also in place
+  !<
+  subroutine test_lusol_bit_identical(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: IWK = 1000
+    integer(I4B), dimension(NEQ + 1) :: ia
+    integer(I4B), dimension(NJA) :: ja
+    integer(I4B), dimension(IWK) :: jlu
+    integer(I4B), dimension(NEQ) :: ju
+    integer(I4B), dimension(2*NEQ) :: jw
+    real(DP), dimension(NJA) :: a
+    real(DP), dimension(IWK) :: alu
+    real(DP), dimension(NEQ + 1) :: w
+    real(DP), dimension(NEQ) :: b, y, x, xref
+    integer(I4B) :: i, n, ierr, izero
+
+    call setup_grid(ia, ja, a, b)
+    ! nonsymmetric off-diagonals; lfil of 3 keeps up to two entries in each
+    ! row of U, which counts the diagonal, so fill is dropped
+    do n = 1, NEQ
+      do i = ia(n) + 1, ia(n + 1) - 1
+        a(i) = a(i) * (DONE + 0.1d0 * real(n, DP))
+      end do
+      y(n) = real(n, DP) - 8.5d0
+    end do
+    izero = 0
+    call ilut(NEQ, a, ja, ia, 3, 1.0d-3, alu, jlu, ju, IWK, w, jw, ierr, &
+              DZERO, izero, DZERO)
+    call check(error, ierr == 0, 'ierr '//to_string(ierr))
+    if (allocated(error)) return
+
+    call lusol_reference(NEQ, y, xref, alu, jlu, ju)
+    call lusol(NEQ, y, x, alu, jlu, ju)
+    do n = 1, NEQ
+      call check(error, x(n) == xref(n), 'x differs at '//to_string(n))
+      if (allocated(error)) return
+    end do
+
+    ! in place
+    do n = 1, NEQ
+      x(n) = y(n)
+    end do
+    call lusol(NEQ, x, x, alu, jlu, ju)
+    do n = 1, NEQ
+      call check(error, x(n) == xref(n), &
+                 'in place x differs at '//to_string(n))
+      if (allocated(error)) return
+    end do
+  end subroutine test_lusol_bit_identical
+
+  !> @brief The original sparskit lusol, which sums in x(i)
+  !<
+  subroutine lusol_reference(n, y, x, alu, jlu, ju)
+    integer(I4B), intent(in) :: n
+    real(DP), dimension(n), intent(in) :: y
+    real(DP), dimension(n), intent(inout) :: x
+    real(DP), dimension(*), intent(in) :: alu
+    integer(I4B), dimension(*), intent(in) :: jlu, ju
+    integer(I4B) :: i, k
+
+    do i = 1, n
+      x(i) = y(i)
+      do k = jlu(i), ju(i) - 1
+        x(i) = x(i) - alu(k) * x(jlu(k))
+      end do
+    end do
+    do i = n, 1, -1
+      do k = ju(i), jlu(i + 1) - 1
+        x(i) = x(i) - alu(k) * x(jlu(k))
+      end do
+      x(i) = alu(i) * x(i)
+    end do
+  end subroutine lusol_reference
 
 end module TestImsLinear
