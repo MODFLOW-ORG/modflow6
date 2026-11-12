@@ -4,7 +4,7 @@ connection number (ID2). ID must be between 1 and the number of features,
 and a feature must have the connection observed. Otherwise the simulation
 stops with an error.
 
-Lake 1 has one connection to the aquifer, lake 2 has none.
+Reach 1 is connected to the aquifer, reach 2 is not.
 """
 
 import flopy
@@ -13,16 +13,16 @@ from framework import TestFramework
 
 cases = {
     "no-conn": (
-        [("x", "lkt", 2, 1)],
+        [("x", "sft", 2, 1)],
         "specifies iconn = 1, but this is not a valid connection for ID 2.",
     ),
-    "id0-lkt": ([("x", "lkt", 0, 1)], "was assigned ID = 0. ID must be >= 1 and <= 2."),
+    "id0-sft": ([("x", "sft", 0, 1)], "was assigned ID = 0. ID must be >= 1 and <= 2."),
     "id0-conc": (
         [("x", "concentration", 0)],
         "was assigned ID = 0. ID must be >= 1 and <= 2.",
     ),
     "valid": (
-        [("c1", "concentration", 1), ("c2", "concentration", 2), ("q", "lkt", 1, 1)],
+        [("c1", "concentration", 1), ("c2", "concentration", 2), ("q", "sft", 1, 1)],
         None,
     ),
 }
@@ -42,15 +42,16 @@ def build_models(name, test):
     flopy.mf6.ModflowGwfic(gwf, strt=8.0)
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=0)
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[[(0, 0, 2), 8.0]])
-    flopy.mf6.ModflowGwflak(
+    flopy.mf6.ModflowGwfsfr(
         gwf,
-        pname="lak-1",
+        pname="sfr-1",
         save_flows=True,
-        nlakes=2,
-        packagedata=[[0, 9.0, 1], [1, 9.0, 0]],
-        connectiondata=[
-            [0, 0, (0, 0, 0), "horizontal", 0.1, 5.0, 10.0, 5.0, 10.0],
+        nreaches=2,
+        packagedata=[
+            [0, (0, 0, 0), 10.0, 1.0, 0.001, 9.0, 1.0, 1.0, 0.03, 1, 1.0, 0],
+            [1, "none", 10.0, 1.0, 0.001, 9.0, 1.0, 1.0, 0.03, 1, 1.0, 0],
         ],
+        connectiondata=[[0, -1], [1, 0]],
         perioddata=[[0, "inflow", 10.0]],
     )
     flopy.mf6.ModflowGwfoc(gwf, budget_filerecord="gwf.cbc")
@@ -67,9 +68,9 @@ def build_models(name, test):
     flopy.mf6.ModflowGwtadv(gwt)
     flopy.mf6.ModflowGwtmst(gwt, porosity=0.3)
     flopy.mf6.ModflowGwtssm(gwt)
-    flopy.mf6.ModflowGwtlkt(
+    flopy.mf6.ModflowGwtsft(
         gwt,
-        flow_package_name="lak-1",
+        flow_package_name="sfr-1",
         packagedata=[[0, 1.0], [1, 1.0]],
         observations={"obs.csv": obs},
     )
