@@ -64,7 +64,7 @@ module Mf6FileKeystringModule
     integer(I4B), dimension(:), allocatable :: subindex_head_icol !< per-column subindex head SA column
     character(len=LENVARNAME) :: subindex_id_varname = '' !< leading column's mf6varname
     integer(I4B), dimension(:), allocatable :: written_col !< stamp column of each item (0 = none)
-    character(len=LENVARNAME), dimension(:), allocatable :: written_tag !< per-column item tag
+    integer(I4B), dimension(:), allocatable :: written_item !< keystring item of each stamp column
     type(ParamStampsType) :: written !< write stamps of node-addressed items
   contains
     procedure :: ainit
@@ -390,7 +390,7 @@ contains
 
     if (.not. allocated(this%ctx%keystring_items)) then
       allocate (this%written_col(0))
-      allocate (this%written_tag(0))
+      allocate (this%written_item(0))
       return
     end if
     allocate (this%written_col(size(this%ctx%keystring_items)))
@@ -406,15 +406,14 @@ contains
       this%written_col(k) = ncol
       nfeatures = this%ctx%keystring_items(k)%nfeatures
     end do
-    allocate (this%written_tag(ncol))
+    allocate (this%written_item(ncol))
     if (ncol == 0) return
 
     allocate (varnames(ncol))
     do k = 1, size(this%ctx%keystring_items)
       if (this%written_col(k) < 1) cycle
       varnames(this%written_col(k)) = this%ctx%keystring_items(k)%idt%mf6varname
-      this%written_tag(this%written_col(k)) = &
-        this%ctx%keystring_items(k)%idt%tagname
+      this%written_item(this%written_col(k)) = k
     end do
     call this%written%allocate(varnames, nfeatures, this%mf6_input%mempath)
   end subroutine allocate_written
@@ -444,17 +443,19 @@ contains
     use InputOutputModule, only: same_word
     class(KeystringLoadType), intent(inout) :: this
     type(TimeSeriesLinkType), pointer :: tslink
-    integer(I4B) :: n, col, i
+    integer(I4B) :: n, col, i, k
 
-    if (.not. allocated(this%written_tag)) return
-    if (size(this%written_tag) == 0) return
+    if (.not. allocated(this%written_item)) return
+    if (size(this%written_item) == 0) return
     do n = 1, this%tsmanager%CountLinks('BND')
       tslink => this%tsmanager%GetLink('BND', n)
       if (.not. associated(tslink)) cycle
       i = tslink%IRow
       if (i < 1 .or. i > size(this%written%istep, 2)) cycle
-      do col = 1, size(this%written_tag)
-        if (.not. same_word(tslink%Text, this%written_tag(col))) cycle
+      do col = 1, size(this%written_item)
+        k = this%written_item(col)
+        if (.not. same_word(tslink%Text, &
+                            this%ctx%keystring_items(k)%idt%tagname)) cycle
         call this%written%set(col, i)
       end do
     end do
@@ -892,7 +893,7 @@ contains
     call this%static_loader%cleanup()
 
     if (allocated(this%written_col)) deallocate (this%written_col)
-    if (allocated(this%written_tag)) deallocate (this%written_tag)
+    if (allocated(this%written_item)) deallocate (this%written_item)
     call this%written%destroy()
 
     call this%tsmanager%da()

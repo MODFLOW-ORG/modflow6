@@ -45,6 +45,7 @@ module SfrModule
   use dag_module, only: dag
   use MatrixBaseModule
   !
+  use IdmParamMetaViewModule, only: IdmParamMetaViewType
   implicit none
   !
   character(len=LENFTYPE) :: ftype = 'SFR' !< package ftype string
@@ -64,9 +65,7 @@ module SfrModule
     real(DP), dimension(:), pointer, contiguous :: rhk => null()
     real(DP), dimension(:), pointer, contiguous :: man => null()
     real(DP), dimension(:), pointer, contiguous :: ustrf => null()
-    integer(I4B), dimension(:), pointer :: rhk_tslink => null() !< nonzero for RHK rows linked to a time series
-    integer(I4B), dimension(:), pointer :: man_tslink => null() !< nonzero for MAN rows linked to a time series
-    integer(I4B), dimension(:), pointer :: ustrf_tslink => null() !< nonzero for USTRF rows linked to a time series
+    type(IdmParamMetaViewType) :: meta !< time series links of RHK, MAN and USTRF
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -1008,6 +1007,7 @@ contains
   !<
   subroutine sfr_source_packagedata(this)
     ! -- modules
+    use ConstantsModule, only: LENVARNAME
     use MemoryManagerModule, only: mem_setptr
     use CharacterStringModule, only: CharacterStringType
     ! -- dummy
@@ -1030,9 +1030,6 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: ndv => null()
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
       boundname => null()
-    integer(I4B), dimension(:, :), pointer, contiguous :: tslink => null()
-    type(CharacterStringType), dimension(:), pointer, contiguous :: &
-      tslinkvars => null()
     !
     write (this%iout, '(/1x,a)') &
       'PROCESSING '//trim(adjustl(this%text))//' PACKAGEDATA'
@@ -1049,18 +1046,10 @@ contains
     call mem_setptr(this%input%man, 'MAN', this%input_mempath)
     call mem_setptr(ncon, 'NCON', this%input_mempath)
     call mem_setptr(this%input%ustrf, 'USTRF', this%input_mempath)
-    call mem_setptr(tslink, 'TSLINK_PD', this%input_mempath)
-    call mem_setptr(tslinkvars, 'TSLINKVARS_PD', this%input_mempath)
-    do n = 1, size(tslinkvars)
-      if (tslinkvars(n) == 'RHK') this%input%rhk_tslink => tslink(n, :)
-      if (tslinkvars(n) == 'MAN') this%input%man_tslink => tslink(n, :)
-      if (tslinkvars(n) == 'USTRF') this%input%ustrf_tslink => tslink(n, :)
-    end do
-    if (.not. (associated(this%input%rhk_tslink) .and. &
-               associated(this%input%man_tslink) .and. &
-               associated(this%input%ustrf_tslink))) then
-      call store_error('Time series links for RHK, MAN and USTRF not found &
-                       &in input.')
+    call this%input%meta%init( &
+      [character(len=LENVARNAME) :: 'RHK', 'MAN', 'USTRF'], &
+      this%input_mempath, stamps=.false., tslink_block='PACKAGEDATA')
+    if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
     call mem_setptr(ndv, 'NDV', this%input_mempath)
@@ -2063,13 +2052,13 @@ contains
       do i = 1, this%maxbound
         n = this%pkg_ifno(i)
         if (.not. this%bedk_set(n) .and. &
-            this%input%rhk_tslink(i) /= 0) &
+            this%input%meta%is_linked(1, i)) &
           this%hk(n) = this%input%rhk(i)
         if (.not. this%manning_set(n) .and. &
-            this%input%man_tslink(i) /= 0) &
+            this%input%meta%is_linked(2, i)) &
           this%rough(n) = this%input%man(i)
         if (.not. this%ustrf_set(n) .and. &
-            this%input%ustrf_tslink(i) /= 0) &
+            this%input%meta%is_linked(3, i)) &
           this%ustrf(n) = this%input%ustrf(i)
       end do
       !
@@ -5865,9 +5854,7 @@ contains
     nullify (this%rhk)
     nullify (this%man)
     nullify (this%ustrf)
-    nullify (this%rhk_tslink)
-    nullify (this%man_tslink)
-    nullify (this%ustrf_tslink)
+    call this%meta%destroy()
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%status)
