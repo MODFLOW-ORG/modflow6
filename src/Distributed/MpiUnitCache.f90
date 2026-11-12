@@ -112,7 +112,7 @@ contains
 
   end subroutine add_rank_cache
 
-  !> @Brief returns -1 when not present
+  !> @brief returns -1 when not present
   !<
   function get_rank_index(this, rank) result(rank_index)
     class(MpiUnitCacheType) :: this
@@ -123,7 +123,7 @@ contains
 
   end function get_rank_index
 
-  !> @Brief returns -1 when not present
+  !> @brief returns -1 when not present
   !<
   function get_msg_index(this, rank, stage, msg_id) result(msg_index)
     class(MpiUnitCacheType) :: this

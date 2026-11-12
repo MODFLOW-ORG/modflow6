@@ -1048,7 +1048,7 @@ contains
   end subroutine gwe_gwe_fp
 
   !> @brief Return true when this exchange provides matrix coefficients for
-  !! solving @param model
+  !! solving @p model
   !<
   function gwe_gwe_connects_model(this, model) result(is_connected)
     ! -- dummy

@@ -2709,10 +2709,6 @@ contains
   !!
   !!  Fill the coefficient matrix and right-hand side with CSUB package
   !!  with Newton-Raphson terms.
-  !!
-  !! @param[in,out]  amat  A matrix
-  !! @param[in,out]  rhs   right-hand side
-  !!
   !<
   subroutine csub_fn(this, kiter, hold, hnew, matrix_sln, idxglo, rhs)
     ! -- modules
@@ -2867,11 +2863,6 @@ contains
   !! The final convergence check compares the sum of water contributed
   !! by storage and water compressibility in the delay bed to the fluid
   !! exchange between the delay interbed and the gwf cell.
-  !!
-  !! @param[in,out]  cpak  string location of the maximum change in csub package
-  !! @param[in,out]  ipak  node with the maximum change in csub package
-  !! @param[in,out]  dpak  maximum change in csub package
-  !!
   !<
   subroutine csub_cc(this, innertot, kiter, iend, icnvgmod, nodes, &
                      hnew, hold, cpak, ipak, dpak)
@@ -3055,8 +3046,6 @@ contains
   !!  Flow calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
   !!  compressibility.
-  !!
-  !!  @param[in,out]  model_budget  model budget object
   !!
   !<
   subroutine csub_cq(this, nodes, hnew, hold, isuppress_output, flowja)
@@ -3354,9 +3343,6 @@ contains
   !!  Budget calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
   !!  compressibility.
-  !!
-  !!  @param[in,out]  model_budget  model budget object
-  !!
   !<
   subroutine csub_bd(this, isuppress_output, model_budget)
     ! -- modules
@@ -3999,11 +3985,6 @@ contains
   !!  interbed. The method also calculates the contribution of the
   !!  no-delay interbed to the right-hand side of the groundwater flow
   !!  equation for the cell.
-  !!
-  !!  @param[in,out]  rho1  no-delay storage value using Sske
-  !!  @param[in,out]  rho2  no-delay storage value using Ssk
-  !!  @param[in,out]  rhs   no-delay right-hand side contribution
-  !!
   !<
   subroutine csub_nodelay_fc(this, ib, hcell, hcellold, rho1, rho2, rhs, &
                              argtled)
@@ -4108,11 +4089,6 @@ contains
   !!
   !!  Method calculates the compaction for a no-delay interbed. The method
   !!  also calculates the storage coefficients for the no-delay interbed.
-  !!
-  !!  @param[in,out]  comp  no-delay compaction
-  !!  @param[in,out]  rho1  no-delay storage value using Sske
-  !!  @param[in,out]  rho2  no-delay storage value using Ssk
-  !!
   !<
   subroutine csub_nodelay_calc_comp(this, ib, hcell, hcellold, comp, rho1, rho2)
     ! -- dummy variables
@@ -4539,10 +4515,6 @@ contains
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_fc(this, node, tled, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -4605,10 +4577,6 @@ contains
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell when using the Newton-Raphson
   !!  formulation.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_fn(this, node, tled, area, hcell, hcof, rhs)
     ! -- dummy variables
@@ -4677,10 +4645,6 @@ contains
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for a interbed in a cell.
-  !!
-  !!  @param[in,out]  hcof  interbed A matrix entry
-  !!  @param[in,out]  rhs   interbed right-hand side entry
-  !!
   !<
   subroutine csub_interbed_fc(this, ib, node, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -4763,10 +4727,6 @@ contains
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for a interbed in a cell.
-  !!
-  !!  @param[in,out]  hcof  interbed A matrix entry
-  !!  @param[in,out]  rhs   interbed right-hand side entry
-  !!
   !<
   subroutine csub_interbed_fn(this, ib, node, hcell, hcellold, hcof, rhs)
     ! -- modules
@@ -4854,9 +4814,6 @@ contains
   !> @ brief Calculate Sske for a cell
   !!
   !!  Method calculates Sske for coarse-grained materials in a cell.
-  !!
-  !!  @param[in,out]  sske  coarse-grained Sske
-  !!
   !<
   subroutine csub_cg_calc_sske(this, n, sske, hcell)
     ! -- dummy variables
@@ -4911,9 +4868,6 @@ contains
   !> @ brief Calculate coarse-grained compaction in a cell
   !!
   !!  Method calculates coarse-grained compaction in a cell.
-  !!
-  !!  @param[in,out]  comp  coarse-grained compaction
-  !!
   !<
   subroutine csub_cg_calc_comp(this, node, hcell, hcellold, comp)
     ! -- dummy variables
@@ -4983,10 +4937,6 @@ contains
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
   !!  sediments.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_wcomp_fc(this, node, tled, area, hcell, hcellold, &
                               hcof, rhs)
@@ -5038,10 +4988,6 @@ contains
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
   !!  sediments.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_wcomp_fn(this, node, tled, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -5100,10 +5046,6 @@ contains
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
   !!  interbeds.
-  !!
-  !!  @param[in,out]  hcof  no-delay A matrix entry
-  !!  @param[in,out]  rhs   no-delay right-hand side entry
-  !!
   !<
   subroutine csub_nodelay_wcomp_fc(this, ib, node, tled, area, &
                                    hcell, hcellold, hcof, rhs)
@@ -5150,10 +5092,6 @@ contains
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
   !!  interbeds.
-  !!
-  !!  @param[in,out]  hcof  no-delay A matrix entry
-  !!  @param[in,out]  rhs   no-delay right-hand side entry
-  !!
   !<
   subroutine csub_nodelay_wcomp_fn(this, ib, node, tled, area, &
                                    hcell, hcellold, hcof, rhs)
@@ -5363,10 +5301,6 @@ contains
   !!
   !! Method to calculate the cell saturation for the current and
   !! previous time step.
-  !!
-  !! @param[in,out]  snnew  current saturation
-  !! @param[in,out]  snold  previous saturation
-  !!
   !<
   subroutine csub_calc_sat(this, node, hcell, hcellold, snnew, snold)
     ! -- dummy variables
@@ -5426,9 +5360,6 @@ contains
   !! Method to calculate the factor that is used to calculate skeletal
   !! specific storage coefficients. Can be used for coarse-grained
   !! materials and interbeds.
-  !!
-  !! @param[in,out]  fact  skeletal storage coefficient factor
-  !!
   !<
   subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, geo, fact)
     ! -- dummy variables
@@ -5478,17 +5409,13 @@ contains
   !> @brief Calculate new material properties
   !!
   !! Method to calculate the current thickness and porosity.
-  !!
-  !! @param[in,out]  thick  initial and current thickness
-  !! @param[in,out]  theta  initial and current porosity
-  !!
   !<
   subroutine csub_adj_matprop(this, comp, thick, theta)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     real(DP), intent(in) :: comp !< compaction
-    real(DP), intent(inout) :: thick !< thickness
-    real(DP), intent(inout) :: theta !< porosity
+    real(DP), intent(inout) :: thick !< initial and current thickness
+    real(DP), intent(inout) :: theta !< initial and current porosity
     ! -- local variables
     real(DP) :: strain
     real(DP) :: void_ratio
@@ -6202,10 +6129,6 @@ contains
   !> @brief Calculate delay interbed saturation
   !!
   !! Method to calculate the saturation in a delay interbed cell.
-  !!
-  !! @param[in,out]  snnew  current saturation in delay interbed cell n
-  !! @param[in,out]  snold  previous saturation in delay interbed cell n
-  !!
   !<
   subroutine csub_delay_calc_sat(this, node, idelay, n, hcell, hcellold, &
                                  snnew, snold)
@@ -6273,18 +6196,14 @@ contains
   !> @brief Calculate delay interbed storage change
   !!
   !! Method to calculate the storage change in a delay interbed.
-  !!
-  !! @param[in,out]  stoe   current elastic storage change in delay interbed
-  !! @param[in,out]  stoi   current inelastic storage changes in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_dstor(this, ib, hcell, stoe, stoi)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
     real(DP), intent(in) :: hcell !< current head in cell
-    real(DP), intent(inout) :: stoe !< elastic storage change
-    real(DP), intent(inout) :: stoi !< inelastic storage change
+    real(DP), intent(inout) :: stoe !< current elastic storage change in delay interbed
+    real(DP), intent(inout) :: stoi !< current inelastic storage change in delay interbed
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -6358,9 +6277,6 @@ contains
   !> @brief Calculate delay interbed water compressibility
   !!
   !! Method to calculate the change in water compressibility in a delay interbed.
-  !!
-  !! @param[in,out]  dwc    current water compressibility change in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_wcomp(this, ib, dwc)
     ! -- modules
@@ -6368,7 +6284,7 @@ contains
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
-    real(DP), intent(inout) :: dwc !< water compressibility change
+    real(DP), intent(inout) :: dwc !< current water compressibility change in delay interbed
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: node
@@ -6409,11 +6325,6 @@ contains
   !> @brief Calculate delay interbed compaction
   !!
   !! Method to calculate the compaction in a delay interbed.
-  !!
-  !! @param[in,out]  comp   compaction in delay interbed
-  !! @param[in,out]  compi  inelastic compaction in delay interbed
-  !! @param[in,out]  compe  elastic compaction in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_comp(this, ib, hcell, hcellold, comp, compi, compe)
     ! -- dummy variables
@@ -6569,10 +6480,6 @@ contains
   !! Method to calculate the coefficients to calculate the delay interbed
   !! contribution to a cell. The product of hcof* h - rhs equals the
   !! delay contribution to the cell
-  !!
-  !! @param[in,out]  hcof   coefficient dependent on current head
-  !! @param[in,out]  rhs    right-hand side contributions
-  !!
   !<
   subroutine csub_delay_fc(this, ib, hcof, rhs)
     ! -- dummy variables

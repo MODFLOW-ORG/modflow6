@@ -325,7 +325,7 @@ contains
 end module SampleModule
 ```
 
-#### Use [Doxygen format](https://www.doxygen.nl/manual/docblocks.html#fortranblocks) for docstrings. For dummy arguments, use either `@param ...` above the signature or `!< ...` next to the dummy argument.
+#### Use [Doxygen format](https://www.doxygen.nl/manual/docblocks.html#fortranblocks) for docstrings. For dummy arguments, use either `@param ...` above the signature or `!< ...` next to the dummy argument, but not both for the same argument. `!< ...` is preferred. To refer to an argument in prose, use `@p name`, not `@param name`.
 ```f90
 !> Description of the procedure.
 !! 

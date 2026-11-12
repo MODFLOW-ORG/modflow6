@@ -380,7 +380,7 @@ contains ! module procedures
   end subroutine maskOwnerConnections
 
   !> @brief Add connections, handled by the interface model,
-  !< to the global system's sparse
+  !! to the sparse matrix of the global system
   subroutine spatialcon_ac(this, sparse)
     class(SpatialModelConnectionType) :: this !< this connection
     type(sparsematrix), intent(inout) :: sparse !< sparse matrix to store the connections

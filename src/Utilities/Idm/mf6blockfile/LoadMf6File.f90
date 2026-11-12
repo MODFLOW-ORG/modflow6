@@ -1357,7 +1357,7 @@ contains
   !! For a block with time series capable double columns, allocate
   !! TSLINK_<id>, an integer array (ncol, nrow) that is nonzero where a row's
   !! value is linked to a time series, and TSLINKVARS_<id>, the names of its
-  !! columns, where <id> identifies the block (see tslink_id). Packages use
+  !! columns, where \<id\> identifies the block (see tslink_id). Packages use
   !! these to apply time series updates to linked values only.
   !<
   subroutine alloc_tslink(this, iblk)

@@ -138,7 +138,7 @@ contains
 
   !> @brief default name for a multi-package instance
   !!
-  !! Return the default '<TYPE>-<N>' name for the Nth instance of a
+  !! Return the default '\<TYPE\>-\<N\>' name for the Nth instance of a
   !! multi-package type, where N is the 1-based count of packages of
   !! this type encountered in an in-order traversal of the model
   !! namefile packages block.  This is the IDM internal package

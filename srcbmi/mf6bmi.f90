@@ -245,7 +245,7 @@ contains
   !! The strings will be written contiguously with stride equal to
   !! BMI_LENVARADDRESS and nul-terminated where the trailing spaces start:
   !!
-  !! c_names = 'variable_address_1\x00 ... variable_address_2\x00 ... ' etc.
+  !! c_names = 'variable_address_1\\0 ... variable_address_2\\0 ... ' etc.
   !<
   function get_input_var_names(c_names) result(bmi_status) &
     bind(C, name="get_input_var_names")

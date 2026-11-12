@@ -57,7 +57,7 @@ module GridFileReaderModule
 
 contains
 
-  !> @Brief Initialize the grid file reader.
+  !> @brief Initialize the grid file reader.
   subroutine initialize(this, iu)
     class(GridFileReaderType) :: this
     integer(I4B), intent(in) :: iu
