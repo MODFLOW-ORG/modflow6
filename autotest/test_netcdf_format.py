@@ -43,11 +43,11 @@ MF6 internal: modflow_model, modflow_grid, modflow_input
 import flopy
 import numpy as np
 import pytest
-import xarray as xr
-import xugrid as xu
 from framework import TestFramework
 
 nc = pytest.importorskip("netCDF4")
+xr = pytest.importorskip("xarray")
+xu = pytest.importorskip("xugrid")
 
 # WKT strings — distinct WKT1 and WKT2 for EPSG:26918 (NAD83 / UTM zone 18N)
 WKT1 = (

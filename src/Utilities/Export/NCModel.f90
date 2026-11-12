@@ -15,7 +15,8 @@ module NCModelExportModule
   use SimModule, only: store_error, store_error_filename
   use InputLoadTypeModule, only: ModelDynamicPkgsType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: ReadStateVarType, rsv_name
+  use LoadContextModule, only: ReadStateVarType, rsv_name, RS_VALUES, &
+                               RS_SERIES, RS_NETCDF
   use ListModule, only: ListType
 
   implicit none
@@ -52,9 +53,7 @@ module NCModelExportModule
     integer(I4B), dimension(:), pointer, &
       contiguous :: aux_reads => null() !< read state of each auxiliary variable
     logical(LGP), dimension(:), allocatable :: param_value !< param has input in effect
-    logical(LGP), dimension(:), allocatable :: param_series !< param linked to a series
     logical(LGP), dimension(:), allocatable :: aux_value !< aux has input in effect
-    logical(LGP), dimension(:), allocatable :: aux_series !< aux linked to a series
   contains
     procedure :: init => epkg_init
     procedure :: destroy => epkg_destroy
@@ -207,12 +206,10 @@ contains
 
     ! input in effect before the first period: the layer index array
     ! (e.g. IRCH, IEVT) is 1, other arrays have no input
-    allocate (this%param_value(nparam), this%param_series(nparam))
-    allocate (this%aux_value(naux), this%aux_series(naux))
+    allocate (this%param_value(nparam))
+    allocate (this%aux_value(naux))
     this%param_value = .false.
-    this%param_series = .false.
     this%aux_value = .false.
-    this%aux_series = .false.
     do n = 1, nparam
       if (param_names(n) == 'I'//trim(mf6_input%subcomponent_type(1:3))) &
         this%param_value(n) = .true.
@@ -222,8 +219,8 @@ contains
   !> @brief Update input in effect from the period block read states
   !!
   !! A block gives an array as values or as a time-array series. Arrays
-  !! not given keep their input; a series link ends at a block that does
-  !! not give the array, which then has no input until given values.
+  !! not given keep their input. An array linked to a series has no input
+  !! to export, and none after the link until it is given values.
   !<
   subroutine update_state(this)
     use TdisModule, only: kper
@@ -231,32 +228,23 @@ contains
     integer(I4B) :: n
     if (this%iper /= kper) return
     do n = 1, this%nparam
-      call set_state(this%param_reads(n)%invar, this%param_value(n), &
-                     this%param_series(n))
+      call set_state(this%param_reads(n)%invar, this%param_value(n))
     end do
     do n = 1, this%naux
-      call set_state(this%aux_reads(n), this%aux_value(n), this%aux_series(n))
+      call set_state(this%aux_reads(n), this%aux_value(n))
     end do
   end subroutine update_state
 
   !> @brief Set input in effect from a read state
   !<
-  subroutine set_state(invar, has_value, series)
+  subroutine set_state(invar, has_value)
     integer(I4B), intent(in) :: invar
     logical(LGP), intent(inout) :: has_value
-    logical(LGP), intent(inout) :: series
     select case (invar)
-    case (1)
+    case (RS_VALUES, RS_NETCDF)
       has_value = .true.
-      series = .false.
-    case (2)
+    case (RS_SERIES)
       has_value = .false.
-      series = .true.
-    case default
-      if (series) then
-        has_value = .false.
-        series = .false.
-      end if
     end select
   end subroutine set_state
 
@@ -281,8 +269,7 @@ contains
     class(ExportPackageType), intent(in) :: this
     integer(I4B), intent(in) :: iaux
     logical(LGP) :: exported
-    exported = .false.
-    if (iaux <= size(this%aux_value)) exported = this%aux_value(iaux)
+    exported = this%aux_value(iaux)
   end function aux_state
 
   !> @brief Set user node values from a loaded period array
@@ -317,9 +304,7 @@ contains
     class(ExportPackageType), intent(inout) :: this
     if (allocated(this%param_names)) deallocate (this%param_names)
     if (allocated(this%param_value)) deallocate (this%param_value)
-    if (allocated(this%param_series)) deallocate (this%param_series)
     if (allocated(this%aux_value)) deallocate (this%aux_value)
-    if (allocated(this%aux_series)) deallocate (this%aux_series)
     nullify (this%aux_reads)
   end subroutine epkg_destroy
 

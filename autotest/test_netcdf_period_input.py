@@ -28,6 +28,8 @@ periods while an array carries forward):
         RECHARGE in 3, RECHARGE series in 4, no block in 5, IRCH only in 6.
     rcha_aux: RCHA with auxiliary variables TAG1 (values), TAG2 (series,
         ends at the period 3 block) and TAG3 (never given).
+    rcha_empty: RCHA, RECHARGE series in period 1, empty block in 2 (the
+        link ends and recharge is zero), RECHARGE values in 3.
     evta_multi: EVTA, SURFACE, RATE and DEPTH in period 1, RATE only in 2,
         no block in 3.
     welg_carry: WELG, Q and AUX in period 1, no block in period 2, Q at the
@@ -41,10 +43,11 @@ periods while an array carries forward):
 import re
 
 import flopy
-import netCDF4
 import numpy as np
 import pytest
 from framework import TestFramework
+
+netCDF4 = pytest.importorskip("netCDF4")
 
 DNODATA = 3.0e30
 nlay, nrow, ncol = 2, 3, 3
@@ -56,6 +59,7 @@ NOBLOCK = object()
 cases = {
     "rcha_multi": ("rcha", "RCH", "layer"),
     "rcha_aux": ("rcha", "RCH", "layer"),
+    "rcha_empty": ("rcha", "RCH", "layer"),
     "evta_multi": ("evta", "EVT", "layer"),
     "welg_carry": ("welg", "WEL", "compressed"),
     "welg_aux2": ("welg", "WEL", "compressed"),
@@ -213,6 +217,16 @@ def build_layer(ws, name, dis):
         options = ["READASARRAYS", f"TAS6 FILEIN {name}.rcha.tas"]
         series = {"rts": {3.0: 0.003, 4.0: 0.004, 6.0: 0.004}}
         integer = ("irch",)
+    elif name == "rcha_empty":
+        flopy.mf6.ModflowGwfrcha(gwf, recharge=0.0, filename=f"{name}.rcha")
+        spec = {
+            1: {"recharge": ("series", "rts")},
+            2: {},
+            3: {"recharge": layer_values(0.002)},
+        }
+        options = ["READASARRAYS", f"TAS6 FILEIN {name}.rcha.tas"]
+        series = {"rts": {0.0: 0.001, 1.0: 0.003, 3.0: 0.003}}
+        integer = ("irch",)
     elif name == "rcha_aux":
         flopy.mf6.ModflowGwfrcha(gwf, recharge=0.0, filename=f"{name}.rcha")
         spec = {
@@ -357,6 +371,7 @@ def expected_state(spec, nper, tags, mode, aux=(), index_tag=None):
                     if t not in blk:
                         state[t] = None
                         linked.pop(t)
+            # no case gives an empty or aux-only grid array block
             if mode == "compressed" and not blk:
                 state = dict.fromkeys(tags)
                 linked = {}

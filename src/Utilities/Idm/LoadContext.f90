@@ -23,6 +23,7 @@ module LoadContextModule
   private
   public :: LoadContextType
   public :: ReadStateVarType
+  public :: RS_UNSET, RS_NONE, RS_VALUES, RS_SERIES, RS_NETCDF
   public :: rsv_name
   public :: tslink_id
   public :: is_keystring_period
@@ -35,6 +36,18 @@ module LoadContextModule
     enumerator :: LAYERARRAY = 2 !< readasarrays load
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
     enumerator :: KEYSTRING = 4 !< keystring period block load
+  end enum
+
+  !> @brief Read state of a period array (e.g. INRECHARGE)
+  !!
+  !! Set for each period block load.
+  !<
+  enum, bind(C)
+    enumerator :: RS_UNSET = -1 !< not in use
+    enumerator :: RS_NONE = 0 !< not given in the most recent period block
+    enumerator :: RS_VALUES = 1 !< values given in the most recent period block
+    enumerator :: RS_SERIES = 2 !< time-array series given in the most recent period block
+    enumerator :: RS_NETCDF = 3 !< values read from NetCDF in the most recent period block
   end enum
 
   !> @brief Pointer type for read state variable
@@ -895,13 +908,8 @@ contains
 
   !> @brief allocate a read state variable
   !!
-  !! Create and set a read state variable, e.g. 'INRECHARGE',
-  !! which are updated per iper load as follows:
-  !! -1: unset, not in use
-  !!  0: not read in most recent period block
-  !!  1: numeric input read in most recent period block
-  !!  2: time series input read in most recent period block
-  !!
+  !! Create a read state variable, e.g. 'INRECHARGE', set to RS_UNSET.
+  !! Loaders update it for each period block (see RS_*).
   !<
   function rsv_alloc(this, mf6varname) result(varname)
     use ConstantsModule, only: LENVARNAME
@@ -912,7 +920,7 @@ contains
     integer(I4B), pointer :: intvar
     varname = rsv_name(mf6varname)
     call mem_allocate(intvar, varname, this%mf6_input%mempath)
-    intvar = -1
+    intvar = RS_UNSET
   end function rsv_alloc
 
   !> @brief destroy input context object

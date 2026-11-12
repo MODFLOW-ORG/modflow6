@@ -17,7 +17,8 @@ module LayerArrayLoadModule
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType
+  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
+                               RS_VALUES, RS_SERIES, RS_NETCDF
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                           tasmanager_cr
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
@@ -191,11 +192,11 @@ contains
           call parser%GetStringCaps(tas_name)
           if (param_tag == 'AUX') then
             this%aux_tasnames(iaux) = tas_name
-            this%aux_reads(iaux) = 2
+            this%aux_reads(iaux) = RS_SERIES
           else
             iparam = ifind(this%param_names, param_tag)
             this%param_tasnames(iparam) = tas_name
-            this%param_reads(iparam)%invar = 2
+            this%param_reads(iparam)%invar = RS_SERIES
           end if
           ! log variable
           call idm_log_var(param_tag, this%mf6_input%mempath, this%iout, .true., &
@@ -248,9 +249,9 @@ contains
 
     do n = 1, this%nparam
       ! reset read state
-      this%param_reads(n)%invar = 0
+      this%param_reads(n)%invar = RS_NONE
     end do
-    this%aux_reads = 0
+    this%aux_reads = RS_NONE
 
   end subroutine reset
 
@@ -290,13 +291,13 @@ contains
       rs_varname = this%ctx%rsv_alloc(this%param_names(iparam))
       call mem_setptr(intvar, rs_varname, this%mf6_input%mempath)
       this%param_reads(iparam)%invar => intvar
-      this%param_reads(iparam)%invar = 0
+      this%param_reads(iparam)%invar = RS_NONE
     end do
 
     ! read state of each auxiliary variable
     call mem_allocate(this%aux_reads, this%ctx%naux, 'INAUXVARS', &
                       this%mf6_input%mempath)
-    this%aux_reads = 0
+    this%aux_reads = RS_NONE
   end subroutine params_alloc
 
   subroutine param_load(this, parser, idt, mempath, netcdf, iaux)
@@ -357,7 +358,7 @@ contains
       end do
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
       deallocate (dbl1d)
-      this%aux_reads(iaux) = 1
+      this%aux_reads(iaux) = merge(RS_NETCDF, RS_VALUES, netcdf)
     case default
       errmsg = 'IDM unimplemented. LayerArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
@@ -368,7 +369,7 @@ contains
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)
     if (iparam > 0) then
-      this%param_reads(iparam)%invar = 1
+      this%param_reads(iparam)%invar = merge(RS_NETCDF, RS_VALUES, netcdf)
     end if
   end subroutine param_load
 
@@ -438,7 +439,7 @@ contains
                                        'PERIOD', this%param_names(n), &
                                        this%input_name)
       if (idt%timeseries) then
-        if (this%param_reads(n)%invar == 2) then
+        if (this%param_reads(n)%invar == RS_SERIES) then
           tas_name = this%param_tasnames(n)
           call mem_setptr(bound, idt%mf6varname, this%mf6_input%mempath)
           ! set bound pointer
