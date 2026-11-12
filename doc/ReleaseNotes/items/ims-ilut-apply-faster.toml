@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "solution"
-description = "Applying the ILUT and MILUT preconditioners, used with COMPLEXITY COMPLEX or PRECONDITIONER_LEVELS greater than zero, is faster because each row is summed in a local variable instead of in the solution array. Results are unchanged."
+description = "Applying the ILUT and MILUT preconditioners, used with COMPLEXITY COMPLEX or PRECONDITIONER\\_LEVELS greater than zero, is faster because each row is summed in a local variable instead of in the solution array. Results are unchanged."
