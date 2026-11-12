@@ -1,6 +1,6 @@
 module UzfCellGroupModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM30, DEM20, DEM15, DEM14, DEM12, DEM10, &
                              DEM9, DEM7, DEM6, DEM5, DEM4, DEM3, DHALF, DONE, &
                              DTWO, DTHREE, DEP20
@@ -1409,14 +1409,14 @@ contains
     real(DP) :: comp1, comp2, thsrinv, epsfksths
     real(DP) :: eps_m1, fhold, comp3
     !
-    eps_m1 = eps - DONE
-    thsrinv = DONE / (thts - thtr)
-    epsfksths = eps * vks * thsrinv
     comp1 = theta2 - theta1
     comp2 = abs(flux2 - flux1)
     comp3 = theta1 - thtr
     if (comp2 < DEM15) flux2 = flux1 + DEM15
     if (abs(comp1) < DEM30) then
+      eps_m1 = eps - DONE
+      thsrinv = DONE / (thts - thtr)
+      epsfksths = eps * vks * thsrinv
       fhold = DEM30
       if (comp3 > DEM30) fhold = (comp3 * thsrinv)**eps
       if (fhold < DEM30) fhold = DEM30
@@ -1447,9 +1447,11 @@ contains
     if (d1 > this%uzdpst(1, icell)) d1 = this%uzdpst(1, icell)
     !
     ! -- find deepest wave above depth d1, counter held as j
-    do while (k > 0)
-      if (this%uzdpst(k, icell) - d1 < -DEM30) j = k
-      k = k - 1
+    do k = 1, this%nwavst(icell)
+      if (this%uzdpst(k, icell) - d1 < -DEM30) then
+        j = k
+        exit
+      end if
     end do
     if (j > this%nwavst(icell)) then
       fm = fm + (this%uzthst(this%nwavst(icell), icell) - this%thtr(icell)) * d1
@@ -1585,6 +1587,8 @@ contains
     integer(I4B) :: k
     integer(I4B) :: nwv
     integer(I4B) :: itest
+    real(DP) :: fluxprev
+    logical(LGP) :: hasprev
     !
     ! -- initialize
     this%etact(icell) = DZERO
@@ -1810,7 +1814,9 @@ contains
           kk = 1
         end if
         !
-        ! -- all waves above extinction depth
+        ! -- all waves above extinction depth. fluxprev holds the flux
+        ! -- just computed for wave kk - 1, if any, so it isn't recomputed.
+        hasprev = .false.
         do while (kk <= this%nwavst(icell))
           if (ietflag == 2) then
             tho = this%uzthst(kk, icell)
@@ -1830,15 +1836,22 @@ contains
                 this%vks(icell) * &
                 (((this%uzthst(kk, icell) - &
                    this%thtr(icell)) * thtsrinv)**this%eps(icell))
+              fluxprev = this%uzflst(kk, icell)
             end if
             if (kk > 1) then
-              flux1 = &
-                this%vks(icell) * ((this%uzthst(kk - 1, icell) - &
-                                    this%thtr(icell)) * thtsrinv)**this%eps(icell)
+              if (hasprev) then
+                flux1 = fluxprev
+              else
+                flux1 = &
+                  this%vks(icell) * ((this%uzthst(kk - 1, icell) - &
+                                      this%thtr(icell)) * &
+                                     thtsrinv)**this%eps(icell)
+              end if
               flux2 = &
                 this%vks(icell) * ((this%uzthst(kk, icell) - &
                                     this%thtr(icell)) * thtsrinv)**this%eps(icell)
               this%uzflst(kk, icell) = flux2
+              fluxprev = flux2
               theta2 = this%uzthst(kk, icell)
               theta1 = this%uzthst(kk - 1, icell)
               this%uzspst(kk, icell) = leadspeed(theta1, theta2, flux1, flux2, &
@@ -1846,6 +1859,9 @@ contains
                                                  this%thtr(icell), &
                                                  this%eps(icell), this%vks(icell))
             end if
+            hasprev = .true.
+          else
+            hasprev = .false.
           end if
           kk = kk + 1
         end do
