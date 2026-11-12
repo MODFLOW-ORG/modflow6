@@ -1368,7 +1368,7 @@ contains
         if (vol > DZERO) exit
         ! -- set lake bottom
         this%lakebot(ilak) = laketable%tabstage(n)
-        this%belev(ilak) = laketable%tabstage(n)
+        this%belev(iconn) = laketable%tabstage(n)
       end do
       ! -- set maximum surface area for rainfall
       n = this%ntabrow(ilak)
