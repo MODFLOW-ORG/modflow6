@@ -35,6 +35,7 @@ TEX_PATHS = {
     "develop": [
         MF6IO_PATH / "mf6io.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
+        DOCS_PATH / "SuppTechInfo" / "mf6suptechinfo.tex",
     ],
     "release": [
         MF6IO_PATH / "mf6io.tex",
@@ -315,11 +316,14 @@ def build_pdfs(
                         "-interaction=nonstopmode",
                         "-halt-on-error",
                         tex_path.name,
+                        verbose=True,
                     )
                     buff = out + err
                     assert not ret, buff
                     if first:
-                        out, err, ret = run_cmd("bibtex", tex_path.stem + ".aux")
+                        out, err, ret = run_cmd(
+                            "bibtex", tex_path.stem + ".aux", verbose=True
+                        )
                         buff = out + err
                         assert not ret or "I found no" in buff, buff
                         first = False
@@ -448,11 +452,11 @@ def build_documentation(
 
     # make sure we have expected PDFs
     assert pdf_path.is_file()
+    assert (out_path / "mf6suptechinfo.pdf").is_file()
     if not developmode:
         assert (out_path / "ReleaseNotes.pdf").is_file()
         assert (out_path / "zonebudget.pdf").is_file()
         assert (out_path / "converter_mf5to6.pdf").is_file()
-        assert (out_path / "mf6suptechinfo.pdf").is_file()
         assert (out_path / "mf6examples.pdf").is_file()
 
 
