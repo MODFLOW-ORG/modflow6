@@ -58,9 +58,9 @@ module GwfVscModule
     real(DP), dimension(:), pointer, contiguous :: k11 => null() !< NPF hydraulic conductivity; if anisotropic, then this is Kx prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< NPF hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< NPF hydraulic conductivity; if specified then this is Kz prior to rotation
-    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< NPF hydraulic conductivity as originally specified by the user
-    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< NPF hydraulic conductivity as originally specified by the user
-    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< NPF hydraulic conductivity as originally specified by the user
+    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
     integer(I4B), pointer :: kchangeper => null() ! last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() ! last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() ! grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
@@ -829,8 +829,8 @@ contains
     real(DP) :: viscratio
     !
     ! -- For viscosity-based K's, apply change of K to K11 by starting with
-    !    user-specified K values and not the K's leftover from the last viscosity
-    !    update.
+    !    K before VSC adjustment (including TVK changes) and not the K's
+    !    leftover from the last viscosity update.
     do n = 1, this%dis%nodes
       call this%calc_q_visc(n, viscratio)
       this%k11(n) = this%k11input(n) * viscratio
