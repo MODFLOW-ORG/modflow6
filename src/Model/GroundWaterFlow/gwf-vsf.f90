@@ -106,6 +106,15 @@ contains
     this%dis => dis
     this%npf => npf
 
+    ! the XT3D option in the NPF package is not supported with Richards (VSF)
+    ! flow
+    if (npf%ixt3d /= 0) then
+      write (errmsg, '(a,a)') &
+        'The XT3D option in the NPF package is not supported with the Variably &
+        &Saturated Flow (VSF) package in model ', trim(this%name_model)
+      call store_error(errmsg, .true.)
+    end if
+
     ! allocate arrays
     call mem_allocate(this%ivarsat, dis%nodes, "IVARSAT", this%memoryPath)
     call mem_allocate(this%porosity, dis%nodes, 'POROSITY', this%memoryPath)
