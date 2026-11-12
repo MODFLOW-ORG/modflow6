@@ -207,8 +207,23 @@ jobs:
             modflow6/distribution/ReleaseNotes.pdf
             modflow6/distribution/zonebudget.pdf
             modflow6/distribution/converter_mf5to6.pdf
-            modflow6/distribution/mf6suptechinfo.pdf
             modflow6/distribution/mf6examples.pdf
+
+      # build-docs only builds the supplemental technical information in
+      # release mode, so build it here to review changes to it
+      - name: Build supplemental technical information PDF
+        working-directory: modflow6/distribution
+        run: |
+          pixi run python -c "
+          from build_docs import DOCS_PATH, build_pdfs
+          build_pdfs([DOCS_PATH / 'SuppTechInfo' / 'mf6suptechinfo.tex'], '.', force=True)
+          "
+
+      - name: Upload supplemental technical information PDF
+        uses: actions/upload-artifact@v7
+        with:
+          name: mf6suptechinfo.pdf
+          path: modflow6/distribution/mf6suptechinfo.pdf
 
   rtd_trigger:
     name: rtd-trigger
