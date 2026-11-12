@@ -21,6 +21,8 @@ EXCLUDE = [
     "test205_gwtbuy-henrytidal",
     # todo reinstate after 6.7.0 release
     "test028_sfr_rewet",
+    # todo reinstate after 6.9.0 release (embedded lake bottom fix)
+    "test045_lake4ss_nr_embedded",
     # todo reinstate after 6.5.0 release
     "test001d_Tnewton",
     # todo reinstate after resolving convergence failure
