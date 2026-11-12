@@ -246,7 +246,8 @@ contains
     real(DP), dimension(:), intent(in) :: h_old
     real(DP), dimension(:), intent(in) :: h_new
 
-    ! TODO_VSF
+    ! this is a noop, newton is done in the regular fc branch
+    return
 
   end subroutine uft_fn
 

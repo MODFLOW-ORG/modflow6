@@ -29,6 +29,7 @@ module VsspModule
     real(DP), dimension(:), pointer, contiguous :: gwfk33 => null() !< NPF vertical hydraulic conductivity (K33), not owned
     integer(I4B), pointer :: gwfik33 => null() !< NPF flag indicating whether K33 was specified, not owned
     real(DP), dimension(:), pointer, contiguous :: gwfkrel => null() !< NPF relative permeability (KREL), not owned
+    real(DP), dimension(:), pointer, contiguous :: gwfdkrdh => null() !< NPF head derivative of the relative permeability (DKRDH), not owned
     integer(I4B), dimension(:), pointer, contiguous :: vsfivarsat => null() !< VSF flag, 1 for Richards (unsaturated) nodes, not owned
   contains
     procedure :: allocate_scalars => vssp_allocate_scalars
@@ -141,6 +142,12 @@ contains
     ! set pointer to the NPF relative permeability (not owned).  KREL is 1.0
     ! for saturated cells and is reduced by the VSF unsaturated formulation.
     call mem_setptr(this%gwfkrel, 'KREL', &
+                    create_mem_path(this%name_model, 'NPF'))
+
+    ! set pointer to the NPF head derivative of the relative permeability (not
+    ! owned), used to formulate the Newton-Raphson terms.  DKRDH is 0 unless the
+    ! VSF unsaturated formulation populates it.
+    call mem_setptr(this%gwfdkrdh, 'DKRDH', &
                     create_mem_path(this%name_model, 'NPF'))
 
     ! VSSP may only be applied to Richards (VSF) cells, so the VSF package must
@@ -261,7 +268,10 @@ contains
 
   end subroutine vssp_fc
 
-  !> @brief TODO_VSSP: Fill newton terms
+  !> @brief Fill the Newton-Raphson terms
+  !!
+  !! Adds the Newton term from the head dependence of the relative permeability
+  !! in the seeping regime; the frozen-conductance part is already in vssp_fc.
   !<
   subroutine vssp_fn(this, rhs, ia, idxglo, matrix_sln)
     class(VsspType) :: this
@@ -269,7 +279,32 @@ contains
     integer(I4B), dimension(:), intent(in) :: ia
     integer(I4B), dimension(:), intent(in) :: idxglo
     class(MatrixBaseType), pointer :: matrix_sln
-    return
+    ! local
+    integer(I4B) :: i, node, ipos
+    real(DP) :: z, head, cbase, deriv
+
+    if (this%nbound == 0) return
+
+    do i = 1, this%nbound
+      node = this%nodelist(i)
+      if (this%ibound(node) <= 0) cycle
+
+      ! seepage-face elevation datum and switch, matching vssp_cf
+      z = DHALF * (this%dis%bot(node) + this%dis%top(node))
+      head = this%xnew(node)
+      if (head <= z) cycle
+
+      ! Newton term from the head dependence of the relative permeability:
+      ! deriv = (dkr/dh) * cbase * (z - head), with cbase the conductance at
+      ! unit relative permeability
+      cbase = this%effective_k(node, this%ihc(i)) * this%hwva(i) / this%cl1(i)
+      deriv = this%gwfdkrdh(node) * cbase * (z - head)
+
+      ipos = ia(node)
+      call matrix_sln%add_value_pos(idxglo(ipos), deriv)
+      rhs(node) = rhs(node) + deriv * head
+    end do
+
   end subroutine vssp_fn
 
   !> @brief Verify that every seepage cell is a Richards (VSF) cell
@@ -351,6 +386,7 @@ contains
     nullify (this%gwfk33)
     nullify (this%gwfik33)
     nullify (this%gwfkrel)
+    nullify (this%gwfdkrdh)
 
     ! VSF IVARSAT flag array is owned by VSF; just disassociate
     nullify (this%vsfivarsat)
