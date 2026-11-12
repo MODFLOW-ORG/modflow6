@@ -575,7 +575,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n logical test_scripts.py
+          pytest -v -n logical --dist worksteal --durations 0 test_scripts.py
 
       - name: Test examples
         working-directory: modflow6
@@ -583,7 +583,7 @@ jobs:
         run: |
           cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n logical test_scripts.py
+          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n logical --dist worksteal --durations 0 test_scripts.py
 
       - name: Upload failed test output
         if: failure()
@@ -755,7 +755,7 @@ jobs:
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pytest -v -n logical test_scripts.py
+          pytest -v -n logical --dist worksteal --durations 0 test_scripts.py
 
       - name: Upload failed test output
         if: failure()
