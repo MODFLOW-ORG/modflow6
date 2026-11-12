@@ -229,6 +229,25 @@ contains
     !
     ! -- Define packages and utility objects
     call this%dis%dis_df()
+
+    ! -- VSF (Richards flow) is not supported with the Buoyancy (BUY) or
+    !    Viscosity (VSC) Packages
+    if (this%invsf > 0) then
+      if (this%inbuy > 0) then
+        write (errmsg, '(a)') &
+          'The Buoyancy (BUY) Package cannot be used with the Variably &
+          &Saturated Flow (VSF) Package.'
+        call store_error(errmsg)
+      end if
+      if (this%invsc > 0) then
+        write (errmsg, '(a)') &
+          'The Viscosity (VSC) Package cannot be used with the Variably &
+          &Saturated Flow (VSF) Package.'
+        call store_error(errmsg)
+      end if
+      if (count_errors() > 0) call store_error_filename(this%filename)
+    end if
+
     call this%npf%npf_df(this%dis, this%xt3d, this%ingnc, this%invsc)
     if (this%invsf > 0) call this%vsf%vsf_df(this%dis, this%npf, this%sto)
     call this%oc%oc_df()
