@@ -28,7 +28,7 @@ module GwfVsetModule
     real(DP), pointer :: h3 => null() !< Feddes dry end of optimal range
     real(DP), pointer :: h4 => null() !< Feddes wilting point pressure head
     real(DP), dimension(:), pointer, contiguous :: rate => null() !< potential transpiration rate
-    integer(I4B), dimension(:), pointer, contiguous :: iunsat => null() !< VSF unsaturated-cell indicator (not owned)
+    integer(I4B), dimension(:), pointer, contiguous :: ivarsat => null() !< VSF unsaturated-cell indicator (not owned)
     class(EtUptakeModelType), pointer :: uptake_model => null() !< pressure-head uptake model
   contains
     procedure :: allocate_scalars => vset_allocate_scalars
@@ -125,7 +125,7 @@ contains
     ! VSET can only be applied on VSF (Richards) cells, so VSF must be active;
     ! bind its unsaturated-cell indicator for per-cell validation
     vsf_mempath = create_mem_path(this%name_model, 'VSF')
-    call get_isize('IUNSAT', vsf_mempath, isize)
+    call get_isize('IVARSAT', vsf_mempath, isize)
     if (isize < 0) then
       write (errmsg, '(a)') 'The VSET package requires the VSF package to be '// &
         'active in the same GWF model.'
@@ -133,7 +133,7 @@ contains
       call store_error_filename(this%input_fname)
       return
     end if
-    call mem_setptr(this%iunsat, 'IUNSAT', vsf_mempath)
+    call mem_setptr(this%ivarsat, 'IVARSAT', vsf_mempath)
 
   end subroutine vset_allocate_arrays
 
@@ -237,15 +237,15 @@ contains
 
     call this%BndExtType%bnd_rp()
 
-    if (.not. associated(this%iunsat)) return
+    if (.not. associated(this%ivarsat)) return
 
     do i = 1, this%nbound
       node = this%nodelist(i)
       if (node <= 0) cycle
-      if (this%iunsat(node) /= 1) then
+      if (this%ivarsat(node) /= 1) then
         write (errmsg, '(a,i0,a)') 'VSET cell at reduced node ', node, &
           ' is not a VSF (Richards) cell.  VSET may only be applied where '// &
-          'IUNSAT is active in the VSF package.'
+          'IVARSAT is active in the VSF package.'
         call store_error(errmsg)
       end if
     end do
@@ -329,8 +329,8 @@ contains
 
     call destroy_uptake_model(this%uptake_model)
 
-    ! iunsat is owned by the VSF package; just drop the alias
-    this%iunsat => null()
+    ! ivarsat is owned by the VSF package; just drop the alias
+    this%ivarsat => null()
 
     call mem_deallocate(this%et_model_id)
     call mem_deallocate(this%h1)

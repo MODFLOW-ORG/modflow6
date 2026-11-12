@@ -33,7 +33,7 @@ module GwfVsfModule
     integer(I4B), pointer :: soil_model_kr_id => null() !< separate soil model id for relative permeability (development)
     class(SoilModelType), pointer :: soil_model_kr => null() !< alternative soil model for relative permeability (development)
     integer(I4B), pointer :: kr_averaging => null() !< 0 = default, 1 = geometric, 2 = arithm. mean, 3 = upstream
-    integer(I4B), dimension(:), pointer, contiguous :: iunsat => null() !< 0 = standard node, 1 = unsaturated (Richards) node
+    integer(I4B), dimension(:), pointer, contiguous :: ivarsat => null() !< 0 = standard node, 1 = unsaturated (Richards) node
     real(DP), dimension(:), pointer, contiguous :: porosity => null() !< the volumetric fraction of the pore space
     real(DP), dimension(:), pointer, contiguous :: sat_res => null() !< residual (also irreducible) saturation
     real(DP), dimension(:), pointer, contiguous :: pressure_head => null() !< pressure head
@@ -107,7 +107,7 @@ contains
     this%npf => npf
 
     ! allocate arrays
-    call mem_allocate(this%iunsat, dis%nodes, "IUNSAT", this%memoryPath)
+    call mem_allocate(this%ivarsat, dis%nodes, "IVARSAT", this%memoryPath)
     call mem_allocate(this%porosity, dis%nodes, 'POROSITY', this%memoryPath)
     call mem_allocate(this%sat_res, dis%nodes, 'SATRES', this%memoryPath)
     call mem_allocate(this%pressure_head, dis%nodes, 'PHEAD', this%memoryPath)
@@ -126,10 +126,10 @@ contains
 
     ! validate
     do n = 1, dis%nodes
-      if (this%iunsat(n) == 0) then
+      if (this%ivarsat(n) == 0) then
         write (errmsg, '(a,a)') &
           'Activating Richards flow in part of the model domain is not yet&
-          & supported. Modify IUNSAT in VSF package for model ', &
+          & supported. Modify IVARSAT in VSF package for model ', &
           trim(this%name_model)
         call store_error(errmsg, .true.)
       end if
@@ -147,7 +147,7 @@ contains
 
     ! inject Richards into NPF:
     allocate (this%vsf_flow)
-    call this%vsf_flow%initialize(this%iunsat, this%kr_averaging, &
+    call this%vsf_flow%initialize(this%ivarsat, this%kr_averaging, &
                                   this%soil_model_kr, dis, npf)
 
     npf_formulation => this%vsf_flow
@@ -155,7 +155,7 @@ contains
 
     ! inject storage calculation
     allocate (this%vsf_sto)
-    call this%vsf_sto%initialize(this%iunsat, this%storage_scheme, &
+    call this%vsf_sto%initialize(this%ivarsat, this%storage_scheme, &
                                  this%soil_model, dis, sto)
 
     sto_ext => this%vsf_sto
@@ -269,8 +269,8 @@ contains
     map => null()
     if (this%dis%nodes < this%dis%nodesuser) map => this%dis%nodeuser
 
-    call mem_set_value(this%iunsat, 'IUNSAT', this%input_mempath, &
-                       map, found%iunsat)
+    call mem_set_value(this%ivarsat, 'IVARSAT', this%input_mempath, &
+                       map, found%ivarsat)
     call mem_set_value(this%porosity, 'POROSITY', this%input_mempath, &
                        map, found%porosity)
     call mem_set_value(this%sat_res, 'SATRES', this%input_mempath, &
@@ -294,13 +294,13 @@ contains
     ! unsaturated (Richards) nodes require non-convertible NPF cells
     nbad = 0
     do n = 1, this%dis%nodes
-      if (this%iunsat(n) > 0) then
+      if (this%ivarsat(n) > 0) then
         if (npf%icelltype(n) /= 0) then
           nbad = nbad + 1
           ! only report the first max_reported nodes individually
           if (nbad <= max_reported) then
             write (errmsg, '(a,1x,i0,1x,a)') &
-              'VSF node', n, 'is flagged as unsaturated (IUNSAT > 0) but &
+              'VSF node', n, 'is flagged as unsaturated (IVARSAT > 0) but &
               &is configured as convertible (ICELLTYPE /= 0) in NPF. &
               &Unsaturated nodes must have a non-convertible cell type.'
             call store_error(errmsg)
@@ -352,7 +352,7 @@ contains
     real(DP) :: z, psi
 
     do n = 1, this%dis%nodes
-      if (this%iunsat(n) == 0) cycle
+      if (this%ivarsat(n) == 0) cycle
 
       ! calculate psi
       z = DHALF * (this%dis%bot(n) + this%dis%top(n))
@@ -417,7 +417,7 @@ contains
       call this%vsf_sto%destroy()
       deallocate (this%vsf_sto)
 
-      call mem_deallocate(this%iunsat)
+      call mem_deallocate(this%ivarsat)
       call mem_deallocate(this%porosity)
       call mem_deallocate(this%sat_res)
       call mem_deallocate(this%pressure_head)

@@ -25,7 +25,7 @@ module GwfVsfInputModule
     logical :: phead_filerecord = .false.
     logical :: pressurehead = .false.
     logical :: pheadfile = .false.
-    logical :: iunsat = .false.
+    logical :: ivarsat = .false.
     logical :: porosity = .false.
     logical :: satres = .false.
     logical :: alphahvk = .false.
@@ -274,13 +274,13 @@ module GwfVsfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwfvsf_iunsat = InputParamDefinitionType &
+    gwfvsf_ivarsat = InputParamDefinitionType &
     ( &
     'GWF', & ! component
     'VSF', & ! subcomponent
     'GRIDDATA', & ! block
-    'IUNSAT', & ! tag name
-    'IUNSAT', & ! fortran variable
+    'IVARSAT', & ! tag name
+    'IVARSAT', & ! fortran variable
     'INTEGER1D', & ! type
     'NODES', & ! shape
     'unsaturated zone indicator', & ! longname
@@ -459,7 +459,7 @@ module GwfVsfInputModule
     gwfvsf_phead_filerecord, &
     gwfvsf_pressurehead, &
     gwfvsf_pheadfile, &
-    gwfvsf_iunsat, &
+    gwfvsf_ivarsat, &
     gwfvsf_porosity, &
     gwfvsf_satres, &
     gwfvsf_alphahvk, &

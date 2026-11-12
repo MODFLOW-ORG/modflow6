@@ -125,7 +125,7 @@ description name of the binary output file to write pressure head data.  The pre
 # --------------------- gwf vsf griddata ---------------------
 
 block griddata
-name iunsat
+name ivarsat
 type integer
 shape (nodes)
 valid

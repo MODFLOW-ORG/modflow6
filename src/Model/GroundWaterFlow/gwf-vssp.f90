@@ -29,7 +29,7 @@ module VsspModule
     real(DP), dimension(:), pointer, contiguous :: gwfk33 => null() !< NPF vertical hydraulic conductivity (K33), not owned
     integer(I4B), pointer :: gwfik33 => null() !< NPF flag indicating whether K33 was specified, not owned
     real(DP), dimension(:), pointer, contiguous :: gwfkrel => null() !< NPF relative permeability (KREL), not owned
-    integer(I4B), dimension(:), pointer, contiguous :: vsfiunsat => null() !< VSF flag, 1 for Richards (unsaturated) nodes, not owned
+    integer(I4B), dimension(:), pointer, contiguous :: vsfivarsat => null() !< VSF flag, 1 for Richards (unsaturated) nodes, not owned
   contains
     procedure :: allocate_scalars => vssp_allocate_scalars
     procedure :: allocate_arrays => vssp_allocate_arrays
@@ -144,9 +144,9 @@ contains
                     create_mem_path(this%name_model, 'NPF'))
 
     ! VSSP may only be applied to Richards (VSF) cells, so the VSF package must
-    ! be active.  Point at its IUNSAT flag array when present; the per-cell
+    ! be active.  Point at its IVARSAT flag array when present; the per-cell
     ! requirement is verified in vssp_ck.
-    call get_isize('IUNSAT', create_mem_path(this%name_model, 'VSF'), isize)
+    call get_isize('IVARSAT', create_mem_path(this%name_model, 'VSF'), isize)
     if (isize < 0) then
       write (errmsg, '(a)') &
         'The VSSP package can only be used with the VSF (Richards) package, &
@@ -154,7 +154,7 @@ contains
       call store_error(errmsg)
       call store_error_filename(this%input_fname)
     else
-      call mem_setptr(this%vsfiunsat, 'IUNSAT', &
+      call mem_setptr(this%vsfivarsat, 'IVARSAT', &
                       create_mem_path(this%name_model, 'VSF'))
     end if
 
@@ -275,7 +275,7 @@ contains
   !> @brief Verify that every seepage cell is a Richards (VSF) cell
   !!
   !! The VSSP package may only be applied to unsaturated (Richards) cells, which
-  !! are flagged by the VSF package through its IUNSAT array (1 for a Richards
+  !! are flagged by the VSF package through its IVARSAT array (1 for a Richards
   !! node).  A missing VSF package is reported in vssp_allocate_arrays.
   !<
   subroutine vssp_ck(this)
@@ -286,14 +286,14 @@ contains
     ! formats
     character(len=*), parameter :: fmtvssperr = &
       "('VSSP BOUNDARY ',i0,' IS APPLIED TO CELL ',a,', which is not a &
-      &Richards (VSF) cell.  Set IUNSAT for this cell in the VSF package.')"
+      &Richards (VSF) cell.  Set IVARSAT for this cell in the VSF package.')"
 
-    if (.not. associated(this%vsfiunsat)) return
+    if (.not. associated(this%vsfivarsat)) return
 
     do i = 1, this%nbound
       node = this%nodelist(i)
       if (node < 1) cycle
-      if (this%vsfiunsat(node) /= 1) then
+      if (this%vsfivarsat(node) /= 1) then
         call this%dis%noder_to_string(node, nodestr)
         write (errmsg, fmt=fmtvssperr) i, trim(nodestr)
         call store_error(errmsg)
@@ -352,8 +352,8 @@ contains
     nullify (this%gwfik33)
     nullify (this%gwfkrel)
 
-    ! VSF IUNSAT flag array is owned by VSF; just disassociate
-    nullify (this%vsfiunsat)
+    ! VSF IVARSAT flag array is owned by VSF; just disassociate
+    nullify (this%vsfivarsat)
 
   end subroutine vssp_da
 

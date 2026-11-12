@@ -450,7 +450,7 @@ contains
     ! VSSB applies to Richards cells and reads the relative permeability that
     ! the VSF package populates
     vsfmempath = create_mem_path(this%name_model, 'VSF')
-    call get_isize('IUNSAT', vsfmempath, isize)
+    call get_isize('IVARSAT', vsfmempath, isize)
     if (isize < 0) then
       write (errmsg, '(a)') 'The VSSB package requires the VSF package to be '// &
         'active in the same GWF model.'

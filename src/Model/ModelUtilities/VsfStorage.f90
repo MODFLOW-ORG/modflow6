@@ -18,7 +18,7 @@ module VsfStorageModule
   type, extends(GwfStoFormulationType) :: VsfStorageType
     class(SoilModelType), pointer :: soil_model => null() !< points to external data
     integer(I4B), pointer :: storage_scheme => null() !< points to external data
-    integer(I4B), pointer, dimension(:), contiguous :: vsf_iunsat => null() !< points to external data
+    integer(I4B), pointer, dimension(:), contiguous :: vsf_ivarsat => null() !< points to external data
     class(DisBaseType), pointer :: gwf_dis => null() !< points to external data
     type(GwfStoType), pointer :: gwf_sto => null() !< points to external data
 
@@ -39,9 +39,9 @@ module VsfStorageModule
 
 contains
 
-  subroutine initialize(this, iunsat, scheme, soil_model, dis, sto)
+  subroutine initialize(this, ivarsat, scheme, soil_model, dis, sto)
     class(VsfStorageType), intent(inout) :: this
-    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: iunsat
+    integer(I4B), dimension(:), pointer, contiguous, intent(in) :: ivarsat
     integer(I4B), pointer, intent(in) :: scheme
     class(SoilModelType), pointer, intent(in) :: soil_model
     class(DisBaseType), pointer, intent(in) :: dis
@@ -49,7 +49,7 @@ contains
     ! local
     integer(I4B) :: n
 
-    this%vsf_iunsat => iunsat
+    this%vsf_ivarsat => ivarsat
 
     this%storage_scheme => scheme
     this%soil_model => soil_model
@@ -70,7 +70,7 @@ contains
     logical(LGP) :: is_active
 
     is_active = .false.
-    if (this%vsf_iunsat(n) == 1) then
+    if (this%vsf_ivarsat(n) == 1) then
       is_active = .true.
     end if
 

@@ -22,7 +22,7 @@ module VsfFlowModule
   end enum
 
   type, extends(GwfNpfFormulationType) :: VsfFlowType
-    integer(I4B), pointer, dimension(:), contiguous :: iunsat => null() !< see VSF
+    integer(I4B), pointer, dimension(:), contiguous :: ivarsat => null() !< see VSF
     integer(I4B), pointer :: kr_averaging => null() !< see VSF
     real(DP), pointer, dimension(:), contiguous :: krel => null() !< pointer to NPF k_r
     real(DP), pointer, dimension(:), contiguous :: dkrdh => null() !< pointer to NPF head derivative of k_r
@@ -42,15 +42,15 @@ module VsfFlowModule
 
 contains
 
-  subroutine initialize(this, iunsat, kr_avg, soil_model, dis, npf)
+  subroutine initialize(this, ivarsat, kr_avg, soil_model, dis, npf)
     class(VsfFlowType), intent(inout) :: this
-    integer(I4B), pointer, dimension(:), contiguous, intent(in) :: iunsat
+    integer(I4B), pointer, dimension(:), contiguous, intent(in) :: ivarsat
     integer(I4B), pointer :: kr_avg
     class(SoilModelType), pointer :: soil_model
     class(DisBaseType), pointer :: dis
     type(GwfNpfType), pointer, intent(in) :: npf
 
-    this%iunsat => iunsat
+    this%ivarsat => ivarsat
     this%kr_averaging => kr_avg
     this%soil_model => soil_model
 
@@ -278,7 +278,7 @@ contains
 
     this%gwf_dis => null()
     this%gwf_npf => null()
-    this%iunsat => null()
+    this%ivarsat => null()
     this%krel => null()
     this%dkrdh => null()
 

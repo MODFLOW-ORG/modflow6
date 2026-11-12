@@ -108,7 +108,7 @@ def build_models(idx, test):
     soil_data = get_vsf_soil_data("Celia1990-eq10-Haverkamp")
     flopy.mf6.ModflowGwfvsf(
         gwf,
-        iunsat=1,
+        ivarsat=1,
         storage_scheme="chord-slope",
         kr_averaging="harmonic",
         soil_model="Haverkamp",

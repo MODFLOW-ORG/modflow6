@@ -386,7 +386,7 @@ The variably-saturated family is a core Richards flow package plus boundary
 packages:
 
 - `src/Model/GroundWaterFlow/gwf-vsf.f90` — the Richards (unsaturated) flow
-  package. It flags Richards cells (`IUNSAT`) and publishes relative
+  package. It flags Richards cells (`IVARSAT`) and publishes relative
   permeability `KREL` and its head derivative `DKRDH` to NPF, which the boundary
   packages read.
 - `src/Model/GroundWaterFlow/gwf-vssb.f90` — the land-surface boundary:
@@ -471,7 +471,7 @@ Consequences to document and test:
 
 A future single-conserved-PET scheme (previously called Option B) can be layered
 on later using the existing not-owned memory-pointer mechanism (the same pattern
-VSSB already uses to read NPF `KREL`/`DKRDH` and VSF `IUNSAT`), without changing
+VSSB already uses to read NPF `KREL`/`DKRDH` and VSF `IVARSAT`), without changing
 VSSB's input surface. Choosing Option A now does not foreclose it.
 
 #### 2.4 Decisions
@@ -882,7 +882,7 @@ passes** (2 scenarios).
 
 ### Current VSSP behavior
 - **Applies only to Richards (VSF) cells.** Requires the VSF package active;
-  validated per-cell via VSF's `IUNSAT` array.
+  validated per-cell via VSF's `IVARSAT` array.
 - **Input** (`stress_period_data`): `cellid  ihc  cl1  hwva  angldegx`
   - `ihc` — 0 = vertical face, 1 = horizontal face
   - `cl1` — distance from cell center to the face
@@ -936,7 +936,7 @@ Note: `bin/mf6` is a gitignored staged copy of `builddir/src/mf6`.
    (horizontal anisotropy / full tensor) or drop it.
 3. **Convergence near the switch** — the `head > z` on/off combined with
    head-dependent `krel` can chatter; watch in richer models.
-4. **Partial-domain Richards** — VSF today requires all cells `iunsat=1`, so the
+4. **Partial-domain Richards** — VSF today requires all cells `ivarsat=1`, so the
    per-cell VSSP check mainly guards "VSF absent" until partial-domain support
    exists.
 
