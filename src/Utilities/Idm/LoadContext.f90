@@ -25,7 +25,6 @@ module LoadContextModule
   public :: ReadStateVarType
   public :: RS_UNSET, RS_NONE, RS_VALUES, RS_SERIES, RS_NETCDF
   public :: rsv_name
-  public :: tslink_id
   public :: is_keystring_period
   public :: is_feature_keystring
   public :: is_advanced
@@ -1226,25 +1225,6 @@ contains
       varname = prefix//trim(mf6varname)
     end if
   end function rsv_name
-
-  !> @brief time series link identifier for a static block
-  !!
-  !! Return the identifier used to name a static block's time series link
-  !! variables (TSLINK_<id>, TSLINKVARS_<id>), or an empty string if the
-  !! block has none.
-  !<
-  function tslink_id(blockname) result(id)
-    character(len=*), intent(in) :: blockname
-    character(len=2) :: id
-    select case (blockname)
-    case ('PACKAGEDATA')
-      id = 'PD'
-    case ('OUTLETS')
-      id = 'OL'
-    case default
-      id = ''
-    end select
-  end function tslink_id
 
   !> @brief allocate int1d
   !<
