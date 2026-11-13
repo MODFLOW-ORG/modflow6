@@ -19,9 +19,8 @@ module IdmParamMetaViewModule
   use MemoryManagerModule, only: mem_setptr, get_isize
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
-  use LoadContextModule, only: ReadStateVarType, rsv_name
   use IdmParamMetaModule, only: PARAM_ISTEP, PARAM_VARS, InputStepType, &
-                                tslink_id
+                                tslink_id, ReadStateVarType, rsv_name
 
   implicit none
   private

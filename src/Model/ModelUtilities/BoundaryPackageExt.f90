@@ -759,7 +759,7 @@ contains
   subroutine layarr_to_nlist(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
-    use LoadContextModule, only: RS_VALUES, RS_NETCDF
+    use IdmParamMetaModule, only: RS_VALUES, RS_NETCDF
     use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object

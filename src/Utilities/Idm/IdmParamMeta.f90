@@ -10,6 +10,8 @@
 !!  - PARAM_ISTEP, PARAM_VARS (keystring loader; PERIOD block parameters
 !!    addressed by node): (ncol, nfeatures), the input step of each
 !!    value's last write, and the column names.
+!!  - IN\<param\> (layer and grid array loaders; PERIOD block array
+!!    parameters): the read state (RS_*) of the most recent period block.
 !!  - ISTEP (simulation input path): the input step, the number of
 !!    distinct time steps (kper, kstp) reached so far. It advances when a
 !!    new time step is first seen, so a retried time step keeps it.
@@ -32,12 +34,33 @@ module IdmParamMetaModule
   public :: InputStepType
   public :: ParamStampsType
   public :: PARAM_ISTEP, PARAM_VARS
+  public :: ReadStateVarType
+  public :: RS_UNSET, RS_NONE, RS_VALUES, RS_SERIES, RS_NETCDF
+  public :: rsv_name
 
   character(len=*), parameter :: INPUT_ISTEP = 'ISTEP' !< input step
   character(len=*), parameter :: INPUT_KPER = 'ISTEP_KPER' !< stress period of the input step
   character(len=*), parameter :: INPUT_KSTP = 'ISTEP_KSTP' !< time step of the input step
   character(len=*), parameter :: PARAM_ISTEP = 'PARAM_ISTEP' !< write stamps
   character(len=*), parameter :: PARAM_VARS = 'PARAM_VARS' !< write stamp column names
+
+  !> @brief Read state of a period array (e.g. INRECHARGE)
+  !!
+  !! Set for each period block load.
+  !<
+  enum, bind(C)
+    enumerator :: RS_UNSET = -1 !< not in use
+    enumerator :: RS_NONE = 0 !< not given in the most recent period block
+    enumerator :: RS_VALUES = 1 !< values given in the most recent period block
+    enumerator :: RS_SERIES = 2 !< time-array series given in the most recent period block
+    enumerator :: RS_NETCDF = 3 !< values read from NetCDF in the most recent period block
+  end enum
+
+  !> @brief Pointer type for read state variable
+  !<
+  type ReadStateVarType
+    integer(I4B), pointer :: invar
+  end type ReadStateVarType
 
   !> @brief The input step, kept current with the TDIS time step
   !<
@@ -63,6 +86,21 @@ module IdmParamMetaModule
   end type ParamStampsType
 
 contains
+
+  !> @brief Read state variable name of a parameter (e.g. INRECHARGE)
+  !<
+  function rsv_name(mf6varname) result(varname)
+    character(len=*), intent(in) :: mf6varname
+    character(len=LENVARNAME) :: varname
+    integer(I4B) :: ilen
+    character(len=2) :: prefix = 'IN'
+    ilen = len_trim(mf6varname)
+    if (ilen > (LENVARNAME - len(prefix))) then
+      varname = prefix//mf6varname(1:(LENVARNAME - len(prefix)))
+    else
+      varname = prefix//trim(mf6varname)
+    end if
+  end function rsv_name
 
   !> @brief Time series link identifier for a block
   !!
