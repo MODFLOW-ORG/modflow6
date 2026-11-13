@@ -1583,23 +1583,16 @@ contains
 
   !> @brief Elevations and density weight for the hydraulic head formulation
   !!
-  !! The buoyancy flow from m into n is proportional to
-  !! rhom * (hm - zm) - rhon * (hn - zn) - rhobar * (zn - zm), with
-  !! rhobar = wt * rhon + (1 - wt) * rhom: the pressure difference between
-  !! the two cell elevations less the weight of the fluid between them. The
-  !! weight places the change in density at z = zn - wt * (zn - zm), and the
-  !! flow equals the difference of the two pressures extrapolated to that
-  !! elevation, whatever the cell elevations are. For full cells, wt from
-  !! CL1 and CL2 places it at the shared face of a vertical connection,
-  !! which is exact for a fluid at rest.
-  !!
-  !! The elevation of a partially saturated convertible cell is the center
-  !! of its saturated thickness. For a vertical connection the weight is then
-  !! recalculated so that the change in density stays where it is for full
-  !! cells; with the CL1 and CL2 weight it would move away from the shared
-  !! face and a fluid at rest would flow. Horizontal connections, and
-  !! vertical connections between cells whose elevations are the cell
-  !! centers, keep the CL1 and CL2 weight.
+  !! For a vertical connection, the average density is weighted by the
+  !! distances from the cell elevations to the shared face. For full cells
+  !! these are the half thicknesses, CL1 and CL2. The elevation of a partially
+  !! saturated convertible cell is the center of its saturated thickness, so
+  !! its distance to the face is half the saturated thickness, and the weight
+  !! is recalculated with it; with CL1 and CL2 a fluid at rest would flow
+  !! across the connection. In general the weight is recalculated so that the
+  !! change in density stays where CL1 and CL2 place it for full cells, which
+  !! also covers a pass-through (IDOMAIN -1) cell of nonzero thickness between
+  !! the two cells. Horizontal connections keep the CL1 and CL2 weight.
   !<
   subroutine hh_weight_elev(this, n, m, icon, wt, elevn, elevm)
     ! -- dummy
