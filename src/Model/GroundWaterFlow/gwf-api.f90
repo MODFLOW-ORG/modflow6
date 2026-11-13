@@ -12,7 +12,6 @@
 module apimodule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, LENFTYPE, LENPACKAGENAME
-  use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use ObsModule, only: DefaultObsIdProcessor
   use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
@@ -80,7 +79,6 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 2
     packobj%iscloc = 2
-    packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine api_create
 
   !> @ brief Source package options from input context
