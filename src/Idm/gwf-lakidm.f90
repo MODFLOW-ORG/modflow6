@@ -1825,7 +1825,7 @@ module GwfLakInputModule
     'CONNLEN CONNWIDTH', & ! type
     'SUM(NLAKECONN)', & ! shape
     '', & ! longname
-    .true., & ! required
+    .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
@@ -1945,7 +1945,7 @@ module GwfLakInputModule
     ), &
     InputBlockDefinitionType( &
     'CONNECTIONDATA', & ! blockname
-    .true., & ! required
+    .false., & ! required
     .true., & ! aggregate
     .false. & ! block_variable
     ), &

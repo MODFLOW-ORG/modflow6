@@ -305,6 +305,8 @@ module LakModule
     procedure, private :: lak_source_outlets
     procedure, private :: lak_source_tables
     procedure, private :: lak_source_table
+    procedure, private :: lak_is_embedded
+    procedure, private :: lak_check_tables_for_unconnected
     procedure, private :: lak_check_valid
     procedure, private :: lak_set_nonneg_value
     procedure, private :: lak_set_attribute_error
@@ -777,9 +779,11 @@ contains
       this%strt(ilak) = strt(n)
       !
       ! -- nlakeconn
-      if (nlakeconn(n) < 1) then
+      ! -- a lake with no connections is allowed if it has a lake table,
+      !    which is checked once the tables have been read
+      if (nlakeconn(n) < 0) then
         write (errmsg, '(a,1x,i0,1x,a)') &
-          'NLAKECONN for lake', ilak, 'must be greater than zero.'
+          'NLAKECONN for lake', ilak, 'must be greater than or equal to zero.'
         call store_error(errmsg)
       end if
       !
@@ -842,6 +846,7 @@ contains
     integer(I4B) :: n, j, ipos, nn
     integer(I4B) :: ilak, iconn
     integer(I4B) :: ipos0, icellid0, icellid, nn2
+    integer(I4B) :: isize
     logical(LGP) :: is_lake_bed
     character(len=LINELENGTH) :: cellid_str
     character(len=LINELENGTH) :: ctypenm
@@ -878,6 +883,20 @@ contains
     call mem_allocate(this%satcond, this%MAXBOUND, 'SATCOND', this%memoryPath)
     call mem_allocate(this%simcond, this%MAXBOUND, 'SIMCOND', this%memoryPath)
     call mem_allocate(this%simlakgw, this%MAXBOUND, 'SIMLAKGW', this%memoryPath)
+    !
+    ! -- the CONNECTIONDATA block is only required if a lake has connections
+    call get_isize('CONNDATA_IFNO', this%input_mempath, isize)
+    if (isize < 0) then
+      if (this%MAXBOUND > 0) then
+        write (errmsg, '(a,1x,i0,a)') &
+          'CONNECTIONDATA block not found but SUM(NLAKECONN) is', &
+          this%MAXBOUND, '. CONNECTIONDATA is required if any lake has &
+          &connections.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+      return
+    end if
     !
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
       ' CONNECTIONDATA'
@@ -1037,9 +1056,9 @@ contains
     ! -- check that an embedded lake is not in the same cell as a lake
     !   with a vertical connection
     do n = 1, this%nlakes
+      if (.not. this%lak_is_embedded(n)) cycle
       ipos0 = this%idxlakeconn(n)
       icellid0 = this%gwfconn(ipos0)
-      if (this%ictype(ipos0) /= 2 .and. this%ictype(ipos0) /= 3) cycle
       do nn2 = 1, this%nlakes
         if (nn2 == n) cycle
         j = 0
@@ -1143,7 +1162,7 @@ contains
     class(LakType), intent(inout) :: this
     ! -- local
     integer(I4B) :: n, ntabs
-    integer(I4B) :: ilak, iconn
+    integer(I4B) :: ilak
     character(len=LENMEMPATH) :: mempath
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
     type(CharacterStringType), dimension(:), pointer, contiguous :: &
@@ -1218,8 +1237,7 @@ contains
         deallocate (laketables(n)%tabstage)
         deallocate (laketables(n)%tabvolume)
         deallocate (laketables(n)%tabsarea)
-        iconn = this%idxlakeconn(n)
-        if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+        if (associated(laketables(n)%tabwarea)) then
           deallocate (laketables(n)%tabwarea)
         end if
       end if
@@ -1237,7 +1255,6 @@ contains
     integer(I4B) :: ntabrows
     integer(I4B) :: j
     integer(I4B) :: ipos
-    integer(I4B) :: iconn
     !
     ! -- allocate index array for lak tables
     call mem_allocate(this%ialaktab, this%nlakes + 1, 'IALAKTAB', this%memoryPath)
@@ -1263,8 +1280,7 @@ contains
         this%tabstage(ipos) = laketables(n)%tabstage(j)
         this%tabvolume(ipos) = laketables(n)%tabvolume(j)
         this%tabsarea(ipos) = laketables(n)%tabsarea(j)
-        iconn = this%idxlakeconn(n)
-        if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+        if (this%lak_is_embedded(n)) then
           !
           ! -- tabwarea only filled for ictype 2 and 3
           this%tabwarea(ipos) = laketables(n)%tabwarea(j)
@@ -1293,6 +1309,7 @@ contains
     real(DP), dimension(:), pointer, contiguous :: barea => null()
     character(len=:), pointer :: tabfname => null()
     integer(I4B) :: jmin, iconn, n, nerr0
+    logical(LGP) :: embedded
     real(DP) :: vol, sa, wa, v, v0
     ! -- formats
     character(len=*), parameter :: fmttaberr = &
@@ -1312,8 +1329,8 @@ contains
       call store_error(errmsg)
     end if
     !
-    iconn = this%idxlakeconn(ilak)
-    if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+    embedded = this%lak_is_embedded(ilak)
+    if (embedded) then
       jmin = 4
     else
       jmin = 3
@@ -1342,14 +1359,22 @@ contains
     laketable%tabstage = stage
     laketable%tabvolume = volume
     laketable%tabsarea = sarea
-    if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+    if (embedded) then
       allocate (laketable%tabwarea(nrow))
       call mem_setptr(barea, 'BAREA', mempath)
       laketable%tabwarea = barea
     end if
     !
+    ! -- set lake bottom and top from the table if the lake has no
+    !    connections to define them
+    if (this%nlakeconn(ilak) == 0) then
+      this%lakebot(ilak) = laketable%tabstage(1)
+      this%laketop(ilak) = laketable%tabstage(nrow)
+    end if
+    !
     ! -- set lake bottom based on table if it is an embedded lake
-    if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+    if (embedded) then
+      iconn = this%idxlakeconn(ilak)
       do n = 1, this%ntabrow(ilak)
         vol = laketable%tabvolume(n)
         sa = laketable%tabsarea(n)
@@ -1397,7 +1422,7 @@ contains
           n - 1, '(', laketable%tabsarea(n - 1), ')'
         call store_error(errmsg)
       end if
-      if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+      if (embedded) then
         v = laketable%tabwarea(n)
         v0 = laketable%tabwarea(n - 1)
         if (v < v0) then
@@ -1421,11 +1446,51 @@ contains
     call memorystore_release('STAGE', mempath)
     call memorystore_release('VOLUME', mempath)
     call memorystore_release('SAREA', mempath)
-    if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+    if (embedded) then
       call memorystore_release('BAREA', mempath)
     end if
     call memorystore_release('INPUT_FNAME', mempath)
   end subroutine lak_source_table
+
+  !> @brief Check if a lake is embedded
+  !!
+  !! A lake is embedded if its first (and only) connection is an embedded
+  !! connection. A lake with no connections is not embedded.
+  !<
+  function lak_is_embedded(this, ilak) result(embedded)
+    class(LakType), intent(in) :: this
+    integer(I4B), intent(in) :: ilak
+    logical(LGP) :: embedded
+    integer(I4B) :: iconn
+    !
+    embedded = .false.
+    if (this%nlakeconn(ilak) < 1) return
+    iconn = this%idxlakeconn(ilak)
+    embedded = (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3)
+  end function lak_is_embedded
+
+  !> @brief Check that each lake with no connections has a lake table
+  !!
+  !! A lake with no connections has no bottom or top elevation and no
+  !! surface area unless they are defined by a lake table.
+  !<
+  subroutine lak_check_tables_for_unconnected(this)
+    class(LakType), intent(inout) :: this
+    integer(I4B) :: n
+    !
+    do n = 1, this%nlakes
+      if (this%nlakeconn(n) == 0 .and. this%ntabrow(n) == 0) then
+        write (errmsg, '(a,1x,i0,1x,a)') &
+          'Lake', n, 'has no connections (NLAKECONN = 0) and no lake table. &
+          &A lake with no connections must be assigned a lake table in the &
+          &TABLES block.'
+        call store_error(errmsg)
+      end if
+    end do
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+  end subroutine lak_check_tables_for_unconnected
 
   !> @brief Source OUTLETS block from input context
   !<
@@ -1634,6 +1699,9 @@ contains
     !
     ! -- read TABLES
     call this%lak_source_tables()
+    !
+    ! -- check that lakes without connections have a table
+    call this%lak_check_tables_for_unconnected()
     !
     ! -- read OUTLETS
     call this%lak_source_outlets()
@@ -2453,12 +2521,10 @@ contains
     real(DP), intent(in) :: stage
     real(DP), intent(inout) :: ra
     ! -- local
-    integer(I4B) :: iconn
     real(DP) :: sa
     !
     ! -- rainfall
-    iconn = this%idxlakeconn(ilak)
-    if (this%ictype(iconn) == 2 .or. this%ictype(iconn) == 3) then
+    if (this%lak_is_embedded(ilak)) then
       sa = this%sareamax(ilak)
     else
       call this%lak_calculate_sarea(ilak, stage, sa)

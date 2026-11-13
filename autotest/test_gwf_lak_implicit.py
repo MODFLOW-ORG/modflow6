@@ -1326,16 +1326,21 @@ def test_buy_errors(function_tmpdir, targets):
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
 
 
-def test_connectionless_lake_errors(function_tmpdir, targets):
-    # a lake with no connections is not supported, so the simulation must
-    # terminate with an informative error.
+def test_connectionless_lake(function_tmpdir, targets):
+    # a lake with no groundwater connections is supported if it has a lake
+    # table, which defines its bottom, volume and surface area. Here evaporation
+    # exceeds rainfall, so the steady-state lake dries to its table bottom with
+    # both formulations (compared against the default formulation in mf6/).
     def build(test):
         sim_i, _ = _write_implicit(test, _build_drylake)
         _make_connectionless(str(test.workspace / "lk.lak"))
-        return sim_i
+        sim_l = _write_legacy(test, _build_drylake)
+        _make_connectionless(str(test.workspace / "mf6" / "lk.lak"))
+        return sim_i, sim_l
 
     def check(test):
-        msg = (test.workspace / "mfsim.lst").read_text().lower()
-        assert "nlakeconn for lake 1 must be greater than zero" in msg, msg
+        for ws in (test.workspace, test.workspace / "mf6"):
+            stage = flopy.utils.HeadFile(ws / "lk.lak.stage", text="STAGE")
+            assert stage.get_data().ravel()[0] == -1.0e30, f"lake not dry in {ws}"
 
-    _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
+    _framework(function_tmpdir, targets, build, check).run()
