@@ -681,9 +681,12 @@ complexity; it must not be implemented as part of the evaporation work.
    one-entry-per-cell list model and the "at most one of VSSB / VSSP(`IHC=0`)
    per cell" constraint would need rethinking.
 6. **Numerics.** Each oblique face adds a head-dependent, switch-activated term
-   (dry vs seeping) that needs smoothing for a continuous Jacobian; VSSP's
-   Newton routine is presently a stub (`vssp_fn` just returns), so Newton
-   support would have to be built out for robust convergence.
+   (dry vs seeping) that needs smoothing for a continuous Jacobian.  `vssp_fn`
+   now fills the Newton term from the head dependence of the relative
+   permeability (`dkr/dh`), but the switch at the face datum is still applied as
+   a hard cutoff (as in a plain drain), so making the Jacobian continuous across
+   the switch would be the remaining work for robust convergence on oblique
+   faces.
 
 Keeping VSSP as a distinct package (Section 5) is what makes this future work
 tractable, because it isolates the oblique-face geometry from VSSB's top-face
