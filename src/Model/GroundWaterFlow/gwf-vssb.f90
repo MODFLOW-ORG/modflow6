@@ -496,7 +496,7 @@ contains
       node = this%igwfnode(i)
       if (node < 1) cycle
       do ipos = this%dis%con%ia(node) + 1, this%dis%con%ia(node + 1) - 1
-        if (this%dis%con%ihc(ipos) /= 0) cycle
+        if (this%dis%con%ihc(this%dis%con%jas(ipos)) /= 0) cycle
         m = this%dis%con%ja(ipos)
         if (this%ibound(m) == 0) cycle
         if (this%dis%bot(m) >= this%dis%top(node)) then
