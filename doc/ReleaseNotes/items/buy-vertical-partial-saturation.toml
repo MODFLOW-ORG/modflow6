@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "In the hydraulic head formulation of the Buoyancy (BUY) Package, the average density for a vertical connection was weighted with the full-cell connection lengths, while the elevation of a partially saturated convertible cell is the center of its saturated thickness. The weight and the elevations were then inconsistent, and a fluid at rest flowed across vertical connections between a partially saturated cell and a cell of different density. The weight is now consistent with the cell elevations, which gives no flow for a fluid at rest. Results are unchanged where cells are full; heads can change where a convertible cell is partially saturated next to a cell of different density."
