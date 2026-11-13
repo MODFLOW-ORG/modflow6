@@ -15,7 +15,7 @@ module BndModule
                              TABLEFT, TABCENTER
   use SimVariablesModule, only: errmsg
   use SimModule, only: count_errors, store_error, &
-                       store_error_unit
+                       store_error_filename
   use NumericalPackageModule, only: NumericalPackageType
   use ObsModule, only: ObsType, obs_cr
   use TdisModule, only: delt, totimc
@@ -1607,6 +1607,14 @@ contains
         !    Iterate through all boundaries to identify and store
         !    corresponding index(indices) in bound array.
         jfound = .false.
+        if (this%inamedbound == 0) then
+          ! -- boundname has no elements without BOUNDNAMES
+          write (errmsg, '(a,1x,a,1x,a,1x,a,1x,a,1x,a)') &
+            'Observation', trim(obsrv%Name), 'uses boundary name', trim(bname), &
+            'but BOUNDNAMES is not specified in package', trim(this%packName)
+          call store_error(errmsg)
+          cycle
+        end if
         do j = 1, this%nbound
           if (this%boundname(j) == bname) then
             jfound = .true.
@@ -1631,7 +1639,7 @@ contains
     end do
     !
     if (count_errors() > 0) then
-      call store_error_unit(this%inunit)
+      call store_error_filename(this%input_fname)
     end if
   end subroutine bnd_rp_obs
 

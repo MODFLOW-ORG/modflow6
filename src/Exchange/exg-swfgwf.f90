@@ -385,7 +385,7 @@ contains
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
-  !! connected nodes @param nexg
+  !! connected nodes @p nexg
   !<
   subroutine allocate_arrays(this)
     ! -- dummy

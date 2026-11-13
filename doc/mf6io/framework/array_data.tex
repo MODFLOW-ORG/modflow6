@@ -35,7 +35,7 @@ With OPEN/CLOSE, the array will be read from the file whose name is specified by
 
 \item \texttt{<constant>}---is a real number constant for real arrays and an integer constant for integer arrays. The \texttt{constant} value is assigned to the entire array. 
 
-\item \texttt{FACTOR <factor>}---are a keyword and a real number factor for real arrays and an integer factor for integer arrays. The individual elements of the array are multiplied by \texttt{factor} after they are read. If \texttt{factor} is specified as 0, then it is changed to 1.
+\item \texttt{FACTOR <factor>}---are a keyword and a real number factor for real arrays and an integer factor for integer arrays. The individual elements of the array are multiplied by \texttt{factor} after they are read. If \texttt{factor} is specified as 0, then it is changed to 1. Real array elements equal to the DNODATA value (3.0E+30) are not multiplied.
 
 \item \texttt{(BINARY)}---is an option that indicates the OPEN/CLOSE file contains array data in binary (unformatted) form.  A binary file that can be read by MODFLOW requires special handling.  Information on the binary format of the binary file is discussed later in this section.
 

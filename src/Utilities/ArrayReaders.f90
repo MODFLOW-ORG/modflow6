@@ -2,7 +2,7 @@ module ArrayReadersModule
 
   use ConstantsModule, only: DONE, LINELENGTH, LENBIGLINE, LENBOUNDNAME, &
                              NAMEDBOUNDFLAG, LINELENGTH, DZERO, MAXCHARLEN, &
-                             DZERO
+                             DZERO, DNODATA
   use InputOutputModule, only: openfile, u9rdcom, urword, ucolno, ulaprw, &
                                BuildFixedFormat, BuildFloatFormat, &
                                BuildIntFormat
@@ -347,7 +347,7 @@ contains
         call store_error_unit(locat)
       end if
       do j = 1, jj
-        darr(j) = darr(j) * cnstnt
+        if (darr(j) /= DNODATA) darr(j) = darr(j) * cnstnt
       end do
       if (iclose == 1) then
         close (locat)
@@ -375,7 +375,7 @@ contains
       !
       ! -- multiply entire array by constant
       do j = 1, jj
-        darr(j) = darr(j) * cnstnt
+        if (darr(j) /= DNODATA) darr(j) = darr(j) * cnstnt
       end do
       !
       ! -- close the file
@@ -445,7 +445,7 @@ contains
           call store_error_unit(locat)
         end if
         do j = 1, jj
-          darr(j, i) = darr(j, i) * cnstnt
+          if (darr(j, i) /= DNODATA) darr(j, i) = darr(j, i) * cnstnt
         end do
       end do
       if (iclose == 1) then
@@ -467,7 +467,7 @@ contains
             call store_error_unit(locat)
           end if
           do j = 1, jj
-            darr(j, i) = darr(j, i) * cnstnt
+            if (darr(j, i) /= DNODATA) darr(j, i) = darr(j, i) * cnstnt
           end do
         end do
       end if

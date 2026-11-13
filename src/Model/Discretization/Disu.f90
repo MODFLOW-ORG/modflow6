@@ -433,16 +433,16 @@ contains
     !
     ! -- Ensure idomain values are valid
     do n = 1, this%nodesuser
-      if (this%idomain(n) > 1 .or. this%idomain(n) < 0) then
+      if (this%idomain(n) < 0) then
         write (errmsg, fmtidm) this%idomain(n), n
         call store_error(errmsg)
       end if
     end do
     !
     ! -- Check for zero and negative thickness and zero or negative areas
-    !    for cells with idomain == 1
+    !    for active cells (idomain > 0)
     do n = 1, this%nodesuser
-      if (this%idomain(n) == 1) then
+      if (this%idomain(n) > 0) then
         dz = this%top1d(n) - this%bot1d(n)
         if (dz <= DZERO) then
           write (errmsg, fmt=fmtdz) n, this%top1d(n), this%bot1d(n)

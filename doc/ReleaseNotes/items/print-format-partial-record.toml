@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A PRINT\\_FORMAT record in Output Control or the GWT Immobile Storage and Transfer (IST) Package that ended after COLUMNS or WIDTH, for example COLUMNS 10 WIDTH 15, was accepted, and the format was silently ignored. This is now an error. COLUMNS, WIDTH and DIGITS are required, and the format type (EXPONENTIAL, FIXED, GENERAL or SCIENTIFIC) remains optional. The definition files have been corrected to match."

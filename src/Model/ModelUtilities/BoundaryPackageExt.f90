@@ -714,31 +714,36 @@ contains
 
   !> @ brief Update package nodelist
   !!
-  !! Convert period user nodes to reduced nodes
+  !! Convert period user nodes to reduced nodes. Inactive cells are
+  !! excluded by the input loader.
   !!
   !<
   subroutine nodeu_to_nlist(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
-    integer(I4B) :: n, noder, nodeuser, ninactive
-
-    ninactive = 0
+    integer(I4B) :: n, noder, nodeuser
+    character(len=LINELENGTH) :: nodestr
 
     ! -- Set the nodelist
     do n = 1, this%nbound
       nodeuser = this%nodeulist(n)
       noder = this%dis%get_nodenumber(nodeuser, 0)
-      if (noder > 0) then
-        this%nodelist(n) = noder
-      else
-        ninactive = ninactive + 1
+      if (noder <= 0) then
+        call this%dis%nodeu_to_string(nodeuser, nodestr)
+        write (errmsg, *) &
+          ' Cell is outside active grid domain: '// &
+          trim(adjustl(nodestr))
+        call store_error(errmsg)
       end if
+      this%nodelist(n) = noder
     end do
 
-    ! update nbound
-    this%nbound = this%nbound - ninactive
+    ! -- exit if errors were found
+    if (count_errors() > 0) then
+      write (errmsg, *) count_errors(), ' errors encountered.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine nodeu_to_nlist
 
   !> @brief Update the nodelist based on layer number variable input

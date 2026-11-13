@@ -142,6 +142,7 @@ builddir = "echo _builddir_win-64"
 # environments for documentation and extended build testing
 [environments]
 rtd = { features = ["rtd"], solve-group = "default" }
+doxygen = { features = ["doxygen"], no-default-feature = true }
 gcc-extended-build = { features = ["gcc-extended-build"] }
 
 # Features
@@ -167,6 +168,15 @@ rtds_action = "*"
 
 [feature.rtd.tasks]
 sphinx = { cmd = "make html", cwd = ".build_rtd_docs" }
+
+[feature.doxygen.dependencies]
+doxygen = "1.18.*"
+graphviz = "*"
+
+[feature.doxygen.tasks]
+# pixi skips graphviz's post-link script, which registers dot's plugins
+register-dot-plugins = "dot -c"
+doxygen = { cmd = "doxygen", cwd = ".build_rtd_docs", depends-on = ["register-dot-plugins"] }
 
 [feature.gcc-extended-build]
 platforms = ["linux-64", "osx-arm64"]

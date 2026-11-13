@@ -15,12 +15,14 @@ module IsothermInterfaceModule
 
   abstract interface
     !> @brief Evaluate the isotherm at a given node
+    !!
+    !! @return isotherm value
     !<
     function value_if(this, c, n) result(val)
       ! -- import
       import :: IsothermType, DP, I4B
       ! -- return
-      real(DP) :: val !< isotherm value
+      real(DP) :: val
       ! -- dummy
       class(IsothermType), intent(in) :: this !< isotherm object
       real(DP), dimension(:), intent(in) :: c !< concentration array
@@ -28,12 +30,14 @@ module IsothermInterfaceModule
     end function value_if
 
     !> @brief Evaluate derivative of the isotherm at a given node
+    !!
+    !! @return derivative d(value)/dc evaluated at c
     !<
     function derivative_if(this, c, n) result(derv)
       ! -- import
       import :: IsothermType, DP, I4B
       ! -- return
-      real(DP) :: derv !< derivative d(value)/dc evaluated at c
+      real(DP) :: derv
       ! -- dummy
       class(IsothermType), intent(in) :: this !< isotherm object
       real(DP), dimension(:), intent(in) :: c !< concentration array

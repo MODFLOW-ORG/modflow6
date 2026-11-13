@@ -188,7 +188,7 @@ shape
 in_record true
 reader urword
 tagged true
-optional
+optional false
 longname number of columns
 description number of columns for writing data.
 
@@ -199,7 +199,7 @@ shape
 in_record true
 reader urword
 tagged true
-optional
+optional false
 longname width for each number
 description width for writing each number.
 
@@ -210,7 +210,7 @@ shape
 in_record true
 reader urword
 tagged true
-optional
+optional false
 longname number of digits
 description number of digits to use for writing a number.
 
@@ -221,7 +221,7 @@ shape
 in_record true
 reader urword
 tagged false
-optional false
+optional true
 longname write format
 description write format can be EXPONENTIAL, FIXED, GENERAL, or SCIENTIFIC.
 

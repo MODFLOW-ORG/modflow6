@@ -997,14 +997,16 @@ contains
         !    Iterate through all boundaries to identify and store
         !    corresponding index(indices) in bound array.
         jfound = .false.
-        do j = 1, this%nexg
-          if (this%boundname(j) == bname) then
-            jfound = .true.
-            obsrv%BndFound = .true.
-            obsrv%CurrentTimeStepEndValue = DZERO
-            call obsrv%AddObsIndex(j)
-          end if
-        end do
+        if (this%inamedbound /= 0) then
+          do j = 1, this%nexg
+            if (this%boundname(j) == bname) then
+              jfound = .true.
+              obsrv%BndFound = .true.
+              obsrv%CurrentTimeStepEndValue = DZERO
+              call obsrv%AddObsIndex(j)
+            end if
+          end do
+        end if
         if (.not. jfound) then
           write (errmsg, 10) trim(bname), trim(obsrv%ObsTypeId), trim(this%name)
           call store_error(errmsg)
@@ -1042,7 +1044,7 @@ contains
   end subroutine gwt_gwt_fp
 
   !> @brief Return true when this exchange provides matrix coefficients for
-  !! solving @param model
+  !! solving @p model
   !<
   function gwt_gwt_connects_model(this, model) result(is_connected)
     ! -- dummy

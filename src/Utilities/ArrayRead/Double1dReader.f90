@@ -1,7 +1,7 @@
 module Double1dReaderModule
 
   use KindModule, only: DP, I4B, LGP
-  use ConstantsModule, only: DZERO, DONE
+  use ConstantsModule, only: DZERO, DONE, DNODATA
   use BlockParserModule, only: BlockParserType
   use SimVariablesModule, only: errmsg
   use SimModule, only: store_error, store_error_unit
@@ -114,6 +114,8 @@ contains
     integer(I4B) :: i
     if (this%factor /= DZERO) then
       do i = 1, size(this%dbl1d)
+        ! no data values are not scaled
+        if (this%dbl1d(i) == DNODATA) cycle
         this%dbl1d(i) = this%dbl1d(i) * this%factor
       end do
     end if

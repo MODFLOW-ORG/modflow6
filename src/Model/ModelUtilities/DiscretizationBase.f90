@@ -206,7 +206,7 @@ contains
                      terminate=.true.)
   end subroutine write_grb
 
-  !> @brier Deallocate variables
+  !> @brief Deallocate variables
   subroutine dis_da(this)
     ! -- modules
     use MemoryManagerModule, only: mem_deallocate
@@ -1235,7 +1235,7 @@ contains
 
   end subroutine get_flow_width
 
-  !> @Brief return true if grid is three dimensional
+  !> @brief return true if grid is three dimensional
   function is_3d(this) result(r)
     ! dummy
     class(DisBaseType) :: this
@@ -1248,7 +1248,7 @@ contains
     end select
   end function is_3d
 
-  !> @Brief return true if grid is two dimensional
+  !> @brief return true if grid is two dimensional
   function is_2d(this) result(r)
     ! dummy
     class(DisBaseType) :: this
@@ -1261,7 +1261,7 @@ contains
     end select
   end function is_2d
 
-  !> @Brief return true if grid is one dimensional
+  !> @brief return true if grid is one dimensional
   function is_1d(this) result(r)
     ! dummy
     class(DisBaseType) :: this

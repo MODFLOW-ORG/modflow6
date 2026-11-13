@@ -34,7 +34,7 @@ module SfrModule
   use ObserveModule, only: ObserveType
   use InputOutputModule, only: extract_idnum_or_bndname, upcase
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_error_filename, store_warning, deprecation_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use GwfSfrCrossSectionUtilsModule, only: get_saturated_topwidth, &
@@ -3322,12 +3322,14 @@ contains
             !    Iterate through all boundaries to identify and store
             !    corresponding index(indices) in bound array.
             jfound = .false.
-            do j = 1, this%maxbound
-              if (this%boundname(j) == bname) then
-                jfound = .true.
-                call obsrv%AddObsIndex(j)
-              end if
-            end do
+            if (this%inamedbound /= 0) then
+              do j = 1, this%maxbound
+                if (this%boundname(j) == bname) then
+                  jfound = .true.
+                  call obsrv%AddObsIndex(j)
+                end if
+              end do
+            end if
             if (.not. jfound) then
               write (errmsg, 10) &
                 trim(bname), trim(obsrv%name), trim(this%packName)

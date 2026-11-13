@@ -41,16 +41,18 @@ module VectorBaseModule
       class(VectorBaseType) :: this !< this vector
       integer(I4B) :: start, end !< local range in global numbering
     end subroutine
+    !> @return the global vector size
     function get_size_if(this) result(size)
       import VectorBaseType, I4B
       class(VectorBaseType) :: this !< this vector
-      integer(I4B) :: size !< the global vector size
+      integer(I4B) :: size
     end function
+    !> @return the value at the index
     function get_value_local_if(this, idx) result(val)
       import VectorBaseType, I4B, DP
       class(VectorBaseType) :: this !< this vector
       integer(I4B) :: idx !< index in local numbering
-      real(DP) :: val !< the value at the index
+      real(DP) :: val
     end function
     subroutine zero_entries_if(this)
       import VectorBaseType
@@ -68,10 +70,11 @@ module VectorBaseModule
       real(DP) :: alpha !< the factor
       class(VectorBaseType), pointer :: vec_x !< the vector to add
     end subroutine
+    !> @return the calculated 2-norm
     function norm2_if(this) result(n2)
       import VectorBaseType, DP
       class(VectorBaseType) :: this !< this vector
-      real(DP) :: n2 !< the calculated 2-norm
+      real(DP) :: n2
     end function
     subroutine print_if(this)
       import VectorBaseType

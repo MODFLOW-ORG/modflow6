@@ -14,7 +14,6 @@ set -euxo pipefail
 # - MF6_PREV_VERSION, mf6 modulefile version to use as a template
 # - MODULES_PATH, the base path of the module system
 MF6_PROJ_ROOT=$(pwd)
-MF6_BINDIR="$MF6_PROJ_ROOT/bin"
 MF6_LOCAL_VERSION=$(cat "$MF6_PROJ_ROOT/version.txt")
 
 # ...and assumes the module system is laid out as follows

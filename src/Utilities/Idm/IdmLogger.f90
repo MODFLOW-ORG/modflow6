@@ -766,10 +766,10 @@ contains
   !> @brief Create export file
   !!
   !! Name formats where l=layer, a=auxiliary, p=period
-  !!    : <comp>-<subcomp>.varname.txt
-  !!    : <comp>-<subcomp>.varname.l<num>.txt
-  !!    : <comp>-<subcomp>.varname.p<num>.txt
-  !!    : <comp>-<subcomp>.varname.a<num>.p<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.txt
+  !!    : \<comp\>-\<subcomp\>.varname.l<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.p<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.a<num>.p<num>.txt
   !<
   function create_export_file(varname, mempath, layer, iout) &
     result(inunit)

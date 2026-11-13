@@ -258,11 +258,9 @@ contains
   !! has been loaded for this stress period.
   !!
   !<
-  subroutine spc_rp(this, nbound_flowpack, budtxt)
+  subroutine spc_rp(this)
     ! -- dummy
     class(TspSpcType), intent(inout) :: this !< TspSpcType object
-    integer(I4B), intent(in) :: nbound_flowpack
-    character(len=*), intent(in) :: budtxt
     ! -- local
     integer(I4B), pointer :: iper
     ! -- formats
@@ -279,7 +277,6 @@ contains
     if (this%ts_active) return
     !
     call this%apply_input_values()
-    call this%check_flow_package(nbound_flowpack, budtxt)
   end subroutine spc_rp
 
   !> @brief Advance
@@ -293,11 +290,15 @@ contains
     integer(I4B), intent(in) :: nbound_flowpack
     character(len=*), intent(in) :: budtxt
     !
+    ! -- check every time step: the flow package's bound count can change in a
+    !    period with no SPC block, and when flows come from a budget file it is
+    !    only current here, after fmi_ad
+    call this%check_flow_package(nbound_flowpack, budtxt)
+    !
     ! -- no-op if timeseries inactive
     if (.not. this%ts_active) return
     !
     call this%apply_input_values()
-    call this%check_flow_package(nbound_flowpack, budtxt)
   end subroutine spc_ad
 
   !> @brief Deallocate variables

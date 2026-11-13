@@ -153,8 +153,8 @@ def build_models(idx, test):
             ("lakestage", "stage", 1),
             ("lakevolume", "volume", 1),
             ("lak1", "lak", 1, 1),
-            ("lak2", "lak", 1, 2),
-            ("lak3", "lak", 1, 3),
+            ("lak2", "lak", 2, 1),
+            ("lak3", "lak", 3, 1),
         ]
     }
 
@@ -325,6 +325,29 @@ def build_models(idx, test):
     return sim, None
 
 
+def check_lak_obs(test, gwfname, expected):
+    """
+    Check each LAK connection observation against the lake budget's GWF
+    term. expected maps an observation name to its lake number and the GWF
+    cell (1-based node) of the connection it should observe. LAK observations
+    are a gain to the GWF model, and the lake budget is a gain to the lake, so
+    they have opposite signs.
+    """
+    fpth = os.path.join(test.workspace, "lak_obs.csv")
+    obs = np.genfromtxt(fpth, names=True, delimiter=",")
+    fpth = os.path.join(test.workspace, gwfname + ".lak.bud")
+    bobj = flopy.utils.CellBudgetFile(fpth, precision="double", verbose=False)
+    gwf = bobj.get_data(text="GWF")
+    assert len(gwf) == len(obs)
+    for obsname, (lake, node) in expected.items():
+        for res, rec in zip(obs[obsname.upper()], gwf):
+            row = rec[(rec["node"] == lake) & (rec["node2"] == node)]
+            assert len(row) == 1, (
+                f"{obsname}: no connection of lake {lake} to node {node}"
+            )
+            assert np.isclose(res, -row["q"][0]), f"{obsname}: {res} {row['q'][0]}"
+
+
 def check_output(idx, test):
     # ensure lake concentrations were saved
     name = test.name
@@ -369,6 +392,21 @@ def check_output(idx, test):
     answer = np.array(answer, dtype=dt)
     for dtname, dttype in dt:
         assert np.allclose(res[dtname], answer[dtname]), f"{res} {answer}"
+
+    # check the LAK connection observations
+    check_lak_obs(
+        test,
+        "gwf_" + name,
+        {"lak1": (1, 3), "lak2": (2, 4), "lak3": (3, 5)},
+    )
+
+    # the aquifer and the lakes are all at head 0, so the lakes exchange
+    # nothing with the aquifer, and their concentrations come only from
+    # rainfall. The answers above rely on this.
+    fpth = os.path.join(test.workspace, "lak_obs.csv")
+    obs = np.genfromtxt(fpth, names=True, delimiter=",")
+    for obsname in ("LAK1", "LAK2", "LAK3"):
+        assert np.allclose(obs[obsname], 0.0), f"{obsname}: {obs[obsname]}"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

@@ -25,7 +25,7 @@ module UzfModule
   use ObsModule, only: ObsType
   use InputOutputModule, only: URWORD, GetUnit, assign_iounit, openfile
   use SimVariablesModule, only: errmsg, warnmsg
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_error_filename, deprecation_warning
   use TableModule, only: TableType, table_cr
   use UzfETUtilModule
@@ -2260,6 +2260,8 @@ contains
     character(len=LENBOUNDNAME) :: bname
     class(ObserveType), pointer :: obsrv => null()
     ! -- formats
+10  format('Boundary "', a, '" for observation "', a, &
+           '" is invalid in package "', a, '"')
 60  format('Invalid node number in OBS input: ', i0)
     !
     if (kper == 1) then
@@ -2274,19 +2276,26 @@ contains
           ! -- Observation location(s) is(are) based on a boundary name.
           !    Iterate through all boundaries to identify and store
           !    corresponding index(indices) in bound array.
-          do j = 1, this%nodes
-            if (this%boundname(j) == bname) then
-              obsrv%BndFound = .true.
-              obsrv%CurrentTimeStepEndValue = DZERO
-              call obsrv%AddObsIndex(j)
-              if (obsrv%indxbnds_count == 1) then
-                !
-                ! -- Define intPak1 so that obs_theta is stored (for first uzf
-                !    cell if multiple cells share the same boundname).
-                obsrv%intPak1 = j
+          if (this%inamedbound /= 0) then
+            do j = 1, this%nodes
+              if (this%boundname(j) == bname) then
+                obsrv%BndFound = .true.
+                obsrv%CurrentTimeStepEndValue = DZERO
+                call obsrv%AddObsIndex(j)
+                if (obsrv%indxbnds_count == 1) then
+                  !
+                  ! -- Define intPak1 so that obs_theta is stored (for first uzf
+                  !    cell if multiple cells share the same boundname).
+                  obsrv%intPak1 = j
+                end if
               end if
-            end if
-          end do
+            end do
+          end if
+          if (.not. obsrv%BndFound) then
+            write (errmsg, 10) trim(bname), trim(obsrv%Name), trim(this%packName)
+            call store_error(errmsg)
+            cycle
+          end if
         else
           !
           ! -- get node number
@@ -2356,7 +2365,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine uzf_rp_obs
