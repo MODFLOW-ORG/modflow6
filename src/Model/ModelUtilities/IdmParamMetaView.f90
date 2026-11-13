@@ -1,9 +1,15 @@
 !> @brief Package view of input parameter loading information
 !!
-!! Gives a package the loading information of its input fields (see
-!! IdmParamMetaModule): the write stamps, to apply only the values its
-!! input wrote in the current time step, the time series links of a
-!! static block, and the read states of the period block load.
+!! Gives a package the loading information that the input loaders
+!! publish for some of its input fields (see IdmParamMetaModule):
+!!  - is_written: PERIOD block keystring parameters addressed by node
+!!    (e.g. TVK, TVS).
+!!  - is_linked: time series values in the PACKAGEDATA and OUTLETS
+!!    blocks of advanced packages (e.g. SFR, LAK, MAW).
+!!  - read_state: PERIOD block array parameters (READASARRAYS,
+!!    READARRAYGRID).
+!! Other fields have none; init stores an error for a required field
+!! without it.
 !<
 module IdmParamMetaViewModule
 
@@ -34,10 +40,14 @@ module IdmParamMetaViewModule
   contains
     procedure :: init
     procedure :: update
-    procedure :: is_written
-    procedure :: is_linked
-    procedure :: read_state
+    generic :: is_written => is_written_idx, is_written_name
+    generic :: is_linked => is_linked_idx, is_linked_name
+    generic :: read_state => read_state_idx, read_state_name
     procedure :: destroy
+    procedure, private :: is_written_idx, is_written_name
+    procedure, private :: is_linked_idx, is_linked_name
+    procedure, private :: read_state_idx, read_state_name
+    procedure, private :: field_index
     procedure, private :: tslink_init
   end type IdmParamMetaViewType
 
@@ -148,35 +158,82 @@ contains
 
   !> @brief Return true if value n of field j was written in this time step
   !<
-  function is_written(this, j, n) result(res)
+  function is_written_idx(this, j, n) result(res)
     class(IdmParamMetaViewType), intent(in) :: this
     integer(I4B), intent(in) :: j !< field
     integer(I4B), intent(in) :: n !< value
     logical(LGP) :: res
     res = .false.
     if (this%col(j) > 0) res = this%istep(this%col(j), n) == this%step%istep
-  end function is_written
+  end function is_written_idx
+
+  !> @brief Return true if value n of the named field was written in this
+  !! time step
+  !<
+  function is_written_name(this, fieldname, n) result(res)
+    class(IdmParamMetaViewType), intent(in) :: this
+    character(len=*), intent(in) :: fieldname !< registered field name
+    integer(I4B), intent(in) :: n !< value
+    logical(LGP) :: res
+    res = this%is_written_idx(this%field_index(fieldname), n)
+  end function is_written_name
 
   !> @brief Return true if value n of field j is linked to a time series
   !<
-  function is_linked(this, j, n) result(res)
+  function is_linked_idx(this, j, n) result(res)
     class(IdmParamMetaViewType), intent(in) :: this
     integer(I4B), intent(in) :: j !< field
     integer(I4B), intent(in) :: n !< value (block row)
     logical(LGP) :: res
     res = .false.
     if (this%lcol(j) > 0) res = this%tslink(this%lcol(j), n) /= 0
-  end function is_linked
+  end function is_linked_idx
+
+  !> @brief Return true if value n of the named field is linked to a time
+  !! series
+  !<
+  function is_linked_name(this, fieldname, n) result(res)
+    class(IdmParamMetaViewType), intent(in) :: this
+    character(len=*), intent(in) :: fieldname !< registered field name
+    integer(I4B), intent(in) :: n !< value (block row)
+    logical(LGP) :: res
+    res = this%is_linked_idx(this%field_index(fieldname), n)
+  end function is_linked_name
 
   !> @brief Return the read state of field j, or -1 if it has none
   !<
-  function read_state(this, j) result(rs)
+  function read_state_idx(this, j) result(rs)
     class(IdmParamMetaViewType), intent(in) :: this
     integer(I4B), intent(in) :: j !< field
     integer(I4B) :: rs
     rs = -1
     if (associated(this%reads(j)%invar)) rs = this%reads(j)%invar
-  end function read_state
+  end function read_state_idx
+
+  !> @brief Return the read state of the named field, or -1 if it has none
+  !<
+  function read_state_name(this, fieldname) result(rs)
+    class(IdmParamMetaViewType), intent(in) :: this
+    character(len=*), intent(in) :: fieldname !< registered field name
+    integer(I4B) :: rs
+    rs = this%read_state_idx(this%field_index(fieldname))
+  end function read_state_name
+
+  !> @brief Return the index of a field registered in init
+  !!
+  !! Terminates if the field was not registered.
+  !<
+  function field_index(this, fieldname) result(j)
+    class(IdmParamMetaViewType), intent(in) :: this
+    character(len=*), intent(in) :: fieldname !< registered field name
+    integer(I4B) :: j
+    do j = 1, size(this%fieldnames)
+      if (this%fieldnames(j) == fieldname) return
+    end do
+    write (errmsg, '(a)') 'Programming error: input field '// &
+      trim(fieldname)//' not registered in IdmParamMetaView.'
+    call store_error(errmsg, terminate=.TRUE.)
+  end function field_index
 
   !> @brief Release pointers and arrays
   !<
