@@ -1284,7 +1284,7 @@ contains
     real(DP), intent(inout) :: amatnm
     ! -- local
     integer(I4B) :: ihc
-    real(DP) :: densen, densem, cl1, cl2, avgdense, wt, elevn, elevm, cond
+    real(DP) :: densen, densem, cl1, cl2, wt, elevn, elevm, cond
     real(DP) :: rhonormn, rhonormm
     real(DP) :: rhoterm
     real(DP) :: elevnm
@@ -1292,7 +1292,7 @@ contains
     real(DP) :: hyn
     real(DP) :: hym
     !
-    ! -- Average density
+    ! -- Densities, and the density weight from the connection lengths
     densen = this%dense(n)
     densem = this%dense(m)
     if (m > n) then
@@ -1303,7 +1303,6 @@ contains
       cl2 = this%dis%con%cl1(this%dis%con%jas(icon))
     end if
     wt = cl1 / (cl1 + cl2)
-    avgdense = wt * densen + (1.0 - wt) * densem
     !
     ! -- Elevations, and weight consistent with them
     call this%hh_weight_elev(n, m, icon, wt, elevn, elevm)
