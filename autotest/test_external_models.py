@@ -30,8 +30,9 @@ EXCLUDE = [
     "test1002_biscqtg_disv_nr_MD_dev",
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
-    # todo reinstate after fixing model layout, the name
-    # file refers to a HOB file outside the model folder
+    # todo remove after deleting this subfolder from the
+    # testmodels repo, it duplicates mf2005/testWetDry with
+    # a name file pointing to inputs in the parent folder
     "testWetDry/mf2005",
 ]
 # models to force original regression comparison
