@@ -3,7 +3,8 @@
 !! Gives a package the loading information that the input loaders
 !! publish for some of its input fields (see IdmParamMetaModule):
 !!  - is_written: PERIOD block keystring parameters addressed by node
-!!    (e.g. TVK, TVS).
+!!    (e.g. TVK, TVS), optionally only values given in a block or only
+!!    values written by a time series.
 !!  - is_linked: time series values in the PACKAGEDATA and OUTLETS
 !!    blocks of advanced packages (e.g. SFR, LAK, MAW).
 !!  - read_state: PERIOD block array parameters (READASARRAYS,
@@ -19,8 +20,9 @@ module IdmParamMetaViewModule
   use MemoryManagerModule, only: mem_setptr, get_isize
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
-  use IdmParamMetaModule, only: PARAM_ISTEP, PARAM_VARS, InputStepType, &
-                                tslink_id, ReadStateVarType, rsv_name
+  use IdmParamMetaModule, only: PARAM_ISTEP, PARAM_RS, PARAM_VARS, &
+                                InputStepType, tslink_id, ReadStateVarType, &
+                                rsv_name, RS_UNSET
 
   implicit none
   private
@@ -32,6 +34,7 @@ module IdmParamMetaViewModule
     character(len=LENVARNAME), dimension(:), allocatable :: fieldnames !< input field names
     integer(I4B), dimension(:), allocatable :: col !< stamp column of each field (0 if none)
     integer(I4B), dimension(:, :), pointer, contiguous :: istep => null() !< input step of each value's last write
+    integer(I4B), dimension(:, :), pointer, contiguous :: rs => null() !< read state of each value's last write
     type(InputStepType) :: step !< current input step
     type(ReadStateVarType), dimension(:), allocatable :: reads !< read state of each field
     integer(I4B), dimension(:), allocatable :: lcol !< time series link column of each field (0 if none)
@@ -85,6 +88,7 @@ contains
     call get_isize(PARAM_VARS, input_mempath, nvars)
     if (nvars > 0) then
       call mem_setptr(this%istep, PARAM_ISTEP, input_mempath)
+      call mem_setptr(this%rs, PARAM_RS, input_mempath)
       call mem_setptr(vars, PARAM_VARS, input_mempath)
       call this%step%init()
     end if
@@ -156,25 +160,34 @@ contains
   end subroutine update
 
   !> @brief Return true if value n of field j was written in this time step
+  !!
+  !! With rs, only if it was written that way (RS_VALUES, given in a block;
+  !! RS_SERIES, by a time series).
   !<
-  function is_written_idx(this, j, n) result(res)
+  function is_written_idx(this, j, n, rs) result(res)
     class(IdmParamMetaViewType), intent(in) :: this
     integer(I4B), intent(in) :: j !< field
     integer(I4B), intent(in) :: n !< value
+    integer(I4B), optional, intent(in) :: rs !< read state of the write
     logical(LGP) :: res
+    integer(I4B) :: m
     res = .false.
-    if (this%col(j) > 0) res = this%istep(this%col(j), n) == this%step%istep
+    m = this%col(j)
+    if (m < 1) return
+    res = this%istep(m, n) == this%step%istep
+    if (res .and. present(rs)) res = this%rs(m, n) == rs
   end function is_written_idx
 
   !> @brief Return true if value n of the named field was written in this
-  !! time step
+  !! time step (see is_written_idx)
   !<
-  function is_written_name(this, fieldname, n) result(res)
+  function is_written_name(this, fieldname, n, rs) result(res)
     class(IdmParamMetaViewType), intent(in) :: this
     character(len=*), intent(in) :: fieldname !< registered field name
     integer(I4B), intent(in) :: n !< value
+    integer(I4B), optional, intent(in) :: rs !< read state of the write
     logical(LGP) :: res
-    res = this%is_written_idx(this%field_index(fieldname), n)
+    res = this%is_written_idx(this%field_index(fieldname), n, rs)
   end function is_written_name
 
   !> @brief Return true if value n of field j is linked to a time series
@@ -199,17 +212,18 @@ contains
     res = this%is_linked_idx(this%field_index(fieldname), n)
   end function is_linked_name
 
-  !> @brief Return the read state of field j, or -1 if it has none
+  !> @brief Return the read state of field j, or RS_UNSET if it has none
   !<
   function read_state_idx(this, j) result(rs)
     class(IdmParamMetaViewType), intent(in) :: this
     integer(I4B), intent(in) :: j !< field
     integer(I4B) :: rs
-    rs = -1
+    rs = RS_UNSET
     if (associated(this%reads(j)%invar)) rs = this%reads(j)%invar
   end function read_state_idx
 
-  !> @brief Return the read state of the named field, or -1 if it has none
+  !> @brief Return the read state of the named field, or RS_UNSET if it
+  !! has none
   !<
   function read_state_name(this, fieldname) result(rs)
     class(IdmParamMetaViewType), intent(in) :: this
@@ -249,6 +263,7 @@ contains
     if (allocated(this%col)) deallocate (this%col)
     if (allocated(this%lcol)) deallocate (this%lcol)
     nullify (this%istep)
+    nullify (this%rs)
     nullify (this%tslink)
     call this%step%destroy()
   end subroutine destroy

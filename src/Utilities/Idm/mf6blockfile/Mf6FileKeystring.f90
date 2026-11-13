@@ -31,7 +31,7 @@ module Mf6FileKeystringModule
                                ADDR_SUBINDEX
   use LoadMf6FileModule, only: LoadMf6FileType
   use BlockParserModule, only: BlockParserType
-  use IdmParamMetaModule, only: ParamStampsType
+  use IdmParamMetaModule, only: ParamStampsType, RS_VALUES, RS_SERIES
 
   implicit none
   private
@@ -432,7 +432,7 @@ contains
       i = row_addr(n)
       if (i < 1 .or. i > size(this%written%istep, 2)) cycle
       if (this%structarray%struct_vectors(icol)%dbl1d(n) == DNODATA) cycle
-      call this%written%set(this%written_col(k), i)
+      call this%written%set(this%written_col(k), i, RS_VALUES)
     end do
   end subroutine stamp_written
 
@@ -456,7 +456,7 @@ contains
         k = this%written_item(col)
         if (.not. same_word(tslink%Text, &
                             this%ctx%keystring_items(k)%idt%tagname)) cycle
-        call this%written%set(col, i)
+        call this%written%set(col, i, RS_SERIES)
       end do
     end do
   end subroutine stamp_links

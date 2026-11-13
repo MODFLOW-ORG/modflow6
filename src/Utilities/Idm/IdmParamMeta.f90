@@ -7,9 +7,10 @@
 !!    OUTLETS blocks of advanced packages): (ncol, nrow), nonzero where a
 !!    row's value is linked to a time series, and the column names. A
 !!    linked value is written each time step.
-!!  - PARAM_ISTEP, PARAM_VARS (keystring loader; PERIOD block parameters
-!!    addressed by node): (ncol, nfeatures), the input step of each
-!!    value's last write, and the column names.
+!!  - PARAM_ISTEP, PARAM_RS, PARAM_VARS (keystring loader; PERIOD block
+!!    parameters addressed by node): (ncol, nfeatures), the input step of
+!!    each value's last write and how it was written (RS_VALUES, given in
+!!    a block; RS_SERIES, by a time series), and the column names.
 !!  - IN\<param\> (layer and grid array loaders; PERIOD block array
 !!    parameters): the read state (RS_*) of the most recent period block.
 !!  - ISTEP (simulation input path): the input step, the number of
@@ -33,7 +34,7 @@ module IdmParamMetaModule
   public :: input_step_update
   public :: InputStepType
   public :: ParamStampsType
-  public :: PARAM_ISTEP, PARAM_VARS
+  public :: PARAM_ISTEP, PARAM_RS, PARAM_VARS
   public :: ReadStateVarType
   public :: RS_UNSET, RS_NONE, RS_VALUES, RS_SERIES, RS_NETCDF
   public :: rsv_name
@@ -42,11 +43,14 @@ module IdmParamMetaModule
   character(len=*), parameter :: INPUT_KPER = 'ISTEP_KPER' !< stress period of the input step
   character(len=*), parameter :: INPUT_KSTP = 'ISTEP_KSTP' !< time step of the input step
   character(len=*), parameter :: PARAM_ISTEP = 'PARAM_ISTEP' !< write stamps
+  character(len=*), parameter :: PARAM_RS = 'PARAM_RS' !< write stamp read states
   character(len=*), parameter :: PARAM_VARS = 'PARAM_VARS' !< write stamp column names
 
   !> @brief Read state of a period array (e.g. INRECHARGE)
   !!
-  !! Set for each period block load.
+  !! Set for each period block load. Write stamps (PARAM_RS) use RS_VALUES
+  !! for a value given in a block and RS_SERIES for a value written by a
+  !! time series.
   !<
   enum, bind(C)
     enumerator :: RS_UNSET = -1 !< not in use
@@ -78,6 +82,7 @@ module IdmParamMetaModule
   !<
   type :: ParamStampsType
     integer(I4B), dimension(:, :), pointer, contiguous :: istep => null() !< input step of each value's last write
+    integer(I4B), dimension(:, :), pointer, contiguous :: rs => null() !< read state of each value's last write
     type(InputStepType) :: step !< current input step
   contains
     procedure :: allocate => stamps_allocate
@@ -218,8 +223,10 @@ contains
     call this%step%init()
     call mem_allocate(this%istep, size(varnames), nfeatures, PARAM_ISTEP, &
                       mempath)
+    call mem_allocate(this%rs, size(varnames), nfeatures, PARAM_RS, mempath)
     call mem_allocate(vars, LENVARNAME, size(varnames), PARAM_VARS, mempath)
     this%istep = 0
+    this%rs = RS_UNSET
     do m = 1, size(varnames)
       vars(m) = varnames(m)
     end do
@@ -227,12 +234,14 @@ contains
 
   !> @brief Stamp value n of column col as written in this input step
   !<
-  subroutine stamps_set(this, col, n)
+  subroutine stamps_set(this, col, n, rs)
     class(ParamStampsType), intent(inout) :: this
     integer(I4B), intent(in) :: col !< column
     integer(I4B), intent(in) :: n !< value
+    integer(I4B), intent(in) :: rs !< how the value was written (RS_VALUES or RS_SERIES)
     call this%step%update()
     this%istep(col, n) = this%step%istep
+    this%rs(col, n) = rs
   end subroutine stamps_set
 
   !> @brief Release pointers; the arrays are freed with the input context
@@ -240,6 +249,7 @@ contains
   subroutine stamps_destroy(this)
     class(ParamStampsType), intent(inout) :: this
     nullify (this%istep)
+    nullify (this%rs)
     call this%step%destroy()
   end subroutine stamps_destroy
 
