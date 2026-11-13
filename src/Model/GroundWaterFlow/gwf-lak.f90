@@ -777,18 +777,9 @@ contains
       this%strt(ilak) = strt(n)
       !
       ! -- nlakeconn
-      if (nlakeconn(n) < 0) then
-        write (errmsg, '(a,1x,i0)') 'nlakeconn MUST BE >= 0 for lake ', ilak
-        call store_error(errmsg)
-      end if
-      !
-      ! -- the IMPLICIT formulation solves the lake stage as a matrix unknown,
-      !    which requires at least one groundwater connection to give the lake
-      !    row a non-zero diagonal; a lake with no connections is not supported
-      if (this%iimplicit /= 0 .and. nlakeconn(n) == 0) then
+      if (nlakeconn(n) < 1) then
         write (errmsg, '(a,1x,i0,1x,a)') &
-          'lake', ilak, 'has no connections; the IMPLICIT option requires &
-          &each lake to have at least one GWF connection.'
+          'NLAKECONN for lake', ilak, 'must be greater than zero.'
         call store_error(errmsg)
       end if
       !
@@ -4720,8 +4711,7 @@ contains
                       this%memoryPath)
     !
     ! -- lake rows: a per-lake diagonal position and the per-connection
-    !    lake->cell off-diagonals. The diagonal is stored per lake (idxdiag) so a
-    !    lake with no connections still has a valid diagonal position.
+    !    lake->cell off-diagonals.
     ipos = 1
     do n = 1, this%nlakes
       iglo = moffset + this%dis%nodes + this%ioffset + n
