@@ -2052,13 +2052,13 @@ contains
       do i = 1, this%maxbound
         n = this%pkg_ifno(i)
         if (.not. this%bedk_set(n) .and. &
-            this%input%meta%is_linked(1, i)) &
+            this%input%meta%is_linked('RHK', i)) &
           this%hk(n) = this%input%rhk(i)
         if (.not. this%manning_set(n) .and. &
-            this%input%meta%is_linked(2, i)) &
+            this%input%meta%is_linked('MAN', i)) &
           this%rough(n) = this%input%man(i)
         if (.not. this%ustrf_set(n) .and. &
-            this%input%meta%is_linked(3, i)) &
+            this%input%meta%is_linked('USTRF', i)) &
           this%ustrf(n) = this%input%ustrf(i)
       end do
       !

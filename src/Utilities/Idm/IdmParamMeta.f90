@@ -3,11 +3,13 @@
 !! Loaders record how and when input parameter values are written into
 !! the input context. Packages that must apply a value only when it is
 !! written read this information (see IdmParamMetaViewModule):
-!!  - TSLINK_\<id\>, TSLINKVARS_\<id\> (static blocks): (ncol, nrow), nonzero
-!!    where a row's value is linked to a time series, and the column
-!!    names. A linked value is written each time step.
-!!  - PARAM_ISTEP, PARAM_VARS (PERIOD blocks): (ncol, nfeatures), the
-!!    input step of each value's last write, and the column names.
+!!  - TSLINK_\<id\>, TSLINKVARS_\<id\> (block loader; PACKAGEDATA and
+!!    OUTLETS blocks of advanced packages): (ncol, nrow), nonzero where a
+!!    row's value is linked to a time series, and the column names. A
+!!    linked value is written each time step.
+!!  - PARAM_ISTEP, PARAM_VARS (keystring loader; PERIOD block parameters
+!!    addressed by node): (ncol, nfeatures), the input step of each
+!!    value's last write, and the column names.
 !!  - ISTEP (simulation input path): the input step, the number of
 !!    distinct time steps (kper, kstp) reached so far. It advances when a
 !!    new time step is first seen, so a retried time step keeps it.

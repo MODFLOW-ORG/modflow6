@@ -2533,7 +2533,7 @@ contains
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then
         if (.not. this%well_head_set(n) .and. &
-            this%input%meta%is_linked(1, i)) then
+            this%input%meta%is_linked('STRT', i)) then
           this%well_head(n) = this%input%strt(i)
         end if
         this%xnewpak(n) = this%well_head(n)

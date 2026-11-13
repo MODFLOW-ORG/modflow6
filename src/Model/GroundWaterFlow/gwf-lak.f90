@@ -3503,16 +3503,16 @@ contains
         itemno = this%input%outletno(n)
         if (itemno < 1 .or. itemno > this%noutlets) cycle
         if (.not. this%outlet_invert_set(itemno) .and. &
-            this%input%meta%is_linked(1, n)) &
+            this%input%meta%is_linked('OUTLETS_INVERT', n)) &
           this%outinvert(itemno) = this%input%outlets_invert(n)
         if (.not. this%outlet_width_set(itemno) .and. &
-            this%input%meta%is_linked(2, n)) &
+            this%input%meta%is_linked('OUTLETS_WIDTH', n)) &
           this%outwidth(itemno) = this%input%outlets_width(n)
         if (.not. this%outlet_rough_set(itemno) .and. &
-            this%input%meta%is_linked(3, n)) &
+            this%input%meta%is_linked('OUTLETS_ROUGH', n)) &
           this%outrough(itemno) = this%input%outlets_rough(n)
         if (.not. this%outlet_slope_set(itemno) .and. &
-            this%input%meta%is_linked(4, n)) &
+            this%input%meta%is_linked('OUTLETS_SLOPE', n)) &
           this%outslope(itemno) = this%input%outlets_slope(n)
       end do
     end if
