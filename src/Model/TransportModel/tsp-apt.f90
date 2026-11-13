@@ -2377,8 +2377,8 @@ contains
       end if
     else
       !
-      ! -- ensure nn1 is > 0 and < ncv
-      if (nn1 < 0 .or. nn1 > this%ncv) then
+      ! -- ensure nn1 is > 0 and <= ncv
+      if (nn1 < 1 .or. nn1 > this%ncv) then
         write (errmsg, '(7a, i0, a, i0, a)') &
           'Observation ', trim(obsrv%Name), ' of type ', &
           trim(adjustl(obsrv%ObsTypeId)), ' in package ', &
@@ -2425,8 +2425,8 @@ contains
       end if
     else
       !
-      ! -- ensure nn1 is > 0 and < ncv
-      if (nn1 < 0 .or. nn1 > this%ncv) then
+      ! -- ensure nn1 is > 0 and <= ncv
+      if (nn1 < 1 .or. nn1 > this%ncv) then
         write (errmsg, '(7a, i0, a, i0, a)') &
           'Observation ', trim(obsrv%Name), ' of type ', &
           trim(adjustl(obsrv%ObsTypeId)), ' in package ', &
@@ -2435,6 +2435,8 @@ contains
         call store_error(errmsg)
       end if
       iconn = obsrv%NodeNumber2
+      ! -- idx stays 0 if the feature has no rows in this budget term
+      idx = 0
       do j = 1, budterm%nlist
         if (budterm%id1(j) == nn1) then
           ! -- Look for the first occurrence of nn1, then set indxbnds
@@ -2496,8 +2498,8 @@ contains
       end if
     else
       !
-      ! -- ensure nn1 is > 0 and < ncv
-      if (nn1 < 0 .or. nn1 > this%ncv) then
+      ! -- ensure nn1 is > 0 and <= ncv
+      if (nn1 < 1 .or. nn1 > this%ncv) then
         write (errmsg, '(7a, i0, a, i0, a)') &
           'Observation ', trim(obsrv%Name), ' of type ', &
           trim(adjustl(obsrv%ObsTypeId)), ' in package ', &
@@ -2507,8 +2509,8 @@ contains
       end if
       nn2 = obsrv%NodeNumber2
       !
-      ! -- ensure nn2 is > 0 and < ncv
-      if (nn2 < 0 .or. nn2 > this%ncv) then
+      ! -- ensure nn2 is > 0 and <= ncv
+      if (nn2 < 1 .or. nn2 > this%ncv) then
         write (errmsg, '(7a, i0, a, i0, a)') &
           'Observation ', trim(obsrv%Name), ' of type ', &
           trim(adjustl(obsrv%ObsTypeId)), ' in package ', &

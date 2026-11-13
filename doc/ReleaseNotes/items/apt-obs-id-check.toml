@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "Observations in the advanced transport and energy packages (LKT, SFT, MWT, UZT, LKE, SFE, MWE and UZE) now stop the simulation with an error when a feature number is 0. Previously such an observation could be accepted and report a meaningless value. An observation of a feature's connections to the aquifer (types LKT, SFT, MWT, UZT, LKE, SFE, MWE and UZE, and TO-MVR in LKT and LKE) on a feature with no such connections is now also an error. Previously its result was unpredictable. Simulated concentrations, temperatures and flows were not affected."
