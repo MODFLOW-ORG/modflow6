@@ -162,7 +162,7 @@ module GwfNpfModule
     procedure, private :: calc_initial_sat
     procedure, private :: calc_max_conns
     procedure, private :: prepare_edge_lookup
-    procedure, private :: highest_cell_saturation
+    procedure :: highest_cell_saturation
   end type
 
   !> @brief Default conductance flow formulation

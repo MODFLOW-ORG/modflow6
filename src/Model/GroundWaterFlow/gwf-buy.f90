@@ -12,6 +12,7 @@ module GwfBuyModule
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use GwfNpfModule, only: GwfNpfType
+  use GwfNpfFormulationModule, only: DEFAULT_FLOW
   use GwfBuyInputDataModule, only: GwfBuyInputDataType
   use MatrixBaseModule
 
@@ -57,11 +58,18 @@ module GwfBuyModule
     procedure :: buy_cf
     procedure :: buy_cf_bnd
     procedure :: buy_fc
+    procedure :: buy_fn
     procedure :: buy_ot_dv
     procedure :: buy_cq
     procedure :: buy_da
     procedure, private :: calcbuy
     procedure, private :: calchhterms
+    procedure, private :: calc_gbuy
+    procedure, private :: buy_hcond
+    procedure, private :: npf_sats
+    procedure, private :: upstream_cells
+    procedure, private :: npf_cond_correction
+    procedure, private :: add_newton_term
     procedure, private :: buy_calcdens
     procedure, private :: buy_calcelev
     procedure :: allocate_scalars
@@ -800,7 +808,7 @@ contains
     real(DP), intent(inout), dimension(:) :: hnew
     ! -- local
     integer(I4B) :: n, m, ipos, idiag
-    real(DP) :: rhsterm, amatnn, amatnm
+    real(DP) :: rhsterm, amatnn, amatnm, dcond
     !
     ! -- initialize
     amatnn = DZERO
@@ -824,9 +832,125 @@ contains
         rhs(n) = rhs(n) - rhsterm
         call matrix_sln%add_value_pos(idxglo(idiag), -amatnn)
         call matrix_sln%add_value_pos(idxglo(ipos), amatnm)
+        !
+        ! -- Move the npf conductance to the flow-based upstream cell
+        dcond = this%npf_cond_correction(n, m, ipos, hnew)
+        if (dcond /= DZERO) then
+          call matrix_sln%add_value_pos(idxglo(idiag), -dcond)
+          call matrix_sln%add_value_pos(idxglo(ipos), dcond)
+        end if
       end do
     end do
   end subroutine buy_fc
+
+  !> @brief Fill Newton terms
+  !!
+  !! With the Newton formulation, the flow across a horizontal connection
+  !! is scaled by the saturation of the upstream cell, selected here from
+  !! the direction of the total (head plus buoyancy) flow. Add the
+  !! derivative of the buoyancy flow with respect to the upstream head and,
+  !! where npf selected a different upstream cell from the head difference,
+  !! move the npf Newton term to the flow-based upstream cell.
+  !<
+  subroutine buy_fn(this, kiter, matrix_sln, idxglo, rhs, hnew)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B) :: kiter
+    class(MatrixBaseType), pointer :: matrix_sln
+    integer(I4B), intent(in), dimension(:) :: idxglo
+    real(DP), dimension(:), intent(inout) :: rhs
+    real(DP), intent(inout), dimension(:) :: hnew
+    ! -- local
+    integer(I4B) :: n, m, ipos, iuph, iupf
+    real(DP) :: gbuy, dh
+    !
+    if (this%npf%inewton == 0) return
+    do n = 1, this%dis%nodes
+      if (this%ibound(n) == 0) cycle
+      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        m = this%dis%con%ja(ipos)
+        if (m < n) cycle
+        if (this%ibound(m) == 0) cycle
+        if (this%dis%con%ihc(this%dis%con%jas(ipos)) == 0) cycle
+        if (this%npf%icelltype(n) == 0 .and. this%npf%icelltype(m) == 0) cycle
+        call this%upstream_cells(n, m, ipos, hnew(n), hnew(m), iuph, iupf, &
+                                 gbuy)
+        !
+        ! -- buoyancy flow
+        call this%add_newton_term(n, m, ipos, iupf, gbuy, matrix_sln, &
+                                  idxglo, rhs, hnew)
+        !
+        ! -- npf flow, where npf used the head-based upstream cell
+        if (iupf /= iuph .and. this%dis%con%mask(ipos) /= 0 .and. &
+            this%npf%iformulation(ipos) == DEFAULT_FLOW) then
+          dh = hnew(m) - hnew(n)
+          call this%add_newton_term(n, m, ipos, iuph, -dh, matrix_sln, &
+                                    idxglo, rhs, hnew)
+          call this%add_newton_term(n, m, ipos, iupf, dh, matrix_sln, &
+                                    idxglo, rhs, hnew)
+        end if
+      end do
+    end do
+  end subroutine buy_fn
+
+  !> @brief Add a Newton upstream-saturation term for connection n-m
+  !!
+  !! For a flow into n of condsat * sat(iu) * drive, add the derivative with
+  !! respect to the head of the upstream cell iu to rows n and m. This
+  !! mirrors the fill pattern and upstream thickness used by npf.
+  !!
+  !! As in npf, the saturation derivative is evaluated with the top and
+  !! bottom of the upstream cell. With the HIGHEST_CELL_SATURATION option the
+  !! conductance uses saturations evaluated with the top and bottom of the
+  !! cell with the higher bottom, so where the upstream cell is not that cell
+  !! the derivative does not match the saturation used in the flow. This
+  !! affects only the convergence path, not the converged solution.
+  !<
+  subroutine add_newton_term(this, n, m, ipos, iu, drive, matrix_sln, &
+                             idxglo, rhs, hnew)
+    ! -- modules
+    use SmoothingModule, only: sQuadraticSaturationDerivative
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n !< node n (n < m)
+    integer(I4B), intent(in) :: m !< node m
+    integer(I4B), intent(in) :: ipos !< position of connection n-m in row n
+    integer(I4B), intent(in) :: iu !< upstream node (n or m)
+    real(DP), intent(in) :: drive !< flow into n per unit conductance
+    class(MatrixBaseType), pointer :: matrix_sln
+    integer(I4B), intent(in), dimension(:) :: idxglo
+    real(DP), dimension(:), intent(inout) :: rhs
+    real(DP), intent(in), dimension(:) :: hnew
+    ! -- local
+    integer(I4B) :: isympos
+    real(DP) :: topup, botup, derv, term
+    !
+    if (drive == DZERO) return
+    if (this%npf%icelltype(iu) == 0) return
+    isympos = this%dis%con%jas(ipos)
+    topup = this%dis%top(iu)
+    botup = this%dis%bot(iu)
+    if (this%dis%con%ihc(isympos) == 2) then
+      topup = min(this%dis%top(n), this%dis%top(m))
+      botup = max(this%dis%bot(n), this%dis%bot(m))
+    end if
+    derv = sQuadraticSaturationDerivative(topup, botup, hnew(iu), &
+                                          this%npf%satomega)
+    term = this%npf%condsat(isympos) * derv * drive
+    rhs(n) = rhs(n) + term * hnew(iu)
+    rhs(m) = rhs(m) - term * hnew(iu)
+    if (iu == n) then
+      call matrix_sln%add_value_pos(idxglo(this%dis%con%ia(n)), term)
+      if (this%ibound(m) > 0) then
+        call matrix_sln%add_value_pos(idxglo(this%dis%con%isym(ipos)), -term)
+      end if
+    else
+      if (this%ibound(n) > 0) then
+        call matrix_sln%add_value_pos(idxglo(ipos), term)
+      end if
+      call matrix_sln%add_value_pos(idxglo(this%dis%con%ia(m)), -term)
+    end if
+  end subroutine add_newton_term
 
   !> @brief Save density array to binary file
   !<
@@ -890,6 +1014,10 @@ contains
                                 amatnn, amatnm)
           deltaQ = amatnm * hnew(m) - amatnn * hnew(n) + rhsterm
         end if
+        !
+        ! -- npf flow moved to the flow-based upstream cell
+        deltaQ = deltaQ + this%npf_cond_correction(n, m, ipos, hnew) * &
+                 (hnew(m) - hnew(n))
         flowja(ipos) = flowja(ipos) + deltaQ
         flowja(this%dis%con%isym(ipos)) = flowja(this%dis%con%isym(ipos)) - &
                                           deltaQ
@@ -1072,7 +1200,7 @@ contains
   !<
   subroutine calcbuy(this, n, m, icon, hn, hm, buy)
     ! -- modules
-    use GwfConductanceUtilsModule, only: hcond, vcond
+    use GwfConductanceUtilsModule, only: vcond
     ! -- dummy
     class(GwfBuyType) :: this
     integer(I4B), intent(in) :: n
@@ -1131,19 +1259,7 @@ contains
                    this%dis%bot(n), this%dis%bot(m), &
                    this%dis%con%hwva(this%dis%con%jas(icon)))
     else
-      cond = hcond(this%ibound(n), this%ibound(m), &
-                   this%npf%icelltype(n), this%npf%icelltype(m), &
-                   this%npf%inewton, &
-                   this%dis%con%ihc(this%dis%con%jas(icon)), &
-                   this%npf%icellavg, &
-                   this%npf%condsat(this%dis%con%jas(icon)), &
-                   hn, hm, this%npf%sat(n), this%npf%sat(m), &
-                   hyn, hym, &
-                   this%dis%top(n), this%dis%top(m), &
-                   this%dis%bot(n), this%dis%bot(m), &
-                   this%dis%con%cl1(this%dis%con%jas(icon)), &
-                   this%dis%con%cl2(this%dis%con%jas(icon)), &
-                   this%dis%con%hwva(this%dis%con%jas(icon)))
+      cond = this%buy_hcond(n, m, icon, hn, hm, hyn, hym)
     end if
     !
     ! -- Calculate buoyancy term
@@ -1154,7 +1270,7 @@ contains
   !<
   subroutine calchhterms(this, n, m, icon, hn, hm, rhsterm, amatnn, amatnm)
     ! -- modules
-    use GwfConductanceUtilsModule, only: hcond, vcond
+    use GwfConductanceUtilsModule, only: vcond
     ! -- dummy
     class(GwfBuyType) :: this
     integer(I4B), intent(in) :: n
@@ -1210,19 +1326,7 @@ contains
                    this%dis%bot(n), this%dis%bot(m), &
                    this%dis%con%hwva(this%dis%con%jas(icon)))
     else
-      cond = hcond(this%ibound(n), this%ibound(m), &
-                   this%npf%icelltype(n), this%npf%icelltype(m), &
-                   this%npf%inewton, &
-                   this%dis%con%ihc(this%dis%con%jas(icon)), &
-                   this%npf%icellavg, &
-                   this%npf%condsat(this%dis%con%jas(icon)), &
-                   hn, hm, this%npf%sat(n), this%npf%sat(m), &
-                   hyn, hym, &
-                   this%dis%top(n), this%dis%top(m), &
-                   this%dis%bot(n), this%dis%bot(m), &
-                   this%dis%con%cl1(this%dis%con%jas(icon)), &
-                   this%dis%con%cl2(this%dis%con%jas(icon)), &
-                   this%dis%con%hwva(this%dis%con%jas(icon)))
+      cond = this%buy_hcond(n, m, icon, hn, hm, hyn, hym)
     end if
     !
     ! -- Calculate terms
@@ -1242,6 +1346,240 @@ contains
       amatnm = amatnm + cond * wt * (rhonormm - rhonormn)
     end if
   end subroutine calchhterms
+
+  !> @brief Saturations used by npf for a horizontal connection
+  !!
+  !! The cell saturations, adjusted as npf does when the
+  !! HIGHEST_CELL_SATURATION option is active.
+  !<
+  subroutine npf_sats(this, n, m, hn, hm, satn, satm)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    real(DP), intent(in) :: hn
+    real(DP), intent(in) :: hm
+    real(DP), intent(out) :: satn
+    real(DP), intent(out) :: satm
+    !
+    satn = this%npf%sat(n)
+    satm = this%npf%sat(m)
+    if (this%npf%ihighcellsat /= 0) then
+      call this%npf%highest_cell_saturation(n, m, hn, hm, satn, satm)
+    end if
+  end subroutine npf_sats
+
+  !> @brief Horizontal conductance for the buoyancy flow
+  !!
+  !! Same as the npf conductance except that, with the Newton formulation,
+  !! the upstream cell is selected from the direction of the total flow.
+  !! The flow-based upstream cell is always used, rather than only where it
+  !! differs from the head-based one: hcond breaks a tie in the heads in the
+  !! orientation of the calling row, so at equal heads the two rows of a
+  !! connection could otherwise use the saturations of different cells.
+  !<
+  function buy_hcond(this, n, m, icon, hn, hm, hyn, hym) result(cond)
+    ! -- modules
+    use GwfConductanceUtilsModule, only: hcond
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: icon
+    real(DP), intent(in) :: hn
+    real(DP), intent(in) :: hm
+    real(DP), intent(in) :: hyn !< effective hydraulic conductivity of n toward m
+    real(DP), intent(in) :: hym !< effective hydraulic conductivity of m toward n
+    ! -- return
+    real(DP) :: cond
+    ! -- local
+    integer(I4B) :: isympos, iuph, iupf
+    real(DP) :: gbuy, satn, satm
+    !
+    isympos = this%dis%con%jas(icon)
+    call this%npf_sats(n, m, hn, hm, satn, satm)
+    cond = hcond(this%ibound(n), this%ibound(m), &
+                 this%npf%icelltype(n), this%npf%icelltype(m), &
+                 this%npf%inewton, &
+                 this%dis%con%ihc(isympos), &
+                 this%npf%icellavg, &
+                 this%npf%condsat(isympos), &
+                 hn, hm, satn, satm, &
+                 hyn, hym, &
+                 this%dis%top(n), this%dis%top(m), &
+                 this%dis%bot(n), this%dis%bot(m), &
+                 this%dis%con%cl1(isympos), &
+                 this%dis%con%cl2(isympos), &
+                 this%dis%con%hwva(isympos))
+    !
+    ! -- Newton: scale by the saturation of the flow-based upstream cell
+    if (this%npf%inewton == 0) return
+    if (this%ibound(n) == 0 .or. this%ibound(m) == 0) return
+    if (this%npf%icelltype(n) == 0 .and. this%npf%icelltype(m) == 0) return
+    call this%upstream_cells(n, m, icon, hn, hm, iuph, iupf, gbuy)
+    if (iupf == n) then
+      cond = satn * this%npf%condsat(isympos)
+    else
+      cond = satm * this%npf%condsat(isympos)
+    end if
+  end function buy_hcond
+
+  !> @brief Head-based and flow-based Newton upstream cells
+  !!
+  !! npf selects the upstream cell of a horizontal connection from the head
+  !! difference: the cell with the higher head, or the higher-numbered cell
+  !! when the heads are equal. The buoyancy flow is generally not zero when
+  !! the heads are equal, so the flow (and the residual) would jump when the
+  !! order of two nearly equal heads changes. The flow-based upstream cell
+  !! is selected from the sign of the total flow, hm - hn + gbuy, which keeps
+  !! the product of flow and upstream saturation continuous. Both are
+  !! evaluated in the orientation lower node to higher node so that they
+  !! are the same for both rows of the connection.
+  !<
+  subroutine upstream_cells(this, n, m, icon, hn, hm, iuph, iupf, gbuy)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: icon
+    real(DP), intent(in) :: hn
+    real(DP), intent(in) :: hm
+    integer(I4B), intent(out) :: iuph !< upstream node from the head difference
+    integer(I4B), intent(out) :: iupf !< upstream node from the total flow
+    real(DP), intent(out) :: gbuy !< buoyancy flow from higher into lower node, per unit conductance
+    ! -- local
+    integer(I4B) :: nlo, nhi
+    real(DP) :: hlo, hhi
+    !
+    if (n < m) then
+      nlo = n
+      nhi = m
+      hlo = hn
+      hhi = hm
+    else
+      nlo = m
+      nhi = n
+      hlo = hm
+      hhi = hn
+    end if
+    iuph = nhi
+    if (hlo > hhi) iuph = nlo
+    !
+    ! -- in the hydraulic head formulation the total flow is proportional to
+    !    the head difference when the densities are equal, so both
+    !    selections agree (not so in the equivalent freshwater head
+    !    formulation, where the buoyancy term depends on the elevations)
+    if (this%iform /= 0 .and. this%dense(nlo) == this%dense(nhi)) then
+      gbuy = (this%dense(nlo) / this%denseref - DONE) * (hhi - hlo)
+      iupf = iuph
+      return
+    end if
+    gbuy = this%calc_gbuy(nlo, nhi, icon, hlo, hhi)
+    iupf = nhi
+    if (hlo > hhi + gbuy) iupf = nlo
+  end subroutine upstream_cells
+
+  !> @brief Correction to the npf conductance of a horizontal connection
+  !!
+  !! With the Newton formulation npf scales the saturated conductance by the
+  !! saturation of the cell with the higher head. Return the conductance to
+  !! add so that the npf flow uses the flow-based upstream cell instead;
+  !! zero where the two upstream cells agree.
+  !<
+  function npf_cond_correction(this, n, m, ipos, hnew) result(dcond)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: ipos
+    real(DP), intent(in), dimension(:) :: hnew
+    ! -- return
+    real(DP) :: dcond
+    ! -- local
+    integer(I4B) :: isympos, iposu, iuph, iupf
+    real(DP) :: gbuy, satn, satm
+    !
+    dcond = DZERO
+    if (this%npf%inewton == 0) return
+    isympos = this%dis%con%jas(ipos)
+    if (this%dis%con%ihc(isympos) == 0) return
+    if (this%ibound(n) == 0 .or. this%ibound(m) == 0) return
+    if (this%npf%icelltype(n) == 0 .and. this%npf%icelltype(m) == 0) return
+    !
+    ! -- only where npf calculated the default conductance
+    iposu = ipos
+    if (m < n) iposu = this%dis%con%isym(ipos)
+    if (this%dis%con%mask(iposu) == 0) return
+    if (this%npf%iformulation(iposu) /= DEFAULT_FLOW) return
+    !
+    call this%upstream_cells(n, m, ipos, hnew(n), hnew(m), iuph, iupf, gbuy)
+    if (iupf /= iuph) then
+      call this%npf_sats(n, m, hnew(n), hnew(m), satn, satm)
+      if (iupf == n) then
+        dcond = this%npf%condsat(isympos) * (satn - satm)
+      else
+        dcond = this%npf%condsat(isympos) * (satm - satn)
+      end if
+    end if
+  end function npf_cond_correction
+
+  !> @brief Buoyancy flow per unit conductance for this connection
+  !!
+  !! Returns the buoyancy part of the flow from m into n divided by the
+  !! conductance, so that the total flow is cond * (hm - hn + gbuy). It is
+  !! zero when the densities of both cells equal the reference density.
+  !<
+  function calc_gbuy(this, n, m, icon, hn, hm) result(gbuy)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: icon
+    real(DP), intent(in) :: hn
+    real(DP), intent(in) :: hm
+    ! -- return
+    real(DP) :: gbuy
+    ! -- local
+    real(DP) :: cl1, cl2, wt, elevn, elevm, elevnm
+    real(DP) :: rhonormn, rhonormm, rhoterm
+    real(DP) :: tp, bt
+    !
+    ! -- distance weight
+    if (m > n) then
+      cl1 = this%dis%con%cl1(this%dis%con%jas(icon))
+      cl2 = this%dis%con%cl2(this%dis%con%jas(icon))
+    else
+      cl1 = this%dis%con%cl2(this%dis%con%jas(icon))
+      cl2 = this%dis%con%cl1(this%dis%con%jas(icon))
+    end if
+    wt = cl1 / (cl1 + cl2)
+    rhonormn = this%dense(n) / this%denseref
+    rhonormm = this%dense(m) / this%denseref
+    rhoterm = wt * rhonormn + (DONE - wt) * rhonormm
+    !
+    if (this%iform == 0) then
+      ! -- equivalent freshwater head formulation, as in calcbuy
+      if (this%ireadelev == 0) then
+        tp = this%dis%top(n)
+        bt = this%dis%bot(n)
+        elevn = bt + DHALF * this%npf%sat(n) * (tp - bt)
+        tp = this%dis%top(m)
+        bt = this%dis%bot(m)
+        elevm = bt + DHALF * this%npf%sat(m) * (tp - bt)
+      else
+        elevn = this%elev(n)
+        elevm = this%elev(m)
+      end if
+      gbuy = (rhoterm - DONE) * (elevm - elevn)
+    else
+      ! -- hydraulic head formulation, as in calchhterms
+      elevn = this%elev(n)
+      elevm = this%elev(m)
+      elevnm = (DONE - wt) * elevn + wt * elevm
+      gbuy = (rhoterm - DONE) * (hm - hn) + &
+             (rhonormm - rhonormn) * ((DONE - wt) * hn + wt * hm - elevnm)
+    end if
+  end function calc_gbuy
 
   !> @brief calculate fluid density from concentration
   !<
