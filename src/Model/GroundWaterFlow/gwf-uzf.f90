@@ -162,7 +162,6 @@ module UzfModule
     procedure, private :: uzf_solve
     procedure, private :: uzf_source_packagedata
     procedure, private :: print_cell_properties
-    procedure, private :: findcellabove
     procedure, private :: check_cell_area
     !
     ! -- budget
@@ -1674,31 +1673,6 @@ contains
       write (this%listlabel, '(a, a16)') trim(this%listlabel), 'BOUNDARY NAME'
     end if
   end subroutine define_listlabel
-
-  !> @brief Identify overlying cell ID based on user-specified mapping
-  !<
-  subroutine findcellabove(this, n, nml)
-    ! -- dummy
-    class(UzfType) :: this
-    integer(I4B), intent(in) :: n
-    integer(I4B), intent(inout) :: nml
-    ! -- local
-    integer(I4B) :: m, ipos
-    !
-    ! -- Return nml = n if no cell is above it
-    nml = n
-    do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-      m = this%dis%con%ja(ipos)
-      if (this%dis%con%ihc(ipos) /= 0) then
-        if (n < m) then
-          ! -- m is beneath n
-        else
-          nml = m ! -- m is above n
-          exit
-        end if
-      end if
-    end do
-  end subroutine findcellabove
 
   !> @brief Source PACKAGEDATA block from input context
   !<
