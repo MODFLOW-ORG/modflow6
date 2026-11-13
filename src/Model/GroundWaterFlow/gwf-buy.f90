@@ -65,6 +65,7 @@ module GwfBuyModule
     procedure, private :: calcbuy
     procedure, private :: calchhterms
     procedure, private :: calc_gbuy
+    procedure, private :: hh_weight_elev
     procedure, private :: buy_hcond
     procedure, private :: npf_sats
     procedure, private :: upstream_cells
@@ -1304,9 +1305,8 @@ contains
     wt = cl1 / (cl1 + cl2)
     avgdense = wt * densen + (1.0 - wt) * densem
     !
-    ! -- Elevations
-    elevn = this%elev(n)
-    elevm = this%elev(m)
+    ! -- Elevations, and weight consistent with them
+    call this%hh_weight_elev(n, m, icon, wt, elevn, elevm)
     elevnm = (DONE - wt) * elevn + wt * elevm
     !
     ihc = this%dis%con%ihc(this%dis%con%jas(icon))
@@ -1573,13 +1573,61 @@ contains
       gbuy = (rhoterm - DONE) * (elevm - elevn)
     else
       ! -- hydraulic head formulation, as in calchhterms
-      elevn = this%elev(n)
-      elevm = this%elev(m)
+      call this%hh_weight_elev(n, m, icon, wt, elevn, elevm)
+      rhoterm = wt * rhonormn + (DONE - wt) * rhonormm
       elevnm = (DONE - wt) * elevn + wt * elevm
       gbuy = (rhoterm - DONE) * (hm - hn) + &
              (rhonormm - rhonormn) * ((DONE - wt) * hn + wt * hm - elevnm)
     end if
   end function calc_gbuy
+
+  !> @brief Elevations and density weight for the hydraulic head formulation
+  !!
+  !! The buoyancy flow from m into n is proportional to
+  !! rhom * (hm - zm) - rhon * (hn - zn) - rhobar * (zn - zm), with
+  !! rhobar = wt * rhon + (1 - wt) * rhom: the pressure difference between
+  !! the two cell elevations less the weight of the fluid between them. The
+  !! weight places the change in density at z = zn - wt * (zn - zm), and the
+  !! flow equals the difference of the two pressures extrapolated to that
+  !! elevation, whatever the cell elevations are. For full cells, wt from
+  !! CL1 and CL2 places it at the shared face of a vertical connection,
+  !! which is exact for a fluid at rest.
+  !!
+  !! The elevation of a partially saturated convertible cell is the center
+  !! of its saturated thickness. For a vertical connection the weight is then
+  !! recalculated so that the change in density stays where it is for full
+  !! cells; with the CL1 and CL2 weight it would move away from the shared
+  !! face and a fluid at rest would flow. Horizontal connections, and
+  !! vertical connections between cells whose elevations are the cell
+  !! centers, keep the CL1 and CL2 weight.
+  !<
+  subroutine hh_weight_elev(this, n, m, icon, wt, elevn, elevm)
+    ! -- dummy
+    class(GwfBuyType) :: this
+    integer(I4B), intent(in) :: n
+    integer(I4B), intent(in) :: m
+    integer(I4B), intent(in) :: icon
+    real(DP), intent(inout) :: wt !< weight of the density of n, from CL1 and CL2 on input
+    real(DP), intent(out) :: elevn !< elevation of n
+    real(DP), intent(out) :: elevm !< elevation of m
+    ! -- local
+    real(DP) :: zcn, zcm, zswitch
+    !
+    elevn = this%elev(n)
+    elevm = this%elev(m)
+    if (this%dis%con%ihc(this%dis%con%jas(icon)) /= 0) return
+    !
+    ! -- elevation of the change in density for full cells
+    zcn = DHALF * (this%dis%top(n) + this%dis%bot(n))
+    zcm = DHALF * (this%dis%top(m) + this%dis%bot(m))
+    if (elevn == zcn .and. elevm == zcm) return
+    if (elevn == elevm) return
+    zswitch = zcn - wt * (zcn - zcm)
+    !
+    ! -- weight that keeps it there with the actual cell elevations
+    wt = (elevn - zswitch) / (elevn - elevm)
+    wt = min(max(wt, DZERO), DONE)
+  end subroutine hh_weight_elev
 
   !> @brief calculate fluid density from concentration
   !<
