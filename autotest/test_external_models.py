@@ -30,6 +30,9 @@ EXCLUDE = [
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
     "testWetDry/mf2005",
+    # singular once the EVT cells fall below the extinction depth, so the
+    # result depends on roundoff in the ILU0 factorization
+    "mf2005/testevt",
 ]
 # models to force original regression comparison
 # (otherwise enabled with --original-regression)
