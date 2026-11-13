@@ -17,7 +17,8 @@ module LayerArrayLoadModule
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType
+  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
+                               RS_VALUES, RS_SERIES, RS_NETCDF
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                           tasmanager_cr
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
@@ -35,6 +36,7 @@ module LayerArrayLoadModule
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: param_tasnames !< array of dynamic param TAS names
     type(ReadStateVarType), dimension(:), allocatable :: param_reads !< read states for current load
+    integer(I4B), dimension(:), pointer, contiguous :: aux_reads => null() !< read state of each auxiliary variable
     type(TimeArraySeriesManagerType), pointer :: tasmanager !< TAS manager
     type(LoadContextType) :: ctx
   contains
@@ -59,6 +61,7 @@ contains
     use MemoryManagerModule, only: get_isize
     use BlockParserModule, only: BlockParserType
     use LoadMf6FileModule, only: LoadMf6FileType
+    use DefinitionSelectModule, only: get_param_definition_type
     class(LayerArrayLoadType), intent(inout) :: this
     type(ModflowInputType), intent(in) :: mf6_input
     character(len=*), intent(in) :: component_name
@@ -70,6 +73,8 @@ contains
     type(LoadMf6FileType) :: loader
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: tas_fnames
+    type(InputParamDefinitionType), pointer :: idt
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
     character(len=LINELENGTH) :: fname
     integer(I4B) :: tas6_size, n
 
@@ -111,6 +116,18 @@ contains
 
     ! allocate memory for storing TAS strings
     call this%tas_arrays_alloc()
+
+    ! layer index variable (e.g. IRCH, IEVT) is 1 until it is specified
+    if (this%param_names(1) == &
+        'I'//trim(this%mf6_input%subcomponent_type(1:3))) then
+      idt => get_param_definition_type(this%mf6_input%param_dfns, &
+                                       this%mf6_input%component_type, &
+                                       this%mf6_input%subcomponent_type, &
+                                       'PERIOD', this%param_names(1), &
+                                       this%input_name)
+      call mem_setptr(int1d, idt%mf6varname, this%mf6_input%mempath)
+      int1d = 1
+    end if
   end subroutine ainit
 
   subroutine df(this)
@@ -138,7 +155,6 @@ contains
     type(InputParamDefinitionType), pointer :: idt
     integer(I4B) :: iaux, iparam
     character(len=LENTIMESERIESNAME) :: tas_name
-    integer(I4B), dimension(:), pointer, contiguous :: int1d
 
     ! reset for this period
     call this%reset()
@@ -176,10 +192,11 @@ contains
           call parser%GetStringCaps(tas_name)
           if (param_tag == 'AUX') then
             this%aux_tasnames(iaux) = tas_name
+            this%aux_reads(iaux) = RS_SERIES
           else
             iparam = ifind(this%param_names, param_tag)
             this%param_tasnames(iparam) = tas_name
-            this%param_reads(iparam)%invar = 2
+            this%param_reads(iparam)%invar = RS_SERIES
           end if
           ! log variable
           call idm_log_var(param_tag, this%mf6_input%mempath, this%iout, .true., &
@@ -196,23 +213,6 @@ contains
       ! read and load the parameter
       call this%param_load(parser, idt, this%mf6_input%mempath, netcdf, iaux)
     end do
-
-    ! check if layer index variable was read; default to 1 if not provided.
-    ! the layer index variable follows the I<TYPE3> naming convention (e.g.
-    ! IEVT, IRCH), consistent with the in_scope check in LoadContext.
-    if (this%param_reads(1)%invar == 0) then
-      if (this%param_names(1) == &
-          'I'//trim(this%mf6_input%subcomponent_type(1:3))) then
-        idt => get_param_definition_type(this%mf6_input%param_dfns, &
-                                         this%mf6_input%component_type, &
-                                         this%mf6_input%subcomponent_type, &
-                                         'PERIOD', this%param_names(1), &
-                                         this%input_name)
-        ! set to default of 1 without updating invar
-        call mem_setptr(int1d, idt%mf6varname, this%mf6_input%mempath)
-        int1d = 1
-      end if
-    end if
 
     if (this%tas_active /= 0) then
       call this%tas_links_create(parser%iuactive)
@@ -249,8 +249,9 @@ contains
 
     do n = 1, this%nparam
       ! reset read state
-      this%param_reads(n)%invar = 0
+      this%param_reads(n)%invar = RS_NONE
     end do
+    this%aux_reads = RS_NONE
 
   end subroutine reset
 
@@ -290,8 +291,13 @@ contains
       rs_varname = this%ctx%rsv_alloc(this%param_names(iparam))
       call mem_setptr(intvar, rs_varname, this%mf6_input%mempath)
       this%param_reads(iparam)%invar => intvar
-      this%param_reads(iparam)%invar = 0
+      this%param_reads(iparam)%invar = RS_NONE
     end do
+
+    ! read state of each auxiliary variable
+    call mem_allocate(this%aux_reads, this%ctx%naux, 'INAUXVARS', &
+                      this%mf6_input%mempath)
+    this%aux_reads = RS_NONE
   end subroutine params_alloc
 
   subroutine param_load(this, parser, idt, mempath, netcdf, iaux)
@@ -352,6 +358,7 @@ contains
       end do
       call idm_log_var(dbl1d, idt%tagname, mempath, this%iout)
       deallocate (dbl1d)
+      this%aux_reads(iaux) = merge(RS_NETCDF, RS_VALUES, netcdf)
     case default
       errmsg = 'IDM unimplemented. LayerArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
@@ -362,7 +369,7 @@ contains
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)
     if (iparam > 0) then
-      this%param_reads(iparam)%invar = 1
+      this%param_reads(iparam)%invar = merge(RS_NETCDF, RS_VALUES, netcdf)
     end if
   end subroutine param_load
 
@@ -432,7 +439,7 @@ contains
                                        'PERIOD', this%param_names(n), &
                                        this%input_name)
       if (idt%timeseries) then
-        if (this%param_reads(n)%invar == 2) then
+        if (this%param_reads(n)%invar == RS_SERIES) then
           tas_name = this%param_tasnames(n)
           call mem_setptr(bound, idt%mf6varname, this%mf6_input%mempath)
           ! set bound pointer

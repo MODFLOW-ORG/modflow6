@@ -36,6 +36,7 @@ module MeshModelModule
     integer(I4B) :: nmesh_face !< number of faces in mesh
     integer(I4B) :: max_nmesh_face_nodes !< max number of nodes in a single face
     integer(I4B) :: time !< number of steps
+    integer(I4B) :: bnd !< number in boundary
     integer(I4B) :: layer !< number of layers
   contains
   end type MeshNCDimIdType
@@ -52,6 +53,7 @@ module MeshModelModule
     integer(I4B) :: mesh_face_ybnds !< mesh faces 2D y bounds array
     integer(I4B) :: mesh_face_nodes !< mesh faces 2D nodes array
     integer(I4B) :: time !< time coordinate variable
+    integer(I4B) :: time_bnds !< time boundaries 2D array
     integer(I4B) :: layer !< layer coordinate variable
     integer(I4B), dimension(:), allocatable :: export !< in scope layer export
     integer(I4B), dimension(:), allocatable :: dependent !< layered dependent variables array
@@ -275,6 +277,9 @@ contains
       call nf_verify(nf90_put_att(this%ncid, varid, &
                                   '_FillValue', (/DNODATA/)), &
                      this%nc_fname)
+      ! input in effect over the stress period (CF-1.13 7.3)
+      call nf_verify(nf90_put_att(this%ncid, varid, 'cell_methods', &
+                                  'time: mean'), this%nc_fname)
     case ('INTEGER1D')
       call nf_verify(nf90_def_var(this%ncid, varname, NF90_INT, &
                                   (/this%dim_ids%nmesh_face, &
@@ -301,8 +306,6 @@ contains
                        this%shuffle, this%nc_fname)
 
     ! assign variable attributes
-    call nf_verify(nf90_put_att(this%ncid, varid, &
-                                'units', this%lenunits), this%nc_fname)
     call nf_verify(nf90_put_att(this%ncid, varid, &
                                 'long_name', longname), this%nc_fname)
 
@@ -483,9 +486,12 @@ contains
       call ncvar_deflate(this%ncid, this%var_ids%dependent(k), this%deflate, &
                          this%shuffle, this%nc_fname)
 
-      ! assign variable attributes
-      call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
-                                  'units', this%lenunits), this%nc_fname)
+      ! assign variable attributes; head is a length, other dependent
+      ! variables have no units known from the input
+      if (this%modeltype == 'GWF') then
+        call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
+                                    'units', this%lenunits), this%nc_fname)
+      end if
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &
                                   'long_name', longname), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%dependent(k), &

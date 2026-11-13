@@ -751,14 +751,15 @@ contains
   !! This is a module scoped routine to check for I<filtyp>
   !! input. If array input was provided, INI<filtyp> and I<filtyp>
   !! will be allocated in the input context.  If the read
-  !! state variable INI<filtyp> is set to 1 during this period
-  !! update, I<filtyp> input was read and is used here to update
-  !! the nodelist.
+  !! state variable INI<filtyp> shows values were given in this period
+  !! block, I<filtyp> input was read and is used here to update the
+  !! nodelist.
   !!
   !<
   subroutine layarr_to_nlist(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
+    use LoadContextModule, only: RS_VALUES, RS_NETCDF
     use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
@@ -777,7 +778,7 @@ contains
     call mem_setptr(inilay, inilayname, this%input_mempath)
     !
     ! -- check read state
-    if (inilay == 1) then
+    if (inilay == RS_VALUES .or. inilay == RS_NETCDF) then
       ! -- ilay variable was read this period
       !
       ! -- set pointer to input context layer index variable

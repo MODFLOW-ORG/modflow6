@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "netcdf"
+description = "NetCDF export of package input (EXPORT\\_ARRAY\\_NETCDF) now writes, for each stress period, the values in effect in that period, including values carried forward from an earlier PERIOD block; previously, only the arrays specified in that period's PERIOD block were written. Arrays given as time-array series are no longer exported; previously, layer array input (READASARRAYS) given as a time-array series was exported as zeros. Auxiliary variables of layer array input on DISV grids are now exported correctly. In NetCDF model output, only the GWF head variable has a units attribute. NetCDF input files written by earlier versions can still be used."

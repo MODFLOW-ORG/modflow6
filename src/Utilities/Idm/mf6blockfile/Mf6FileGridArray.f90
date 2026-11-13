@@ -15,7 +15,8 @@ module GridArrayLoadModule
   use MemoryManagerModule, only: mem_allocate, mem_setptr
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType
+  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
+                               RS_VALUES, RS_NETCDF
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none
@@ -30,6 +31,7 @@ module GridArrayLoadModule
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
     logical(LGP), dimension(:), allocatable :: active !< user node IDOMAIN > 0
     logical(LGP) :: nodeulist_set = .false. !< nodeulist set in this block
+    integer(I4B), dimension(:), pointer, contiguous :: aux_reads => null() !< read state of each auxiliary variable
   contains
     procedure :: ainit
     procedure :: df
@@ -238,8 +240,9 @@ contains
 
     do n = 1, this%nparam
       ! reset read state
-      this%param_reads(n)%invar = 0
+      this%param_reads(n)%invar = RS_NONE
     end do
+    this%aux_reads = RS_NONE
   end subroutine reset
 
   subroutine params_alloc(this)
@@ -264,8 +267,13 @@ contains
       rs_varname = this%ctx%rsv_alloc(this%param_names(iparam))
       call mem_setptr(intvar, rs_varname, this%mf6_input%mempath)
       this%param_reads(iparam)%invar => intvar
-      this%param_reads(iparam)%invar = 0
+      this%param_reads(iparam)%invar = RS_NONE
     end do
+
+    ! read state of each auxiliary variable
+    call mem_allocate(this%aux_reads, this%ctx%naux, 'INAUXVARS', &
+                      this%mf6_input%mempath)
+    this%aux_reads = RS_NONE
   end subroutine params_alloc
 
   subroutine param_load(this, parser, idt, mempath, layered, netcdf, iaux)
@@ -376,6 +384,7 @@ contains
         this%nodeulist_set = .true.
       end if
       deallocate (nodes)
+      this%aux_reads(iaux) = merge(RS_NETCDF, RS_VALUES, netcdf)
     case default
       errmsg = 'IDM unimplemented. GridArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
@@ -386,7 +395,7 @@ contains
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)
     if (iparam > 0) then
-      this%param_reads(iparam)%invar = 1
+      this%param_reads(iparam)%invar = merge(RS_NETCDF, RS_VALUES, netcdf)
     end if
   end subroutine param_load
 
