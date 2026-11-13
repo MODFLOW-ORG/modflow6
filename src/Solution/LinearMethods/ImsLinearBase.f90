@@ -1075,9 +1075,17 @@ contains
       END DO
     END DO MAIN
     !
-    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN, WHICH LEAVES
-    !    n = NEQ + 1; AFTER EXIT MAIN IPCFLAG STAYS 1 SO THE CALLER RETRIES
-    IF (n > NEQ) IPCFLAG = 0
+    ! -- AFTER SUCCESSFUL COMPLETION OF MAIN, WHICH LEAVES n = NEQ + 1, SCALE
+    !    THE UPPER ENTRIES BY THE INVERSE OF THE DIAGONAL AND RESET IPCFLAG;
+    !    AFTER EXIT MAIN IPCFLAG STAYS 1 SO THE CALLER RETRIES
+    IF (n > NEQ) THEN
+      DO n = 1, NEQ
+        DO j = JAPC(n), IAPC(n + 1) - 1
+          APC(j) = APC(j) * APC(n)
+        END DO
+      END DO
+      IPCFLAG = 0
+    END IF
   end SUBROUTINE ims_base_pcilu0
 
   !> @ brief Apply the ILU0 and MILU0 preconditioners
@@ -1114,19 +1122,17 @@ contains
       D(n) = tv
     END DO FORWARD
     !
-    ! -- BACKWARD SOLVE - D = D / U
+    ! -- BACKWARD SOLVE - D = D / U, WITH THE NEAREST COLUMN SUBTRACTED
+    !    LAST TO SHORTEN THE DEPENDENCY CHAIN
     BACKWARD: DO n = NEQ, 1, -1
-      ic0 = IAPC(n)
       ic1 = IAPC(n + 1) - 1
       iu = JAPC(n)
-      tv = D(n)
-      UPPER: DO j = iu, ic1
+      tv = D(n) * APC(n)
+      UPPER: DO j = ic1, iu, -1
         jcol = JAPC(j)
         tv = tv - APC(j) * D(jcol)
       END DO UPPER
-      !
-      ! -- COMPUTE D FOR DIAGONAL - D = D / U
-      D(n) = tv * APC(n)
+      D(n) = tv
     END DO BACKWARD
   end SUBROUTINE ims_base_ilu0a
 

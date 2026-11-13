@@ -51,7 +51,9 @@ contains
                 new_unittest("pcilu0_bad_pivot", test_pcilu0_bad_pivot), &
                 new_unittest("pcu_bad_pivot", test_pcu_bad_pivot), &
                 new_unittest("lusol_apply_exact", test_lusol_apply_exact), &
-                new_unittest("lusol_bit_identical", test_lusol_bit_identical) &
+                new_unittest("lusol_bit_identical", test_lusol_bit_identical), &
+                new_unittest("ilu0_apply_exact", test_ilu0_apply_exact), &
+                new_unittest("ilu0_apply_inverse", test_ilu0_apply_inverse) &
                 ]
   end subroutine collect_imslinear
 
@@ -428,6 +430,122 @@ contains
       if (allocated(error)) return
     end do
   end subroutine test_lusol_bit_identical
+
+  !> @brief ILU0 and MILU0 factor a tridiagonal matrix exactly, so
+  !! ims_base_ilu0a returns the solution, also after refactoring
+  !<
+  subroutine test_ilu0_apply_exact(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: NT = 6
+    integer(I4B), parameter :: NNZ = 3 * NT - 2
+    integer(I4B), dimension(NT + 1) :: ia, iapc
+    integer(I4B), dimension(NNZ) :: ja, japc
+    integer(I4B), dimension(NT) :: iw
+    real(DP), dimension(NNZ) :: a, apc
+    real(DP), dimension(NT) :: w, xtrue, y, x
+    real(DP) :: relax
+    integer(I4B) :: i, k, n, ifac, ipcflag
+
+    k = 0
+    do n = 1, NT
+      ia(n) = k + 1
+      k = k + 1
+      ja(k) = n
+      a(k) = 4.0d0
+      if (n > 1) then
+        k = k + 1
+        ja(k) = n - 1
+        a(k) = -1.0d0
+      end if
+      if (n < NT) then
+        k = k + 1
+        ja(k) = n + 1
+        a(k) = -2.0d0
+      end if
+      xtrue(n) = real(n, DP)
+    end do
+    ia(NT + 1) = k + 1
+    do n = 1, NT
+      y(n) = DZERO
+      do i = ia(n), ia(n + 1) - 1
+        y(n) = y(n) + a(i) * xtrue(ja(i))
+      end do
+    end do
+    call ims_base_pccrs(NT, NNZ, ia, ja, iapc, japc)
+
+    do i = 0, 1
+      relax = 0.97d0 * real(i, DP)
+      do ifac = 1, 2
+        ipcflag = 0
+        call ims_base_pcilu0(NNZ, NT, a, ia, ja, apc, iapc, japc, iw, w, &
+                             relax, ipcflag, DZERO)
+        call check(error, ipcflag == 0, 'ipcflag '//to_string(ipcflag))
+        if (allocated(error)) return
+      end do
+      call ims_base_ilu0a(NNZ, NT, apc, iapc, japc, y, x)
+      do n = 1, NT
+        call check(error, abs(x(n) - xtrue(n)) <= 1.0d-12 * xtrue(n), &
+                   'x wrong at '//to_string(n))
+        if (allocated(error)) return
+      end do
+    end do
+  end subroutine test_ilu0_apply_exact
+
+  !> @brief For an inexact ILU0 or MILU0 factorization, multiplying the
+  !! result of ims_base_ilu0a by the factors returns the input vector
+  !<
+  subroutine test_ilu0_apply_inverse(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), dimension(NEQ + 1) :: ia, iapc
+    integer(I4B), dimension(NJA) :: ja, japc
+    integer(I4B), dimension(NEQ) :: iw
+    real(DP), dimension(NJA) :: a, apc
+    real(DP), dimension(NEQ) :: b, w, y, z, u, v
+    real(DP) :: relax, ymax
+    integer(I4B) :: i, j, n, ipcflag
+
+    call setup_grid(ia, ja, a, b)
+    ! nonsymmetric off-diagonals
+    ymax = DZERO
+    do n = 1, NEQ
+      do i = ia(n) + 1, ia(n + 1) - 1
+        a(i) = a(i) * (DONE + 0.1d0 * real(n, DP))
+      end do
+      y(n) = real(n, DP) - 8.5d0
+      ymax = max(ymax, abs(y(n)))
+    end do
+    call ims_base_pccrs(NEQ, NJA, ia, ja, iapc, japc)
+
+    do i = 0, 1
+      relax = 0.97d0 * real(i, DP)
+      ipcflag = 0
+      call ims_base_pcilu0(NJA, NEQ, a, ia, ja, apc, iapc, japc, iw, w, &
+                           relax, ipcflag, DZERO)
+      call check(error, ipcflag == 0, 'ipcflag '//to_string(ipcflag))
+      if (allocated(error)) return
+      call ims_base_ilu0a(NJA, NEQ, apc, iapc, japc, y, z)
+
+      ! u = U z, with the upper entries stored scaled by the inverse of
+      ! the diagonal, then v = L u, with a unit diagonal
+      do n = 1, NEQ
+        u(n) = z(n)
+        do j = japc(n), iapc(n + 1) - 1
+          u(n) = u(n) + apc(j) * z(japc(j))
+        end do
+        u(n) = u(n) / apc(n)
+      end do
+      do n = 1, NEQ
+        v(n) = u(n)
+        do j = iapc(n), japc(n) - 1
+          v(n) = v(n) + apc(j) * u(japc(j))
+        end do
+        call check(error, abs(v(n) - y(n)) <= 1.0d-12 * ymax, &
+                   'relax '//to_string(relax)//' v wrong at '// &
+                   to_string(n))
+        if (allocated(error)) return
+      end do
+    end do
+  end subroutine test_ilu0_apply_inverse
 
   !> @brief The original sparskit lusol, which sums in x(i)
   !<
