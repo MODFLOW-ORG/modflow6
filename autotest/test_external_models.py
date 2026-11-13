@@ -19,18 +19,19 @@ PREFIXES = ["mf6/test", "mf6/large", "mf2005"]
 EXCLUDE = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
-    # todo reinstate after 6.7.0 release
-    "test028_sfr_rewet",
     # todo reinstate after 6.9.0 release (embedded lake bottom fix)
     "test045_lake4ss_nr_embedded",
-    # todo reinstate after 6.5.0 release
-    "test001d_Tnewton",
     # todo reinstate after resolving convergence failure
     "test014_NWTP3Low_dev",
+    # todo reinstate after updating models, they use the
+    # DEV_MODFLOWUSG_UPSTREAM_WEIGHTED_SATURATION option
+    # which was removed from NPF in #1655
     "test1002_biscqtg_disv_gnc_nr_dev",
     "test1002_biscqtg_disv_nr_MD_dev",
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
+    # todo reinstate after fixing model layout, the name
+    # file refers to a HOB file outside the model folder
     "testWetDry/mf2005",
 ]
 # models to force original regression comparison
