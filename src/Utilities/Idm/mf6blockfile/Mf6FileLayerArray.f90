@@ -17,8 +17,9 @@ module LayerArrayLoadModule
   use CharacterStringModule, only: CharacterStringType
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
-                               RS_VALUES, RS_SERIES, RS_NETCDF
+  use LoadContextModule, only: LoadContextType
+  use IdmParamMetaModule, only: ReadStateVarType, RS_NONE, RS_VALUES, &
+                                RS_SERIES, RS_NETCDF
   use TimeArraySeriesManagerModule, only: TimeArraySeriesManagerType, &
                                           tasmanager_cr
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
