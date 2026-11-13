@@ -9,6 +9,7 @@ module TvBaseModule
   use BaseDisModule, only: DisBaseType
   use ConstantsModule, only: LENVARNAME
   use IdmParamMetaViewModule, only: IdmParamMetaViewType
+  use IdmParamMetaModule, only: RS_VALUES, RS_SERIES
   use GeomUtilModule, only: get_node
   use KindModule, only: I4B, LGP
   use NumericalPackageModule, only: NumericalPackageType
@@ -30,6 +31,8 @@ module TvBaseModule
     type(STLVecInt) :: tracked_nodeu !< user nodes given in any PERIOD block
     character(len=LENVARNAME), dimension(:), allocatable :: fieldnames !< input fields, in the order they are applied
     type(IdmParamMetaViewType) :: input_meta !< input loading information of the fields
+    integer(I4B) :: changed_kper = -1 !< stress period of the last change
+    integer(I4B) :: changed_kstp = -1 !< time step of the last change
   contains
     procedure :: init
     procedure :: ar
@@ -38,6 +41,7 @@ module TvBaseModule
     procedure :: da => tvbase_da
     procedure, private :: tvbase_allocate_scalars
     procedure, private :: cellid_to_nodeu
+    procedure, private :: apply_written
     procedure(ar_set_pointers), deferred :: ar_set_pointers
     procedure :: source_options => tvbase_source_options
     procedure :: source_package_options => tvbase_source_package_options
@@ -94,7 +98,7 @@ module TvBaseModule
 
     !> @brief Clear all per-node change flags
     !!
-    !! Called before input values are applied in a time step.
+    !! Called at the first input value change in a time step.
     !<
     subroutine reset_change_flags(this)
       ! -- modules
@@ -226,7 +230,9 @@ contains
     end if
   end subroutine ar
 
-  !> @brief Record the cells given in this period's PERIOD block
+  !> @brief Apply the values given in this period's PERIOD block
+  !!
+  !! Records the cells given, so ad does not scan the full grid.
   !<
   subroutine rp(this)
     ! -- dummy
@@ -239,7 +245,7 @@ contains
     call mem_setptr(iper, 'IPER', this%input_mempath)
     if (iper /= kper) return
     !
-    ! -- track the given cells, so ad does not scan the full grid
+    ! -- track the given cells
     call mem_setptr(nbound, 'NBOUND', this%input_mempath)
     if (nbound > 0) then
       nodeu_count = product(this%dis%mshape)
@@ -258,33 +264,46 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
+    !
+    call this%apply_written(RS_VALUES)
   end subroutine rp
 
-  !> @brief Apply the input values written in this time step
-  !!
-  !! Input writes a value when it is given in a PERIOD block and when its
-  !! time series updates it. Other values keep their last setting.
+  !> @brief Apply the values written by time series in this time step
   !<
   subroutine ad(this)
     ! -- dummy
     class(TvBaseType) :: this
+    !
+    call this%apply_written(RS_SERIES)
+  end subroutine ad
+
+  !> @brief Apply the values written in this time step in the given way
+  !!
+  !! rs is RS_VALUES (given in a PERIOD block) or RS_SERIES (written by a
+  !! time series). Other values keep their last setting. Change flags are
+  !! reset at the first change in a time step, so they hold the changes
+  !! from both rp and ad, and an ATS retry of the time step keeps them.
+  !<
+  subroutine apply_written(this, rs)
+    ! -- dummy
+    class(TvBaseType) :: this
+    integer(I4B), intent(in) :: rs !< read state of the writes to apply
     ! -- local variables
     logical(LGP), dimension(size(this%fieldnames)) :: fields
-    logical(LGP) :: changed
     integer(I4B) :: i, j, nodeu, node
     !
     call this%input_meta%update()
-    changed = .false.
     do i = 1, this%tracked_nodeu%size
       nodeu = this%tracked_nodeu%at(i)
       do j = 1, size(this%fieldnames)
-        fields(j) = this%input_meta%is_written(j, nodeu)
+        fields(j) = this%input_meta%is_written(j, nodeu, rs)
       end do
       if (.not. any(fields)) cycle
-      if (.not. changed) then
+      if (this%changed_kper /= kper .or. this%changed_kstp /= kstp) then
         call this%set_changed_at(kper, kstp)
         call this%reset_change_flags()
-        changed = .true.
+        this%changed_kper = kper
+        this%changed_kstp = kstp
       end if
       node = this%dis%get_nodenumber(nodeu, 1)
       call this%apply_row_changes(nodeu, node, fields)
@@ -293,7 +312,7 @@ contains
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-  end subroutine ad
+  end subroutine apply_written
 
   !> @brief Return the unreduced node number for CELLID row n.
   !<

@@ -8,10 +8,15 @@ the end of that attempt.
 
 Case 1 (tvk08a): K from the series.
 Case 2 (tvk08b): K from the series and a K33 ratio (NPF K33OVERK) in the
-    same block; each attempt applies the ratio to that attempt's K.
+    same block. The ratio, given as a value, is applied once before the
+    series sets K, so it uses K from before the period, and a retry does
+    not apply it again.
 
-These cases guard the time step retry path; earlier versions that applied
-all values at every time step also pass them.
+Case 3 (tvk08c): time-varying storage (TVS) SY from a series at the same
+    cell, without TVK and without storage change integration.
+
+Cases 1 and 3 guard the time step retry path; earlier versions that
+applied all values at every time step also pass them.
 """
 
 import re
@@ -21,10 +26,11 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["tvk08a", "tvk08b"]
+cases = ["tvk08a", "tvk08b", "tvk08c"]
 nlay, nrow, ncol = 1, 1, 10
-k0, k1, tend = 1.0, 5.0, 100.0
+k0, k1, tend = 2.0, 5.0, 100.0
 k33ratio = 0.5
+sy0, sy1 = 0.1, 0.2
 
 
 def build_models(idx, test):
@@ -64,18 +70,33 @@ def build_models(idx, test):
         rows.append(((0, 0, 4), "K33", k33ratio))
     else:
         npf = flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=k0)
-    tvk = flopy.mf6.ModflowUtltvk(
-        npf, print_input=True, perioddata={0: rows}, filename=f"{name}.tvk"
+    if name != "tvk08c":
+        tvk = flopy.mf6.ModflowUtltvk(
+            npf, print_input=True, perioddata={0: rows}, filename=f"{name}.tvk"
+        )
+        tvk.ts.initialize(
+            filename=f"{name}.tvk.ts",
+            timeseries=[(0.0, k0), (tend, k1)],
+            time_series_namerecord="kts",
+            interpolation_methodrecord="linearend",
+        )
+    sto = flopy.mf6.ModflowGwfsto(
+        gwf, iconvert=1, ss=0.0, sy=sy0, steady_state={0: False}, transient={0: True}
     )
-    tvk.ts.initialize(
-        filename=f"{name}.tvk.ts",
-        timeseries=[(0.0, k0), (tend, k1)],
-        time_series_namerecord="kts",
-        interpolation_methodrecord="linearend",
-    )
-    flopy.mf6.ModflowGwfsto(
-        gwf, iconvert=1, ss=0.0, sy=0.1, steady_state={0: False}, transient={0: True}
-    )
+    if name == "tvk08c":
+        tvs = flopy.mf6.ModflowUtltvs(
+            sto,
+            print_input=True,
+            disable_storage_change_integration=True,
+            perioddata={0: [((0, 0, 4), "SY", "syts")]},
+            filename=f"{name}.tvs",
+        )
+        tvs.ts.initialize(
+            filename=f"{name}.tvs.ts",
+            timeseries=[(0.0, sy0), (tend, sy1)],
+            time_series_namerecord="syts",
+            interpolation_methodrecord="linearend",
+        )
     flopy.mf6.ModflowGwfwel(gwf, stress_period_data={0: [[(0, 0, 0), -1.0]]})
     chd = flopy.mf6.ModflowGwfchd(
         gwf, stress_period_data={0: [[(0, 0, ncol - 1), "tshead"]]}
@@ -113,6 +134,13 @@ def check_output(idx, test):
 
     # values applied for each attempt, before the second time step
     text = (test.workspace / f"{name}.lst").read_text()
+    if name == "tvk08c":
+        syvals = applied(text, "SY")
+        expected = [sy0 + (sy1 - sy0) * t / tend for t in dt]
+        assert np.allclose(syvals[:n], expected), (
+            f"SY applied for each attempt {syvals[:n]}, expected {expected}"
+        )
+        return
     kvals = applied(text, "K")
     expected = [k0 + (k1 - k0) * t / tend for t in dt]
     assert np.allclose(kvals[:n], expected), (
@@ -120,9 +148,8 @@ def check_output(idx, test):
     )
     if name == "tvk08b":
         k33vals = applied(text, "K33")
-        assert np.allclose(k33vals[:n], [k33ratio * k for k in expected]), (
-            f"K33 applied for each attempt {k33vals[:n]}, expected "
-            f"{[k33ratio * k for k in expected]}"
+        assert np.allclose(k33vals, [k33ratio * k0]), (
+            f"K33 applied {k33vals}, expected once: {k33ratio * k0}"
         )
 
 

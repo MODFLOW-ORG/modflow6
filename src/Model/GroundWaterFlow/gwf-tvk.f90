@@ -107,9 +107,9 @@ contains
   subroutine tvk_apply_row_changes(this, nodeu, node, fields)
     ! -- dummy
     class(TvkType) :: this
-    integer(I4B), intent(in) :: nodeu
-    integer(I4B), intent(in) :: node
-    logical(LGP), dimension(:), intent(in) :: fields
+    integer(I4B), intent(in) :: nodeu !< user node number
+    integer(I4B), intent(in) :: node !< reduced node number; may be invalid, each field checks it
+    logical(LGP), dimension(:), intent(in) :: fields !< fields to apply, in fieldnames order
     ! -- local
     character(len=LINELENGTH) :: cellstr
     ! -- formats
@@ -189,7 +189,7 @@ contains
 
   !> @brief Clear all per-node change flags
   !!
-  !! Called before input values are applied in a time step.
+  !! Called at the first input value change in a time step.
   !<
   subroutine tvk_reset_change_flags(this)
     ! -- dummy variables
