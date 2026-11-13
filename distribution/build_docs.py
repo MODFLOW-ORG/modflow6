@@ -35,6 +35,7 @@ TEX_PATHS = {
     "develop": [
         MF6IO_PATH / "mf6io.tex",
         DOCS_PATH / "ReleaseNotes" / "ReleaseNotes.tex",
+        DOCS_PATH / "SuppTechInfo" / "mf6suptechinfo.tex",
     ],
     "release": [
         MF6IO_PATH / "mf6io.tex",

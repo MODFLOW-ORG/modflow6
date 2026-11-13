@@ -1,0 +1,23 @@
+Input to the Time-Varying Grid (TVG) Utility is read from the file that is specified in the TVG6 record of the OPTIONS block of the package that uses it.  The TVG Utility provides one or more named full-grid arrays that can change by stress period.  A package that supports TVG input names the auxiliary variables it expects; the Seawater Intrusion (SWI) Package, for example, reads the saltwater head from a TVG auxiliary variable named SALTWATER\_HEAD.
+
+Each array provided through the TVG Utility is declared as an auxiliary variable in the AUXILIARY option.  The arrays are assigned in PERIOD blocks, in which each array is specified by its auxiliary variable name followed by the array values, read with the READARRAY utility.  Values are read for the entire model grid; the optional LAYERED keyword allows a separate value or control record to be given for each layer.  A package that reads an array through the TVG Utility copies the values into an array of its own, so the values it last read remain in effect for stress periods in which no PERIOD block is present.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tvg-options.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tvg-period.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-tvg-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-tvg-example.dat}

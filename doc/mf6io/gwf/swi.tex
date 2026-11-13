@@ -1,0 +1,43 @@
+Input to the Seawater Intrusion (SWI) Package is read from the file that has type ``SWI6'' in the Name File.  Only one SWI Package can be specified for a GWF Model.  The Newton-Raphson formulation, which is activated with the NEWTON option in the GWF Model Name File, is recommended for the SWI Package.  Without it, the derivatives of the interface position are not included in the solution, and simulations may converge slowly or not at all.  The SWI Package requires that specific yield (SY) be specified in the STO Package whenever the STO Package is active.
+
+The SWI Package represents the freshwater-saltwater interface in a coastal aquifer as a sharp interface.  Rather than simulating a diffuse mixing zone with a variable-density transport model, the package tracks the elevation of the interface, $\zeta$, in each cell and replaces the NPF and STO flow and storage terms for the cell with terms written for the part of the cell occupied by the fluid that the model represents.  The interface elevation is calculated from the freshwater head, $h^f$, and the saltwater head, $h^s$, using the Ghyben-Herzberg relation
+
+\begin{equation}
+\zeta = -\alpha_f h^f + \alpha_s h^s,
+\end{equation}
+
+\noindent where $\alpha_f = \rho_f / (\rho_s - \rho_f)$ and $\alpha_s = \rho_s / (\rho_s - \rho_f)$, and $\rho_f$ and $\rho_s$ are the freshwater and saltwater densities.  The two coefficients are calculated from the relative density difference, $(\rho_s - \rho_f) / \rho_f$, which is specified with the RELATIVE\_DENSITY\_DIFFERENCE option, so that $\alpha_f$ is the reciprocal of the relative density difference and $\alpha_s = \alpha_f + 1$.  The default relative density difference of 0.025 corresponds to densities of 1000 and 1025 kg/m$^3$ and gives $\alpha_f = 40$ and $\alpha_s = 41$.  The theory and the numerical formulation are described in the Seawater Intrusion Package chapter of the Supplemental Technical Information document.
+
+The SWI Package can be used in two modes.  In \textit{single-fluid} mode, the SWI Package is added to a single GWF Model, which simulates the freshwater.  The saltwater is assumed to be static with a prescribed saltwater head, and the interface elevation is calculated from the simulated freshwater head.  The saltwater head is zero unless it is specified with the SALTWATER\_HEAD option or, when it changes with time, with a Time-Varying Grid (TVG) Utility file that provides a SALTWATER\_HEAD auxiliary variable; the TVG Utility is described in the section that follows.  In \textit{two-fluid} mode, the freshwater and the saltwater are simulated with two separate GWF Models, each with its own SWI Package and each defined on the same grid, and the two models are coupled with an SWI-SWI Exchange listed in the Simulation Name File.  In two-fluid mode the saltwater head is the head simulated by the saltwater model, and the SALTWATER\_HEAD option and TVG input are not used.  Both models must be solved by the same IMS Package.
+
+Heads in a freshwater model, including the initial heads and the heads assigned in stress packages such as the CHD and GHB Packages, are freshwater heads.  Where the sea overlies the aquifer, the head assigned to a boundary cell on the seafloor must be the equivalent freshwater head of the seawater column above the seafloor,
+
+\begin{equation}
+h^f = h_{sea} + \frac{\rho_s - \rho_f}{\rho_f} \left( h_{sea} - z \right),
+\end{equation}
+
+\noindent where $h_{sea}$ is sea level and $z$ is the elevation at which the boundary is applied, usually the top of the cell that represents the seafloor.  With the default relative density difference of 0.025, the equivalent freshwater head exceeds sea level by 0.025 times the depth of water above the boundary.  Assigning sea level itself as the boundary head understates the pressure at the seafloor and displaces the simulated interface.  Sea level must also be assigned as the saltwater head, with the SALTWATER\_HEAD option or the TVG Utility, so that the interface calculation is consistent with the boundary condition.  In the saltwater model of a two-fluid simulation, heads are saltwater heads, and a boundary on the seafloor is assigned sea level directly.
+
+Two-fluid simulations are strongly nonlinear and generally require backtracking in the IMS Package.  Settings that have worked well are BACKTRACKING\_NUMBER 20, BACKTRACKING\_TOLERANCE 1.05, BACKTRACKING\_REDUCTION\_FACTOR 0.1, and BACKTRACKING\_RESIDUAL\_LIMIT 0.002, with LINEAR\_ACCELERATION BICGSTAB.  Simulations in which well withdrawals are reduced with the AUTO\_FLOW\_REDUCE option of the WEL Package as a fluid zone becomes thin should also use delta-bar-delta under-relaxation (UNDER\_RELAXATION DBD) in the IMS Package, particularly when pumping approaches or exceeds the rate that the fluid zone can sustain.  The interface is represented by a single elevation in each cell, so the grid should be refined where a freshwater or saltwater zone is expected to pinch out.
+
+The interface elevation can be written to a binary output file with the ZETA FILEOUT option.  The file has the same format as the binary head file, the text identifier for the array is ``ZETA'', and the array is written at the times for which heads are saved by the Output Control Package.  The saved interface elevation is limited to the saturated part of each cell: it is not lower than the cell bottom and not higher than the cell top or, in a convertible cell, the water table.  Where the calculated interface is above the water table, the cell contains no freshwater and the saved value marks the top of the saltwater column.  The volumetric budget of a model that uses the SWI Package includes an additional term, labeled STORAGE for the SWI Package, which accounts for the storage change caused by movement of the interface.  This term is written to the binary budget file when SAVE\_FLOWS is specified in the STO Package and the budget is saved by Output Control.
+
+The SWI Package is not compatible with the XT3D option of the NPF Package, the GNC Package, the HFB Package, the GWF-GWF Exchange (including local grid refinement), parallel simulations, the GWT and GWE Models, the PRT Model, the BUY and VSC Packages, or the advanced stress packages (MAW, SFR, LAK, and UZF).  Staggered horizontal connections, in which laterally adjacent cells are vertically offset, are not supported, nor are vertical connections in which the two cells do not share a horizontal face at the bottom of the upper cell.  These limitations are described in the Limitations section of the Seawater Intrusion Package chapter of the Supplemental Technical Information document.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-swi-options.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-swi-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File 1}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-swi-example1.dat}
+
+\vspace{5mm}
+\subsubsection{Example Input File 2}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-swi-example2.dat}

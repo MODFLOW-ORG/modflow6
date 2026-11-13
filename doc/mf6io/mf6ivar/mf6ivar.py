@@ -723,7 +723,9 @@ def get_dfn_files(models):
         exg = stem.rpartition("-")[2]
         left = exg[:3]
         right = exg[-3:]
-        return left in models and right in models
+        # the SWI-SWI exchange couples two GWF models
+        names = models + ["swi"]
+        return left in names and right in names
 
     files = list(DFNS_DIR_PATH.glob("*.dfn"))
     files = (

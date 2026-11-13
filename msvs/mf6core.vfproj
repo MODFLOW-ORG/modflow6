@@ -157,6 +157,7 @@
 				<File RelativePath="..\src\Exchange\exg-gwtgwt.f90"/>
 				<File RelativePath="..\src\Exchange\exg-olfgwf.f90"/>
 				<File RelativePath="..\src\Exchange\exg-swfgwf.f90"/>
+				<File RelativePath="..\src\Exchange\exg-swiswi.f90"/>
 				<File RelativePath="..\src\Exchange\GhostNode.f90"/>
 				<File RelativePath="..\src\Exchange\GwfExchangeMover.f90"/>
 				<File RelativePath="..\src\Exchange\NumericalExchange.f90"/>
@@ -196,6 +197,7 @@
 				<File RelativePath="..\src\Idm\exg-gwfprtidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-gwtgwtidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-olfgwfidm.f90"/>
+				<File RelativePath="..\src\Idm\exg-swiswiidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-advidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-cndidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-ctpidm.f90"/>
@@ -240,6 +242,7 @@
 				<File RelativePath="..\src\Idm\gwf-rividm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-sfridm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-stoidm.f90"/>
+				<File RelativePath="..\src\Idm\gwf-swiidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-uzfidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-vscidm.f90"/>
 				<File RelativePath="..\src\Idm\gwf-welgidm.f90"/>
@@ -291,6 +294,7 @@
 				<File RelativePath="..\src\Idm\utl-sfrtabidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-spcaidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-spcidm.f90"/>
+				<File RelativePath="..\src\Idm\utl-tvgidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-tvkidm.f90"/>
 				<File RelativePath="..\src\Idm\utl-tvsidm.f90"/>
 			</Filter>
@@ -374,6 +378,7 @@
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-riv.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-sfr.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-sto.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-swi.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-tvk.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-tvs.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-uzf.f90"/>
@@ -426,6 +431,7 @@
 					<File RelativePath="..\src\Model\ModelUtilities\TimeStepSelect.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\TspSpc.f90"/>
+				<File RelativePath="..\src\Model\ModelUtilities\UtlTvg.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>

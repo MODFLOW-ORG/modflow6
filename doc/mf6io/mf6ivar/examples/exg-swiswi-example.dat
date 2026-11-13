@@ -1,0 +1,9 @@
+# The exchange is listed in the EXCHANGES block of the simulation name file
+# with the freshwater model first and the saltwater model second, as in
+#
+#   SWI6-SWI6  island.swiswi  freshwater  saltwater
+#
+# Both models use the same grid, so no exchange data are required.
+
+BEGIN OPTIONS
+END OPTIONS

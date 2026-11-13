@@ -1,0 +1,13 @@
+Input to the Seawater Intrusion (SWI-SWI) Exchange is read from the file that has type ``SWI6-SWI6'' in the Simulation Name File.  The SWI-SWI Exchange couples a freshwater GWF Model and a saltwater GWF Model for the two-fluid mode of the Seawater Intrusion (SWI) Package, which is described in the SWI Package section of this guide.  The first model named in the exchange entry of the Simulation Name File is the freshwater model and the second is the saltwater model.
+
+Both models must contain an SWI Package, and both must be solved by the same IMS Package.  The two models must have the same spatial discretization, so that each cell of the freshwater model coincides with the cell of the same number in the saltwater model; the exchange terminates with an error if the two models do not have the same number of cells.  Because the grids coincide, the exchange has no EXCHANGEDATA block: every cell of the freshwater model is connected to the corresponding cell of the saltwater model.  The OPTIONS block has no user options, so the exchange input file contains only an empty OPTIONS block.
+
+The SWI-SWI Exchange does not transfer water between the two models.  It adds to the coupled system of equations the Newton-Raphson terms that link the freshwater head and the saltwater head through the position of the interface, which is calculated from the two heads.  Two-fluid simulations are strongly nonlinear and generally require backtracking in the IMS Package; see the SWI Package section for the recommended solver settings.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/exg-swiswi-options.dat}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/exg-swiswi-example.dat}

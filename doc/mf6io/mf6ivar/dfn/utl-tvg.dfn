@@ -1,0 +1,67 @@
+# --------------------- utl tvg options ---------------------
+# flopy multi-package
+# flopy subpackage tvg6_filerecord tvg tvg_array tvg_array
+# flopy parent_name_type parent_package MFPackage
+
+block options
+name readarraygrid
+type keyword
+shape
+reader urword
+optional false
+longname use grid-array input
+description indicates that grid-array input will be used for the TVG Utility.  This keyword must be specified to use grid-array input.
+default_value true
+
+block options
+name auxiliary
+type string
+shape (naux)
+reader urword
+optional true
+longname keyword to specify aux variables
+description REPLACE auxnames {'{#1}': 'Time-Varying Grid arrays'}
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description REPLACE print_input {'{#1}': 'time-varying grid array input'}
+mf6internal iprpak
+
+block options
+name export_array_netcdf
+type keyword
+reader urword
+optional true
+mf6internal export_nc
+longname export array variables to netcdf output files.
+description keyword that specifies input griddata arrays should be written to the model output netcdf file.
+
+# --------------------- utl tvg period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name aux
+type double precision
+shape (nodes)
+reader readarray
+layered true
+optional true
+longname auxiliary variable iaux
+description is an array of values for auxiliary variable aux(iaux), where iaux is a value from 1 to naux, and aux(iaux) must be listed as part of the auxiliary variables.  A separate array can be specified for each auxiliary variable.  An array must be specified for every auxiliary variable in every period block in which any array is specified.
+mf6internal auxvar

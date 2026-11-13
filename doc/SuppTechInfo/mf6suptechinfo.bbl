@@ -1,9 +1,16 @@
-\begin{thebibliography}{32}
+\begin{thebibliography}{61}
 \providecommand{\natexlab}[1]{#1}
 \expandafter\ifx\csname urlstyle\endcsname\relax
   \providecommand{\doiagency}[1]{doi:\discretionary{}{}{}#1}\else
   \providecommand{\doiagency}{doi:\discretionary{}{}{}\begingroup
   \urlstyle{rm}\Url}\fi
+
+\bibitem[{Bakker and others(2013)Bakker, Schaars, Hughes, Langevin, and
+  Dausman}]{bakker2013documentation}
+Bakker, M., Schaars, F., Hughes, J.D., Langevin, C.D., and Dausman, A.M., 2013,
+  Documentation of the seawater intrusion (SWI2) package for MODFLOW: {U.S.
+  Geological Survey Techniques and Methods, book 6, chap. A46, 47 p.}, accessed
+  June 27, 2017, at \url{https://pubs.er.usgs.gov/publication/tm6A46}.
 
 \bibitem[{Bakker and others(2016)Bakker, Post, Langevin, Hughes, White, Starn,
   and Fienen}]{bakker2016flopy}
@@ -20,6 +27,10 @@ Bakker, M., Post, V., Hughes, J.D., Langevin, C.D., White, J.T., Leaf, A.T.,
   v3.7.0dev0 (preliminary): {U.S. Geological Survey Software Release},
   \url{https://doi.org/10.5066/F7BK19FH}.
 
+\bibitem[{Bear(1979)}]{bear1979}
+Bear, J., 1979, Hydraulics of groundwater: New York, New York, McGraw-Hill,
+  Inc, 569~p.
+
 \bibitem[{Bedekar and others(2016)Bedekar, Morway, Langevin, and
   Tonkin}]{mt3dusgs}
 Bedekar, V., Morway, E.D., Langevin, C.D., and Tonkin, M.J., 2016, MT3D-USGS
@@ -34,17 +45,40 @@ Campbell, G.S., Jungbauer, J.D., Bidlake, W.R., and Hungerford, R.D., 1994,
   Predicting the effect of temperature on soil thermal conductivity: Soil
   Science, v. 158, no.~5, p.~307--313.
 
+\bibitem[{Chaudhry(2007)}]{chaudhry2008}
+Chaudhry, M.H., 2007, Open-channel flow (2d ed.): New York, Springer Science \&
+  Business Media, 523~p., accessed June 27, 2017, at
+  \url{https://doi.org/10.1007/978-0-387-68648-6}.
+
 \bibitem[{Cordes and Kinzelbach(1992)}]{cordes1992}
 Cordes, C., and Kinzelbach, W., 1992, Continuous groundwater velocity fields
   and path lines in linear, bilinear, and trilinear finite elements: Water
   Resources Research, v.~28, p.~2903--2911,
   \url{https://doi.org/10.1029/92WR01686}.
 
+\bibitem[{Crank and Nicolson(1947)}]{CrankNicolson1947}
+Crank, J., and Nicolson, P., 1947, A practical method for numerical evaluation
+  of solutions of partial differential equations of the heat-conduction type:
+  Mathematical Proceedings of the Cambridge Philosophical Society, v.~43,
+  no.~1, p.~50--67, \url{https://doi.org/10.1017/S0305004100023197}.
+
 \bibitem[{Darwish and Moukalled(2003)}]{Darwish2003}
 Darwish, M., and Moukalled, F., 2003, {TVD} schemes for unstructured grids:
   International Journal of Heat and Mass Transfer, v.~46, no.~4, p.~599--611,
   \url{https://doi.org/10.1016/S0017-9310(02)00330-7},
   \url{https://linkinghub.elsevier.com/retrieve/pii/S0017931002003307}.
+
+\bibitem[{Essaid(1990)}]{essaid1990}
+Essaid, H.I., 1990, The computer model {SHARP}, a quasi-three-dimensional
+  finite-difference model to simulate freshwater and saltwater flow in layered
+  coastal aquifer systems: {U.S. Geological Survey Water-Resources
+  Investigations Report 90--4130, 181 p.}
+
+\bibitem[{Fienen and others(2022)Fienen, Haserodt, Leaf, and
+  Westenbroek}]{fienen2022centralsands}
+Fienen, M.N., Haserodt, M.J., Leaf, A.T., and Westenbroek, S.M., 2022,
+  Simulation of regional groundwater flow and groundwater/lake interactions in
+  the {C}entral {S}ands, {W}isconsin, U.S. Geological Survey.
 
 \bibitem[{Guo and Langevin(2002)}]{langevin2002seawat}
 Guo, W., and Langevin, C.D., 2002, User's Guide to SEAWAT: A Computer Program
@@ -54,11 +88,23 @@ Guo, W., and Langevin, C.D., 2002, User's Guide to SEAWAT: A Computer Program
   \url{https://doi.org/https://doi.org/10.3133/twri06A7}, at
   \url{https://pubs.usgs.gov/publication/twri06A7}.
 
+\bibitem[{Halford and Hanson(2002)}]{halford2002}
+Halford, K.J., and Hanson, R.T., 2002, User guide for the drawdown-limited,
+  multi-node well (MNW) package for the U.S. Geological Survey's modular
+  three-dimensional finite-difference ground-water flow model, versions
+  MODFLOW-96 and MODFLOW-2000: {U.S. Geological Survey Open-File Report
+  02--293, 33 p.}
+
 \bibitem[{Harbaugh(2005)}]{modflow2005}
 Harbaugh, A.W., 2005, MODFLOW-2005, the U.S. Geological Survey modular
   ground-water model---the Ground-Water Flow Process: {U.S. Geological Survey
   Techniques and Methods, book 6, chap. A16, variously paged}, accessed June
   27, 2017, at \url{https://pubs.usgs.gov/tm/2005/tm6A16/}.
+
+\bibitem[{Harten(1983)}]{Harten1983}
+Harten, A., 1983, High resolution schemes for hyperbolic conservation laws:
+  SIAM Journal on Numerical Analysis, v.~21, no.~5, p.~523--544,
+  \url{https://doi.org/10.1137/0721054}.
 
 \bibitem[{Healy and Ronan(1996)}]{healy1996}
 Healy, R.W., and Ronan, A.D., 1996, Documentation of Computer Program VS2DH for
@@ -95,6 +141,13 @@ Hughes, J.D., Langevin, C.D., Paulinski, S.R., Larsen, J.D., and Brakenhoff,
   {MODFLOW} models: Groundwater, v.~62, no.~1, p.~124--139,
   \url{https://doi.org/10.1111/gwat.13327}.
 
+\bibitem[{Huyakorn and others(1996)Huyakorn, Wu, and
+  Park}]{huyakorn1996multiphase}
+Huyakorn, P.S., Wu, Y.S., and Park, N.S., 1996, Multiphase approach to the
+  numerical solution of a sharp interface saltwater intrusion problem: Water
+  Resources Research, v.~32, no.~1, p.~93--102,
+  \url{https://doi.org/10.1029/95WR02919}.
+
 \bibitem[{Kavetski and Kuczera(2007)}]{doi:10.1029/2006WR005195}
 Kavetski, D., and Kuczera, G., 2007, Model smoothing strategies to remove
   microscale discontinuities and spurious secondary optima in objective
@@ -107,6 +160,17 @@ Kipp, K.L., 1987, HST3D: A Computer Code for Simulation of Heat and Solute
   Transport in Three-Dimensional Ground-Water Flow Systems: {U.S. Geological
   Survey Water-Resources Investigation Report 86-4095, 517 p.}, accessed
   September 27, 2022, at \url{https://pubs.usgs.gov/wri/1986/4095/report.pdf}.
+
+\bibitem[{Konikow and others(2009)Konikow, Hornberger, Halford, and
+  Hanson}]{konikow2009}
+Konikow, L.F., Hornberger, G.Z., Halford, K.J., and Hanson, R.T., 2009, Revised
+  multi-node well (MNW2) package for MODFLOW ground-water flow model: {U.S.
+  Geological Survey Techniques and Methods, book 6, chap. A30, 67 p.}, accessed
+  June 27, 2017, at \url{https://pubs.usgs.gov/tm/tm6a30/}.
+
+\bibitem[{Lal(2001)}]{lal2001modification}
+Lal, A.W., 2001, Modification of canal flow due to stream-aquifer interaction:
+  Journal of Hydraulic Engineering, v. 127, no.~7, p.~567--576.
 
 \bibitem[{Langevin and others(2008)Langevin, Thorne~Jr, Dausman, Sukop, and
   Guo}]{langevin2008seawat}
@@ -123,12 +187,34 @@ Langevin, C.D., Hughes, J.D., Provost, A.M., Banta, E.R., Niswonger, R.G., and
   Model: {U.S. Geological Survey Techniques and Methods, book 6, chap. A55, 197
   p.}, \url{https://doi.org/10.3133/tm6A55}.
 
+\bibitem[{Langevin and others(2020)Langevin, Panday, and
+  Provost}]{langevin2020hydraulic}
+Langevin, C.D., Panday, S., and Provost, A.M., 2020, Hydraulic-head formulation
+  for density-dependent flow and transport: Groundwater, v.~58, no.~3,
+  p.~349--362, \url{https://doi.org/https://doi.org/10.1111/gwat.12967}.
+
 \bibitem[{Langevin and others(2022)Langevin, Provost, Panday, and
   Hughes}]{modflow6gwt}
 Langevin, C.D., Provost, A.M., Panday, S., and Hughes, J.D., 2022,
   Documentation for the MODFLOW 6 Groundwater Transport (GWT) Model: {U.S.
   Geological Survey Techniques and Methods, book 6, chap. A61, 56 p.},
   \url{https://doi.org/10.3133/tm6A61}.
+
+\bibitem[{Leaf and Fienen(2022)}]{leaf2022modflowsetup}
+Leaf, A.T., and Fienen, M.N., 2022, Modflow-setup: {R}obust automation of
+  groundwater model construction: Frontiers in Earth Science, v.~10,
+  \url{https://doi.org/10.3389/feart.2022.903965}.
+
+\bibitem[{LeVeque(2002)}]{LeVeque2002}
+LeVeque, R.J., 2002, Finite Volume Methods for Hyperbolic Problems: Cambridge,
+  United Kingdom, Cambridge University Press,
+  \url{https://doi.org/10.1017/CBO9780511791253}.
+
+\bibitem[{Lighthill and Whitham(1955)}]{LighthillWhitham1955}
+Lighthill, M.J., and Whitham, G.B., 1955, On kinematic waves: {I}. {Flood}
+  movement in long rivers: Proceedings of the Royal Society of London. Series
+  A, Mathematical and Physical Sciences, v. 229, no. 1178, p.~281--316,
+  \url{https://doi.org/10.1098/rspa.1955.0064}.
 
 \bibitem[{Ma and Zheng(2010)}]{mazheng2010}
 Ma, R., and Zheng, C., 2010, Effects of density and viscosity in modeling heat
@@ -138,6 +224,11 @@ Ma, R., and Zheng, C., 2010, Effects of density and viscosity in modeling heat
 \bibitem[{Maidment(1993)}]{maidment1993}
 Maidment, D.R., 1993, Handbook of Hydrology: New York, USA, McGraw-Hill.
 
+\bibitem[{Manning(1891)}]{Manning1891}
+Manning, R., 1891, On the flow of water in open channels and pipes:
+  Transactions of the Institution of Civil Engineers of Ireland, v.~20,
+  p.~161--207.
+
 \bibitem[{Markle and others(2006)Markle, Schincariol, Sass, and
   Molson}]{markle2006}
 Markle, J.M., Schincariol, R.A., Sass, J.H., and Molson, J.W., 2006,
@@ -145,6 +236,27 @@ Markle, J.M., Schincariol, R.A., Sass, J.H., and Molson, J.W., 2006,
   sand and gravel aquifer: Soil Science Society of America Journal, v.~70,
   no.~4, p.~1281--1294,
   \url{https://doi.org/https://doi.org/10.2136/sssaj2005.0293}.
+
+\bibitem[{Markstrom and others(2008)Markstrom, Niswonger, Regan, Prudic, and
+  Barlow}]{markstrom2008gsflow}
+Markstrom, S.L., Niswonger, R.G., Regan, R.S., Prudic, D.E., and Barlow, P.M.,
+  2008, GSFLOW---Coupled Ground-water and Surface-water FLOW model based on the
+  integration of the Precipitation-Runoff Modeling System (PRMS) and the
+  Modular Ground-Water Flow Model (MODFLOW-2005): {U.S. Geological Survey
+  Techniques and Methods, book 6, chap. D1, 240 p.},
+  \url{https://doi.org/10.3133/tm6D1}.
+
+\bibitem[{McArthur and DeVries(1993)}]{McArthur1993}
+McArthur, R.C., and DeVries, J.J., 1993, Introduction to unsteady open channel
+  flow, U.S. Army Corps of Engineers, Hydrologic Engineering Center, Davis,
+  California.
+
+\bibitem[{Niswonger and others(2011)Niswonger, Panday, and
+  Ibaraki}]{modflownwt}
+Niswonger, R.G., Panday, S., and Ibaraki, M., 2011, MODFLOW-NWT, A Newton
+  formulation for MODFLOW-2005: {U.S. Geological Survey Techniques and Methods,
+  book 6, chap. A37, 44 p.}, accessed June 27, 2017, at
+  \url{https://pubs.er.usgs.gov/publication/tm6A37}.
 
 \bibitem[{Panday(2019)}]{panday2019bct}
 Panday, S., 2019, USG-Transport Version 1.4.0: The Block-Centered Transport
@@ -160,6 +272,17 @@ Panday, S., Langevin, C.D., Niswonger, R.G., Ibaraki, M., and Hughes, J.D.,
   Methods, book 6, chap. A45, 66 p.}, accessed June 27, 2017, at
   \url{https://pubs.usgs.gov/tm/06/a45/}.
 
+\bibitem[{Peaceman(1983)}]{peaceman1983}
+Peaceman, D.W., 1983, Interpretation of well-block pressures in numerical
+  reservoir simulation with nonsquare grid blocks and anisotropic permeability:
+  Society of Petroleum Engineers Journal, v.~23, no.~03, p.~531--543, accessed
+  June 27, 2017, at \url{https://doi.org/10.2118/10528-PA}.
+
+\bibitem[{Pinder and Sauer(1971)}]{pinder1971numerical}
+Pinder, G.F., and Sauer, S.P., 1971, Numerical simulation of flood wave
+  modification due to bank storage effects: Water Resources Research, v.~7,
+  no.~1, p.~63--70.
+
 \bibitem[{Pollock(2015)}]{pollock2015}
 Pollock, D.W., 2015, Extending the modpath algorithm to rectangular
   unstructured grids: Groundwater, v.~54, p.~121--125,
@@ -170,23 +293,63 @@ Pollock, D.W., 2016, User guide for MODPATH Version 7---A particle-tracking
   model for MODFLOW: {U.S. Geological Survey Open-File Report 2016--1086, 35
   p.}, accessed June 27, 2017, at \url{https://doi.org/10.3133/ofr20161086}.
 
+\bibitem[{Ponce(1991)}]{Ponce1991}
+Ponce, V.M., 1991, The kinematic wave controversy: Journal of Hydraulic
+  Engineering, v. 117, no.~4, p.~511--525,
+  \url{https://doi.org/10.1061/(ASCE)0733-9429(1991)117:4(511)}.
+
+\bibitem[{Ponce and Simons(1977)}]{PonceSimons1977}
+Ponce, V.M., and Simons, D.B., 1977, Shallow wave propagation in open-channel
+  flow: Journal of the Hydraulics Division, v. 103, no.~12, p.~1461--1476.
+
+\bibitem[{Ponce and others(1978)Ponce, Li, and Simons}]{PonceLiSimons1978}
+Ponce, V.M., Li, R.-M., and Simons, D.B., 1978, Applicability of kinematic and
+  diffusion models: Journal of the Hydraulics Division, v. 104, no.~3,
+  p.~353--360.
+
+\bibitem[{Preissmann(1961)}]{Preissmann1961}
+Preissmann, A., 1961, Propagation des intumescences dans les canaux et
+  rivi{\`e}res, \emph{in} Proceedings of the 1st Congress of the French
+  Association for Computation, Grenoble, France, p. 433--442.
+
 \bibitem[{Provost and others(2017)Provost, Langevin, and Hughes}]{modflow6xt3d}
 Provost, A.M., Langevin, C.D., and Hughes, J.D., 2017, Documentation for the
   ``XT3D'' Option in the Node Property Flow (NPF) Package of MODFLOW 6: {U.S.
   Geological Survey Techniques and Methods, book 6, chap. A56, 46 p.},
   \url{https://doi.org/10.3133/tm6A56}.
 
+\bibitem[{Sweby(1984)}]{Sweby1984}
+Sweby, P.K., 1984, High resolution schemes using flux limiters for hyperbolic
+  conservation laws: SIAM Journal on Numerical Analysis, v.~21, no.~5,
+  p.~995--1011, \url{https://doi.org/10.1137/0721062}.
+
 \bibitem[{Thorne and others(2006)Thorne, Langevin, and Sukop}]{thorne2006}
 Thorne, D., Langevin, C.D., and Sukop, M.C., 2006, Addition of simultaneous
-  heat and solute transport and variable fluid viscosity to seawat: Computers
+  heat and solute transport and variable fluid viscosity to {SEAWAT}: Computers
   and Geosciences, v.~32, no.~10, p.~1758--1768,
   \url{https://doi.org/https://doi.org/10.1016/j.cageo.2006.04.005}.
 
-\bibitem[{Voss(1984)}]{voss1984sutra}
+\bibitem[{van Leer(1974)}]{vanLeer1974}
+van Leer, B., 1974, Towards the ultimate conservative difference scheme. {II}.
+  monotonicity and conservation combined in a second-order scheme: Journal of
+  Computational Physics, v.~14, no.~3, p.~361--370,
+  \url{https://doi.org/10.1016/0021-9991(74)90019-9}.
+
+\bibitem[{Voss(1984)}]{Voss1984sutra}
 Voss, C.I., 1984, SUTRA---A finite-element simulation model for
   saturated-unsaturated fluid-density-dependent ground-water flow with energy
   transport or chemically-reactive single-species solute transport: {U.S.
   Geological Survey Water-Resources Investigations Report 84--4369, 409 p.}
+
+\bibitem[{Voss and Provost(2010)}]{vosssutra}
+Voss, C.I., and Provost, A.M., 2010, SUTRA---a model for saturated-unsaturated,
+  variable-density ground-water flow with solute or energy transport: {U.S.
+  Geological Survey Water-Resources Investigations Report 02--4231, 291 p.}
+
+\bibitem[{Woolhiser and Liggett(1967)}]{WoolhiserLiggett1967}
+Woolhiser, D.A., and Liggett, J.A., 1967, Unsteady, one-dimensional flow over a
+  plane---the rising hydrograph: Water Resources Research, v.~3, no.~3,
+  p.~753--771, \url{https://doi.org/10.1029/WR003i003p00753}.
 
 \bibitem[{Zhang and others(2012)Zhang, King, and Datta-Gupta}]{zhang2012}
 Zhang, Y., King, M.J., and Datta-Gupta, A., 2012, Robust streamline tracing

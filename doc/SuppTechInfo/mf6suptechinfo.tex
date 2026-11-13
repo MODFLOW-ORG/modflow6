@@ -7,6 +7,16 @@
 \usepackage{amsmath}
 \usepackage{mathabx} % this is needed for 508 compliance so symbols do not disappear
 \usepackage{mathtools}
+% mathabx replaces the extensible brace pieces used by \underbrace and
+% \overbrace with fixed-size glyphs that do not join; restore the Computer
+% Modern pieces so the braces draw as continuous full-width braces
+\DeclareFontFamily{OMX}{cmex}{}
+\DeclareFontShape{OMX}{cmex}{m}{n}{<-> cmex10}{}
+\DeclareSymbolFont{cmexbraces}{OMX}{cmex}{m}{n}
+\DeclareMathSymbol{\braceld}{\mathord}{cmexbraces}{"7A}
+\DeclareMathSymbol{\bracerd}{\mathord}{cmexbraces}{"7B}
+\DeclareMathSymbol{\bracelu}{\mathord}{cmexbraces}{"7C}
+\DeclareMathSymbol{\braceru}{\mathord}{cmexbraces}{"7D}
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{bm}
