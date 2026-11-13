@@ -898,6 +898,13 @@ contains
   !! For a flow into n of condsat * sat(iu) * drive, add the derivative with
   !! respect to the head of the upstream cell iu to rows n and m. This
   !! mirrors the fill pattern and upstream thickness used by npf.
+  !!
+  !! As in npf, the saturation derivative is evaluated with the top and
+  !! bottom of the upstream cell. With the HIGHEST_CELL_SATURATION option the
+  !! conductance uses saturations evaluated with the top and bottom of the
+  !! cell with the higher bottom, so where the upstream cell is not that cell
+  !! the derivative does not match the saturation used in the flow. This
+  !! affects only the convergence path, not the converged solution.
   !<
   subroutine add_newton_term(this, n, m, ipos, iu, drive, matrix_sln, &
                              idxglo, rhs, hnew)
@@ -1366,6 +1373,10 @@ contains
   !!
   !! Same as the npf conductance except that, with the Newton formulation,
   !! the upstream cell is selected from the direction of the total flow.
+  !! The flow-based upstream cell is always used, rather than only where it
+  !! differs from the head-based one: hcond breaks a tie in the heads in the
+  !! orientation of the calling row, so at equal heads the two rows of a
+  !! connection could otherwise use the saturations of different cells.
   !<
   function buy_hcond(this, n, m, icon, hn, hm, hyn, hym) result(cond)
     ! -- modules
@@ -1406,12 +1417,10 @@ contains
     if (this%ibound(n) == 0 .or. this%ibound(m) == 0) return
     if (this%npf%icelltype(n) == 0 .and. this%npf%icelltype(m) == 0) return
     call this%upstream_cells(n, m, icon, hn, hm, iuph, iupf, gbuy)
-    if (iupf /= iuph) then
-      if (iupf == n) then
-        cond = satn * this%npf%condsat(isympos)
-      else
-        cond = satm * this%npf%condsat(isympos)
-      end if
+    if (iupf == n) then
+      cond = satn * this%npf%condsat(isympos)
+    else
+      cond = satm * this%npf%condsat(isympos)
     end if
   end function buy_hcond
 

@@ -40,6 +40,12 @@ GWF-GWF exchange (which uses the interface model).  All must converge to the
 head in A computed independently below, and their budgets must close.  The
 same model with DRHODC = 0 must give the same heads as the model without the
 BUY package.
+
+test_equal_heads_conservation checks the assembled equations directly
+through the MODFLOW API. At equal heads, the buoyancy flow between a dry
+fresh cell and a saline cell with a higher cell number is not zero, and both
+rows of the connection must use the saturation of the same cell, so the
+residuals of the two cells must cancel.
 """
 
 import re
@@ -49,6 +55,7 @@ import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
+from modflow_devtools.markers import requires_pkg
 
 # (name, layout, bottom of A, highest cell saturation, HHFORMULATION_RHS)
 cases = [
@@ -350,3 +357,85 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         check=lambda t: check_output(idx, t),
     )
     test.run()
+
+
+@requires_pkg("modflowapi")
+def test_equal_heads_conservation(function_tmpdir, targets):
+    """The residuals of two connected cells cancel at equal heads.
+
+    Cell A (dry, fresh) is connected only to cell B (saline), and B is also
+    connected to cell C (saline, constant head). All heads are equal, so the
+    B-C connection carries no flow and the residual of B is the flow from A.
+    """
+    from modflowapi import ModflowApi
+
+    ws = function_tmpdir
+    h0 = h_b
+    bot_a = 14.0  # A is dry at h0
+    diskw = dict(
+        nodes=3,
+        nja=7,
+        top=[top, top, top],
+        bot=[bot_a, bot_b, bot_b],
+        area=area,
+        iac=[2, 3, 2],
+        ja=[0, 1, 1, 0, 2, 2, 1],
+        ihc=[1, 1, 1, 1, 1, 1, 1],
+        cl12=[0.0, cl, 0.0, cl, cl, 0.0, cl],
+        hwva=[0.0, delc, 0.0, delc, delc, 0.0, delc],
+    )
+    conc = [c_a, c_b, c_b]
+    sim = flopy.mf6.MFSimulation(sim_ws=ws, exe_name=targets["mf6"])
+    flopy.mf6.ModflowTdis(sim)
+    ims_f = flopy.mf6.ModflowIms(
+        sim, filename="flow.ims", linear_acceleration="BICGSTAB", no_ptcrecord="ALL"
+    )
+    ims_t = flopy.mf6.ModflowIms(
+        sim, filename="tran.ims", linear_acceleration="BICGSTAB"
+    )
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="gwf", newtonoptions="NEWTON")
+    flopy.mf6.ModflowGwfdisu(gwf, **diskw)
+    flopy.mf6.ModflowGwfic(gwf, strt=h0)
+    flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=kh)
+    flopy.mf6.ModflowGwfbuy(
+        gwf,
+        denseref=denseref,
+        packagedata=[(0, drhodc, 0.0, "gwt", "CONCENTRATION")],
+    )
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[((2,), h0)])
+    gwt = flopy.mf6.ModflowGwt(sim, modelname="gwt")
+    flopy.mf6.ModflowGwtdisu(gwt, **diskw)
+    flopy.mf6.ModflowGwtic(gwt, strt=conc)
+    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3)
+    flopy.mf6.ModflowGwtcnc(
+        gwt, stress_period_data=[((n,), c) for n, c in enumerate(conc)]
+    )
+    flopy.mf6.ModflowGwtssm(gwt)
+    flopy.mf6.ModflowGwfgwt(sim, exgmnamea="gwf", exgmnameb="gwt")
+    sim.register_solution_package(ims_f, ["gwf"])
+    sim.register_solution_package(ims_t, ["gwt"])
+    sim.write_simulation(silent=True)
+
+    mf6 = ModflowApi(targets["libmf6"], working_directory=str(ws))
+    mf6.initialize()
+    mf6.prepare_time_step(mf6.get_time_step())
+    mf6.prepare_solve(1)
+    ia = mf6.get_value(mf6.get_var_address("IA", "SLN_1")) - 1
+    ja = mf6.get_value(mf6.get_var_address("JA", "SLN_1")) - 1
+    x = np.full(3, h0)
+    mf6.set_value(mf6.get_var_address("X", "SLN_1"), x.copy())
+    # solve() assembles A and b at the heads just set (the Newton terms
+    # cancel in A x - b) and then overwrites x with the linear solution
+    mf6.solve(1)
+    a = mf6.get_value(mf6.get_var_address("AMAT", "SLN_1"))
+    b = mf6.get_value(mf6.get_var_address("RHS", "SLN_1"))
+    mf6.finalize_solve(1)
+    mf6.finalize_time_step()
+    mf6.finalize()
+
+    res = [a[ia[n] : ia[n + 1]] @ x[ja[ia[n] : ia[n + 1]]] - b[n] for n in range(2)]
+    print(f"residuals at equal heads: A {res[0]:.6g}, B {res[1]:.6g}")
+    assert abs(res[0]) > 1.0, "expected buoyancy flow into A at equal heads"
+    assert abs(res[0] + res[1]) < 1e-8 * abs(res[0]), (
+        f"residuals of A ({res[0]}) and B ({res[1]}) do not cancel"
+    )
