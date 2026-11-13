@@ -130,7 +130,7 @@ contains
     !
     if (fields(1)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -148,7 +148,7 @@ contains
     !
     if (fields(2)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -166,7 +166,7 @@ contains
     !
     if (fields(3)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
