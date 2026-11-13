@@ -86,6 +86,7 @@ module BndModule
     ! -- viscosity flag and safe-copy of conductance array
     integer(I4B), pointer :: ivsc => null() !< flag indicating if viscosity is active in the model
     real(DP), dimension(:), pointer, contiguous :: condinput => null() !< stores user-specified conductance values
+    real(DP), dimension(:), allocatable :: viscratio !< viscosity ratio applied to each boundary conductance
     !
     ! -- timeseries
     type(TimeSeriesManagerType), pointer :: TsManager => null() !< time series manager
@@ -164,7 +165,6 @@ module BndModule
     procedure, public :: bnd_activate_viscosity
     !
     ! -- procedure to backup user-specified conductance
-    procedure, private :: bnd_store_user_cond
     !
   end type BndType
 
@@ -358,11 +358,6 @@ contains
                               this%boundname, this%listlabel, &
                               this%packName, this%tsManager, this%iscloc)
       this%nbound = nlist
-      !
-      ! -- save user-specified conductance if vsc package is active
-      if (this%ivsc == 1) then
-        call this%bnd_store_user_cond(nlist, this%bound, this%condinput)
-      end if
       !
       ! Define the tsLink%Text value(s) appropriately.
       ! E.g. for WEL package, entry 1, assign tsLink%Text = 'Q'
@@ -863,6 +858,7 @@ contains
     call mem_deallocate(this%noupdateauxvar, 'NOUPDATEAUXVAR', this%memoryPath)
     call mem_deallocate(this%bound, 'BOUND', this%memoryPath)
     call mem_deallocate(this%condinput, 'CONDINPUT', this%memoryPath)
+    if (allocated(this%viscratio)) deallocate (this%viscratio)
     call mem_deallocate(this%hcof, 'HCOF', this%memoryPath)
     call mem_deallocate(this%rhs, 'RHS', this%memoryPath)
     call mem_deallocate(this%simvals, 'SIMVALS', this%memoryPath)
@@ -1416,31 +1412,6 @@ contains
     call this%define_listlabel()
   end subroutine bnd_read_dimensions
 
-  !> @ brief Store user-specified conductances when vsc is active
-  !!
-  !!  VSC will update boundary package conductance values.  Because
-  !!  viscosity can change every stress period, but user-specified
-  !!  conductances may not, the base user-input should be stored in
-  !!  backup array so that viscosity-updated conductances may be
-  !!  recalculated every stress period/time step
-  !<
-  subroutine bnd_store_user_cond(this, nlist, rlist, condinput)
-    ! -- modules
-    use SimModule, only: store_error
-    ! -- dummy
-    class(BndType), intent(inout) :: this !< BndType object
-    integer(I4B), intent(in) :: nlist
-    real(DP), dimension(:, :), pointer, contiguous, intent(in) :: rlist
-    real(DP), dimension(:), pointer, contiguous, intent(inout) :: condinput
-    ! -- local
-    integer(I4B) :: l
-    !
-    ! -- store backup copy of conductance values
-    do l = 1, nlist
-      condinput(l) = rlist(2, l)
-    end do
-  end subroutine bnd_store_user_cond
-
   !> @ brief Read initial parameters for package
   !!
   !!  Read initial parameters for a boundary package. This method is not
@@ -1949,16 +1920,20 @@ contains
     ! -- local
     integer(I4B) :: i
     !
-    ! -- Set ivsc and reallocate viscratios to be of size MAXBOUND
+    ! -- Set ivsc
     this%ivsc = 1
     !
     ! -- Allocate array for storing user-specified conductances
-    !    modified by updated viscosity values
+    !    (without the AUXMULTCOL multiplier)
     call mem_reallocate(this%condinput, this%maxbound, 'CONDINPUT', &
                         this%memoryPath)
     do i = 1, this%maxbound
       this%condinput(i) = DZERO
     end do
+    !
+    ! -- Allocate the viscosity ratio applied to each boundary conductance
+    allocate (this%viscratio(this%maxbound))
+    this%viscratio = DONE
     !
     ! -- Notify user via listing file viscosity accounted for by standard
     !    boundary package.
