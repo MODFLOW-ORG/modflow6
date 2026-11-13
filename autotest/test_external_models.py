@@ -34,6 +34,9 @@ EXCLUDE = [
     # testmodels repo, it duplicates mf2005/testWetDry with
     # a name file pointing to inputs in the parent folder
     "testWetDry/mf2005",
+    # singular once the EVT cells fall below the extinction depth, so the
+    # result depends on roundoff in the ILU0 factorization
+    "mf2005/testevt",
 ]
 # models to force original regression comparison
 # (otherwise enabled with --original-regression)
