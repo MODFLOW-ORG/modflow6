@@ -1,6 +1,9 @@
 module TestGridFileReader
-  use testdrive, only: error_type, unittest_type, new_unittest, check
+  use testdrive, only: error_type, unittest_type, new_unittest, check, &
+                       skip_test
   use KindModule, only: I4B, I8B, DP
+  use ConstantsModule, only: OSWIN
+  use DefinedMacros, only: get_os
   use GridFileReaderModule, only: GridFileReaderType
   implicit none
   private
@@ -8,6 +11,12 @@ module TestGridFileReader
 
   integer(I4B), parameter :: LENHDR = 50
   integer(I4B), parameter :: LENTXT = 100
+
+  !> NTFS doesn't make files sparse by default, so on Windows each test that
+  !! writes beyond 2 GiB first fills the gap with zeros. That takes longer than
+  !! meson's test timeout, so these tests are skipped there.
+  character(len=*), parameter :: SKIP_WINDOWS = &
+                                 'writing beyond 2 GiB is too slow on Windows'
 
 contains
 
@@ -51,6 +60,11 @@ contains
     integer(I8B) :: pos
     integer(I4B) :: iu, i
     character(len=LENTXT) :: txt
+
+    if (get_os() == OSWIN) then
+      call skip_test(error, SKIP_WINDOWS)
+      return
+    end if
 
     idomain = [(i, i=1, nodes)]
     botm = [(-real(i, DP), i=1, nodes)]
