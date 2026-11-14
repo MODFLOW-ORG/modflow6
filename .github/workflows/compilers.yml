@@ -129,7 +129,7 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
+          pixi run setup builddir ${{ matrix.compiler == 'gcc' && '-Dunit_tests=enabled' || '' }}
           pixi run build builddir
 
       - name: Build mf5to6 converter

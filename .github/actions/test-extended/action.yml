@@ -27,7 +27,7 @@ runs:
       shell: bash
       working-directory: modflow6
       run: |
-        pixi run -e gcc-extended-build setup builddir -Dextended=true
+        pixi run -e gcc-extended-build setup builddir -Dextended=true -Dunit_tests=enabled
         pixi run -e gcc-extended-build build builddir
         pixi run -e gcc-extended-build test builddir
 

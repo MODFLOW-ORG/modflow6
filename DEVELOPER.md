@@ -540,9 +540,7 @@ Before running tests, there are a few steps to complete. Most importantly, the l
 
 Unit tests are [driven with Meson](https://mesonbuild.com/Unit-tests.html). A small number of Meson-native tests are defined in the top-level `meson.build` file to check that MODFLOW 6 has installed successfully. These require no additional configuration.
 
-Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. Meson builds `test-drive` from source as a [subproject](https://mesonbuild.com/Subprojects.html), downloading it as specified in `subprojects/test-drive.wrap`, so its module files always match the compiler. If the download fails, these tests will be skipped.
-
-**Note:** the `test-drive` source code is not yet compatible with recent versions of Intel Fortran, building with `gfortran` is recommended.
+Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. Meson builds `test-drive` from source as a [subproject](https://mesonbuild.com/Subprojects.html), downloading it as specified in `subprojects/test-drive.wrap`, so its module files always match the compiler. To upgrade `test-drive`, update the version and `source_hash` in the wrap file. Unit tests require `gfortran`. The `unit_tests` option controls them: with the default `auto`, they are skipped for other compilers (without downloading `test-drive`) or if the download fails; `-Dunit_tests=enabled` makes either an error, and `-Dunit_tests=disabled` skips them. On machines without network access, e.g. HPC compute nodes, run `meson subprojects download` beforehand where there is access, or disable unit tests.
 
 See the [Running unit tests](#running-unit-tests) section for instructions on running unit tests.
 

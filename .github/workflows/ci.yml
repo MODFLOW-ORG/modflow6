@@ -160,7 +160,7 @@ jobs:
 
       - name: Setup and build the extended MF6 build in the gcc-extended-build environment
         run: |
-          pixi run -e gcc-extended-build setup builddir -Dextended=true
+          pixi run -e gcc-extended-build setup builddir -Dextended=true -Dunit_tests=enabled
           pixi run -e gcc-extended-build build builddir
 
       - name: Show build log
@@ -283,7 +283,7 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup -Dwerror=true builddir
+          pixi run setup -Dwerror=true -Dunit_tests=enabled builddir
           pixi run build builddir
           pixi run setup-mf5to6 -Dwerror=true builddir
           pixi run build-mf5to6 builddir
@@ -432,7 +432,7 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir $MESON_SETUP_ARGS
+          pixi run setup builddir $MESON_SETUP_ARGS -Dunit_tests=enabled
           pixi run build builddir
 
       - name: Build mf5to6 converter
