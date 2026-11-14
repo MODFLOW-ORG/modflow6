@@ -30,7 +30,7 @@ contains
   !<
   SUBROUTINE ims_base_cg(ICNVG, ITMAX, INNERIT, &
                          NEQ, NJA, NIAPC, NJAPC, &
-                         IPC, ICNVGOPT, NORTH, &
+                         IPC, ICNVGOPT, NORTH, ISCL, RSCALE, HSCALE, &
                          DVCLOSE, RCLOSE, L2NORM0, EPFACT, &
                          IA0, JA0, A0, IAPC, JAPC, APC, &
                          X, B, D, P, Q, Z, &
@@ -48,6 +48,9 @@ contains
     integer(I4B), INTENT(IN) :: IPC !< preconditioner option
     integer(I4B), INTENT(IN) :: ICNVGOPT !< flow convergence criteria option
     integer(I4B), INTENT(IN) :: NORTH !< orthogonalization frequency
+    integer(I4B), INTENT(IN) :: ISCL !< scaling option
+    real(DP), DIMENSION(*), INTENT(IN) :: RSCALE !< factor returning the residual to model units
+    real(DP), DIMENSION(*), INTENT(IN) :: HSCALE !< factor returning the head change to model units
     real(DP), INTENT(IN) :: DVCLOSE !< dependent-variable closure criteria
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
@@ -160,6 +163,7 @@ contains
         ! -- identify deltax and rmax
         tv = alpha * P(n)
         X(n) = X(n) + tv
+        IF (ISCL /= 0) tv = tv * HSCALE(n)
         IF (ABS(tv) > ABS(deltax)) THEN
           deltax = tv
           xloc = n
@@ -171,6 +175,7 @@ contains
         tv = D(n)
         tv = tv - alpha * Q(n)
         D(n) = tv
+        IF (ISCL /= 0) tv = tv * RSCALE(n)
         IF (ABS(tv) > ABS(rmax)) THEN
           rmax = tv
           rloc = n
@@ -249,7 +254,7 @@ contains
   !<
   SUBROUTINE ims_base_bcgs(ICNVG, ITMAX, INNERIT, &
                            NEQ, NJA, NIAPC, NJAPC, &
-                           IPC, ICNVGOPT, NORTH, ISCL, DSCALE, &
+                           IPC, ICNVGOPT, NORTH, ISCL, RSCALE, HSCALE, &
                            DVCLOSE, RCLOSE, L2NORM0, EPFACT, &
                            IA0, JA0, A0, IAPC, JAPC, APC, &
                            X, B, D, P, Q, &
@@ -269,7 +274,8 @@ contains
     integer(I4B), INTENT(IN) :: ICNVGOPT !< flow convergence criteria option
     integer(I4B), INTENT(IN) :: NORTH !< orthogonalization frequency
     integer(I4B), INTENT(IN) :: ISCL !< scaling option
-    real(DP), DIMENSION(NEQ), INTENT(IN) :: DSCALE !< scaling vector
+    real(DP), DIMENSION(*), INTENT(IN) :: RSCALE !< factor returning the residual to model units
+    real(DP), DIMENSION(*), INTENT(IN) :: HSCALE !< factor returning the head change to model units
     real(DP), INTENT(IN) :: DVCLOSE !< dependent-variable closure criteria
     real(DP), INTENT(IN) :: RCLOSE !< flow closure criteria
     real(DP), INTENT(IN) :: L2NORM0 !< initial L-2 norm for system of equations
@@ -387,7 +393,7 @@ contains
       ! rmax = DZERO
       ! DO n = 1, NEQ
       !     tv = Q(n)
-      !     IF (ISCL.NE.0 ) tv = tv / DSCALE(n)
+      !     IF (ISCL.NE.0 ) tv = tv * RSCALE(n)
       !     IF (ABS(tv) > ABS(rmax) ) rmax = tv
       ! END DO
       ! IF (ABS(rmax).LE.DPREC) THEN
@@ -395,7 +401,7 @@ contains
       !   DO n = 1, NEQ
       !     tv      = alpha * PHAT(n)
       !     IF (ISCL.NE.0) THEN
-      !       tv = tv * DSCALE(n)
+      !       tv = tv * HSCALE(n)
       !     END IF
       !     X(n)  = X(n) + tv
       !     IF (ABS(tv) > ABS(deltax) ) deltax = tv
@@ -451,7 +457,7 @@ contains
         tv = alpha * PHAT(n) + omega * QHAT(n)
         X(n) = X(n) + tv
         IF (ISCL .NE. 0) THEN
-          tv = tv * DSCALE(n)
+          tv = tv * HSCALE(n)
         END IF
         IF (ABS(tv) > ABS(deltax)) THEN
           deltax = tv
@@ -466,7 +472,7 @@ contains
         tv = Q(n) - omega * T(n)
         D(n) = tv
         IF (ISCL .NE. 0) THEN
-          tv = tv / DSCALE(n)
+          tv = tv * RSCALE(n)
         END IF
         IF (ABS(tv) > ABS(rmax)) THEN
           rmax = tv
@@ -754,6 +760,32 @@ contains
     END IF
   end SUBROUTINE ims_base_scale
 
+  !> @brief Set the factors that return the residual and head change to
+  !! model units, in the order of the reordered system
+  !<
+  SUBROUTINE ims_base_cnvg_scale(NEQ, IORD, DSCALE, DSCALE2, LORDER, &
+                                 RSCALE, HSCALE)
+    ! -- dummy variables
+    integer(I4B), INTENT(IN) :: NEQ !< number of equations
+    integer(I4B), INTENT(IN) :: IORD !< reordering option
+    real(DP), DIMENSION(NEQ), INTENT(IN) :: DSCALE !< first scaling vector
+    real(DP), DIMENSION(NEQ), INTENT(IN) :: DSCALE2 !< second scaling vector
+    integer(I4B), DIMENSION(*), INTENT(INOUT) :: LORDER !< reordering mapping
+    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: RSCALE !< residual factor
+    real(DP), DIMENSION(NEQ), INTENT(INOUT) :: HSCALE !< head change factor
+    ! -- local variables
+    integer(I4B) :: n
+    !
+    DO n = 1, NEQ
+      RSCALE(n) = DONE / DSCALE(n)
+      HSCALE(n) = DSCALE2(n)
+    END DO
+    IF (IORD /= 0) THEN
+      CALL dvperm(NEQ, RSCALE, LORDER)
+      CALL dvperm(NEQ, HSCALE, LORDER)
+    END IF
+  end SUBROUTINE ims_base_cnvg_scale
+
   !> @ brief Update the preconditioner
   !!
   !!  Update the preconditioner using the current coefficient matrix.
@@ -850,6 +882,11 @@ contains
         ipcflag = 2
       END IF
       icount = icount + 1
+      !
+      ! -- replace bad pivots on the last attempt so it completes
+      if (icount == 10) then
+        ipcflag = 2
+      end if
       !
       ! -- terminate pcscale loop if not making progress
       if (icount > 10) then
@@ -1038,8 +1075,9 @@ contains
       END DO
     END DO MAIN
     !
-    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN
-    IPCFLAG = 0
+    ! -- RESET IPCFLAG IF SUCCESSFUL COMPLETION OF MAIN, WHICH LEAVES
+    !    n = NEQ + 1; AFTER EXIT MAIN IPCFLAG STAYS 1 SO THE CALLER RETRIES
+    IF (n > NEQ) IPCFLAG = 0
   end SUBROUTINE ims_base_pcilu0
 
   !> @ brief Apply the ILU0 and MILU0 preconditioners
