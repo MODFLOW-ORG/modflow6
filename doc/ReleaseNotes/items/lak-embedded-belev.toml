@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "advanced"
-description = "In the Lake (LAK) Package, the bottom elevation from an embedded lake's table could be assigned to a connection of a different lake. This happened when a lake with more than one connection came before the embedded lake. The affected connection then had the wrong bottom elevation, so its conductance and flow to the aquifer were wrong. Simulated lake stages, heads and flows may change for such models."
+description = "In the Lake (LAK) Package, the bottom elevation from an embedded lake's table could be applied to a connection of another lake instead of the embedded lake's own connection. This happened when a lake with more than one connection came before the embedded lake. The other lake's conductance and flow to the aquifer could then be wrong, as could the embedded lake's flow when its stage or the aquifer head was below the table bottom. Simulated lake stages, heads and flows may change for such models."

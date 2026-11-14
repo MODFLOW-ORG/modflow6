@@ -1,21 +1,21 @@
 """
-Test that an embedded lake's table sets the bottom of its own connection
-when the lake number is different from its connection number.
+Test that an embedded lake's table sets the bottom of the embedded lake's
+own connection, not another lake's.
 
-Two independent GWF models in one simulation have the same two lakes, a
-lake with two horizontal connections and an embedded lake with a table,
-numbered in a different order.
+An embedded lake has a single connection, whose bottom comes from the
+lake's table instead of the cell bottom. LAK mistakenly looked up the
+connection by lake number instead of connection number. The two are the
+same only when every lake before the embedded lake has one connection,
+so otherwise the table bottom went to another lake's connection, and the
+embedded lake's kept the cell bottom.
 
-- "hfirst": the horizontal lake is lake 1 (connections 1 and 2) and the
-  embedded lake is lake 2 (connection 3). The embedded lake's table bottom
-  was assigned to connection 2, the horizontal lake's second connection.
-- "efirst": the embedded lake is lake 1 (connection 1) and the horizontal
-  lake is lake 2 (connections 2 and 3). The lake and connection numbers
-  of the embedded lake are the same, so this order was not affected.
-
-Each lake's conductances and flows to the aquifer must be the same in both
-models, and the horizontal lake's two connections, which have the same
-geometry, must have the same conductance.
+Both models have a lake with two identical horizontal connections and an
+embedded lake, in opposite orders. In hfirst the embedded lake is lake 2
+but connection 3, so it was affected. In efirst it is lake 1 and
+connection 1, so it wasn't. The conductances and flows must be the same
+in both models, and the horizontal lake's two connections must have the
+same conductance. The embedded cell's head is below the table bottom, so
+the embedded lake's flow depends on its bottom too.
 """
 
 import flopy
@@ -30,8 +30,8 @@ top = 10.0
 bot = -10.0
 horizontal_stage = 8.0
 embedded_stage = 6.0
-# stage, volume, surface area, exchange area; the table bottom (2.0) is
-# above the cell bottom, so it is a different connection bottom.
+# stage, volume, sarea, warea; the empty first row puts the lake
+# bottom at 2.0, above the cell bottom (-10.0)
 embedded_table = [
     [2.0, 0.0, 0.0, 0.0],
     [4.0, 50.0, 50.0, 50.0],
