@@ -1,0 +1,72 @@
+Input to the Variably Saturated Surface Boundary (VSSB) Package is read from the file that has type ``VSSB6'' in the Name File.  The VSSB Package is the land-surface boundary for models that use the Variably Saturated Flow (VSF) Package, which must be active in the same GWF model.  Any number of VSSB Packages can be specified for a single GWF model, but a cell can be listed in only one of them.
+
+The VSSB Package applies precipitation to the top face of a fixed set of surface cells.  The water either infiltrates, is stored in a pond on the land surface, or leaves the package as runoff.  The infiltration is limited by the soil: it is calculated from the difference between the pond head (land-surface elevation plus pond depth) and the head of the cell, through a conductance that is derived from the vertical hydraulic conductivity, the relative permeability, and the distance from the land surface to the cell center, so that no infiltration capacity needs to be specified.  When the head of the cell is above the pond head, groundwater exfiltrates into the pond.  The pond depth is calculated and cannot exceed MAX\_POND\_DEPTH; water that cannot be stored leaves the package as runoff, which can be provided to the Water Mover (MVR) Package.  Because the conductance is calculated for the top cell only, the result depends on the vertical discretization of that cell.
+
+The VSSB Package also simulates evaporation from the surface cell when a potential EVAPORATION rate is specified.  The demand is met first by evaporating ponded water at the potential rate, limited by the water available in the pond; any remaining demand is applied to the soil as bare-soil evaporation, which is extracted from the top cell and reduced by its relative permeability, so that total evaporation never exceeds the potential rate.  The VSSB Package simulates only evaporation; transpiration (root-water uptake) is simulated by the Variably Saturated Evapotranspiration (VSET) Package.  The potential EVAPORATION specified for VSSB and the potential transpiration specified for VSET are independent and additive; splitting the atmospheric demand into an evaporation part and a transpiration part is the responsibility of the user.
+
+A surface cell must be at the top of the active domain, and a cell that is listed in the VSSB Package cannot be listed in a VSSP Package with IHC equal to zero.  The pond is empty at the start of every simulation.  If a surface cell is inactive, constant head, or covered by a lake, all precipitation becomes runoff.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssb-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssb-dimensions.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssb-packagedata.dat}
+
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vssb-period.dat}
+\advancedpackageperioddescription{surface cell}{surface cells}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-vssb-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-vssb-example.dat}
+
+\vspace{5mm}
+\subsubsection{Package Budget}
+The budget of the VSSB Package is closed for every time step,
+\begin{equation}
+\text{PRECIPITATION} = \text{GWF} + \text{RUNOFF} + \text{RUNOFF-TO-MVR} + \text{STORAGE} + \text{EVAPORATION},
+\end{equation}
+where GWF is the exchange with the aquifer (positive for infiltration into, and negative for exfiltration from, the aquifer, and including the bare-soil evaporation that is extracted from the top cell), RUNOFF is the runoff that is not provided to the MVR Package and leaves the model, RUNOFF-TO-MVR is the runoff that is provided to the MVR Package, STORAGE is the rate of change of the volume of water in the ponds, and EVAPORATION is the total evaporation (from the pond and from the soil) that leaves the model.
+
+\vspace{5mm}
+\subsubsection{Available observation types}
+Variably Saturated Surface Boundary Package observations include all terms of the package budget and the pond depth.  The data required for each VSSB Package observation type is defined in table~\ref{table:gwf-vssbobstype}.  Positive values of \texttt{infiltration} represent infiltration into the aquifer, and negative values represent exfiltration.  For the other flow terms, negative and positive values represent a loss from or gain to the VSSB Package, respectively.  The \texttt{pond-depth} is not a flow; if a boundname is used, it must be unique for each surface cell.
+
+\begin{longtable}{p{2cm} p{2.75cm} p{2cm} p{1.25cm} p{7cm}}
+\caption{Available VSSB Package observation types} \tabularnewline
+
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endfirsthead
+
+\captionsetup{textformat=simple}
+\caption*{\textbf{Table \arabic{table}.}{\quad}Available VSSB Package observation types.---Continued} \tabularnewline
+
+\hline
+\hline
+\textbf{Stress Package} & \textbf{Observation type} & \textbf{ID} & \textbf{ID2} & \textbf{Description} \\
+\hline
+\endhead
+
+\hline
+\endfoot
+
+\input{../Common/gwf-vssbobs.tex}
+\label{table:gwf-vssbobstype}
+\end{longtable}
+
+\vspace{5mm}
+\subsubsection{Example Observation Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-vssb-example-obs.dat}

@@ -1,0 +1,24 @@
+Input to the Variably Saturated Evapotranspiration (VSET) Package is read from the file that has type ``VSET6'' in the Name File.  The VSET Package simulates evapotranspiration as plant root-water uptake (transpiration) for cells of a model that uses the Variably Saturated Flow (VSF) Package, which must be active in the same GWF model.  Any number of VSET Packages can be specified for a single GWF model.
+
+A potential transpiration RATE is specified for each cell in the PERIOD block and can be provided through the time-series capability.  The actual root-water uptake is the potential rate reduced by a pressure-head stress response, so that uptake is limited when the soil is too wet (oxygen stress) or too dry (water stress).  The stress model is selected with the ET\_MODEL option; the Feddes model is the default, and its pressure-head breakpoints (H1 through H4, with H1 $>$ H2 $>$ H3 $>$ H4) are given in the OPTIONS block.
+
+The VSET Package simulates transpiration only; evaporation from the soil surface and from ponded water is simulated by the Variably Saturated Surface Boundary (VSSB) Package.  The potential transpiration specified for VSET and the potential evaporation specified for VSSB are independent and additive; splitting the atmospheric demand into a transpiration part and an evaporation part is the responsibility of the user.
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vset-options.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vset-dimensions.dat}
+
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vset-period.dat}
+\advancedpackageperioddescription{transpiration cell}{transpiration cells}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/gwf-vset-desc.tex}
+\end{description}

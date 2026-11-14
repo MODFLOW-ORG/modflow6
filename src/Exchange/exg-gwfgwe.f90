@@ -152,6 +152,15 @@ contains
       gwemodel => mb
     end select
     !
+    ! -- The Variably Saturated Flow (VSF) Package is not supported in
+    !    combination with transport
+    if (gwfmodel%invsf > 0) then
+      write (errmsg, '(3a)') 'Problem with GWF-GWE exchange ', trim(this%name), &
+        '.  The GWF model uses the Variably Saturated Flow (VSF) Package, which &
+        &is not supported in combination with a GWE model.'
+      call store_error(errmsg, terminate=.true.)
+    end if
+    !
     ! -- Check to make sure that flow is solved before transport and in a
     !    different IMS solution
     if (gwfmodel%idsoln >= gwemodel%idsoln) then

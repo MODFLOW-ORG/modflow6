@@ -274,7 +274,7 @@ contains
     ! -- modules
     class(GwfExchangeType) :: this !<  GwfExchangeType
     ! -- local
-    logical(LGP) :: has_k22, has_spdis, has_vsc
+    logical(LGP) :: has_k22, has_spdis, has_vsc, has_vsf
     !
     ! Periodic boundary condition in exchange don't allow XT3D (=interface model)
     if (this%v_model1 == this%v_model2) then
@@ -300,15 +300,18 @@ contains
     has_k22 = .false.
     has_spdis = .false.
     has_vsc = .false.
+    has_vsf = .false.
     if (associated(this%gwfmodel1)) then
       has_k22 = (this%gwfmodel1%npf%ik22 /= 0)
       has_spdis = (this%gwfmodel1%npf%icalcspdis /= 0)
       has_vsc = (this%gwfmodel1%npf%invsc /= 0)
+      has_vsf = (this%gwfmodel1%invsf /= 0)
     end if
     if (associated(this%gwfmodel2)) then
       has_k22 = has_k22 .or. (this%gwfmodel2%npf%ik22 /= 0)
       has_spdis = has_spdis .or. (this%gwfmodel2%npf%icalcspdis /= 0)
       has_vsc = has_vsc .or. (this%gwfmodel2%npf%invsc /= 0)
+      has_vsf = has_vsf .or. (this%gwfmodel2%invsf /= 0)
     end if
     !
     ! If horizontal anisotropy is in either model1 or model2,
@@ -352,6 +355,15 @@ contains
       write (errmsg, '(3a)') 'GWF-GWF exchange ', trim(this%name), &
         ' requires that the Viscosity Package is inactive'// &
         ' in both of the connected models.'
+      call store_error(errmsg, terminate=.TRUE.)
+    end if
+    !
+    ! If variably saturated flow is on in either model, then terminate with
+    ! an error as the VSF package is not yet supported with exchanges.
+    if (has_vsf) then
+      write (errmsg, '(3a)') 'GWF-GWF exchange ', trim(this%name), &
+        ' requires that the Variably Saturated Flow (VSF) Package is'// &
+        ' inactive in both of the connected models.'
       call store_error(errmsg, terminate=.TRUE.)
     end if
   end subroutine validate_exchange
