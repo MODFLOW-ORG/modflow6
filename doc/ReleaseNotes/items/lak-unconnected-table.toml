@@ -1,0 +1,3 @@
+section = "features"
+subsection = "advanced"
+description = "In the Lake (LAK) Package, a lake can now have no connections to the aquifer (NLAKECONN equal to zero) if it is assigned a lake table in the TABLES block. The table defines the lake's bottom, top, volume, and surface area. Such a lake can represent a reservoir that does not exchange water with the aquifer: it can receive water from other lakes' outlets, rainfall, runoff, and specified inflow, and lose water to evaporation, withdrawal, and its own outlets. The CONNECTIONDATA block is no longer required if no lake has connections. A lake with no connections and no table is still an error."

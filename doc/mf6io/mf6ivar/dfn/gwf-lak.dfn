@@ -456,7 +456,7 @@ tagged false
 in_record true
 reader urword
 longname number of lake connections
-description integer value that defines the number of GWF cells connected to this (IFNO) lake. There can only be one vertical lake connection to each GWF cell. NLAKECONN must be greater than zero.
+description integer value that defines the number of GWF cells connected to this (IFNO) lake. There can only be one vertical lake connection to each GWF cell. NLAKECONN must be greater than or equal to zero. A lake with no connections (NLAKECONN equal to zero) does not exchange water with the aquifer, and must have a lake table (see the TABLES block) to define its stage, volume, and surface area. If NLAKECONN is zero for every lake, the CONNECTIONDATA block is not required.
 
 block packagedata
 name aux
@@ -489,6 +489,7 @@ name connectiondata
 type recarray ifno iconn cellid claktype bedleak belev telev connlen connwidth
 shape (sum(nlakeconn))
 reader urword
+optional true
 longname
 description
 
