@@ -7,13 +7,13 @@
 !<
 module TvkModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, DNODATA
-  use KindModule, only: I4B, DP
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME
+  use KindModule, only: I4B, DP, LGP
   use MemoryManagerModule, only: mem_setptr
   use MemoryHelperModule, only: create_mem_path
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
-  use TdisModule, only: kper
+  use TdisModule, only: kper, kstp
   use TvBaseModule, only: TvBaseType, tvbase_da
 
   implicit none
@@ -95,32 +95,31 @@ contains
     call mem_setptr(this%k11_src, 'K', this%input_mempath)
     call mem_setptr(this%k22_src, 'K22', this%input_mempath)
     call mem_setptr(this%k33_src, 'K33', this%input_mempath)
+    !
+    ! -- input fields, in the order they are applied
+    this%fieldnames = [character(len=LENVARNAME) :: 'K', 'K22', 'K33']
   end subroutine tvk_ar_set_pointers
 
-  !> @brief Apply this node's K/K22/K33 input values to node.
+  !> @brief Apply the selected K, K22 and K33 input values at a node
   !!
-  !! Called for every tracked node; the DNODATA check on each field
-  !! makes this a no-op except where a value is set. node may be invalid
-  !! even when a field has a value at nodeu, so each field validates
-  !! node itself before using it.
+  !! K is applied first, so K22 and K33 ratios use the new K.
   !<
-  subroutine tvk_apply_row_changes(this, nodeu, node)
+  subroutine tvk_apply_row_changes(this, nodeu, node, fields)
     ! -- dummy
     class(TvkType) :: this
-    integer(I4B), intent(in) :: nodeu
-    integer(I4B), intent(in) :: node
+    integer(I4B), intent(in) :: nodeu !< user node number
+    integer(I4B), intent(in) :: node !< reduced node number; may be invalid, each field checks it
+    logical(LGP), dimension(:), intent(in) :: fields !< fields to apply, in fieldnames order
     ! -- local
     character(len=LINELENGTH) :: cellstr
     ! -- formats
     character(len=*), parameter :: fmtvalchg = &
-      "(a, ' package: Setting ', a, ' value for cell ', a, ' at start of &
-      &stress period ', i0, ' = ', g12.5)"
+      "(a, ' package: Setting ', a, ' value for cell ', a, ' in stress &
+      &period ', i0, ', time step ', i0, ' = ', g12.5)"
     !
-    ! -- K is processed before K22/K33 so that validate_change can use
-    ! -- the already-updated k11 value when ik22overk/ik33overk are set.
-    if (this%k11_src(nodeu) /= DNODATA) then
+    if (fields(1)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -130,15 +129,15 @@ contains
         if (this%iprpak /= 0) then
           call this%dis%noder_to_string(node, cellstr)
           write (this%iout, fmtvalchg) &
-            trim(adjustl(this%packName)), 'K', trim(cellstr), kper, &
+            trim(adjustl(this%packName)), 'K', trim(cellstr), kper, kstp, &
             this%k11(node)
         end if
       end if
     end if
     !
-    if (this%k22_src(nodeu) /= DNODATA) then
+    if (fields(2)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -148,15 +147,15 @@ contains
         if (this%iprpak /= 0) then
           call this%dis%noder_to_string(node, cellstr)
           write (this%iout, fmtvalchg) &
-            trim(adjustl(this%packName)), 'K22', trim(cellstr), kper, &
+            trim(adjustl(this%packName)), 'K22', trim(cellstr), kper, kstp, &
             this%k22(node)
         end if
       end if
     end if
     !
-    if (this%k33_src(nodeu) /= DNODATA) then
+    if (fields(3)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -166,7 +165,7 @@ contains
         if (this%iprpak /= 0) then
           call this%dis%noder_to_string(node, cellstr)
           write (this%iout, fmtvalchg) &
-            trim(adjustl(this%packName)), 'K33', trim(cellstr), kper, &
+            trim(adjustl(this%packName)), 'K33', trim(cellstr), kper, kstp, &
             this%k33(node)
         end if
       end if
@@ -190,9 +189,7 @@ contains
 
   !> @brief Clear all per-node change flags
   !!
-  !! Deferred procedure implementation called by the TvBaseType code when a
-  !! new time step commences, indicating that any previously set per-node
-  !! property value change flags should be reset.
+  !! Called at the first input value change in a time step.
   !<
   subroutine tvk_reset_change_flags(this)
     ! -- dummy variables

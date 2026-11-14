@@ -31,6 +31,7 @@ module Mf6FileKeystringModule
                                ADDR_SUBINDEX
   use LoadMf6FileModule, only: LoadMf6FileType
   use BlockParserModule, only: BlockParserType
+  use IdmParamMetaModule, only: ParamStampsType, RS_VALUES, RS_SERIES
 
   implicit none
   private
@@ -62,6 +63,9 @@ module Mf6FileKeystringModule
     integer(I4B), dimension(:), allocatable :: subindex_icol !< per-column subindex SA column
     integer(I4B), dimension(:), allocatable :: subindex_head_icol !< per-column subindex head SA column
     character(len=LENVARNAME) :: subindex_id_varname = '' !< leading column's mf6varname
+    integer(I4B), dimension(:), allocatable :: written_col !< stamp column of each item (0 = none)
+    integer(I4B), dimension(:), allocatable :: written_item !< keystring item of each stamp column
+    type(ParamStampsType) :: written !< write stamps of node-addressed items
   contains
     procedure :: ainit
     procedure :: df
@@ -70,6 +74,9 @@ module Mf6FileKeystringModule
     procedure :: allocate_subindex
     procedure :: allocate_permanent_array
     procedure :: allocate_items
+    procedure :: allocate_written
+    procedure :: stamp_written
+    procedure :: stamp_links
     procedure, private :: valid_address
     procedure :: apply_auxiliary
     procedure :: apply_subindex
@@ -212,6 +219,8 @@ contains
     end do
     ! allocate feature-addressed (DZERO) and node-addressed (DNODATA) items
     call this%allocate_items()
+    ! write stamps of node-addressed items
+    call this%allocate_written()
     ! subindex df-time dimension fields + permanent arrays
     if (this%ctx%is_advanced) call this%allocate_subindex()
   end subroutine df
@@ -219,6 +228,7 @@ contains
   subroutine ts_advance(this)
     class(KeystringLoadType), intent(inout) :: this
     call this%tsmanager%ad()
+    call this%stamp_links()
   end subroutine ts_advance
 
   subroutine rp(this, parser)
@@ -367,6 +377,89 @@ contains
       call store_error_filename(this%input_name)
     end if
   end subroutine allocate_items
+
+  !> @brief Allocate write stamps for node-addressed items
+  !!
+  !! Values given in a block are stamped when read (stamp_written), linked
+  !! values each time step their series writes them (stamp_links).
+  !<
+  subroutine allocate_written(this)
+    class(KeystringLoadType), intent(inout) :: this
+    character(len=LENVARNAME), dimension(:), allocatable :: varnames
+    integer(I4B) :: k, ncol, nfeatures
+
+    if (.not. allocated(this%ctx%keystring_items)) then
+      allocate (this%written_col(0))
+      allocate (this%written_item(0))
+      return
+    end if
+    allocate (this%written_col(size(this%ctx%keystring_items)))
+    this%written_col = 0
+
+    ncol = 0
+    nfeatures = 0
+    do k = 1, size(this%ctx%keystring_items)
+      if (.not. this%ctx%keystring_items(k)%idm_managed) cycle
+      if (this%ctx%keystring_items(k)%addr_mode /= ADDR_NODE) cycle
+      if (this%ctx%keystring_items(k)%nfeatures < 1) cycle
+      ncol = ncol + 1
+      this%written_col(k) = ncol
+      nfeatures = this%ctx%keystring_items(k)%nfeatures
+    end do
+    allocate (this%written_item(ncol))
+    if (ncol == 0) return
+
+    allocate (varnames(ncol))
+    do k = 1, size(this%ctx%keystring_items)
+      if (this%written_col(k) < 1) cycle
+      varnames(this%written_col(k)) = this%ctx%keystring_items(k)%idt%mf6varname
+      this%written_item(this%written_col(k)) = k
+    end do
+    call this%written%allocate(varnames, nfeatures, this%mf6_input%mempath)
+  end subroutine allocate_written
+
+  !> @brief Stamp item k's values given as numbers in this block
+  !<
+  subroutine stamp_written(this, k, nrows, row_addr)
+    class(KeystringLoadType), intent(inout) :: this
+    integer(I4B), intent(in) :: k !< keystring item
+    integer(I4B), intent(in) :: nrows !< rows read this period
+    integer(I4B), dimension(:), intent(in) :: row_addr !< row -> node
+    integer(I4B) :: icol, n, i
+
+    icol = this%ctx%keystring_items(k)%sa_icol
+    do n = 1, nrows
+      i = row_addr(n)
+      if (i < 1 .or. i > size(this%written%istep, 2)) cycle
+      if (this%structarray%struct_vectors(icol)%dbl1d(n) == DNODATA) cycle
+      call this%written%set(this%written_col(k), i, RS_VALUES)
+    end do
+  end subroutine stamp_written
+
+  !> @brief Stamp the values written by time series links this time step
+  !<
+  subroutine stamp_links(this)
+    use TimeSeriesLinkModule, only: TimeSeriesLinkType
+    use InputOutputModule, only: same_word
+    class(KeystringLoadType), intent(inout) :: this
+    type(TimeSeriesLinkType), pointer :: tslink
+    integer(I4B) :: n, col, i, k
+
+    if (.not. allocated(this%written_item)) return
+    if (size(this%written_item) == 0) return
+    do n = 1, this%tsmanager%CountLinks('BND')
+      tslink => this%tsmanager%GetLink('BND', n)
+      if (.not. associated(tslink)) cycle
+      i = tslink%IRow
+      if (i < 1 .or. i > size(this%written%istep, 2)) cycle
+      do col = 1, size(this%written_item)
+        k = this%written_item(col)
+        if (.not. same_word(tslink%Text, &
+                            this%ctx%keystring_items(k)%idt%tagname)) cycle
+        call this%written%set(col, i, RS_SERIES)
+      end do
+    end do
+  end subroutine stamp_links
 
   !> @brief Validate ifno against nfeatures, storing an error keyed by
   !! ifno_tagname (the leading column's public tag) if out of range.
@@ -628,6 +721,7 @@ contains
           this%resolve_row_addr(this%ctx%keystring_items(k), i, period_ifno, &
                                 cellid, ndim, leading_tag)
       end do
+      if (this%written_col(k) > 0) call this%stamp_written(k, nbound, row_addr)
       call this%structarray%ts_update_indexed( &
         this%ctx%keystring_items(k)%sa_icol, this%tsmanager, &
         this%mf6_input%subcomponent_name, this%ctx%iprpak, nbound, row_addr, &
@@ -797,6 +891,10 @@ contains
     class(KeystringLoadType), intent(inout) :: this
 
     call this%static_loader%cleanup()
+
+    if (allocated(this%written_col)) deallocate (this%written_col)
+    if (allocated(this%written_item)) deallocate (this%written_item)
+    call this%written%destroy()
 
     call this%tsmanager%da()
     deallocate (this%tsmanager)

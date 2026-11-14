@@ -37,6 +37,7 @@ module MawModule
   use GwfMawInputModule, only: GwfMawParamFoundType
   use MatrixBaseModule
   !
+  use IdmParamMetaViewModule, only: IdmParamMetaViewType
   implicit none
 
   public :: MawType
@@ -58,7 +59,7 @@ module MawModule
   type :: MawInputType
     ! -- packagedata (TS-linked; set in maw_source_packagedata)
     real(DP), dimension(:), pointer, contiguous :: strt => null()
-    integer(I4B), dimension(:), pointer :: strt_tslink => null() !< nonzero for STRT rows linked to a time series
+    type(IdmParamMetaViewType) :: meta !< time series links of STRT
     ! -- period
     integer(I4B), pointer :: nbound => null()
     integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
@@ -863,7 +864,7 @@ contains
   subroutine maw_input_destroy(this)
     class(MawInputType), intent(inout) :: this
     nullify (this%strt)
-    nullify (this%strt_tslink)
+    call this%meta%destroy()
     nullify (this%nbound)
     nullify (this%ifno)
     nullify (this%setting)
@@ -883,6 +884,7 @@ contains
   !> @brief Source PACKAGEDATA block from input context
   !<
   subroutine maw_source_packagedata(this)
+    use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(MawType), intent(inout) :: this
     ! -- local
@@ -898,9 +900,6 @@ contains
     integer(I4B), dimension(:), pointer, contiguous :: ngwfnodes => null()
     type(CharacterStringType), dimension(:), pointer, &
       contiguous :: boundname => null()
-    integer(I4B), dimension(:, :), pointer, contiguous :: tslink => null()
-    type(CharacterStringType), dimension(:), pointer, &
-      contiguous :: tslinkvars => null()
     integer(I4B), allocatable :: nboundchk(:)
     ! -- formats
     character(len=*), parameter :: fmthdbot = &
@@ -915,13 +914,10 @@ contains
     call mem_setptr(radius, 'RADIUS', this%input_mempath)
     call mem_setptr(bottom, 'BOTTOM', this%input_mempath)
     call mem_setptr(this%input%strt, 'STRT', this%input_mempath)
-    call mem_setptr(tslink, 'TSLINK_PD', this%input_mempath)
-    call mem_setptr(tslinkvars, 'TSLINKVARS_PD', this%input_mempath)
-    do n = 1, size(tslinkvars)
-      if (tslinkvars(n) == 'STRT') this%input%strt_tslink => tslink(n, :)
-    end do
-    if (.not. associated(this%input%strt_tslink)) then
-      call store_error('Time series links for STRT not found in input.')
+    call this%input%meta%init([character(len=LENVARNAME) :: 'STRT'], &
+                              this%input_mempath, stamps=.false., &
+                              tslink_block='PACKAGEDATA')
+    if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
     call mem_setptr(condeqn, 'CONDEQN', this%input_mempath)
@@ -2537,7 +2533,7 @@ contains
       this%xoldsto(n) = this%xsto(n)
       if (this%iboundpak(n) < 0) then
         if (.not. this%well_head_set(n) .and. &
-            this%input%strt_tslink(i) /= 0) then
+            this%input%meta%is_linked('STRT', i)) then
           this%well_head(n) = this%input%strt(i)
         end if
         this%xnewpak(n) = this%well_head(n)

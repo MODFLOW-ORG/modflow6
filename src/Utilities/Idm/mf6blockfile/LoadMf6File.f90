@@ -1354,23 +1354,19 @@ contains
 
   !> @brief Allocate time series link flags for a static block
   !!
-  !! For a block with time series capable double columns, allocate
-  !! TSLINK_<id>, an integer array (ncol, nrow) that is nonzero where a row's
-  !! value is linked to a time series, and TSLINKVARS_<id>, the names of its
-  !! columns, where \<id\> identifies the block (see tslink_id). Packages use
-  !! these to apply time series updates to linked values only.
+  !! Allocate the flags (see IdmParamMetaModule) for the block's time
+  !! series capable double columns and set the linked rows.
   !<
   subroutine alloc_tslink(this, iblk)
-    use CharacterStringModule, only: CharacterStringType
-    use LoadContextModule, only: tslink_id
+    use IdmParamMetaModule, only: tslink_id, tslink_allocate
     use StructVectorModule, only: MTYPE_DBL, TSStringLocType
     class(LoadMf6FileType), intent(inout) :: this
     integer(I4B), intent(in) :: iblk
     type(StructVectorType), pointer :: svect
     type(TSStringLocType), pointer :: ts_strloc
     integer(I4B), dimension(:, :), pointer, contiguous :: tslink
-    type(CharacterStringType), dimension(:), pointer, contiguous :: tslinkvars
     integer(I4B), dimension(:), allocatable :: icols
+    character(len=LENVARNAME), dimension(:), allocatable :: varnames
     character(len=LINELENGTH) :: blockname
     character(len=2) :: id
     integer(I4B) :: m, n, ncol, nrow
@@ -1398,17 +1394,18 @@ contains
     end if
 
     ! allocate
-    svect => this%structarray%get(icols(1))
-    nrow = size(svect%dbl1d)
-    call mem_allocate(tslink, ncol, nrow, 'TSLINK_'//id, this%mf6_input%mempath)
-    call mem_allocate(tslinkvars, LENVARNAME, ncol, 'TSLINKVARS_'//id, &
-                      this%mf6_input%mempath)
-
-    ! set column names and linked rows
-    tslink = 0
+    allocate (varnames(ncol))
     do m = 1, ncol
       svect => this%structarray%get(icols(m))
-      tslinkvars(m) = svect%idt%mf6varname
+      varnames(m) = svect%idt%mf6varname
+    end do
+    svect => this%structarray%get(icols(1))
+    nrow = size(svect%dbl1d)
+    call tslink_allocate(id, varnames, nrow, this%mf6_input%mempath, tslink)
+
+    ! set linked rows
+    do m = 1, ncol
+      svect => this%structarray%get(icols(m))
       do n = 1, svect%ts_strlocs%count()
         ts_strloc => svect%get_ts_strloc(n)
         tslink(m, ts_strloc%row) = 1
