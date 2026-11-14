@@ -209,7 +209,7 @@ jobs:
             extended: false
           - os: macos-15
             compiler: gcc
-            version: 13
+            version: 15
             extended: false
             xcode-version: '16.4'
           - os: windows-2022
@@ -259,8 +259,9 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
+      # gfortran comes from the pixi environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
-        if: (!(runner.os == 'Windows' && matrix.extended))
+        if: matrix.compiler != 'gcc' && !(runner.os == 'Windows' && matrix.extended)
         id: setup-fortran
         uses: fortran-lang/setup-fortran@v1
         with:
@@ -350,24 +351,13 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          gfortran --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml gfortran --version | head -1
 
-      # static link gfortran libs
-      - name: Hide dylibs (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          version="${{ matrix.version }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
-          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
-          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak 
-
-      # use classic xcode linker, static link libgcc
+      # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |
-          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          ldflags="$LDFLAGS -static-libgfortran -static-libgcc -static-libquadmath"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
       - name: Build MF6
@@ -413,22 +403,8 @@ jobs:
           lipo -info mf5to6
           lipo -info zbud6
 
-      # TODO remove after next executables release. only necessary because
-      # tests using gridgen were failing as the current gridgen depends on
-      # some dylibs. new executables all statically link gcc/gfortran libs
-      - name: Restore dylibs (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          version="${{ matrix.version }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
-          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
-          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
-
       - name: Unit test MF6
-        # temporarily skip on macOS.. why don't these fail in the normal CI?
-        if: (!(runner.os == 'Windows' && matrix.extended) && !(runner.os == 'macOS'))
+        if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: pixi run test builddir
 
@@ -629,7 +605,9 @@ jobs:
         working-directory: modflow6
         run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
 
+      # gfortran comes from the pixi environment
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
+        if: inputs.compiler_toolchain != 'gcc'
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ inputs.compiler_toolchain }}
@@ -741,7 +719,7 @@ jobs:
             version: ${{ inputs.compiler_version }}
           - os: macos-15
             compiler: gcc
-            version: 13
+            version: 15
           - os: windows-2022
             compiler: ${{ inputs.compiler_toolchain }}
             version: ${{ inputs.compiler_version }}
@@ -766,7 +744,9 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
+      # gfortran comes from the pixi environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
+        if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}

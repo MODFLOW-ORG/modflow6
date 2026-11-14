@@ -12,24 +12,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # combinations from https://github.com/fortran-lang/setup-fortran#runner-compatibility
         include:
-          # gfortran
+          # gfortran from conda-forge via pixi. conda-forge publishes 11+ for
+          # linux, 13+ for windows; on macOS only 15+ ships libquadmath.a, so
+          # older versions can't statically link the gcc/gfortran runtimes
           - {os: ubuntu-22.04, compiler: gcc, version: 11}
           - {os: ubuntu-22.04, compiler: gcc, version: 12}
           - {os: ubuntu-22.04, compiler: gcc, version: 13}
           - {os: ubuntu-22.04, compiler: gcc, version: 14}
+          - {os: ubuntu-22.04, compiler: gcc, version: 15}
+          - {os: ubuntu-22.04, compiler: gcc, version: 16}
           - {os: ubuntu-24.04, compiler: gcc, version: 11}
           - {os: ubuntu-24.04, compiler: gcc, version: 12}
           - {os: ubuntu-24.04, compiler: gcc, version: 13}
           - {os: ubuntu-24.04, compiler: gcc, version: 14}
-          - {os: macos-15, compiler: gcc, version: 11, xcode-version: '16.4'}
-          - {os: macos-15, compiler: gcc, version: 12, xcode-version: '16.4'}
-          - {os: macos-15, compiler: gcc, version: 13, xcode-version: '16.4'}
-          - {os: macos-15, compiler: gcc, version: 14, xcode-version: '16.4'}
-          - {os: windows-2022, compiler: gcc, version: 11}
-          - {os: windows-2022, compiler: gcc, version: 12}
+          - {os: ubuntu-24.04, compiler: gcc, version: 15}
+          - {os: ubuntu-24.04, compiler: gcc, version: 16}
+          - {os: macos-15, compiler: gcc, version: 15, xcode-version: '16.4'}
+          - {os: macos-15, compiler: gcc, version: 16, xcode-version: '16.4'}
           - {os: windows-2022, compiler: gcc, version: 13}
+          - {os: windows-2022, compiler: gcc, version: 14}
+          - {os: windows-2022, compiler: gcc, version: 15}
+          - {os: windows-2022, compiler: gcc, version: 16}
+          # intel, combinations from https://github.com/fortran-lang/setup-fortran#runner-compatibility
           # ifx
           - {os: ubuntu-22.04, compiler: intel, version: "2025.2"}
           - {os: ubuntu-22.04, compiler: intel, version: "2025.0"}
@@ -77,6 +82,7 @@ jobs:
           path: modflow6-examples
     
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
+        if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler}}
@@ -87,6 +93,13 @@ jobs:
         with:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
+
+      - name: Select gfortran ${{ matrix.version }}
+        if: matrix.compiler == 'gcc'
+        working-directory: modflow6
+        run: |
+          pixi add "gfortran ${{ matrix.version }}.*"
+          pixi run gfortran --version | head -1
 
       - name: Custom pixi install
         working-directory: modflow6
@@ -104,24 +117,13 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          gfortran --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml gfortran --version | head -1
 
-      # static link gfortran libs
-      - name: Hide dylibs (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          version="${{ matrix.version }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
-          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
-          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak 
-
-      # use classic xcode linker, static link libgcc
+      # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |
-          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          ldflags="$LDFLAGS -static-libgfortran -static-libgcc -static-libquadmath"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
       - name: Build MF6
@@ -164,19 +166,6 @@ jobs:
           lipo -info libmf6.dylib
           lipo -info mf5to6
           lipo -info zbud6
-
-      # TODO remove after next executables release. only necessary because
-      # tests using gridgen were failing as the current gridgen depends on
-      # some dylibs. new executables all statically link gcc/gfortran libs
-      - name: Restore dylibs (macOS)
-        if: success() && runner.os == 'macOS'
-        run: |
-          version="${{ matrix.version }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
-          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
-          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
 
       - name: Unit test programs
         if: success()

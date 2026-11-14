@@ -1,5 +1,18 @@
-test_drive = dependency('test-drive', required : false)
-if test_drive.found() and not fc_id.contains('intel')
+# test-drive is built from source as a subproject so its module files
+# always match the compiler building MF6. unit tests need gfortran.
+test_drive = dependency('', required : false)
+if not fc_id.contains('intel')
+  test_drive_proj = subproject(
+    'test-drive',
+    required : false,
+    # not our code, so don't fail on its warnings
+    default_options : ['default_library=static', 'werror=false'],
+  )
+  if test_drive_proj.found()
+    test_drive = test_drive_proj.get_variable('testdrive_dep')
+  endif
+endif
+if test_drive.found()
   tests = [
     'ArrayHandlers',
     'BinaryFileReader',

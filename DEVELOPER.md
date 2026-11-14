@@ -93,7 +93,15 @@ GNU Fortran or Intel Fortran compilers can be used to build MODFLOW 6. It may be
 
 #### GNU Fortran
 
-GNU Fortran can be installed on all three major platforms.
+The Pixi and Conda environments in this repository include [GNU Fortran from conda-forge](https://anaconda.org/conda-forge/gfortran) on all platforms. This is the recommended way to obtain GNU Fortran, and is what CI and release builds use. GNU Fortran can also be installed from system package managers.
+
+To build macOS binaries without dynamic dependencies on the gcc/gfortran runtime libraries, link them statically:
+
+```shell
+export LDFLAGS="$LDFLAGS -static-libgfortran -static-libgcc -static-libquadmath"
+```
+
+This requires conda-forge GNU Fortran 15 or later. Earlier conda-forge versions do not include `libquadmath.a`.
 
 *Linux*
 
@@ -105,7 +113,7 @@ GNU Fortran can be installed on all three major platforms.
 - [Homebrew](https://brew.sh/): `brew install gcc@13`
 - [MacPorts](https://www.macports.org/): `sudo port install gcc13`
 
-**Note:** Xcode 15 includes a new linker implementation which breaks GNU Fortran compatibility. A workaround is to set `LDFLAGS` to use the classic linker, for instance:
+**Note:** Xcode 15 includes a new linker implementation which breaks compatibility with some GNU Fortran distributions. A workaround is to set `LDFLAGS` to use the classic linker, for instance:
 
 ```shell
 export LDFLAGS="$LDFLAGS -Wl,-ld_classic"
@@ -133,7 +141,7 @@ To install from SourceForge:
 
 Binaries may also be downloaded and installed from the [releases here](https://github.com/brechtsanders/winlibs_mingw/releases).
 
-**Note:** the MinGW distribution [available on conda-forge](https://anaconda.org/conda-forge/m2w64-toolchain_win-64) includes an outdated version of GCC and is not compatible with MODFLOW 6.
+**Note:** the `m2w64-toolchain` MinGW distribution [available on conda-forge](https://anaconda.org/conda-forge/m2w64-toolchain_win-64) includes an outdated version of GCC and is not compatible with MODFLOW 6. Use conda-forge's `gfortran` package instead.
 
 #### Intel Fortran
 
@@ -532,7 +540,7 @@ Before running tests, there are a few steps to complete. Most importantly, the l
 
 Unit tests are [driven with Meson](https://mesonbuild.com/Unit-tests.html). A small number of Meson-native tests are defined in the top-level `meson.build` file to check that MODFLOW 6 has installed successfully. These require no additional configuration.
 
-Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. If Meson fails to find the `test-drive` library via `pkg-config`, these will be skipped.
+Additional Fortran unit tests are defined with [`test-drive`](https://github.com/fortran-lang/test-drive) in the `autotest/` folder, with test files named `Test*.f90`. Meson builds `test-drive` from source as a [subproject](https://mesonbuild.com/Subprojects.html), downloading it as specified in `subprojects/test-drive.wrap`, so its module files always match the compiler. If the download fails, these tests will be skipped.
 
 **Note:** the `test-drive` source code is not yet compatible with recent versions of Intel Fortran, building with `gfortran` is recommended.
 

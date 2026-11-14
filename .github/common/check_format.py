@@ -16,6 +16,7 @@ excludedirs = [
     PROJ_ROOT / ".claude",
     PROJ_ROOT / ".pixi",
     PROJ_ROOT / ".test-drive",
+    PROJ_ROOT / "subprojects",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "blas",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "daglib",
     PROJ_ROOT / "src" / "Utilities" / "Libraries" / "rcm",

@@ -192,16 +192,10 @@ jobs:
         shell: bash
     env:
       FC: gfortran
-      FC_V: 13
+      FC_V: 15
     steps:
       - name: Checkout MF6
         uses: actions/checkout@v7
-
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
 
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.3
@@ -269,18 +263,12 @@ jobs:
         shell: bash
     env:
       FC: gfortran
-      FC_V: 13
+      FC_V: 15
     steps:
       - name: Checkout MF6
         uses: actions/checkout@v7
         with:
           path: modflow6
-
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
 
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.3
@@ -367,7 +355,7 @@ jobs:
         shell: bash
     env:
       FC: gfortran
-      FC_V: 13
+      FC_V: 15
     steps:
       - name: Free disk space (Ubuntu)
         if: runner.os == 'Linux'
@@ -398,12 +386,6 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
-
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.3
         with:
@@ -426,24 +408,13 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          ${{ env.FC }} --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml ${{ env.FC }} --version | head -1
 
-      # static link gfortran libs
-      - name: Hide dylibs (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          version="${{ env.FC_V }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib $libpath/libgcc_s.1.1.dylib.bak
-          mv $libpath/libgfortran.5.dylib $libpath/libgfortran.5.dylib.bak
-          mv $libpath/libquadmath.0.dylib $libpath/libquadmath.0.dylib.bak 
-
-      # use classic xcode linker, static link libgcc
+      # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
         if: runner.os == 'macOS'
         run: |
-          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
+          ldflags="$LDFLAGS -static-libgfortran -static-libgcc -static-libquadmath"
           echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
       - name: Update version files
@@ -498,19 +469,6 @@ jobs:
           lipo -info libmf6.dylib
           lipo -info mf5to6
           lipo -info zbud6
-
-      # TODO remove after next executables release. only necessary because
-      # tests using gridgen were failing as the current gridgen depends on
-      # some dylibs. new executables all statically link gcc/gfortran libs
-      - name: Restore dylibs (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          version="${{ env.FC_V }}"
-          brew_prefix="$(brew --prefix)"
-          libpath="$brew_prefix/opt/gcc@$version/lib/gcc/$version"
-          mv $libpath/libgcc_s.1.1.dylib.bak $libpath/libgcc_s.1.1.dylib
-          mv $libpath/libgfortran.5.dylib.bak $libpath/libgfortran.5.dylib
-          mv $libpath/libquadmath.0.dylib.bak $libpath/libquadmath.0.dylib
 
       - name: Unit test MF6
         working-directory: modflow6
@@ -777,7 +735,12 @@ jobs:
     defaults:
       run:
         shell: bash
-
+    env:
+      # avoid UCX's TCP transport, which can SIGFPE querying network
+      # interface speed on some CI runners (unrelated to MF6 itself);
+      # tests only ever run within a single node so ob1/vader suffice
+      OMPI_MCA_pml: ob1
+      OMPI_MCA_btl: self,vader
     steps:
       - name: Free disk space (Ubuntu)
         if: runner.os == 'Linux'
@@ -796,13 +759,6 @@ jobs:
         with:
           path: modflow6
 
-      - name: Setup gfortran
-        if: runner.os != 'Windows'
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: 13
-
       - name: Setup pixi
         uses: prefix-dev/setup-pixi@v0.11.3
         with:
@@ -812,12 +768,6 @@ jobs:
       - name: Custom pixi install
         working-directory: modflow6
         run: pixi run install
-
-      - name: Set LDFLAGS (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          ldflags="$LDFLAGS -Wl,-ld_classic -static-libgcc"
-          echo "LDFLAGS=$ldflags" >> $GITHUB_ENV
 
       - name: Set markers
         id: set_markers
