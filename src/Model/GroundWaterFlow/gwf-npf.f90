@@ -1310,7 +1310,7 @@ contains
 
   end subroutine npf_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the VSC package. The base model
   !! allocate scalars method is also called.
@@ -1404,7 +1404,7 @@ contains
     this%iasym = this%inewton
   end subroutine allocate_scalars
 
-  !> @ brief Store backup copy of hydraulic conductivity when the VSC
+  !> @brief Store backup copy of hydraulic conductivity when the VSC
   !!         package is activate
   !!
   !! The K arrays (K11, etc.) get multiplied by the viscosity ratio so that

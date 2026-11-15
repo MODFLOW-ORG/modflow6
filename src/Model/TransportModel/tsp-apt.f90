@@ -1009,7 +1009,7 @@ contains
     call this%budobj%write_budtable(kstp, kper, iout, ibudfl, totim, delt)
   end subroutine apt_ot_bdsummary
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables for an advanced package
   !<
@@ -1065,7 +1065,7 @@ contains
     this%iasym = 1
   end subroutine allocate_scalars
 
-  !> @ brief Allocate index arrays
+  !> @brief Allocate index arrays
   !!
   !! Allocate arrays that map to locations in the numerical solution
   !<
@@ -1122,7 +1122,7 @@ contains
     end if
   end subroutine apt_allocate_index_arrays
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate advanced package transport arrays
   !<
@@ -1213,7 +1213,7 @@ contains
     end if
   end subroutine apt_checkin_deprecated_names
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
   !!
   !! Deallocate memory associated with this package
   !<

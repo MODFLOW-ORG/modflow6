@@ -39,7 +39,7 @@ module BndModule
   public :: save_print_model_flows
   private :: CastAsBndClass
 
-  !> @ brief BndType
+  !> @brief BndType
   !!
   !!  Generic boundary package type.  This derived type can be overridden to
   !!  become concrete boundary package types.
@@ -170,7 +170,7 @@ module BndModule
 
 contains
 
-  !> @ brief Define boundary package options and dimensions
+  !> @brief Define boundary package options and dimensions
   !!
   !!  Define base boundary package options and dimensions for
   !!  a model boundary package.
@@ -228,7 +228,7 @@ contains
     end if
   end subroutine bnd_df
 
-  !> @ brief Add boundary package connection to matrix
+  !> @brief Add boundary package connection to matrix
   !!
   !!  Add boundary package connection to the matrix for packages that add
   !!  connections to the coefficient matrix. An example would be the GWF model
@@ -244,7 +244,7 @@ contains
     type(sparsematrix), intent(inout) :: sparse !< sparse object
   end subroutine bnd_ac
 
-  !> @ brief Map boundary package connection to matrix
+  !> @brief Map boundary package connection to matrix
   !!
   !!  Map boundary package connection to the matrix for packages that add
   !!  connections to the coefficient matrix. An example would be the GWF model
@@ -257,7 +257,7 @@ contains
     class(MatrixBaseType), pointer :: matrix_sln !< global system matrix
   end subroutine bnd_mc
 
-  !> @ brief Allocate and read method for boundary package
+  !> @brief Allocate and read method for boundary package
   !!
   !!  Generic method to allocate and read static data for model boundary
   !!  packages. A boundary package only needs to override this method if
@@ -285,7 +285,7 @@ contains
     end if
   end subroutine bnd_ar
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Generic method to read and prepare period data for model boundary
   !!  packages. A boundary package only needs to override this method if
@@ -381,7 +381,7 @@ contains
     end if
   end subroutine bnd_rp
 
-  !> @ brief Advance the boundary package
+  !> @brief Advance the boundary package
   !!
   !!  Advance data in the boundary package. The method sets advances
   !!  time series, time array series, and observation data. A boundary
@@ -408,7 +408,7 @@ contains
     call this%obs%obs_ad()
   end subroutine bnd_ad
 
-  !> @ brief Check boundary package period data
+  !> @brief Check boundary package period data
   !!
   !!  Check the boundary package period data. Base implementation that
   !!  must be extended by each model boundary package.
@@ -421,7 +421,7 @@ contains
     ! -- each package must override generic functionality
   end subroutine bnd_ck
 
-  !> @ brief Reset bnd package before formulating
+  !> @brief Reset bnd package before formulating
   !<
   subroutine bnd_reset(this)
     class(BndType) :: this !< BndType object
@@ -432,7 +432,7 @@ contains
 
   end subroutine bnd_reset
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
   !!
   !!  Formulate the hcof and rhs terms for the package that will be
   !!  added to the coefficient matrix and right-hand side vector.
@@ -446,7 +446,7 @@ contains
     ! -- bnd has no cf routine
   end subroutine bnd_cf
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
   !!
   !!  Add the hcof and rhs terms for the boundary package to the
   !!  coefficient matrix and right-hand side vector. A boundary
@@ -474,7 +474,7 @@ contains
     end do
   end subroutine bnd_fc
 
-  !> @ brief Add Newton-Raphson terms for package into solution.
+  !> @brief Add Newton-Raphson terms for package into solution.
   !!
   !!  Calculate and add the Newton-Raphson terms for the boundary package
   !!  to the coefficient matrix and right-hand side vector. A boundary
@@ -493,7 +493,7 @@ contains
     !    boundary conditions
   end subroutine bnd_fn
 
-  !> @ brief Apply Newton-Raphson under-relaxation for package.
+  !> @brief Apply Newton-Raphson under-relaxation for package.
   !!
   !!  Apply Newton-Raphson under-relaxation for a boundary package. A boundary
   !!  package only needs to override this method if a specific boundary
@@ -516,7 +516,7 @@ contains
     ! -- Newton-Raphson under-relaxation
   end subroutine bnd_nur
 
-  !> @ brief Convergence check for package.
+  !> @brief Convergence check for package.
   !!
   !!  Perform additional convergence checks on the flow between the package
   !!  and the model it is attached to. This additional convergence check is
@@ -540,7 +540,7 @@ contains
     ! -- No addition convergence check for boundary conditions
   end subroutine bnd_cc
 
-  !> @ brief Calculate advanced package flows.
+  !> @brief Calculate advanced package flows.
   !!
   !!  Calculate the flow between connected advanced package control volumes.
   !!  Only advanced boundary packages need to override this method.
@@ -577,7 +577,7 @@ contains
     end if
   end subroutine bnd_cq
 
-  !> @ brief Calculate simrate.
+  !> @brief Calculate simrate.
   !!
   !!  Calculate the flow between package and the model (for example, GHB and
   !!  groundwater cell) and store in the simvals variable. This method only
@@ -621,7 +621,7 @@ contains
     end if
   end subroutine bnd_cq_simrate
 
-  !> @ brief Calculate flow to the mover.
+  !> @brief Calculate flow to the mover.
   !!
   !!  Calculate the flow between package and the model that is sent to the
   !!  mover package and store in the simtomvr variable. This method only
@@ -687,7 +687,7 @@ contains
     end if
   end subroutine bnd_cq_simtomvr
 
-  !> @ brief Add package flows to model budget.
+  !> @brief Add package flows to model budget.
   !!
   !!  Add the flow between package and the model (ratin and ratout) to the
   !!  model budget. This method only needs to be overridden if a different
@@ -722,7 +722,7 @@ contains
     end if
   end subroutine bnd_bd
 
-  !> @ brief Output advanced package flow terms.
+  !> @brief Output advanced package flow terms.
   !!
   !!  Output advanced boundary package flow terms. This method only needs to
   !!  be overridden for advanced packages that save flow terms than contribute
@@ -737,7 +737,7 @@ contains
     ! -- override for advanced packages
   end subroutine bnd_ot_package_flows
 
-  !> @ brief Output advanced package dependent-variable terms.
+  !> @brief Output advanced package dependent-variable terms.
   !!
   !!  Output advanced boundary package dependent-variable terms. This method only needs
   !!  to be overridden for advanced packages that save dependent variable terms
@@ -752,7 +752,7 @@ contains
     ! -- override for advanced packages
   end subroutine bnd_ot_dv
 
-  !> @ brief Output advanced package budget summary.
+  !> @brief Output advanced package budget summary.
   !!
   !!  Output advanced boundary package budget summary. This method only needs
   !!  to be overridden for advanced packages that save budget summaries
@@ -769,7 +769,7 @@ contains
     ! -- override for advanced packages
   end subroutine bnd_ot_bdsummary
 
-  !> @ brief Output package flow terms.
+  !> @brief Output package flow terms.
   !!
   !!  Output flow terms between the boundary package and model to a binary file and/or
   !!  print flows to the model listing file. This method should not need to
@@ -846,7 +846,7 @@ contains
     class(BndType) :: this !< BndType object
   end subroutine bnd_fp
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate base boundary package scalars and arrays. This method
   !!  only needs to be overridden if additional variables are defined
@@ -937,7 +937,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine bnd_da
 
-  !> @ brief Allocate package scalars
+  !> @brief Allocate package scalars
   !!
   !!  Allocate and initialize base boundary package scalars. This method
   !!  only needs to be overridden if additional scalars are defined
@@ -1012,7 +1012,7 @@ contains
     imodelnewton => null()
   end subroutine allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
   !!
   !!  Allocate and initialize base boundary package arrays. This method
   !!  only needs to be overridden if additional arrays are defined
@@ -1118,7 +1118,7 @@ contains
     call this%pak_setup_outputtab()
   end subroutine allocate_arrays
 
-  !> @ brief Allocate and initialize select package members
+  !> @brief Allocate and initialize select package members
   !!
   !!  Allocate and initialize select base boundary package members.
   !!  This method needs to be overridden by a package if it is
@@ -1129,7 +1129,7 @@ contains
     class(BndType) :: this !< BndType object
   end subroutine pack_initialize
 
-  !> @ brief Set pointers to model variables
+  !> @brief Set pointers to model variables
   !!
   !!  Set pointers to model variables so that a package has access to these
   !!  variables. This base method should not need to be overridden.
@@ -1151,7 +1151,7 @@ contains
     this%flowja => flowja
   end subroutine set_pointers
 
-  !> @ brief Read additional options for package
+  !> @brief Read additional options for package
   !!
   !!  Read base options for boundary packages.
   !<
@@ -1355,7 +1355,7 @@ contains
     end if
   end subroutine bnd_read_options
 
-  !> @ brief Read dimensions for package
+  !> @brief Read dimensions for package
   !!
   !!  Read base dimensions for boundary packages. This method should not
   !!  need to be overridden unless more than MAXBOUND is specified in the
@@ -1416,7 +1416,7 @@ contains
     call this%define_listlabel()
   end subroutine bnd_read_dimensions
 
-  !> @ brief Store user-specified conductances when vsc is active
+  !> @brief Store user-specified conductances when vsc is active
   !!
   !!  VSC will update boundary package conductance values.  Because
   !!  viscosity can change every stress period, but user-specified
@@ -1441,7 +1441,7 @@ contains
     end do
   end subroutine bnd_store_user_cond
 
-  !> @ brief Read initial parameters for package
+  !> @brief Read initial parameters for package
   !!
   !!  Read initial parameters for a boundary package. This method is not
   !!  needed for most boundary packages. The SFR package is an example of a
@@ -1452,7 +1452,7 @@ contains
     class(BndType), intent(inout) :: this !< BndType object
   end subroutine bnd_read_initial_attr
 
-  !> @ brief Read additional options for package
+  !> @brief Read additional options for package
   !!
   !!  Read additional options for a boundary package. This method should
   !!  be overridden options in addition to the base options are implemented
@@ -1468,7 +1468,7 @@ contains
     found = .false.
   end subroutine bnd_options
 
-  !> @ brief Copy boundnames into boundnames_cst
+  !> @brief Copy boundnames into boundnames_cst
   !!
   !!  boundnames_cst is an array of type(CharacterStringType),
   !!  which can be stored in the MemoryManager.
@@ -1488,7 +1488,7 @@ contains
     end if
   end subroutine copy_boundname
 
-  !> @ brief Setup output table for package
+  !> @brief Setup output table for package
   !!
   !!  Setup output table for a boundary package that is used to output
   !!  package to model flow terms to the model listing file.
@@ -1530,7 +1530,7 @@ contains
     end if
   end subroutine pak_setup_outputtab
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the boundary package. This method
   !!  needs to be overridden by each boundary package.
@@ -1766,6 +1766,7 @@ contains
   !!  Function to get a boundary package from a package list.
   !!
   !!  @return  res  boundary package object
+  !! @hidecallergraph
   !<
   function GetBndFromList(list, idx) result(res)
     ! -- dummy

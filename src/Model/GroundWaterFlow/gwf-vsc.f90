@@ -135,7 +135,7 @@ contains
     end do
   end function calc_visc
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new VSC Package object.
   !<
@@ -161,7 +161,7 @@ contains
     vscobj%iout = iout
   end subroutine vsc_cr
 
-  !> @ brief Define viscosity package options and dimensions
+  !> @brief Define viscosity package options and dimensions
   !!
   !!  Define viscosity package options and dimensions
   !<
@@ -207,7 +207,7 @@ contains
     end if
   end subroutine vsc_df
 
-  !> @ brief Allocate and read method for viscosity package
+  !> @brief Allocate and read method for viscosity package
   !!
   !!  Generic method to allocate and read static data for the viscosity
   !!  package available within the GWF model type.
@@ -318,7 +318,7 @@ contains
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
   end subroutine set_npf_pointers
 
-  !> @ brief Read new period data in viscosity package
+  !> @brief Read new period data in viscosity package
   !!
   !!  Method to read and prepare period data for the VSC package.
   !<
@@ -350,7 +350,7 @@ contains
     end if
   end subroutine vsc_rp
 
-  !> @ brief Advance the viscosity package
+  !> @brief Advance the viscosity package
   !!
   !!  Advance data in the VSC package. The method sets or advances time series,
   !!  time array series, and observation data.
@@ -719,7 +719,7 @@ contains
     viscratio = viscref / bndvisc
   end function calc_vsc_ratio
 
-  !> @ brief Calculate the boundary viscosity
+  !> @brief Calculate the boundary viscosity
   !!
   !! Return the viscosity of the boundary package using one of
   !! the options in the following order of priority:
@@ -858,7 +858,7 @@ contains
     this%kchangestp = kstp
   end subroutine vsc_set_changed_at
 
-  !> @ brief Output viscosity package dependent-variable terms.
+  !> @brief Output viscosity package dependent-variable terms.
   !!
   !!  Save calculated viscosity array to binary file
   !<
@@ -897,7 +897,7 @@ contains
     end if
   end subroutine vsc_ot_dv
 
-  !> @ brief Deallocate viscosity package memory
+  !> @brief Deallocate viscosity package memory
   !!
   !!  Deallocate viscosity package scalars and arrays.
   !<
@@ -944,7 +944,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine vsc_da
 
-  !> @ brief Source dimensions for package
+  !> @brief Source dimensions for package
   !<
   subroutine source_dimensions(this)
     ! -- modules
@@ -971,7 +971,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief source packagedata for package
+  !> @brief source packagedata for package
   !<
   subroutine source_packagedata(this)
     ! -- modules
@@ -1126,7 +1126,7 @@ contains
     end do
   end subroutine vsc_calcvisc
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the VSC package. The base model
   !! allocate scalars method is also called.
@@ -1167,7 +1167,7 @@ contains
     this%nviscspecies = 0
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate and initialize arrays for the VSC package.
   !<
@@ -1206,7 +1206,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Source VSC options
+  !> @brief Source VSC options
   !<
   subroutine source_options(this)
     ! -- modules
@@ -1292,7 +1292,7 @@ contains
     call this%log_options(found, viscosityfile)
   end subroutine source_options
 
-  !> @ brief log VSC options
+  !> @brief log VSC options
   !<
   subroutine log_options(this, found, viscosityfile)
     ! -- modules
@@ -1382,7 +1382,7 @@ contains
     this%viscref = input_data%viscref
   end subroutine set_options
 
-  !> @ brief Set pointers to concentration(s)
+  !> @brief Set pointers to concentration(s)
   !!
   !! Pass in a gwt model name, concentration array, and ibound,
   !! and store a pointer to these in the VSC package so that

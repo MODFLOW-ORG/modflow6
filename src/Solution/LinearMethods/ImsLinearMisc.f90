@@ -51,7 +51,7 @@ CONTAINS
   end subroutine ims_misc_thomas
 
   !
-  !> @ brief Scale X and RHS
+  !> @brief Scale X and RHS
   !!
   !!  Scale X and B to avoid big or small values. Scaling value is the
   !!  maximum ABS(X).

@@ -49,7 +49,7 @@ module AdaptiveTimeStepModule
 
 contains
 
-  !> @ brief Determine if period is adaptive
+  !> @brief Determine if period is adaptive
   !!
   !!  Check settings and determine if kper is an adaptive
   !!  stress period.
@@ -67,7 +67,7 @@ contains
     end if
   end function isAdaptivePeriod
 
-  !> @ brief Create ATS object
+  !> @brief Create ATS object
   !!
   !!  Create a new ATS object, and read and check input.
   !!
@@ -119,7 +119,7 @@ contains
     call this%parser%Clear()
   end subroutine ats_init
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the ATS package.
   !!
@@ -140,7 +140,7 @@ contains
     this%dtstable = DNODATA
   end subroutine ats_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate and initialize arrays for the ATS package.
   !!
@@ -177,7 +177,7 @@ contains
     end do
   end subroutine ats_allocate_arrays
 
-  !> @ brief Deallocate variables
+  !> @brief Deallocate variables
   !!
   !! Deallocate all ATS variables.
   !!
@@ -201,7 +201,7 @@ contains
     call mem_deallocate(this%dtfailadj)
   end subroutine ats_da
 
-  !> @ brief Read options
+  !> @brief Read options
   !!
   !! Read options from ATS input file.
   !!
@@ -238,7 +238,7 @@ contains
     end if
   end subroutine ats_read_options
 
-  !> @ brief Read dimensions
+  !> @brief Read dimensions
   !!
   !! Read dimensions from ATS input file.
   !!
@@ -284,7 +284,7 @@ contains
     end if
   end subroutine ats_read_dimensions
 
-  !> @ brief Read timing
+  !> @brief Read timing
   !!
   !! Read timing information from ATS input file.
   !!
@@ -334,7 +334,7 @@ contains
     end if
   end subroutine ats_read_timing
 
-  !> @ brief Process input
+  !> @brief Process input
   !!
   !! Process ATS input by filling the kperats array.
   !!
@@ -355,7 +355,7 @@ contains
     end do
   end subroutine ats_process_input
 
-  !> @ brief Write input table
+  !> @brief Write input table
   !!
   !! Write a table showing the ATS input read from the perioddata block.
   !!
@@ -406,7 +406,7 @@ contains
     nullify (inputtab)
   end subroutine ats_input_table
 
-  !> @ brief Check timing
+  !> @brief Check timing
   !!
   !! Perform a check on the input data to make sure values are within
   !! required ranges.
@@ -491,7 +491,7 @@ contains
     write (iout, '(1x,a)') 'DONE PROCESSING ATS INPUT'
   end subroutine ats_check_timing
 
-  !> @ brief Write period message
+  !> @brief Write period message
   !!
   !! Write message to mfsim.lst file with information on ATS settings
   !! for this period.
@@ -516,7 +516,7 @@ contains
       this%dtadj(n), this%dtfailadj(n)
   end subroutine ats_period_message
 
-  !> @ brief Allow and external caller to submit preferred time step
+  !> @brief Allow and external caller to submit preferred time step
   !!
   !!  Submit a preferred time step length.  Alternatively, if idir is
   !!  is passed, then either increase or decrease the submitted time
@@ -570,7 +570,7 @@ contains
     end if
   end subroutine ats_submit_delt
 
-  !> @ brief Set time step
+  !> @brief Set time step
   !!
   !! Set the time step length (delt) for this time step using the ATS
   !! controls.
@@ -636,7 +636,7 @@ contains
     write (iout, fmtdt) delt, kstp, kper
   end subroutine ats_set_delt
 
-  !> @ brief Reset time step because failure has occurred
+  !> @brief Reset time step because failure has occurred
   !!
   !!  Reset the time step using dtfailadj because the time step
   !!  did not converge.
@@ -678,7 +678,7 @@ contains
     end if
   end subroutine ats_reset_delt
 
-  !> @ brief Set end of period indicator
+  !> @brief Set end of period indicator
   !!
   !! Determine if it is the end of the stress period and set the endofperiod
   !! logical variable if so.

@@ -54,6 +54,7 @@ contains
   !!
   !! @return  ncount number of error messages stored
   !!
+  !! @hidecallergraph
   !<
   function count_errors() result(ncount)
     integer(I4B) :: ncount
@@ -87,6 +88,7 @@ contains
   end subroutine MaxErrors
 
   !> @brief Store an error message.
+  !! @hidecallergraph
   !<
   subroutine store_error(msg, terminate)
     ! -- dummy variable
@@ -164,6 +166,7 @@ contains
   !!  and indicate that there is an error reading from the file. By default,
   !!  the simulation is terminated when this subroutine is called.
   !!
+  !! @hidecallergraph
   !<
   subroutine store_error_unit(iunit, terminate)
     ! -- dummy variables
@@ -199,6 +202,7 @@ contains
   !!  Subroutine to store the file name issuing an error. By default,
   !!  the simulation is terminated when this subroutine is called
   !!
+  !! @hidecallergraph
   !<
   subroutine store_error_filename(filename, terminate)
     ! -- dummy variables

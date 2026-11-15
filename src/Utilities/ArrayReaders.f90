@@ -1086,7 +1086,7 @@ contains
     end if
   end subroutine check_binary_filesize
 
-  !> @ brief Check the binary data size
+  !> @brief Check the binary data size
   !!
   !!  Check the size of the binary data that will be read
   !!  relative to the unfilled elements in the array .

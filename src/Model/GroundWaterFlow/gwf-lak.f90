@@ -5815,7 +5815,7 @@ contains
     end do estseep
   end subroutine lak_estimate_seepage_single
 
-  !> @ brief Lake package bisection method
+  !> @brief Lake package bisection method
   !!
   !!  Use bisection method to find lake stage that reduces the residual
   !<

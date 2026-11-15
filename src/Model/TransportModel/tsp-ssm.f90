@@ -73,7 +73,7 @@ module TspSsmModule
 
 contains
 
-  !> @ brief Create a new SSM package
+  !> @brief Create a new SSM package
   !!
   !!  Create a new SSM package by defining names, allocating scalars
   !<
@@ -109,7 +109,7 @@ contains
     ssmobj%depvartype = depvartype
   end subroutine ssm_cr
 
-  !> @ brief Define SSM Package
+  !> @brief Define SSM Package
   !!
   !! This routine is called from gwt_df(), but does not do anything because
   !! df is typically used to set up dimensions.  For the ssm package, the
@@ -122,7 +122,7 @@ contains
     class(TspSsmType) :: this !< TspSsmType object
   end subroutine ssm_df
 
-  !> @ brief Allocate and read SSM Package
+  !> @brief Allocate and read SSM Package
   !!
   !! This routine is called from gwt_ar().  It allocates arrays, reads
   !! options and data, and sets up the output table.
@@ -175,7 +175,7 @@ contains
     call this%pak_setup_outputtab()
   end subroutine ssm_ar
 
-  !> @ brief Read and prepare this SSM Package
+  !> @brief Read and prepare this SSM Package
   !!
   !! This routine is called from gwt_rp().  It is called at the beginning of
   !! each stress period.  If any SPC input files are used to provide source
@@ -200,7 +200,7 @@ contains
     end do
   end subroutine ssm_rp
 
-  !> @ brief Advance the SSM Package
+  !> @brief Advance the SSM Package
   !!
   !! This routine is called from gwt_ad().  It is called at the beginning of
   !! each time step.  The total number of flow boundaries is counted and stored
@@ -244,7 +244,7 @@ contains
     end do
   end subroutine ssm_ad
 
-  !> @ brief Calculate the SSM mass flow rate and hcof and rhs values
+  !> @brief Calculate the SSM mass flow rate and hcof and rhs values
   !!
   !! This is the primary SSM routine that calculates the matrix coefficient
   !! and right-hand-side value for any package and package entry.  It returns
@@ -342,7 +342,7 @@ contains
     if (present(qssm)) qssm = qbnd
   end subroutine ssm_term
 
-  !> @ brief Provide bound concentration (or temperature) and mixed flag
+  !> @brief Provide bound concentration (or temperature) and mixed flag
   !!
   !! SSM concentrations and temperatures can be provided in auxiliary variables
   !! or through separate SPC files.  If not provided, the default
@@ -379,7 +379,7 @@ contains
     end select
   end subroutine get_ssm_conc
 
-  !> @ brief Fill coefficients
+  !> @brief Fill coefficients
   !!
   !! This routine adds the effects of the SSM to the matrix equations by
   !! updating the a matrix and right-hand side vector.
@@ -420,7 +420,7 @@ contains
     end do
   end subroutine ssm_fc
 
-  !> @ brief Calculate flow
+  !> @brief Calculate flow
   !!
   !! Calculate the resulting mass flow between the boundary and the connected
   !! GWT/GWE model cell.  Update the diagonal position of the flowja array so
@@ -456,7 +456,7 @@ contains
     end do
   end subroutine ssm_cq
 
-  !> @ brief Calculate the global SSM budget terms
+  !> @brief Calculate the global SSM budget terms
   !!
   !! Calculate the global SSM budget terms using separate in and out entries
   !! for each flow package.
@@ -509,7 +509,7 @@ contains
     end do
   end subroutine ssm_bd
 
-  !> @ brief Output flows
+  !> @brief Output flows
   !!
   !! Based on user-specified controls, print SSM mass flow rates to the GWT
   !! listing file and/or write the SSM mass flow rates to the GWT binary
@@ -637,7 +637,7 @@ contains
     end if
   end subroutine ssm_ot_flow
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !! Deallocate the memory associated with this derived type
   !<
@@ -683,7 +683,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine ssm_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables for this derived type
   !<
@@ -703,7 +703,7 @@ contains
     this%nbound = 0
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate array variables for this derived type
   !<
@@ -963,7 +963,7 @@ contains
     call memorystore_release('SPC6_MEMPATH', this%input_mempath)
   end subroutine source_fileinput
 
-  !> @ brief Set iauxpak array value for package ip
+  !> @brief Set iauxpak array value for package ip
   !!
   !!  The routine searches through the auxiliary names in package
   !!  ip and sets iauxpak to the column number corresponding to the
@@ -1022,7 +1022,7 @@ contains
                             this%depvartype, input_fname)
   end subroutine set_ssmivec
 
-  !> @ brief Setup the output table
+  !> @brief Setup the output table
   !!
   !! Setup the output table by creating the column headers.
   !<

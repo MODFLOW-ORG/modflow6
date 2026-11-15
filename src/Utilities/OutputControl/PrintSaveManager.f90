@@ -80,7 +80,7 @@ contains
     call this%allocate()
   end subroutine init
 
-  !> @ brief Read a line of input and prepare the manager.
+  !> @brief Read a line of input and prepare the manager.
   subroutine read (this, linein, iout)
     ! dummy
     class(PrintSaveManagerType) :: this !< this instance
@@ -111,7 +111,7 @@ contains
     end select
   end subroutine read
 
-  !> @ brief set data from an input record.
+  !> @brief set data from an input record.
   subroutine set(this, ocaction, ocsetting, iout)
     ! dummy
     class(PrintSaveManagerType) :: this !< this instance
@@ -134,7 +134,7 @@ contains
     end select
   end subroutine set
 
-  !> @ brief Determine if printing is enabled for this time step.
+  !> @brief Determine if printing is enabled for this time step.
   logical function should_print(this, kstp, endofperiod)
     class(PrintSaveManagerType) :: this !< this instance
     integer(I4B), intent(in) :: kstp !< current time step
@@ -143,7 +143,7 @@ contains
     should_print = this%print_steps%is_selected(kstp, endofperiod)
   end function should_print
 
-  !> @ brief Determine if saving is enabled for this time step.
+  !> @brief Determine if saving is enabled for this time step.
   logical function should_save(this, kstp, endofperiod)
     class(PrintSaveManagerType) :: this !< this instance
     integer(I4B), intent(in) :: kstp !< current time step

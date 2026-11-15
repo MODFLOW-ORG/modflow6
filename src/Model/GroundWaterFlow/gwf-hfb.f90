@@ -525,7 +525,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Source hfb input options
+  !> @brief Source hfb input options
   !<
   subroutine source_options(this)
     ! -- modules
@@ -549,7 +549,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF HFB OPTIONS'
   end subroutine source_options
 
-  !> @ brief Source hfb input options
+  !> @brief Source hfb input options
   !<
   subroutine source_dimensions(this)
     ! -- modules
@@ -578,7 +578,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief source hfb period data
+  !> @brief source hfb period data
   !<
   subroutine source_data(this)
     ! -- modules

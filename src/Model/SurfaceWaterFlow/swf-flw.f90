@@ -49,7 +49,7 @@ module SwfFlwModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new FLW Package object
   !!
@@ -91,7 +91,7 @@ contains
     packobj%ictMemPath = ''
   end subroutine flw_create
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the FLW package. The base model
   !! allocate scalars method is also called.
@@ -113,7 +113,7 @@ contains
     ! none for this package
   end subroutine flw_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
     !!
     !! Allocate and initialize arrays for the SWF package
     !!
@@ -138,7 +138,7 @@ contains
                      'Q', this%input_mempath)
   end subroutine flw_allocate_arrays
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate SWF package scalars and arrays.
   !!
@@ -156,7 +156,7 @@ contains
     call mem_deallocate(this%q, 'Q', this%memoryPath)
   end subroutine flw_da
 
-  !> @ brief Source additional options for package
+  !> @brief Source additional options for package
   !!
   !!  Source additional options for SWF package.
   !!
@@ -179,7 +179,7 @@ contains
     call this%log_flw_options()
   end subroutine flw_options
 
-  !> @ brief Log SWF specific package options
+  !> @brief Log SWF specific package options
   !<
   subroutine log_flw_options(this)
     ! -- dummy variables
@@ -196,7 +196,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_flw_options
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
   !!
   !!  Formulate the hcof and rhs terms for the FLW package that will be
   !!  added to the coefficient matrix and right-hand side vector.
@@ -225,7 +225,7 @@ contains
     end do
   end subroutine flw_cf
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
   !!
   !!  Add the hcof and rhs terms for the FLW package to the
   !!  coefficient matrix and right-hand side vector.
@@ -263,7 +263,7 @@ contains
     end do
   end subroutine flw_fc
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the FLW package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.
@@ -420,7 +420,7 @@ contains
     end if
   end function q_mult
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
   !!
   !!  Return a bound value associated with an ncolbnd index
   !!  and row.

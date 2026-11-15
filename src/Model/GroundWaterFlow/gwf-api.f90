@@ -40,7 +40,7 @@ module apimodule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new USR Package object
   !!
@@ -81,7 +81,7 @@ contains
     packobj%iscloc = 2
   end subroutine api_create
 
-  !> @ brief Source package options from input context
+  !> @brief Source package options from input context
   !<
   subroutine source_options(this)
     use MemoryManagerExtModule, only: mem_set_value
@@ -135,7 +135,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine source_options
 
-  !> @ brief Source package dimensions from input context
+  !> @brief Source package dimensions from input context
   !<
   subroutine source_dimensions(this)
     use SimVariablesModule, only: errmsg
@@ -166,7 +166,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief Read and prepare stress period data for package
+  !> @brief Read and prepare stress period data for package
   !!
   !!  Method reads and prepares stress period data for the USR package.
   !!  This method overrides the base read and prepare method and does not read
@@ -178,7 +178,7 @@ contains
     class(ApiType), intent(inout) :: this
   end subroutine api_rp
 
-  !> @ brief Fill A and r for the package
+  !> @brief Fill A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with the USR
   !!  package terms.

@@ -21,7 +21,7 @@ MODULE IMSLinearBaseModule
 
 contains
 
-  !> @ brief Preconditioned Conjugate Gradient linear accelerator
+  !> @brief Preconditioned Conjugate Gradient linear accelerator
   !!
   !!  Apply the Preconditioned Conjugate Gradient linear accelerator to
   !!  the current coefficient matrix, right-hand side, using the current
@@ -245,7 +245,7 @@ contains
     IF (ICNVG < 0) ICNVG = 0
   end SUBROUTINE ims_base_cg
 
-  !> @ brief Preconditioned BiConjugate Gradient Stabilized linear accelerator
+  !> @brief Preconditioned BiConjugate Gradient Stabilized linear accelerator
   !!
   !!  Apply the Preconditioned BiConjugate Gradient Stabilized linear
   !!  accelerator to the current coefficient matrix, right-hand side, using
@@ -555,7 +555,7 @@ contains
     IF (ICNVG < 0) ICNVG = 0
   end SUBROUTINE ims_base_bcgs
 
-  !> @ brief Calculate LORDER AND IORDER
+  !> @brief Calculate LORDER AND IORDER
   !!
   !!  Calculate LORDER and IORDER for reordering.
   !!
@@ -617,7 +617,7 @@ contains
   end SUBROUTINE ims_base_calc_order
 
   !
-  !> @ brief Scale the coefficient matrix
+  !> @brief Scale the coefficient matrix
   !!
   !!  Scale the coefficient matrix (AMAT), the right-hand side (B),
   !!  and the estimate of the dependent variable (X).
@@ -786,7 +786,7 @@ contains
     END IF
   end SUBROUTINE ims_base_cnvg_scale
 
-  !> @ brief Update the preconditioner
+  !> @brief Update the preconditioner
   !!
   !!  Update the preconditioner using the current coefficient matrix.
   !!
@@ -896,7 +896,7 @@ contains
     end if
   end SUBROUTINE ims_base_pcu
 
-  !> @ brief Jacobi preconditioner
+  !> @brief Jacobi preconditioner
   !!
   !!  Calculate the Jacobi preconditioner (inverse of the diagonal) using
   !!  the current coefficient matrix.
@@ -932,7 +932,7 @@ contains
     END DO
   end SUBROUTINE ims_base_pcjac
 
-  !> @ brief Apply the Jacobi preconditioner
+  !> @brief Apply the Jacobi preconditioner
   !!
   !!  Apply the Jacobi preconditioner and return the resultant vector.
   !!
@@ -953,7 +953,7 @@ contains
     END DO
   end SUBROUTINE ims_base_jaca
 
-  !> @ brief Update the ILU0 preconditioner
+  !> @brief Update the ILU0 preconditioner
   !!
   !!  Update the ILU0 preconditioner using the current coefficient matrix.
   !!
@@ -1074,7 +1074,7 @@ contains
     IPCFLAG = 0
   end SUBROUTINE ims_base_pcilu0
 
-  !> @ brief Apply the ILU0 and MILU0 preconditioners
+  !> @brief Apply the ILU0 and MILU0 preconditioners
   !!
   !!  Apply the ILU0 and MILU0 preconditioners to the passed vector (R).
   !!
@@ -1124,7 +1124,7 @@ contains
     END DO BACKWARD
   end SUBROUTINE ims_base_ilu0a
 
-  !> @ brief Test for solver convergence
+  !> @brief Test for solver convergence
   !!
   !!  General routine for testing for solver convergence based on the
   !!  user-specified convergence option (Icnvgopt).
@@ -1229,7 +1229,7 @@ contains
 
   end subroutine ims_calc_pcdims
 
-  !> @ brief Generate CRS pointers for the preconditioner
+  !> @brief Generate CRS pointers for the preconditioner
   !!
   !!  Generate the CRS row and column pointers for the preconditioner.
   !!  JAPC(1:NEQ) hHas the position of the upper entry for a row,

@@ -242,7 +242,7 @@ contains
     deallocate (this%schedule)
   end subroutine prp_da
 
-  !> @ brief Set pointers to model variables
+  !> @brief Set pointers to model variables
   subroutine prp_set_pointers(this, ibound, izone)
     class(PrtPrpType) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ibound
@@ -348,7 +348,7 @@ contains
 
   end subroutine prp_allocate_scalars
 
-  !> @ brief Allocate and read period data
+  !> @brief Allocate and read period data
   subroutine prp_ar(this)
     class(PrtPrpType), intent(inout) :: this
     integer(I4B) :: n
@@ -414,7 +414,7 @@ contains
     call this%PrtPrpType%prp_allocate_arrays(nodelist, auxvar)
   end subroutine exg_prp_allocate_arrays
 
-  !> @ brief No-op AR method override for exchange PRP.
+  !> @brief No-op AR method override for exchange PRP.
   subroutine exg_prp_ar(this)
     class(ExgPrtPrpType), intent(inout) :: this
   end subroutine exg_prp_ar
@@ -745,7 +745,7 @@ contains
     particle%extol = this%extol
   end subroutine initialize_particle
 
-  !> @ brief Read and prepare period data for particle input
+  !> @brief Read and prepare period data for particle input
   subroutine prp_rp(this)
     ! modules
     use TdisModule, only: kper, nper
@@ -791,12 +791,12 @@ contains
     end do
   end subroutine prp_rp
 
-  !> @ brief No-op RP method override for exchange PRP.
+  !> @brief No-op RP method override for exchange PRP.
   subroutine exg_prp_rp(this)
     class(ExgPrtPrpType), intent(inout) :: this
   end subroutine exg_prp_rp
 
-  !> @ brief Calculate flow between package and model.
+  !> @brief Calculate flow between package and model.
   subroutine prp_cq_simrate(this, hnew, flowja, imover)
     ! modules
     use TdisModule, only: delt
@@ -857,7 +857,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
   end subroutine prp_df_obs
 
-  !> @ brief Set options specific to PrtPrpType
+  !> @brief Set options specific to PrtPrpType
   subroutine prp_options(this)
     ! -- modules
     use ConstantsModule, only: LENVARNAME, DZERO, MNORMAL
@@ -1008,14 +1008,14 @@ contains
     this%schedule => create_release_schedule(tolerance=this%rttol)
   end subroutine prp_options
 
-  !> @ brief No-op options method override for exchange PRP.
+  !> @brief No-op options method override for exchange PRP.
   !! Just creates an empty release schedule.
   subroutine exg_prp_options(this)
     class(ExgPrtPrpType), intent(inout) :: this
     this%schedule => create_release_schedule(tolerance=this%rttol)
   end subroutine exg_prp_options
 
-  !> @ brief Log options specific to PrtPrpType
+  !> @brief Log options specific to PrtPrpType
   subroutine prp_log_options(this, found, trackfile, trackcsvfile)
     ! -- modules
     use PrtPrpInputModule, only: PrtPrpParamFoundType
@@ -1051,7 +1051,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT DIMENSIONS'
   end subroutine prp_log_options
 
-  !> @ brief Set dimensions specific to PrtPrpType
+  !> @brief Set dimensions specific to PrtPrpType
   subroutine prp_dimensions(this)
     ! modules
     use MemoryManagerExtModule, only: mem_set_value
@@ -1081,7 +1081,7 @@ contains
     call this%prp_load_releasetimefrequency()
   end subroutine prp_dimensions
 
-  !> @ brief Dimensions method override for exchange PRP.
+  !> @brief Dimensions method override for exchange PRP.
   !! Just set all dimensions to zero and allocate arrays.
   subroutine exg_prp_dimensions(this)
     class(ExgPrtPrpType), intent(inout) :: this

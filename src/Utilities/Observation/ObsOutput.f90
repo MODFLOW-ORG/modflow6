@@ -38,7 +38,7 @@ contains
 
   ! Procedures bound to ObsOutputType
 
-  !> @ brief Reset empty line logical
+  !> @brief Reset empty line logical
   !!
   !!  Subroutine to reset the empty line logical.
   !!
@@ -50,7 +50,7 @@ contains
     this%empty_line = .TRUE.
   end subroutine ResetObsEmptyLine
 
-  !> @ brief Write line return for observation
+  !> @brief Write line return for observation
   !!
   !!  Subroutine to write a line return for a time step in an observation
   !!  output file.
@@ -66,7 +66,7 @@ contains
 
   ! Non-type-bound procedures
 
-  !> @ brief Cast as ObsOutputType
+  !> @brief Cast as ObsOutputType
   !!
   !!  Cast an object as an ObsOutputType.
   !!
@@ -87,7 +87,7 @@ contains
     end select
   end function CastAsObsOutputType
 
-  !> @ brief Construct and assign ObsOutputType object
+  !> @brief Construct and assign ObsOutputType object
   !!
   !!  Subroutine to construct an ObsOutputType object and assign
   !!  the observation output file name and unit number.
@@ -104,7 +104,7 @@ contains
     newObsOutput%nunit = nunit
   end subroutine ConstructObsOutput
 
-  !> @ brief Add observation output to a list
+  !> @brief Add observation output to a list
   !!
   !!  Subroutine to add observation output to a observation list.
   !!
@@ -120,7 +120,7 @@ contains
     call list%Add(obj)
   end subroutine AddObsOutputToList
 
-  !> @ brief Get observation output from a list
+  !> @brief Get observation output from a list
   !!
   !!  Subroutine to get observation output from a observation list.
   !!

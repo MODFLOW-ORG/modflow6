@@ -328,7 +328,7 @@ contains
     call this%FlowModelInterfaceType%fmi_da()
   end subroutine gwtfmi_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables for an FMI object
   !<
@@ -353,7 +353,7 @@ contains
     this%iflowerr = 0
   end subroutine gwtfmi_allocate_scalars
 
-  !> @ brief Allocate arrays for FMI object
+  !> @brief Allocate arrays for FMI object
   !!
   !!  Method to allocate arrays for the FMI package.
   !<
@@ -492,7 +492,7 @@ contains
     satold = vold / vcell
   end function gwfsatold
 
-  !> @ brief Source input options for package
+  !> @brief Source input options for package
   !<
   subroutine gwtfmi_source_options(this)
     ! -- modules

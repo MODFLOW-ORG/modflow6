@@ -106,7 +106,7 @@ MODULE IMSLinearModule
 
 CONTAINS
 
-  !> @ brief Allocate storage and read data
+  !> @brief Allocate storage and read data
     !!
     !!  Allocate storage for linear accelerators and read data
     !!
@@ -314,7 +314,7 @@ CONTAINS
     ! -- ALLOCATE MEMORY FOR STORING ITERATION CONVERGENCE DATA
   end SUBROUTINE imslinear_ar
 
-  !> @ brief Write summary of settings
+  !> @brief Write summary of settings
     !!
     !!  Write summary of linear accelerator settings.
     !!
@@ -423,7 +423,7 @@ CONTAINS
     end if
   end subroutine imslinear_summary
 
-  !> @ brief Allocate and initialize scalars
+  !> @brief Allocate and initialize scalars
     !!
     !!  Allocate and initialize linear accelerator scalars
     !!
@@ -463,7 +463,7 @@ CONTAINS
     this%nwlu = 0
   end subroutine allocate_scalars
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
     !!
     !!  Deallocate linear accelerator memory.
     !!
@@ -604,7 +604,7 @@ CONTAINS
     nullify (this%WLU)
   end subroutine precond_destroy
 
-  !> @ brief Set default settings
+  !> @brief Set default settings
     !!
     !!  Set default linear accelerator settings.
     !!
@@ -660,7 +660,7 @@ CONTAINS
     END SELECT
   end SUBROUTINE imslinear_set_input
 
-  !> @ brief Base linear accelerator subroutine
+  !> @brief Base linear accelerator subroutine
     !!
     !!  Base linear accelerator subroutine that scales and reorders
     !!  the system of equations, if necessary, updates the preconditioner,

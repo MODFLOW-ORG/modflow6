@@ -124,7 +124,7 @@ contains
 
   end subroutine set_gwe_array_ptrs
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
   !!
   !!  Set pointers to null
   !<

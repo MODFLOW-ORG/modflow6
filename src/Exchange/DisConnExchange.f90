@@ -72,7 +72,7 @@ module DisConnExchangeModule
 
   end type DisConnExchangeType
 
-  !> @ brief DisConnExchangeFoundType
+  !> @brief DisConnExchangeFoundType
   !!
   !!  This type is used to simplify the tracking of common parameters
   !!  that are sourced from the input context.

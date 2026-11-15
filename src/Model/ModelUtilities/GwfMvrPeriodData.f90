@@ -43,7 +43,7 @@ module GwfMvrPeriodDataModule
 
 contains
 
-  !> @ brief Construct arrays
+  !> @brief Construct arrays
   !!
   !! Allocate maximum space for mover input.
   !!
@@ -69,7 +69,7 @@ contains
     call mem_allocate(this%value, maxsize, 'VALUE', memoryPath)
   end subroutine construct
 
-  !> @ brief Fill the arrays from parser
+  !> @brief Fill the arrays from parser
   !!
   !! Use the provided block parser to fill the input arrays.
   !!
@@ -144,7 +144,7 @@ contains
     nmvr = i - 1
   end subroutine read_from_parser
 
-  !> @ brief Destroy memory
+  !> @brief Destroy memory
   !!
   !! Deallocate memory from the memory manager.
   !!

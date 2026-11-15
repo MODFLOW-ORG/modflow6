@@ -45,6 +45,7 @@ contains
   end subroutine nc_fclose
 
   !> @brief error check a netcdf-fortran interface call
+  !! @hidecallergraph
   !<
   subroutine nf_verify(res, nc_fname)
     integer(I4B), intent(in) :: res

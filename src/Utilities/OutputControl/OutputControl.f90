@@ -11,7 +11,7 @@ module OutputControlModule
   private
   public OutputControlType, oc_cr
 
-  !> @ brief Controls model output. Overridden for each model type.
+  !> @brief Controls model output. Overridden for each model type.
   type OutputControlType
     character(len=LENMEMPATH) :: memoryPath !< path to data stored in the memory manager
     character(len=LENMEMPATH) :: input_mempath !< input memory path
@@ -53,12 +53,12 @@ contains
     oc%iout = iout
   end subroutine oc_cr
 
-  !> @ brief Define the output control type. Placeholder routine.
+  !> @brief Define the output control type. Placeholder routine.
   subroutine oc_df(this)
     class(OutputControlType) :: this !< this instance
   end subroutine oc_df
 
-  !> @ brief Read period block options and prepare the output control type.
+  !> @brief Read period block options and prepare the output control type.
   subroutine oc_rp(this)
     ! modules
     use TdisModule, only: kper
@@ -135,7 +135,7 @@ contains
     write (this%iout, fmteoc) this%iperoc
   end subroutine oc_rp
 
-  !> @ brief Write output.
+  !> @brief Write output.
   !!
   !! Go through each output control data type and print
   !! and/or save data based on user-specified controls.
@@ -160,7 +160,7 @@ contains
     end do
   end subroutine oc_ot
 
-  !> @ brief Deallocate method for OutputControlType
+  !> @brief Deallocate method for OutputControlType
   !!
   !!  Deallocate member variables.
   !!
@@ -187,7 +187,7 @@ contains
     call mem_deallocate(this%iocrep)
   end subroutine oc_da
 
-  !> @ brief Allocate variables for the output control object
+  !> @brief Allocate variables for the output control object
   subroutine allocate (this, name_model, input_mempath)
     ! modules
     use MemoryManagerModule, only: mem_allocate
@@ -224,7 +224,7 @@ contains
     end if
   end subroutine allocate
 
-  !> @ brief Read the output control options block
+  !> @brief Read the output control options block
   subroutine source_options(this)
     ! modules
     use MemoryManagerExtModule, only: mem_set_value
@@ -316,7 +316,7 @@ contains
     end if
   end subroutine set_ocfile
 
-  !> @ brief Determine if it is time to save.
+  !> @brief Determine if it is time to save.
   logical function oc_save(this, cname)
     ! modules
     use TdisModule, only: kstp, endofperiod
@@ -342,7 +342,7 @@ contains
     end if
   end function oc_save
 
-  !> @ brief Determine if it is time to print.
+  !> @brief Determine if it is time to print.
   logical function oc_print(this, cname)
     ! modules
     use TdisModule, only: kstp, endofperiod
@@ -368,7 +368,7 @@ contains
     end if
   end function oc_print
 
-  !> @ brief Determine unit number for saving
+  !> @brief Determine unit number for saving
   function oc_save_unit(this, cname)
     ! -- modules
     ! -- return
@@ -395,7 +395,7 @@ contains
     end if
   end function oc_save_unit
 
-  !> @ brief Set the print flag based on convergence and other parameters
+  !> @brief Set the print flag based on convergence and other parameters
   function set_print_flag(this, cname, icnvg, endofperiod) result(iprint_flag)
     ! -- modules
     use SimVariablesModule, only: isimcontinue

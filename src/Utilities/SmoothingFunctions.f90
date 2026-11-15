@@ -6,7 +6,7 @@ module SmoothingModule
 
 contains
 
-  !> @ brief SCurve
+  !> @brief SCurve
   !!
   !! Computes the S curve for smooth derivatives between x=0 and x=1
   !! from mfusg smooth subroutine in gwf2wel7u1.f
@@ -37,7 +37,7 @@ contains
     end if
   end subroutine sSCurve
 
-  !> @ brief sCubicLinear
+  !> @brief sCubicLinear
   !!
   !! Computes the s curve where dy/dx = 0 at x=0; and dy/dx = 1 at x=1.
   !! Smooths from zero to a slope of 1.
@@ -68,7 +68,7 @@ contains
     end if
   end subroutine sCubicLinear
 
-  !> @ brief sRamp
+  !> @brief sRamp
   !!
   !! Smoothed ramp function; a smooth approximation of max(x, 0) with a
   !! continuous value and slope. The value is zero with zero slope for x <= 0 and
@@ -102,7 +102,7 @@ contains
     end if
   end subroutine sRamp
 
-  !> @ brief sCubic
+  !> @brief sCubic
   !!
   !! Nonlinear smoothing function returns value between 0-1; cubic function
   !<
@@ -137,7 +137,7 @@ contains
     end if
   end subroutine sCubic
 
-  !> @ brief sLinear
+  !> @brief sLinear
   !!
   !! Linear smoothing function returns value between 0-1
   !<
@@ -163,7 +163,7 @@ contains
     end if
   end subroutine sLinear
 
-  !> @ brief sQuadratic
+  !> @brief sQuadratic
   !!
   !! Nonlinear quadratic smoothing function returns value between 0-1
   !<
@@ -189,7 +189,7 @@ contains
     end if
   end subroutine sQuadratic
 
-  !> @ brief sChSmooth
+  !> @brief sChSmooth
   !!
   !! Function to smooth channel variables during channel drying
   !<
@@ -232,7 +232,7 @@ contains
     end if
   end subroutine sChSmooth
 
-  !> @ brief sLinearSaturation
+  !> @brief sLinearSaturation
   !!
   !! Linear saturation function returns value between 0-1
   !<
@@ -257,7 +257,7 @@ contains
     end if
   end function sLinearSaturation
 
-  !> @ brief sCubicSaturation
+  !> @brief sCubicSaturation
   !!
   !! Nonlinear cubic saturation function returns value between 0-1
   !<
@@ -302,7 +302,7 @@ contains
 
   end function sCubicSaturation
 
-  !> @ brief sQuadraticSaturation
+  !> @brief sQuadraticSaturation
   !!
   !! Nonlinear quadratic saturation function returns value between 0-1
   !<
@@ -357,7 +357,7 @@ contains
 
   end function sQuadraticSaturation
 
-  !> @ brief sQuadraticSaturation
+  !> @brief sQuadraticSaturation
   !!
   !! van Genuchten saturation function returns value between 0-1
   !<
@@ -391,7 +391,7 @@ contains
 
   end function svanGenuchtenSaturation
 
-  !> @ brief Derivative of the quadratic saturation function
+  !> @brief Derivative of the quadratic saturation function
   !!
   !! Derivative of nonlinear smoothing function returns value between 0-1;
   !<
@@ -439,7 +439,7 @@ contains
 
   end function sQuadraticSaturationDerivative
 
-  !> @ brief sQSaturation
+  !> @brief sQSaturation
   !!
   !! Nonlinear smoothing function returns value between 0-1
   !<
@@ -493,7 +493,7 @@ contains
     end if
   end function sQSaturation
 
-  !> @ brief sQSaturationDerivative
+  !> @brief sQSaturationDerivative
   !!
   !! Nonlinear smoothing function returns value between 0-1
   !<
@@ -549,7 +549,7 @@ contains
     end if
   end function sQSaturationDerivative
 
-  !> @ brief sSlope
+  !> @brief sSlope
   !!
   !! Nonlinear smoothing function returns a smoothed value of y whose limbs are
   !! the lines yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
@@ -601,7 +601,7 @@ contains
     y = yi + ym + yp
   end function sSlope
 
-  !> @ brief sSlopeDerivative
+  !> @brief sSlopeDerivative
   !!
   !! Derivative of sSlope (see that routine for the provenance): smoothly
   !! transitions from slope sm for x-values less than xi to slope sp for x-values
@@ -642,7 +642,7 @@ contains
     y = DHALF * (sm + sp) - DHALF * rho * (sm - sp)
   end function sSlopeDerivative
 
-  !> @ brief sQuadratic0sp
+  !> @brief sQuadratic0sp
   !!
   !! Nonlinear smoothing function returns a smoothed value of y that uses a
   !! quadratic to smooth x over range of xi - epsilon to xi + epsilon.
@@ -684,7 +684,7 @@ contains
     end if
   end function sQuadratic0sp
 
-  !> @ brief sQuadratic0spDerivative
+  !> @brief sQuadratic0spDerivative
   !!
   !! Derivative of nonlinear smoothing function returns a smoothed value of y
   !! that uses a quadratic to smooth x over range of xi - epsilon to xi + epsilon.
@@ -726,7 +726,7 @@ contains
     end if
   end function sQuadratic0spDerivative
 
-  !> @ brief sQuadraticSlope
+  !> @brief sQuadraticSlope
   !!
   !! Quadratic smoothing function returns a smoothed value of y whose limbs are
   !! the lines yi + (sm * dx) for x-values less than xi and yi + (sp * dx) for
@@ -778,7 +778,7 @@ contains
     y = y + yi
   end function sQuadraticSlope
 
-  !> @ brief sQuadraticSlopeDerivative
+  !> @brief sQuadraticSlopeDerivative
   !!
   !! Derivative of sQuadraticSlope: smoothly transitions from the slope sm for
   !! x-values less than xi to the slope sp for x-values greater than xi, blended

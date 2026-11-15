@@ -228,7 +228,7 @@ module NumericalSolutionModule
 
 contains
 
-  !> @ brief Create a new solution
+  !> @brief Create a new solution
   !!
   !!  Create a new solution using the data in filename, assign this new
   !!  solution an id number and store the solution in the basesolutionlist.
@@ -277,7 +277,7 @@ contains
     call num_sol%parser%Initialize(num_sol%iu, iout)
   end subroutine create_numerical_solution
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !!  Allocate scalars for a new solution.
   !!
@@ -379,7 +379,7 @@ contains
     this%dscale = DONE
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !!  Allocate arrays for a new solution.
   !!
@@ -426,7 +426,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Define the solution
+  !> @brief Define the solution
   !!
   !!  Define a new solution. Must be called after the models and exchanges have
   !!  been added to solution. The order of the steps is (1) Allocate neq and nja,
@@ -527,7 +527,7 @@ contains
 
   end subroutine sln_df
 
-  !> @ brief Allocate and read data
+  !> @brief Allocate and read data
   !!
   !!  Allocate and read data for a solution.
   !!
@@ -1046,7 +1046,7 @@ contains
     call this%parser%Clear()
   end subroutine sln_ar
 
-  !> @ brief Calculate delt
+  !> @brief Calculate delt
   !!
   !!  Calculate time step length.
   !!
@@ -1088,7 +1088,7 @@ contains
     end if
   end subroutine sln_dt
 
-  !> @ brief Advance solution
+  !> @brief Advance solution
   !!
   !!  Advance solution.
   !!
@@ -1113,7 +1113,7 @@ contains
     this%iouttot_timestep = 0
   end subroutine sln_ad
 
-  !> @ brief Output solution
+  !> @brief Output solution
   !!
   !!  Output solution data. Currently does nothing.
   !!
@@ -1125,7 +1125,7 @@ contains
     ! -- Nothing to do here
   end subroutine sln_ot
 
-  !> @ brief Finalize solution
+  !> @brief Finalize solution
   !!
   !!  Finalize a solution.
   !!
@@ -1147,7 +1147,7 @@ contains
     end if
   end subroutine sln_fp
 
-  !> @ brief Deallocate solution
+  !> @brief Deallocate solution
   !!
   !!  Deallocate a solution.
   !!
@@ -1265,7 +1265,7 @@ contains
     call mem_deallocate(this%dscale)
   end subroutine sln_da
 
-  !> @ brief Solve solution
+  !> @brief Solve solution
   !!
   !!  Solve the models in this solution for kper and kstp.
   !!
@@ -1312,7 +1312,7 @@ contains
     end select
   end subroutine sln_ca
 
-  !> @ brief CSV header
+  !> @brief CSV header
   !!
   !!  Write header for solver output to comma-separated value files.
   !!
@@ -1365,7 +1365,7 @@ contains
     end if
   end subroutine writeCSVHeader
 
-  !> @ brief PTC header
+  !> @brief PTC header
   !!
   !!  Write header for pseudo-transient continuation information to a file.
   !!
@@ -1415,7 +1415,7 @@ contains
 
   end subroutine writePTCInfoToFile
 
-  !> @ brief prepare to solve
+  !> @brief prepare to solve
   !!
   !!  Prepare for the system solve by advancing the simulation.
   !!
@@ -1455,7 +1455,7 @@ contains
 
   end subroutine prepareSolve
 
-  !> @ brief Build and solve the simulation
+  !> @brief Build and solve the simulation
   !!
   !! Builds and solve the system for this numerical solution.
   !! It roughly consists of the following steps
@@ -1831,7 +1831,7 @@ contains
 
   end subroutine solve
 
-  !> @ brief finalize a solution
+  !> @brief finalize a solution
   !!
   !!  Finalize the solution. Called after the outer iteration loop.
   !!
@@ -1985,7 +1985,7 @@ contains
 
   end subroutine sln_buildsystem
 
-  !> @ brief Solution convergence summary
+  !> @brief Solution convergence summary
   !!
   !!  Save convergence summary to a File.
   !!
@@ -2098,7 +2098,7 @@ contains
     end do
   end subroutine convergence_summary
 
-  !> @ brief Solution convergence CSV summary
+  !> @brief Solution convergence CSV summary
   !!
   !!  Save convergence summary to a comma-separated value file.
   !!
@@ -2220,7 +2220,7 @@ contains
     flush (iu)
   end subroutine csv_convergence_summary
 
-  !> @ brief Save solution data to a file
+  !> @brief Save solution data to a file
   !!
   !!  Save solution ia vector, ja vector , coefficient matrix, right-hand side
   !!  vector, and the dependent-variable vector to a file.
@@ -2254,7 +2254,7 @@ contains
     end select
   end subroutine save
 
-  !> @ brief Add a model
+  !> @brief Add a model
   !!
   !!  Add a model to solution.
   !!
@@ -2319,7 +2319,7 @@ contains
 
   end function get_exchanges
 
-  !> @ brief Assign solution connections
+  !> @brief Assign solution connections
   !!
   !!  Assign solution connections. This is the main workhorse method for a
   !!  solution. The method goes through all the models and all the connections
@@ -2375,7 +2375,7 @@ contains
     end do
   end subroutine sln_connect
 
-  !> @ brief Reset the solution
+  !> @brief Reset the solution
   !!
   !!  Reset the solution by setting the coefficient matrix and right-hand side
   !!  vectors to zero.
@@ -2390,7 +2390,7 @@ contains
     call this%vec_rhs%zero_entries()
   end subroutine sln_reset
 
-  !> @ brief Solve the linear system of equations
+  !> @brief Solve the linear system of equations
   !!
   !!  Solve the linear system of equations. Steps include (1) matrix cleanup,
   !!  (2) add pseudo-transient continuation terms, and (3) residual reduction.
@@ -2610,7 +2610,7 @@ contains
   end subroutine sln_ls
 
   !
-  !> @ brief Set default Picard iteration variables
+  !> @brief Set default Picard iteration variables
   !!
   !!  Set default Picard iteration variables based on passed complexity option.
   !!
@@ -2665,7 +2665,7 @@ contains
     end select
   end subroutine sln_setouter
 
-  !> @ brief Perform backtracking
+  !> @brief Perform backtracking
   !!
   !!  Perform backtracking on the solution in the maximum number of backtrack
   !!  iterations (nbtrack) is greater than 0 and the backtracking criteria
@@ -2770,7 +2770,7 @@ contains
     end if
   end subroutine sln_backtracking
 
-  !> @ brief Backtracking update of the dependent variable
+  !> @brief Backtracking update of the dependent variable
   !!
   !!  Backtracking update of the dependent variable if the calculated backtracking
   !!  update exceeds the dependent variable closure criteria.
@@ -2859,7 +2859,7 @@ contains
 
   end subroutine
 
-  !> @ brief Calculate the solution L-2 norm for all
+  !> @brief Calculate the solution L-2 norm for all
   !! active cells using
   !!
   !!  A = the linear system matrix
@@ -2888,7 +2888,7 @@ contains
     deallocate (vec_resid)
   end subroutine sln_l2norm
 
-  !> @ brief Get the maximum value from a vector
+  !> @brief Get the maximum value from a vector
   !!
   !!  Return the maximum value in a vector using a normalized form.
   !!
@@ -2922,7 +2922,7 @@ contains
     end do
   end subroutine sln_maxval
 
-  !> @ brief Calculate dependent-variable change
+  !> @brief Calculate dependent-variable change
   !!
   !!  Calculate the dependent-variable change for every cell.
   !!
@@ -2999,7 +2999,7 @@ contains
 
   end subroutine sln_calc_residual
 
-  !> @ brief Under-relaxation
+  !> @brief Under-relaxation
   !!
   !!  Under relax using the simple, cooley, or delta-bar-delta methods.
   !!
@@ -3131,7 +3131,7 @@ contains
     end if
   end subroutine sln_underrelax
 
-  !> @ brief Determine maximum dependent-variable change
+  !> @brief Determine maximum dependent-variable change
   !!
   !!  Determine the maximum dependent-variable change at the end of a
   !!  Picard iteration.
@@ -3235,7 +3235,7 @@ contains
 
   end function sln_nur_has_converged
 
-  !> @ brief Get cell location string
+  !> @brief Get cell location string
   !!
   !! Get the cell location string for the provided solution node number.
   !< Returns empty string when node not found.
@@ -3275,7 +3275,7 @@ contains
     end do
   end subroutine sln_get_loc
 
-  !> @ brief Get user node number
+  !> @brief Get user node number
   !!
   !!  Get the user node number from a model for the provided solution node number.
   !!
@@ -3314,7 +3314,7 @@ contains
     end do
   end subroutine sln_get_nodeu
 
-  !> @ brief Cast a object as a Numerical Solution
+  !> @brief Cast a object as a Numerical Solution
   !!
   !!  Get a numerical solution from a list.
   !!
@@ -3338,7 +3338,7 @@ contains
     end select
   end function CastAsNumericalSolutionClass
 
-  !> @ brief Get a numerical solution
+  !> @brief Get a numerical solution
   !!
   !!  Get a numerical solution from a list.
   !!
