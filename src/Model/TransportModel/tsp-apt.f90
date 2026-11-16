@@ -646,22 +646,14 @@ contains
       end do
     end if
     !
-    ! -- the held mass of a new time step starts from the end of the last one,
-    !    and a repeated time step starts from it again
-    if (this%istrand /= 0) then
-      if (iFailedStepRetry == 0) then
-        do n = 1, this%ncv
-          this%strandmass0(n) = this%strandmass(n)
-          this%strandvol0(n) = this%strandvol(n)
-          this%strandvmax0(n) = this%strandvmax(n)
-        end do
-      else
-        do n = 1, this%ncv
-          this%strandmass(n) = this%strandmass0(n)
-          this%strandvol(n) = this%strandvol0(n)
-          this%strandvmax(n) = this%strandvmax0(n)
-        end do
-      end if
+    ! -- the held mass of a new time step starts from the end of the last one;
+    !    apt_strand_update restarts a repeated time step from these values
+    if (this%istrand /= 0 .and. iFailedStepRetry == 0) then
+      do n = 1, this%ncv
+        this%strandmass0(n) = this%strandmass(n)
+        this%strandvol0(n) = this%strandvol(n)
+        this%strandvmax0(n) = this%strandvmax(n)
+      end do
     end if
     !
     ! -- run package-specific checks
