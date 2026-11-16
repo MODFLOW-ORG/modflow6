@@ -30,9 +30,15 @@ Cases:
                     of it once the lake regains 10,000 m3.
   - energy        : the LKE Package of a GWE model is not set to hold the
                     energy of a lake that goes dry.
+  - lake_restart  : the rise_fall lake is run in two parts, the second
+                    starting from the stage, concentration, and STRANDEDDATA
+                    written by the first, while the lake is partly refilled;
+                    its held mass and concentration match one continuous run.
+  - lake_tolerance: a negative STRANDED_TOLERANCE is an input error (xfail).
 """
 
 import re
+import struct
 
 import flopy
 import numpy as np
@@ -119,7 +125,9 @@ lake_periods = [
 ]
 
 
-def lake_model(ws, strand=True, periods=lake_periods):
+def lake_model(
+    ws, strand=True, periods=lake_periods, stage=6.0, conc=cinit, lkt_kwargs=None
+):
     """A lake on an impermeable bed, so that it loses water only to
     evaporation; by default it evaporates dry over the second period and
     refills in the fourth."""
@@ -137,7 +145,7 @@ def lake_model(ws, strand=True, periods=lake_periods):
         save_flows=True,
         nlakes=1,
         noutlets=0,
-        packagedata=[[0, 6.0, 1]],
+        packagedata=[[0, stage, 1]],
         connectiondata=[[0, 0, (1, 0, 1), "vertical", 0.0, 0.0, 0.0, 0.0, 0.0]],
         perioddata={
             k: [[0, "evaporation", p[2]], [0, "rainfall", p[3]]]
@@ -149,10 +157,11 @@ def lake_model(ws, strand=True, periods=lake_periods):
     kwargs = {}
     if strand:
         kwargs.update(observations={"lkt.obs.csv": [("held", "stranded", 1)]})
+    kwargs.update(lkt_kwargs or {})
     flopy.mf6.ModflowGwtlkt(
         gwt,
         flow_package_name="LAK-1",
-        packagedata=[[0, cinit]],
+        packagedata=[[0, conc]],
         print_flows=True,
         budget_filerecord="gwt.lkt.bud",
         concentration_filerecord="gwt.lkt.conc",
@@ -551,4 +560,75 @@ def test_energy(function_tmpdir, targets):
         targets=targets,
         build=build,
         check=check,
+    ).run()
+
+
+def last_records(path):
+    """The last record of each name in a binary file of feature values, which
+    holds several names for each time step."""
+    raw = path.read_bytes()
+    records, pos = {}, 0
+    while pos < len(raw):
+        text = raw[pos + 24 : pos + 40].decode().strip()
+        ncol = struct.unpack("<i", raw[pos + 40 : pos + 44])[0]
+        pos += 52
+        records[text] = np.frombuffer(raw[pos : pos + 8 * ncol], dtype="<f8")
+        pos += 8 * ncol
+    return records
+
+
+def test_lake_restart(function_tmpdir, targets):
+    periods = lake_cycles["rise_fall"]
+    # split after the lake has refilled to 2,000 of the 10,000 m3 it held
+    split = 3
+    exe = targets["mf6"]
+    out = {"stranded_filerecord": "gwt.lkt.strand", "stranded_tolerance": 1e-8}
+
+    def run(ws, prds, **kwargs):
+        sim = lake_model(ws, True, periods=prds, **kwargs)
+        sim.exe_name = exe
+        sim.write_simulation(silent=True)
+        success, _ = sim.run_simulation(silent=True)
+        assert success, f"{ws} did not run"
+        return feature_series(ws, "gwf.lak.bud", "gwt.lkt.bud", "gwt.lkt.conc", True)
+
+    full = run(function_tmpdir / "full", periods, lkt_kwargs=out)
+    first = run(function_tmpdir / "first", periods[:split], lkt_kwargs=out)
+    vol, c, held = (a[-1, 0] for a in first)
+    sf = function_tmpdir / "first" / "gwt.lkt.strand"
+    last = last_records(sf)
+    saved = [last[t][0] for t in ("STRANDED-MASS", "STRANDED-VOLUME", "LARGEST-VOLUME")]
+    assert np.isclose(saved[0], held), f"saved held mass {saved[0]} != {held}"
+    assert np.isclose(saved[1], 10000.0), f"saved volume {saved[1]}"
+    assert np.isclose(saved[2], 2000.0), f"saved largest volume {saved[2]}"
+    # the lake bottom is at 5 m and its area is 10,000 m2
+    second = run(
+        function_tmpdir / "second",
+        periods[split:],
+        stage=5.0 + vol / 10000.0,
+        conc=c,
+        lkt_kwargs={"strandeddata": [[0, *saved]]},
+    )
+    nsteps = second[0].shape[0]
+    for name, a, b in zip(("volume", "concentration", "held"), full, second):
+        assert np.allclose(a[-nsteps:], b, rtol=1e-6, atol=1e-6), (
+            f"{name} after the restart {b[:, 0]} != continuous {a[-nsteps:, 0]}"
+        )
+
+
+def test_lake_tolerance(function_tmpdir, targets):
+    def build(test):
+        return lake_model(test.workspace, lkt_kwargs={"stranded_tolerance": -1.0})
+
+    def check(test):
+        text = " ".join((test.workspace / "mfsim.lst").read_text().split())
+        assert "STRANDED_TOLERANCE" in text, "no STRANDED_TOLERANCE error"
+
+    TestFramework(
+        name="lake",
+        workspace=function_tmpdir,
+        targets=targets,
+        build=build,
+        check=check,
+        xfail=True,
     ).run()

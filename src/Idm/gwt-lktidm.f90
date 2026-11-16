@@ -24,6 +24,10 @@ module GwtLktInputModule
     logical :: conc_filerec = .false.
     logical :: options_concentration = .false.
     logical :: concfile = .false.
+    logical :: strandtol = .false.
+    logical :: stranded_filerecord = .false.
+    logical :: stranded = .false.
+    logical :: strandedfile = .false.
     logical :: budfilerec = .false.
     logical :: budget = .false.
     logical :: fileout = .false.
@@ -43,6 +47,10 @@ module GwtLktInputModule
     logical :: strt = .false.
     logical :: aux = .false.
     logical :: boundname = .false.
+    logical :: strand_ifno = .false.
+    logical :: stranded_mass = .false.
+    logical :: stranded_volume = .false.
+    logical :: largest_volume = .false.
     logical :: ifno = .false.
     logical :: status = .false.
     logical :: concentration = .false.
@@ -264,6 +272,82 @@ module GwtLktInputModule
     'OPTIONS', & ! block
     'CONCFILE', & ! tag name
     'CONCFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_strandtol = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_TOLERANCE', & ! tag name
+    'STRANDTOL', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'tolerance for holding the solute of a dry lake', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_stranded_filerecord = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_FILERECORD', & ! tag name
+    'STRANDED_FILERECORD', & ! fortran variable
+    'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_stranded = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED', & ! tag name
+    'STRANDED', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'stranded keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_strandedfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDEDFILE', & ! tag name
+    'STRANDEDFILE', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
     'file keyword', & ! longname
@@ -637,6 +721,82 @@ module GwtLktInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwtlkt_strand_ifno = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'IFNO', & ! tag name
+    'STRAND_IFNO', & ! fortran variable
+    'INTEGER', & ! type
+    '', & ! shape
+    'lake number for this entry', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_stranded_mass = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDED_MASS', & ! tag name
+    'STRANDED_MASS', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'held mass', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_stranded_volume = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDED_VOLUME', & ! tag name
+    'STRANDED_VOLUME', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'volume holding the mass', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_largest_volume = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'LARGEST_VOLUME', & ! tag name
+    'LARGEST_VOLUME', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'largest volume since dry', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwtlkt_ifno = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -859,6 +1019,10 @@ module GwtLktInputModule
     gwtlkt_conc_filerec, &
     gwtlkt_options_concentration, &
     gwtlkt_concfile, &
+    gwtlkt_strandtol, &
+    gwtlkt_stranded_filerecord, &
+    gwtlkt_stranded, &
+    gwtlkt_strandedfile, &
     gwtlkt_budfilerec, &
     gwtlkt_budget, &
     gwtlkt_fileout, &
@@ -878,6 +1042,10 @@ module GwtLktInputModule
     gwtlkt_strt, &
     gwtlkt_aux, &
     gwtlkt_boundname, &
+    gwtlkt_strand_ifno, &
+    gwtlkt_stranded_mass, &
+    gwtlkt_stranded_volume, &
+    gwtlkt_largest_volume, &
     gwtlkt_ifno, &
     gwtlkt_status, &
     gwtlkt_concentration, &
@@ -903,6 +1071,25 @@ module GwtLktInputModule
     'NLAKES', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtlkt_strandeddata = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'LKT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDEDDATA', & ! tag name
+    'STRANDEDDATA', & ! fortran variable
+    'RECARRAY IFNO STRANDED_MASS STRANDED_VOLUME LARGEST_VOLUME', & ! type
+    'NLAKES', & ! shape
+    '', & ! longname
+    .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
@@ -953,6 +1140,7 @@ module GwtLktInputModule
     gwt_lkt_aggregate_definitions(*) = &
     [ &
     gwtlkt_packagedata, &
+    gwtlkt_strandeddata, &
     gwtlkt_lakeperioddata, &
     gwtlkt_laksetting &
     ]
@@ -969,6 +1157,12 @@ module GwtLktInputModule
     InputBlockDefinitionType( &
     'PACKAGEDATA', & ! blockname
     .true., & ! required
+    .true., & ! aggregate
+    .false. & ! block_variable
+    ), &
+    InputBlockDefinitionType( &
+    'STRANDEDDATA', & ! blockname
+    .false., & ! required
     .true., & ! aggregate
     .false. & ! block_variable
     ), &

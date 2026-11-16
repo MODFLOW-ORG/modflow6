@@ -111,6 +111,48 @@ longname file keyword
 description name of the binary output file to write concentration information.
 
 block options
+name stranded_tolerance
+type double precision
+reader urword
+optional true
+longname tolerance for holding the solute of a dry reach
+description real value that defines the fraction of its volume at the start of a time step to which a reach must dry, and the fraction of its water that may leave it as outflow during the time step, for the reach to hold its solute instead of returning it with the outflow.  The default is 1.0E-10.  The value is used only when stranded mass is simulated.
+mf6internal strandtol
+
+block options
+name stranded_filerecord
+type record stranded fileout strandedfile
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name stranded
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname stranded keyword
+description keyword to specify that record corresponds to the solute held by reaches that have gone dry.
+
+block options
+name strandedfile
+type string
+preserve_case true
+shape
+in_record true
+reader urword
+tagged false
+optional false
+longname file keyword
+description name of the binary output file to write the held mass, the volume holding it, and the largest volume since the reach went dry, which can be given in the STRANDEDDATA block of a simulation that continues from this one.
+
+block options
 name budget_filerecord
 type record budget fileout budgetfile
 shape
@@ -329,6 +371,59 @@ optional true
 longname well name
 description REPLACE boundname {'{#1}': 'reach'}
 
+
+# --------------------- gwt sft strandeddata ---------------------
+
+block strandeddata
+name strandeddata
+type recarray ifno stranded_mass stranded_volume largest_volume
+shape (nreaches)
+reader urword
+optional true
+longname
+description
+
+block strandeddata
+name ifno
+type integer
+shape
+tagged false
+in_record true
+reader urword
+longname reach number for this entry
+description integer value that defines the feature (reach) number associated with the specified STRANDEDDATA data on the line.  Reaches that are not listed start with no held solute.
+numeric_index true
+mf6internal strand_ifno
+
+block strandeddata
+name stranded_mass
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname held mass
+description real value that defines the solute held by the reach at the start of the simulation, in units of mass.
+
+block strandeddata
+name stranded_volume
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname volume holding the mass
+description real value that defines the reach volume over which the held mass is spread.
+
+block strandeddata
+name largest_volume
+type double precision
+shape
+tagged false
+in_record true
+reader urword
+longname largest volume since dry
+description real value that defines the largest volume the reach has reached since it went dry.
 
 # --------------------- gwt sft period ---------------------
 

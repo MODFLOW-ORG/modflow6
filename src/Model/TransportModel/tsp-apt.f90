@@ -117,6 +117,8 @@ module TspAptModule
     real(DP), dimension(:, :), pointer, contiguous :: concbudssm => null() !< user specified concentrations (or temperatures) for flow terms
     real(DP), dimension(:), pointer, contiguous :: qmfrommvr => null() !< a mass or energy flow coming from the mover that needs to be added
     integer(I4B), pointer :: istrand => null() !< flag to hold the mass of a feature that goes dry
+    integer(I4B), pointer :: istrandout => null() !< unit number for the held mass output file
+    real(DP), pointer :: strandtol => null() !< fraction of its volume a feature dries to before it holds its mass
     real(DP), dimension(:), pointer, contiguous :: strandmass => null() !< mass held for each feature
     real(DP), dimension(:), pointer, contiguous :: strandvol => null() !< volume over which the held mass of a feature is spread
     real(DP), dimension(:), pointer, contiguous :: strandvmax => null() !< largest volume of a feature since it was last dry
@@ -179,6 +181,7 @@ module TspAptModule
     procedure :: source_options => apt_source_options
     procedure :: source_dimensions => apt_source_dimensions
     procedure :: apt_source_cvs
+    procedure :: apt_source_strandeddata
     procedure :: read_initial_attr => apt_read_initial_attr
     procedure :: define_listlabel
     ! -- methods for observations
@@ -1023,6 +1026,17 @@ contains
                   this%ncv, 1, 1, ibinun)
     end if
     !
+    ! -- write the held mass, the volume holding it, and the largest volume
+    !    since dry, which a continuing simulation reads as STRANDEDDATA
+    if (this%istrandout > 0 .and. idvsave /= 0) then
+      call ulasav(this%strandmass, str_pad_left('STRANDED-MASS', LENVARNAME), &
+                  kstp, kper, pertim, totim, this%ncv, 1, 1, this%istrandout)
+      call ulasav(this%strandvol, str_pad_left('STRANDED-VOLUME', LENVARNAME), &
+                  kstp, kper, pertim, totim, this%ncv, 1, 1, this%istrandout)
+      call ulasav(this%strandvmax, str_pad_left('LARGEST-VOLUME', LENVARNAME), &
+                  kstp, kper, pertim, totim, this%ncv, 1, 1, this%istrandout)
+    end if
+    !
     ! -- write apt conc table
     if (idvprint /= 0 .and. this%iprconc /= 0) then
       !
@@ -1088,6 +1102,8 @@ contains
     call mem_allocate(this%idxprepak, 'IDXPREPAK', this%memoryPath)
     call mem_allocate(this%idxlastpak, 'IDXLASTPAK', this%memoryPath)
     call mem_allocate(this%istrand, 'ISTRAND', this%memoryPath)
+    call mem_allocate(this%istrandout, 'ISTRANDOUT', this%memoryPath)
+    call mem_allocate(this%strandtol, 'STRANDTOL', this%memoryPath)
     !
     ! -- Initialize
     this%iauxfpconc = 0
@@ -1108,6 +1124,8 @@ contains
     this%idxprepak = 0
     this%idxlastpak = 0
     this%istrand = 0
+    this%istrandout = 0
+    this%strandtol = DEM10
     !
     ! -- set this package as causing asymmetric matrix terms
     this%iasym = 1
@@ -1366,6 +1384,8 @@ contains
     call mem_deallocate(this%idxprepak)
     call mem_deallocate(this%idxlastpak)
     call mem_deallocate(this%istrand)
+    call mem_deallocate(this%istrandout)
+    call mem_deallocate(this%strandtol)
     !
     ! -- deallocate scalars in BndExtType
     call this%BndExtType%bnd_da()
@@ -1447,6 +1467,33 @@ contains
                     form, access, 'REPLACE', mode_opt=MNORMAL)
       write (this%iout, fmtaptbin) trim(adjustl(this%text)), &
         trim(adjustl(this%depvartype)), trim(fname), this%iconcout
+    end if
+    !
+    ! -- STRANDED_TOLERANCE
+    call mem_set_value(this%strandtol, 'STRANDTOL', this%input_mempath, found)
+    if (found) then
+      if (this%strandtol < DZERO .or. this%strandtol >= DONE) then
+        write (errmsg, '(a,g0,a)') 'STRANDED_TOLERANCE (', this%strandtol, &
+          ') must be at least zero and less than one.'
+        call store_error(errmsg)
+      end if
+      write (this%iout, '(4x,a,1x,g0)') &
+        'TOLERANCE FOR HOLDING THE MASS OF A DRY FEATURE:', this%strandtol
+    end if
+    !
+    ! -- STRANDED FILEOUT
+    call mem_set_value(fname, 'STRANDEDFILE', this%input_mempath, found)
+    if (found) then
+      if (this%istrand == 0) then
+        call store_error('STRANDED FILEOUT requires stranded mass, which &
+                         &LEGACY_STORAGE in the MST Package turns off.')
+      else
+        call assign_iounit(this%istrandout, this%inunit, "STRANDED fileout")
+        call openfile(this%istrandout, this%iout, fname, 'DATA(BINARY)', &
+                      form, access, 'REPLACE', mode_opt=MNORMAL)
+        write (this%iout, fmtaptbin) trim(adjustl(this%text)), 'STRANDED', &
+          trim(fname), this%istrandout
+      end if
     end if
     !
     ! -- BUDGET FILEOUT
@@ -1640,6 +1687,9 @@ contains
         this%iboundpak(n) = 1
       end if
     end do
+    !
+    ! -- held mass at the start of the simulation
+    call this%apt_source_strandeddata()
     !
     ! -- set boundname for each connection
     if (this%inamedbound /= 0) then
@@ -1860,6 +1910,58 @@ contains
     end if
   end subroutine apt_get_volumes
 
+  !> @brief Source the held mass at the start of the simulation (STRANDEDDATA)
+  !<
+  subroutine apt_source_strandeddata(this)
+    ! -- modules
+    use MemoryManagerModule, only: get_isize
+    ! -- dummy
+    class(TspAptType), intent(inout) :: this
+    ! -- local
+    integer(I4B), dimension(:), pointer, contiguous :: ifno => null()
+    real(DP), dimension(:), pointer, contiguous :: smass => null()
+    real(DP), dimension(:), pointer, contiguous :: svol => null()
+    real(DP), dimension(:), pointer, contiguous :: svmax => null()
+    integer(I4B), dimension(:), allocatable :: nboundchk
+    integer(I4B) :: i, n, isize
+    !
+    call get_isize('STRAND_IFNO', this%input_mempath, isize)
+    if (isize <= 0) return
+    if (this%istrand == 0) then
+      call store_error('STRANDEDDATA requires stranded mass, which &
+                       &LEGACY_STORAGE in the MST Package turns off.')
+      call store_error_filename(this%input_fname)
+    end if
+    call mem_setptr(ifno, 'STRAND_IFNO', this%input_mempath)
+    call mem_setptr(smass, 'STRANDED_MASS', this%input_mempath)
+    call mem_setptr(svol, 'STRANDED_VOLUME', this%input_mempath)
+    call mem_setptr(svmax, 'LARGEST_VOLUME', this%input_mempath)
+    allocate (nboundchk(this%ncv))
+    do n = 1, this%ncv
+      nboundchk(n) = 0
+    end do
+    do i = 1, isize
+      n = this%validate_ifno(ifno(i), this%ncv, nboundchk, 'IFNO', &
+                             trim(adjustl(this%text))//' STRANDEDDATA')
+      if (n == 0) cycle
+      if (smass(i) < DZERO .or. svol(i) < DZERO .or. svmax(i) < DZERO) then
+        write (errmsg, '(a,1x,i0,1x,a)') 'STRANDEDDATA values for feature', &
+          n, 'must not be negative.'
+        call store_error(errmsg)
+        cycle
+      end if
+      this%strandmass(n) = smass(i)
+      this%strandvol(n) = svol(i)
+      this%strandvmax(n) = svmax(i)
+    end do
+    deallocate (nboundchk)
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
+    write (this%iout, '(/1x,a,1x,i0,1x,a)') trim(adjustl(this%text))// &
+      ' STRANDEDDATA: HELD MASS GIVEN FOR', isize, 'FEATURES'
+  end subroutine apt_source_strandeddata
+
   !> @brief Hold the mass of a feature that goes dry, as the MST Package does
   !<
   subroutine apt_strand_from_mst(this)
@@ -1919,8 +2021,8 @@ contains
       !
       ! -- the feature goes dry and its solute has no water to leave with, so
       !    its mass moves to the held mass at the rate of its water volume
-      if (v1 <= DEM10 * v0 .and. vwater > DZERO .and. &
-          qout(n) * delt <= DEM10 * vwater) then
+      if (v1 <= this%strandtol * v0 .and. vwater > DZERO .and. &
+          qout(n) * delt <= this%strandtol * vwater) then
         this%strandk(n) = vwater / delt * this%eqnsclfac
         !
         ! -- the feature rises above the highest volume it has reached since

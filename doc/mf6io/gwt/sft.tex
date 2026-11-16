@@ -2,10 +2,13 @@ Streamflow Transport (SFT) Package information is read from the file that is spe
 
 The SFT Package does not have a dimensions block; instead, dimensions for the SFT Package are set using the dimensions from the corresponding SFR Package.  For example, the SFR Package requires specification of the number of reaches (NREACHES).  SFT sets the number of reaches equal to NREACHES.  Therefore, the PACKAGEDATA block below must have NREACHES entries in it.
 
+Unless LEGACY\_STORAGE is specified in the MST Package, a reach that goes dry holds its solute and returns it as it refills (see the Stranded Mass section of the MST Package).  A reach holds its solute when, within a time step, it dries to no more than STRANDED\_TOLERANCE times its volume at the start of the time step and loses no more than that fraction of its water to outflow.  The STRANDED FILEOUT option writes, for each reach, the held mass, the volume over which it is spread, and the largest volume the reach has reached since it went dry; these values can be given in the STRANDEDDATA block so that a simulation that continues from this one starts with the same held mass.
+
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwt-sft-options.dat}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwt-sft-packagedata.dat}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwt-sft-strandeddata.dat}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwt-sft-period.dat}
 
 \vspace{5mm}
