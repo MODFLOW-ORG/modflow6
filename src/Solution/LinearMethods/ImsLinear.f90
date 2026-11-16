@@ -10,7 +10,7 @@ MODULE IMSLinearModule
                                  ims_base_pccrs, ims_base_calc_order, &
                                  ims_base_scale, ims_base_pcu, &
                                  ims_base_residual, ims_base_epfact, &
-                                 ims_calc_pcdims
+                                 ims_calc_pcdims, ims_base_cnvg_scale
   use BlockParserModule, only: BlockParserType
   use MatrixBaseModule
   use ConvergenceSummaryModule
@@ -60,6 +60,8 @@ MODULE IMSLinearModule
     ! VECTORS
     real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: DSCALE => NULL() !< scaling factor
     real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: DSCALE2 => NULL() !< unscaling factor
+    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: RSCALE => NULL() !< factor returning the residual to model units
+    real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: HSCALE => NULL() !< factor returning the head change to model units
     integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: IAPC => NULL() !< position of start of each row in preconditioner matrix
     integer(I4B), POINTER, DIMENSION(:), CONTIGUOUS :: JAPC => NULL() !< preconditioner matrix column pointer
     real(DP), POINTER, DIMENSION(:), CONTIGUOUS :: APC => NULL() !< preconditioner coefficient matrix
@@ -216,6 +218,8 @@ CONTAINS
     IF (this%ISCL .NE. 0) iscllen = NEQ
     CALL mem_allocate(this%DSCALE, iscllen, 'DSCALE', TRIM(this%memoryPath))
     CALL mem_allocate(this%DSCALE2, iscllen, 'DSCALE2', TRIM(this%memoryPath))
+    CALL mem_allocate(this%RSCALE, iscllen, 'RSCALE', TRIM(this%memoryPath))
+    CALL mem_allocate(this%HSCALE, iscllen, 'HSCALE', TRIM(this%memoryPath))
     !
     ! -- allocate and initialize the preconditioner work arrays
     call precond_allocate(this)
@@ -255,6 +259,8 @@ CONTAINS
     DO n = 1, iscllen
       this%DSCALE(n) = DONE
       this%DSCALE2(n) = DONE
+      this%RSCALE(n) = DONE
+      this%HSCALE(n) = DONE
     END DO
     !
     ! -- WORKING VECTORS
@@ -471,6 +477,8 @@ CONTAINS
     ! -- arrays
     call mem_deallocate(this%dscale)
     call mem_deallocate(this%dscale2)
+    call mem_deallocate(this%rscale)
+    call mem_deallocate(this%hscale)
     call precond_destroy(this)
     call mem_deallocate(this%lorder)
     call mem_deallocate(this%iorder)
@@ -710,6 +718,13 @@ CONTAINS
       this%A0 => this%AMAT
     END IF
     !
+    ! -- FACTORS RETURNING THE RESIDUAL AND HEAD CHANGE TO MODEL UNITS
+    IF (this%ISCL /= 0) THEN
+      CALL ims_base_cnvg_scale(this%NEQ, this%IORD, this%DSCALE, &
+                               this%DSCALE2, this%LORDER, &
+                               this%RSCALE, this%HSCALE)
+    END IF
+    !
     ! -- UPDATE PRECONDITIONER
     CALL ims_base_pcu(this%iout, this%NJA, this%NEQ, this%NIAPC, this%NJAPC, &
                       this%IPC, this%RELAX, this%A0, this%IA0, this%JA0, &
@@ -734,7 +749,15 @@ CONTAINS
     ! -- CALCULATE INITIAL RESIDUAL
     call ims_base_residual(this%NEQ, this%NJA, this%X, this%RHS, this%D, &
                            this%A0, this%IA0, this%JA0)
-    this%L2NORM0 = dnrm2(this%NEQ, this%D, 1)
+    IF (this%ISCL /= 0) THEN
+      this%L2NORM0 = DZERO
+      DO n = 1, this%NEQ
+        this%L2NORM0 = this%L2NORM0 + (this%D(n) * this%RSCALE(n))**2
+      END DO
+      this%L2NORM0 = sqrt(this%L2NORM0)
+    ELSE
+      this%L2NORM0 = dnrm2(this%NEQ, this%D, 1)
+    END IF
     !
     ! -- CHECK FOR EXACT SOLUTION
     itmax = this%ITER1
@@ -748,6 +771,7 @@ CONTAINS
       CALL ims_base_cg(ICNVG, itmax, innerit, &
                        this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                        this%IPC, this%ICNVGOPT, this%NORTH, &
+                       this%ISCL, this%RSCALE, this%HSCALE, &
                        this%DVCLOSE, this%RCLOSE, this%L2NORM0, &
                        this%EPFACT, this%IA0, this%JA0, this%A0, &
                        this%IAPC, this%JAPC, this%APC, &
@@ -761,7 +785,7 @@ CONTAINS
       CALL ims_base_bcgs(ICNVG, itmax, innerit, &
                          this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                          this%IPC, this%ICNVGOPT, this%NORTH, &
-                         this%ISCL, this%DSCALE, &
+                         this%ISCL, this%RSCALE, this%HSCALE, &
                          this%DVCLOSE, this%RCLOSE, this%L2NORM0, &
                          this%EPFACT, this%IA0, this%JA0, this%A0, &
                          this%IAPC, this%JAPC, this%APC, &

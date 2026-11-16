@@ -10,6 +10,7 @@ program tester
   use TestGeomUtil, only: collect_geomutil
   use TestGridFileReader, only: collect_gridfilereader
   use TestHashTable, only: collect_hashtable
+  use TestImsLinear, only: collect_imslinear
   use TestInputOutput, only: collect_inputoutput
   use TestKeyValueList, only: collect_keyvaluelist
   use TestList, only: collect_list
@@ -48,6 +49,7 @@ program tester
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("GridFileReader", collect_gridfilereader), &
                new_testsuite("HashTable", collect_hashtable), &
+               new_testsuite("ImsLinear", collect_imslinear), &
                new_testsuite("InputOutput", collect_inputoutput), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &
                new_testsuite("List", collect_list), &
