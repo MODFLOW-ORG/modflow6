@@ -1,0 +1,3 @@
+section = "features"
+subsection = "basic"
+description = "The MODFLOW 6 shared library adds the remaining non-grid functions of version 2.0 of the Basic Model Interface (BMI). update\\_until advances the simulation by whole time steps until it reaches a given time; get\\_time\\_units returns the TIME\\_UNITS of the TDIS Package; get\\_var\\_units returns 'unknown' and get\\_var\\_location returns 'node' for every variable; and get\\_value\\_at\\_indices and set\\_value\\_at\\_indices read and write double precision and integer values at zero-based indices in C order. The grid functions that version 2.0 adds are not yet included."

@@ -22,6 +22,8 @@ module mf6bmiUtil
   ! and gfortran does so anyway. They have been disabled in the linker config.
 
   integer(I4B), parameter :: LENGRIDTYPE = 16 !< max length for Fortran grid type string
+  integer(I4B), parameter :: LENUNITS = 16 !< max length for Fortran units string
+  integer(I4B), parameter :: LENVARLOCATION = 16 !< max length for Fortran variable location string
 
   integer(c_int), bind(C, name="BMI_LENVARTYPE") :: BMI_LENVARTYPE = &
                                                     LENMEMTYPE + 1 !< max. length for variable type C-strings
@@ -30,6 +32,14 @@ module mf6bmiUtil
   integer(c_int), bind(C, name="BMI_LENGRIDTYPE") :: BMI_LENGRIDTYPE = &
                                                      LENGRIDTYPE + 1 !< max. length for grid type C-strings
   !DIR$ ATTRIBUTES DLLEXPORT :: BMI_LENGRIDTYPE
+
+  integer(c_int), bind(C, name="BMI_LENUNITS") :: BMI_LENUNITS = &
+                                                  LENUNITS + 1 !< max. length for units C-strings
+  !DIR$ ATTRIBUTES DLLEXPORT :: BMI_LENUNITS
+
+  integer(c_int), bind(C, name="BMI_LENVARLOCATION") :: BMI_LENVARLOCATION = &
+                                                        LENVARLOCATION + 1 !< max. length for variable location C-strings
+  !DIR$ ATTRIBUTES DLLEXPORT :: BMI_LENVARLOCATION
 
   integer(c_int), bind(C, name="BMI_LENVARADDRESS") :: BMI_LENVARADDRESS = &
                                                        LENMEMADDRESS + 1 !< max. length for the variable's address C-string
