@@ -1121,7 +1121,7 @@ contains
     real(DP) :: smoist, smoistinc, ftrail, eps_m1
     real(DP) :: thtsrinv
     real(DP) :: flux1, flux2, theta1, theta2
-    real(DP) :: fnuminc
+    real(DP) :: fnuminc, fhold
     integer(I4B) :: j, jj, jk, nwavstm1
     !
     ! -- initialize
@@ -1184,17 +1184,18 @@ contains
       this%uzthst(this%nwavst(icell), icell) = &
         this%uzthst(this%nwavst(icell) - 1, icell)
       this%uzdpst(this%nwavst(icell), icell) = DZERO
+      ! -- the water content difference across the new wave is too small
+      !    for a finite difference speed, so use the flux derivative at the
+      !    preceding water content, as in MODFLOW-NWT
+      fhold = (this%uzthst(this%nwavst(icell), icell) - &
+               this%thtr(icell)) * thtsrinv
+      if (fhold < DEM30) fhold = DZERO
+      this%uzspst(this%nwavst(icell), icell) = &
+        this%eps(icell) * this%vks(icell) * thtsrinv * (fhold**eps_m1)
       this%uzflst(this%nwavst(icell), icell) = &
         this%vks(icell) * (((this%uzthst(this%nwavst(icell), icell) - &
                              this%thtr(icell)) * thtsrinv)**this%eps(icell))
       this%uzthst(this%nwavst(icell), icell) = smoist
-      theta2 = this%uzthst(this%nwavst(icell) - 1, icell)
-      flux2 = this%uzflst(this%nwavst(icell) - 1, icell)
-      flux1 = this%uzflst(this%nwavst(icell), icell)
-      theta1 = this%uzthst(this%nwavst(icell), icell)
-      this%uzspst(this%nwavst(icell), icell) = &
-        leadspeed(theta1, theta2, flux1, flux2, this%thts(icell), &
-                  this%thtr(icell), this%eps(icell), this%vks(icell))
     end if
   end subroutine trailwav
 
