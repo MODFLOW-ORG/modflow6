@@ -42,7 +42,7 @@ reader urword
 optional true
 deprecated 6.9.0
 longname use the storage formulation of earlier versions
-description is a text keyword to indicate that the storage formulation of versions of MODFLOW 6 before 6.9.0 will be used, in which solute that stays behind when a cell drains is returned to the water that remains instead of being held as stranded mass until the cell rewets.  With LEGACY\_STORAGE, the solute of a lake or stream reach that goes dry in the Lake Transport (LKT) and Streamflow Transport (SFT) Packages is also not held.  The earlier formulation is also used, without this keyword, in a model with the Unsaturated Zone Transport (UZT) Package.  Stranded mass is described in the MST Package section of this guide.  This keyword is deprecated and will be removed in a future release.
+description is a text keyword to indicate that the storage formulation of versions of MODFLOW 6 before 6.9.0 will be used, in which solute that stays behind when a cell drains is returned to the water that remains instead of being held as stranded mass until the cell rewets.  With LEGACY\_STORAGE, the solute of a lake or stream reach that goes dry in the Lake Transport (LKT) and Streamflow Transport (SFT) Packages is also not held.  The MST Package also uses the earlier formulation, without this keyword, in a model with the Unsaturated Zone Transport (UZT) Package, but lakes and stream reaches still hold their solute.  Stranded mass is described in the MST Package section of this guide.  This keyword is deprecated and will be removed in a future release.
 mf6internal ilegacy
 
 block options
