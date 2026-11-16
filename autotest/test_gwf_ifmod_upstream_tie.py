@@ -112,7 +112,11 @@ def check_output(idx, test):
     assert dvmax[0].size == dvmax[1].size, (
         f"outer iterations differ: {dvmax[0].size} and {dvmax[1].size}"
     )
-    assert np.allclose(dvmax[0], dvmax[1], rtol=1e-6, atol=0.0), (
+    # the absolute tolerance covers roundoff in the last, converged iterations,
+    # where the exchange and the interface model assemble terms in different
+    # orders; the order dependence fixed here changes the first iterations by
+    # meters
+    assert np.allclose(dvmax[0], dvmax[1], rtol=1e-6, atol=10 * hclose), (
         f"outer iteration histories differ: {dvmax[0]} and {dvmax[1]}"
     )
 
