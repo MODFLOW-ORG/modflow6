@@ -77,7 +77,7 @@ reader urword
 tagged false
 optional false
 longname file keyword
-description name of the binary output file to write stranded mass information.  Writing this file is the way to obtain the stranded mass of a single cell over time; like the sorbate concentration, stranded mass is not available through the Observation (OBS) utility.
+description name of the binary output file to write stranded mass information.
 
 block options
 name stranded_aq_filerecord
@@ -321,7 +321,7 @@ optional true
 layered true
 netcdf true
 longname initial stranded aqueous mass
-description is the mass of solute held in the drained part of each cell at the start of the simulation, from the water retained there, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_aqueous is not specified, no aqueous mass is stranded at the start of the simulation.
+description is the mass of solute held in the water retained in the drained part of each cell at the start of the simulation, in units of mass.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_aqueous is not specified, no aqueous mass is stranded at the start of the simulation.
 
 block griddata
 name stranded_sorbed
@@ -332,7 +332,7 @@ optional true
 layered true
 netcdf true
 longname initial stranded sorbed mass
-description is the sorbed mass of solute held in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and decays at the rate given by DECAY\_SORBED.  Stranded mass and sorption must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_sorbed is not specified, no sorbed mass is stranded at the start of the simulation.
+description is the sorbed mass of solute held in the drained part of each cell at the start of the simulation, in units of mass.  Stranded mass and sorption must be active, and a cell that is fully saturated at the start of the simulation cannot hold stranded mass.  If stranded\_sorbed is not specified, no sorbed mass is stranded at the start of the simulation.
 
 block griddata
 name stranded_et_solute
@@ -344,4 +344,4 @@ layered true
 netcdf true
 longname initial solute deposited by evapotranspiration
 mf6internal stranded_etsol
-description is the solute that evapotranspiration has deposited in the drained part of each cell at the start of the simulation, in units of mass.  It is returned to the mobile domain as the cell rewets, in proportion to the part of the drained interval that resaturates, and as recharge from the Recharge (RCH) Package flushes the drained part of the cell, and decays at the rate given by DECAY.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold deposited solute.  If stranded\_et\_solute is not specified, no solute is deposited at the start of the simulation.
+description is the solute that evapotranspiration has deposited in the drained part of each cell at the start of the simulation, in units of mass.  Stranded mass must be active, and a cell that is fully saturated at the start of the simulation cannot hold deposited solute.  If stranded\_et\_solute is not specified, no solute is deposited at the start of the simulation.
