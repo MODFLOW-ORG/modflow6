@@ -1,12 +1,7 @@
 submodule(SfrModule) SfrModuleSteady
 contains
 
-  !> @brief Method for solving for standard reaches
-    !!
-    !! Method to solve the continuity equation for a SFR package
-    !! reach using the standard approach.
-    !!
-  !<
+  ! -- documented on the SfrType type-bound procedure in gwf-sfr.f90
   module procedure sfr_calc_steady
   integer(I4B) :: i
   integer(I4B) :: isolve

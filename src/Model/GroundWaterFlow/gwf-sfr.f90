@@ -239,10 +239,31 @@ module SfrModule
     ! -- private procedures
 
     procedure, private :: sfr_solve
+    !> @brief Method for solving for simple reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the simple approach.
+    !<
     procedure, private :: sfr_calc_constant
+    !> @brief Method for solving for transient reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the kinematic wave approximation.
+    !<
     procedure, private :: sfr_calc_transient
+    !> @brief Kinematic-wave routing with TVD flux limiter
+    !!
+    !! Explicit van Leer TVD update of the continuity equation with exact
+    !! volume balance; reverts to first-order upwind for Cr > 1 and at
+    !! confluences.
+    !<
     procedure, private :: sfr_calc_tvd
     procedure, private :: sfr_calc_celerity
+    !> @brief Method for solving for standard reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the standard approach.
+    !<
     procedure, private :: sfr_calc_steady
     procedure, private :: sfr_precompute_tvd
     procedure, private :: sfr_update_flows
