@@ -4,11 +4,16 @@ read back. Every exported period slice must hold the input given for that
 period (state):
     - an array given as values holds them until given again;
     - grid array (compressed) input holds values only at the period's
-      boundary cells; an empty block removes all boundaries;
-    - a time-array series and the periods it is linked holds the fill
-      value; a layer array (READASARRAYS) series link ends at the next
-      PERIOD block, after which the array holds the fill value until
-      given values;
+      boundary cells, carried forward per cell; an empty block removes all
+      boundaries and series links;
+    - grid array full-grid input (TVKG) holds the stored values; a value
+      given as DNODATA leaves the stored value, and an empty block changes
+      nothing;
+    - an array linked to a time-array series holds the fill value while
+      linked; a layer array (READASARRAYS) series link ends at the next
+      PERIOD block, after which the array holds the fill value until given
+      values; a grid array link continues until the array is given again
+      (or, compressed, an empty block);
     - an array never given holds the fill value, except the layer index
       arrays (IRCH, IEVT), which hold 1 until given.
 
@@ -22,8 +27,7 @@ compared with the ASCII run:
 Each case runs on a DIS grid with structured and layered mesh NetCDF
 files, and on a DISV grid with layered mesh files.
 
-Cases (boundary cells of the grid array cases do not change between
-periods while an array carries forward):
+Cases:
     rcha_multi: RCHA, IRCH and RECHARGE in period 1, no block in 2,
         RECHARGE in 3, RECHARGE series in 4, no block in 5, IRCH only in 6.
     rcha_aux: RCHA with auxiliary variables TAG1 (values), TAG2 (series,
@@ -38,6 +42,26 @@ periods while an array carries forward):
     rivg_empty: RIVG, all arrays in period 1, empty block in period 2, all
         arrays in period 3.
     chdg_change: CHDG, HEAD in period 1, HEAD at the same cells in period 2.
+    welg_move: WELG, Q and WEL_MULT at cells A and B in period 1, Q at B only
+        in period 2 (WEL_MULT carries forward at B).
+    rivg_subset: RIVG, all arrays at A and B in period 1, STAGE at B only in
+        period 2 (COND and RBOT carry forward at B).
+    rivg_tas: RIVG, STAGE series with COND and RBOT values in period 1,
+        COND only at B in period 2 (the STAGE link continues at B; RBOT
+        carries forward at B).
+    welg_tas: WELG, Q series in period 1, no block in 2, WEL_MULT only in 3
+        (the Q link continues), Q values in 4, empty block in 5, Q series
+        again in 6.
+    welg_auxts: WELG, WEL_MULT series in period 1, Q only in 2 (the
+        WEL_MULT link continues), WEL_MULT values in 3.
+    tvkg_full: TVKG (full-grid), K at A and K33 series in period 1, empty
+        block in 2, K at B and K22 at A in 3, K33 at A only in 4 (the
+        series link ends; other cells keep the last series value). One
+        cell is inactive; its values (given in period 3 and by the series)
+        are not stored.
+    tvkg_ratio: TVKG with NPF K33OVERK, K33 ratio at A in period 1, K at A
+        in 2. The export holds the ratio; reading it from NetCDF is an
+        input error.
 """
 
 import re
@@ -53,6 +77,7 @@ DNODATA = 3.0e30
 nlay, nrow, ncol = 2, 3, 3
 ncpl = nrow * ncol
 cell_a, cell_b, cell_chd = (0, 0, 0), (1, 2, 2), (0, 2, 2)
+cell_inactive = (1, 1, 1)
 NOBLOCK = object()
 
 # case: (package file extension, budget text, mode)
@@ -65,6 +90,28 @@ cases = {
     "welg_aux2": ("welg", "WEL", "compressed"),
     "rivg_empty": ("rivg", "RIV", "compressed"),
     "chdg_change": ("chdg", "CHD", "compressed"),
+    "welg_move": ("welg", "WEL", "compressed"),
+    "rivg_subset": ("rivg", "RIV", "compressed"),
+    "rivg_tas": ("rivg", "RIV", "compressed"),
+    "welg_tas": ("welg", "WEL", "compressed"),
+    "welg_auxts": ("welg", "WEL", "compressed"),
+    "tvkg_full": ("tvkg", "CHD", "fullgrid"),
+    "tvkg_ratio": ("tvkg", "CHD", "fullgrid"),
+}
+# cases with hand-written grid array package (and series) files
+hand_cases = (
+    "welg_move",
+    "rivg_subset",
+    "rivg_tas",
+    "welg_tas",
+    "welg_auxts",
+    "tvkg_full",
+    "tvkg_ratio",
+)
+# expected input error when reading the exported file
+errors = {
+    "tvkg_ratio": "TVKG K33 cannot be read from NetCDF input when it is a "
+    "ratio of K (NPF K33OVERK).",
 }
 # (discretization, NetCDF file format)
 grids = [("dis", "structured"), ("dis", "mesh"), ("disv", "mesh")]
@@ -110,10 +157,13 @@ def array_text(a, integer=False):
     )
 
 
-def package_text(options, spec, nper, integer=()):
+def package_text(options, spec, nper, integer=(), dims=()):
     """Package file from a period spec: {kper: {tag: array | ("series", name)}}."""
     text = "BEGIN options\n" + "".join(f"  {o}\n" for o in options)
     text += "END options\n\n"
+    if dims:
+        text += "BEGIN dimensions\n" + "".join(f"  {d}\n" for d in dims)
+        text += "END dimensions\n\n"
     for kper in range(1, nper + 1):
         blk = spec.get(kper, NOBLOCK)
         if blk is NOBLOCK:
@@ -129,11 +179,18 @@ def package_text(options, spec, nper, integer=()):
 
 
 def series_text(name, records):
-    """Time-array series file with constant records {time: value}."""
+    """Time-array series file (STEPWISE) with records {time: value or
+    array}."""
     text = f"BEGIN attributes\n  NAME {name}\n  METHOD STEPWISE\nEND attributes\n\n"
     for t, v in records.items():
-        text += f"BEGIN time {t}\n  CONSTANT {v}\nEND time\n\n"
+        data = array_text(v) if np.ndim(v) else f"  CONSTANT {v}\n"
+        text += f"BEGIN time {t}\n{data}END time\n\n"
     return text
+
+
+def series_at(records, t):
+    """STEPWISE series array at time t."""
+    return records[max(rt for rt in records if rt <= t)]
 
 
 def remove_array(text, tag):
@@ -148,10 +205,18 @@ def remove_array(text, tag):
     return "".join(out)
 
 
-def add_discretization(gwf, dis):
+def add_discretization(gwf, dis, idomain=None):
+    if idomain is None:
+        idomain = np.ones((nlay, nrow, ncol), dtype=int)
     if dis == "dis":
         flopy.mf6.ModflowGwfdis(
-            gwf, nlay=nlay, nrow=nrow, ncol=ncol, top=10.0, botm=[5.0, 0.0]
+            gwf,
+            nlay=nlay,
+            nrow=nrow,
+            ncol=ncol,
+            top=10.0,
+            botm=[5.0, 0.0],
+            idomain=idomain,
         )
         return
     # unit cells ordered by row (from the top), then column
@@ -175,17 +240,18 @@ def add_discretization(gwf, dis):
         botm=[5.0, 0.0],
         vertices=vertices,
         cell2d=cell2d,
+        idomain=idomain.reshape(nlay, ncpl),
     )
 
 
-def base_model(ws, name, nper, dis):
+def base_model(ws, name, nper, dis, idomain=None, npf=None):
     sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws)
     flopy.mf6.ModflowTdis(sim, nper=nper, perioddata=[(1.0, 1, 1.0)] * nper)
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name, save_flows=True)
     flopy.mf6.ModflowIms(sim, outer_dvclose=1e-9, inner_dvclose=1e-9)
-    add_discretization(gwf, dis)
+    add_discretization(gwf, dis, idomain)
     flopy.mf6.ModflowGwfic(gwf, strt=10.0)
-    flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
+    flopy.mf6.ModflowGwfnpf(gwf, **(npf or {"k": 1.0}))
     return sim, gwf
 
 
@@ -340,29 +406,170 @@ def build_grid(ws, name, dis):
     return sim, spec, nper
 
 
+def build_hand(ws, name, dis):
+    """Grid array package with hand-written package (and series) files."""
+    nper = {"welg_tas": 6, "welg_auxts": 3, "tvkg_full": 4}.get(name, 2)
+    idomain = None
+    if name == "tvkg_full":
+        idomain = np.ones((nlay, nrow, ncol), dtype=int)
+        idomain[cell_inactive] = 0
+    npf = None
+    if name == "tvkg_ratio":
+        npf = {"k": 1.0, "k33": 0.5, "k33overk": True}
+    sim, gwf = base_model(ws, name, nper, dis, idomain, npf)
+    chd = [[cellid(cell_chd, dis), 10.0]]
+    if name.startswith("tvkg"):
+        chd.append([cellid((0, 2, 0), dis), 5.0])
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: chd})
+    ext = cases[name][0]
+    tas = f"{name}.{ext}.tas"
+
+    def ab(a, b):
+        return grid_values({cell_a: a, cell_b: b})
+
+    options = ["READARRAYGRID"]
+    dims = ["MAXBOUND 2"]
+    series = {}
+    if name == "welg_move":
+        options += ["AUXILIARY WEL_MULT", "AUXMULTNAME WEL_MULT"]
+        spec = {
+            1: {"q": ab(-1.0, -2.0), "wel_mult": ab(0.5, 2.0)},
+            2: {"q": grid_values({cell_b: -3.0})},
+        }
+    elif name == "rivg_subset":
+        spec = {
+            1: {"stage": ab(9.0, 8.0), "cond": ab(1.0, 2.0), "rbot": ab(7.0, 6.0)},
+            2: {"stage": grid_values({cell_b: 8.5})},
+        }
+    elif name == "rivg_tas":
+        options += [f"TAS6 FILEIN {tas}"]
+        spec = {
+            1: {
+                "stage": ("series", "sts"),
+                "cond": ab(1.0, 2.0),
+                "rbot": ab(7.0, 6.0),
+            },
+            2: {"cond": grid_values({cell_b: 3.0})},
+        }
+        series = {"sts": {0.0: ab(9.0, 8.0), 1.0: ab(9.5, 8.5), 2.0: ab(9.5, 8.5)}}
+    elif name == "welg_tas":
+        options += ["AUXILIARY WEL_MULT", "AUXMULTNAME WEL_MULT", f"TAS6 FILEIN {tas}"]
+        spec = {
+            1: {"q": ("series", "qts"), "wel_mult": ab(0.5, 2.0)},
+            3: {"wel_mult": ab(1.5, 1.0)},
+            4: {"q": ab(-7.0, -8.0)},
+            5: {},
+            6: {"q": ("series", "qts"), "wel_mult": ab(1.0, 1.0)},
+        }
+        series = {
+            "qts": {
+                0.0: ab(-1.0, -2.0),
+                2.0: ab(-3.0, -4.0),
+                5.0: ab(-5.0, -6.0),
+                6.0: ab(-5.0, -6.0),
+            }
+        }
+    elif name == "welg_auxts":
+        options += [
+            "AUXILIARY TAG1 WEL_MULT",
+            "AUXMULTNAME WEL_MULT",
+            f"TAS6 FILEIN {tas}",
+        ]
+        spec = {
+            1: {
+                "q": ab(-1.0, -2.0),
+                "tag1": ab(5.0, 6.0),
+                "wel_mult": ("series", "mts"),
+            },
+            2: {"q": ab(-3.0, -4.0)},
+            3: {"wel_mult": ab(1.5, 1.5)},
+        }
+        series = {"mts": {0.0: ab(0.5, 2.0), 1.0: ab(1.0, 3.0), 3.0: ab(1.0, 3.0)}}
+    elif name == "tvkg_ratio":
+        dims = []
+        spec = {
+            1: {"k33": grid_values({cell_a: 0.2})},
+            2: {"k": grid_values({cell_a: 3.0})},
+        }
+    else:
+        options += [f"TAS6 FILEIN {tas}"]
+        dims = []
+        spec = {
+            1: {"k": grid_values({cell_a: 5.0}), "k33": ("series", "kts")},
+            2: {},
+            3: {
+                "k": grid_values({cell_b: 3.0, cell_inactive: 9.0}),
+                "k22": grid_values({cell_a: 2.0}),
+            },
+            4: {"k33": grid_values({cell_a: 0.9})},
+        }
+        full = np.ones((nlay, nrow, ncol))
+        series = {
+            "kts": {t: v * full for t, v in zip(range(5), [0.5, 0.4, 0.3, 0.2, 0.2])}
+        }
+    first = model_array(grid_values({cell_a: 1.0, cell_b: 1.0}), dis)
+    if ext == "welg":
+        flopy.mf6.ModflowGwfwelg(gwf, maxbound=2, q={0: first}, filename=f"{name}.welg")
+    elif ext == "rivg":
+        flopy.mf6.ModflowGwfrivg(
+            gwf,
+            maxbound=2,
+            stage={0: first},
+            cond={0: first},
+            rbot={0: first},
+            filename=f"{name}.rivg",
+        )
+    else:
+        gwf.npf.tvkg.initialize(filename=f"{name}.tvkg", k={0: first})
+    add_oc(gwf, name)
+    sim.write_simulation()
+    (ws / f"{name}.{ext}").write_text(package_text(options, spec, nper, dims=dims))
+    for sname, records in series.items():
+        (ws / tas).write_text(series_text(sname, records))
+    return sim, spec, nper, series, idomain
+
+
 def build_models(name, dis, test):
-    if cases[name][2] == "layer":
+    series = {}
+    idomain = None
+    if name in hand_cases:
+        sim, spec, nper, series, idomain = build_hand(test.workspace, name, dis)
+    elif cases[name][2] == "layer":
         sim, spec, nper = build_layer(test.workspace, name, dis)
     else:
         sim, spec, nper = build_grid(test.workspace, name, dis)
-    # expected input in the canonical shape
+    # expected input (and grid series records) in the canonical shape
     test.spec = {
         k: {t: v if isinstance(v, tuple) else canonical(v) for t, v in blk.items()}
         for k, blk in spec.items()
     }
+    test.series = {
+        n: {t: canonical(v) for t, v in r.items()} for n, r in series.items()
+    }
     test.nper = nper
+    test.active = None if idomain is None else canonical(idomain > 0)
     return sim, None
 
 
-def expected_state(spec, nper, tags, mode, aux=(), index_tag=None):
+def expected_state(
+    spec, nper, tags, mode, aux=(), index_tag=None, series=None, active=None
+):
     """Expected input given per period: {kper: {tag: array or None}},
-    and the series linked per period: {kper: {tag: name}}."""
+    and the series linked per period: {kper: {tag: name}}. Periods have
+    length 1 and one time step. In full-grid mode, values at cells that
+    are not active are not stored."""
     state = dict.fromkeys(tags)
     if index_tag is not None:
         state[index_tag] = np.ones(ncpl, dtype=int)
+    stored = {}
     linked = {}
     out, links = {}, {}
     for kper in range(1, nper + 1):
+        if mode == "fullgrid":
+            # a linked array is set from its series in each time step
+            for t, sname in linked.items():
+                v = series_at(series[sname], kper - 2.0)
+                stored[t] = fullgrid_store(stored.get(t), v, active)
         blk = spec.get(kper, NOBLOCK)
         if blk is not NOBLOCK:
             if mode == "layer":
@@ -371,7 +578,6 @@ def expected_state(spec, nper, tags, mode, aux=(), index_tag=None):
                     if t not in blk:
                         state[t] = None
                         linked.pop(t)
-            # no case gives an empty or aux-only grid array block
             if mode == "compressed" and not blk:
                 state = dict.fromkeys(tags)
                 linked = {}
@@ -379,20 +585,42 @@ def expected_state(spec, nper, tags, mode, aux=(), index_tag=None):
                 if isinstance(v, tuple):
                     state[t] = None
                     linked[t] = v[1]
+                    continue
+                linked.pop(t, None)
+                if mode == "fullgrid":
+                    # DNODATA leaves the stored value
+                    stored[t] = fullgrid_store(stored.get(t), v, active)
+                    state[t] = stored[t]
                 else:
                     state[t] = v
-                    linked.pop(t, None)
-            mains = [
-                t for t, v in blk.items() if t not in aux and not isinstance(v, tuple)
-            ]
-            if mode == "compressed" and mains:
-                bnd = np.logical_and.reduce([blk[t] != DNODATA for t in mains])
+            # boundary cells: defined in every main array given, a linked
+            # array by its series at the period start
+            mains = []
+            if mode == "compressed":
+                mains = [
+                    series_at(series[v[1]], kper - 1.0) if isinstance(v, tuple) else v
+                    for t, v in blk.items()
+                    if t not in aux
+                ]
+            if mains:
+                bnd = np.logical_and.reduce([m != DNODATA for m in mains])
                 for t in tags:
                     if state[t] is not None:
                         state[t] = np.where(bnd, state[t], DNODATA)
         out[kper] = dict(state)
         links[kper] = dict(linked)
     return out, links
+
+
+def fullgrid_store(old, v, active):
+    """Full-grid stored values: defined values at active cells replace
+    the stored value."""
+    if old is None:
+        old = np.full(v.shape, DNODATA)
+    keep = v == DNODATA
+    if active is not None:
+        keep |= ~active
+    return np.where(keep, old, v)
 
 
 def period_data(ds):
@@ -543,7 +771,14 @@ def check_output(name, dis, fmt, test):
     aux = [t for t, (_, _, isaux) in pdata.items() if isaux]
     index_tag = {"rcha": "irch", "evta": "ievt"}.get(ext)
     expected, links = expected_state(
-        test.spec, test.nper, tags, mode, aux=aux, index_tag=index_tag
+        test.spec,
+        test.nper,
+        tags,
+        mode,
+        aux=aux,
+        index_tag=index_tag,
+        series=test.series,
+        active=test.active,
     )
     check_state(exp / ncfile, expected)
 
@@ -562,6 +797,11 @@ def check_output(name, dis, fmt, test):
             (ws / f).write_text(to_netcdf_lines((ref / f).read_text(), "griddata"))
         (ws / pkgfile).write_text(text)
         success, _ = flopy.run_model(exe, ws / "mfsim.nam", model_ws=ws, silent=True)
+        if name in errors:
+            assert not success, f"{label}: NetCDF input run should have failed"
+            text = " ".join((ws / "mfsim.lst").read_text().split())
+            assert errors[name] in text, f"{label}: expected error not reported"
+            continue
         assert success, f"{label}: NetCDF input run failed"
         compare(ws, ref, budtext, label)
 

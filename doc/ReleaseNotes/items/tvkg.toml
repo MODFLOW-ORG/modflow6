@@ -1,0 +1,3 @@
+section = "features"
+subsection = "internal"
+description = "A Time-Varying Hydraulic Conductivity with Grid Array Input (TVKG) Utility is available for the NPF Package (TVKG6 option). TVKG makes the same changes as the TVK Utility with values given as arrays for the model grid: a value other than DNODATA replaces the current value at an active cell, and arrays not specified in a PERIOD block keep their values. Arrays can be linked to time-array series and can be read from NetCDF files, except K22 and K33 given as ratios of K (K22OVERK or K33OVERK)."

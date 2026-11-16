@@ -1,15 +1,15 @@
 % Time-Variable Input
 
-In earlier versions of MODFLOW, most stress-boundary packages read input on a stress period-by-stress period basis, and those values were held constant during the stress period. In \programname{}, many stress values can be specified with a higher degree of time resolution (from time step to time step or from subtime step to subtime step) by using one of two time-variable approaches. Boundaries for which data are read as lists of cells can reference ``time series'' to implement the time variation. Boundaries for which data are read as 2-D arrays can reference ``time-array series'' to do so.
+In earlier versions of MODFLOW, most stress-boundary packages read input on a stress period-by-stress period basis, and those values were held constant during the stress period. In \programname{}, many stress values can be specified with a higher degree of time resolution (from time step to time step or from subtime step to subtime step) by using one of two time-variable approaches. Boundaries for which data are read as lists of cells can reference ``time series'' to implement the time variation. Boundaries for which data are read as arrays, either layer arrays (READASARRAYS) or grid arrays (READARRAYGRID), can reference ``time-array series'' to do so.
 
-When \programname{} needs data from a time series or time-array series for a time interval representing a time step or subtime step, the series is queried to provide a time-averaged value or array of values for the requested time interval.  For each series, the user specifies an interpolation method that determines how the value is assumed to behave between listed times. The interpolation method thus determines how the time averaging is performed. When a time-array series is used, interpolation is performed on an element-by-element basis to generate a 2-D array of interpolated values as needed. 
+When \programname{} needs data from a time series or time-array series for a time interval representing a time step or subtime step, the series is queried to provide a time-averaged value or array of values for the requested time interval.  For each series, the user specifies an interpolation method that determines how the value is assumed to behave between listed times. The interpolation method thus determines how the time averaging is performed. When a time-array series is used, interpolation is performed on an element-by-element basis to generate an array of interpolated values as needed.
 
 The supported interpolation methods are STEPWISE, LINEAR, and LINEAREND. When the STEPWISE interpolation method is used, the value is assumed to remain constant at the value specified in one time-series record until the time listed in the subsequent record, when the value changes abruptly to the new value. In the LINEAR interpolation method, the value is assumed to change linearly between times listed in sequential records. LINEAREND is like LINEAR, except that instead of using the average value over a time step, the value at the end of a time step is used. LINEAREND is supported for time series only; time-array series support STEPWISE and LINEAR. Following sections document the structure of time-series and time-array-series files and their use.
 
 % Time series
 \subsection{Time Series}
 
-Any package that reads data as a list of cells and associated time-dependent input values can obtain those values from time series. For example, flow rates for a well or stage for a river boundary can be extracted from time series. During a simulation, values used for time-varying stresses (or auxiliary values) are based on the values provided in the time series and are updated each time step (or each subtime step, as appropriate). Input to define and use time series is described in this section. 
+Any package that reads data as a list of cells and associated time-dependent input values can obtain those values from time series. For example, flow rates for a well or stage for a river boundary can be extracted from time series. During a simulation, values used for time-varying stresses (or auxiliary values) are based on the values provided in the time series and are updated each time step (or each subtime step, as appropriate). Input to define and use time series is described in this section.
 
 A time series consists of a chronologically ordered list of time-series records, where each record includes a discrete time and a corresponding value. The value can be used to provide any time-varying numeric input, including stresses and auxiliary variables. A time series can be referenced in input for one or multiple variables in a given package.
 
@@ -181,7 +181,7 @@ In the example above, the Well package would have zero wells active in stress pe
 % Time-Array Series
 \subsection{Time-Array Series}
 
-Any package that reads data for a structured model in the form of 2-D arrays can obtain those array data from a time-array series. For example, recharge rates or maximum evapotranspiration rates can be extracted from time-array series. During a simulation, values used for time-varying stresses (or auxiliary values) are based on the values provided in the time-array series and are updated each time step (or each subtime step, as appropriate). Input to define and use time-array series is described in this section. 
+Any package that reads period data in the form of arrays can obtain those array data from a time-array series. Layer array input (READASARRAYS) is supported for structured and vertex grids, and grid array input (READARRAYGRID) is supported for all discretization types. For example, recharge rates or maximum evapotranspiration rates can be extracted from time-array series. During a simulation, values used for time-varying stresses (or auxiliary values) are based on the values provided in the time-array series and are updated each time step (or each subtime step, as appropriate). Input to define and use time-array series is described in this section.
 
 A time-array series consists of a chronologically ordered list of arrays, where each array is associated with a discrete time. The array data can be used to provide any time-varying, array-based numeric input.
 
@@ -225,7 +225,7 @@ END TIME
 
 % tas-time description
 \begin{description}
-\item \texttt{sfac}---Scale factor, which will multiply all array values in time series. SFAC is an optional attribute; if omitted, SFAC = 1.0.
+\item \texttt{sfac}---Scale factor, which will multiply all array values in time series. SFAC is an optional attribute; if omitted, SFAC = 1.0. The DNODATA value (3.0E+30) is not scaled.
 \end{description}
 
 % tas-time description
@@ -235,7 +235,7 @@ END TIME
 
 % tas-array description
 \begin{description}
-\item \texttt{tas-array}---A 2-D array of numeric, floating-point values, or a constant value, readable by the READARRAY array-reading utility.
+\item \texttt{tas-array}---An array of numeric, floating-point values, or a constant value, readable by the READARRAY array-reading utility. For layer array input (READASARRAYS) the array has one value for each cell in a layer. For grid array input (READARRAYGRID) the array has one value for each cell in the model grid and is read with a single array-control record; the LAYERED keyword is not supported. The DNODATA value (3.0E+30) is not scaled by FACTOR.
 \end{description}
 
 % Using Time-Array Series in a Package
@@ -277,6 +277,31 @@ Time-array series are read from the ASCII time-array series file. Other arrays i
 \begin{description}
 \item \texttt{time-array-series-name}---Name of time-array series. The time-array series must be defined in one of the files listed in the OPTIONS block with the TAS6 FILEIN keywords.
 \end{description}
+
+\vspace{5 mm}
+
+% Time-array series with grid array input
+\noindent \textbf{Time-array series with grid array input}
+
+For packages that use the READARRAYGRID option, an array linked to a time-array series is used in the same way as an array read in the PERIOD block.  For packages that define boundary cells, such as CHDG, WELG, DRNG, RIVG, and GHBG, the following apply:
+
+\begin{itemize}
+\item The array in the time-array series at or before the start of the stress period is used with the other arrays in the PERIOD block to determine the boundary cells (see the PERIOD block description for the package).
+\item The time-array series must have a value other than DNODATA (3.0E+30) at every boundary cell at every time used. Values at other cells are ignored.
+\item The link continues in subsequent stress periods, at cells that remain boundary cells, until the array is specified in another PERIOD block or an empty PERIOD block is specified. Specifying the same time-array series again continues its values; as an array given in the block, it also sets the boundary cells for the stress period. Specifying the array with values or a different time-array series replaces the link. An empty PERIOD block removes all links.
+\item A cell that becomes a boundary cell must be given a value for each array by the PERIOD block that adds it; this includes arrays linked to a time-array series, which can be specified again with the same time-array series name.
+\end{itemize}
+
+For packages that change values on the model grid without defining boundary cells, such as TVKG, the following apply:
+
+\begin{itemize}
+\item The linked array is updated each time step at active cells (IDOMAIN greater than zero). Values at other cells are not used.
+\item Where the time-array series has the DNODATA value (3.0E+30) at a time used, the current value of the cell is unchanged. A time-array series can therefore change values at some cells at some times only. A time step that uses a DNODATA value at a cell does not change that cell, even if other values used in the time step are defined.
+\item With LINEAR interpolation, a cell must be defined at both times of an interval or have the DNODATA value at both; a cell defined at only one of the two times is an input error. Use STEPWISE interpolation for values that start or stop at a time.
+\item The link continues in subsequent stress periods until the array is specified in another PERIOD block. Specifying the same time-array series again continues it without change. Specifying the array with values or a different time-array series replaces the link. An empty PERIOD block does not remove links.
+\end{itemize}
+
+For packages that use the READASARRAYS option, a link applies until the next PERIOD block is read.
 
 \vspace{5 mm}
 

@@ -10,6 +10,7 @@ module IdmUtlDfnSelectorModule
   use UtlNcfInputModule
   use UtlSfrtabInputModule
   use UtlTvkInputModule
+  use UtlTvkgInputModule
   use UtlTvsInputModule
   use UtlSpcInputModule
   use UtlSpcaInputModule
@@ -59,6 +60,8 @@ contains
       call set_param_pointer(input_definition, utl_sfrtab_param_definitions)
     case ('TVK')
       call set_param_pointer(input_definition, utl_tvk_param_definitions)
+    case ('TVKG')
+      call set_param_pointer(input_definition, utl_tvkg_param_definitions)
     case ('TVS')
       call set_param_pointer(input_definition, utl_tvs_param_definitions)
     case ('SPC')
@@ -85,6 +88,8 @@ contains
       call set_param_pointer(input_definition, utl_sfrtab_aggregate_definitions)
     case ('TVK')
       call set_param_pointer(input_definition, utl_tvk_aggregate_definitions)
+    case ('TVKG')
+      call set_param_pointer(input_definition, utl_tvkg_aggregate_definitions)
     case ('TVS')
       call set_param_pointer(input_definition, utl_tvs_aggregate_definitions)
     case ('SPC')
@@ -111,6 +116,8 @@ contains
       call set_block_pointer(input_definition, utl_sfrtab_block_definitions)
     case ('TVK')
       call set_block_pointer(input_definition, utl_tvk_block_definitions)
+    case ('TVKG')
+      call set_block_pointer(input_definition, utl_tvkg_block_definitions)
     case ('TVS')
       call set_block_pointer(input_definition, utl_tvs_block_definitions)
     case ('SPC')
@@ -136,6 +143,8 @@ contains
       multi_package = utl_sfrtab_multi_package
     case ('TVK')
       multi_package = utl_tvk_multi_package
+    case ('TVKG')
+      multi_package = utl_tvkg_multi_package
     case ('TVS')
       multi_package = utl_tvs_multi_package
     case ('SPC')
@@ -164,6 +173,8 @@ contains
       is_advanced = utl_sfrtab_is_advanced
     case ('TVK')
       is_advanced = utl_tvk_is_advanced
+    case ('TVKG')
+      is_advanced = utl_tvkg_is_advanced
     case ('TVS')
       is_advanced = utl_tvs_is_advanced
     case ('SPC')
@@ -192,6 +203,8 @@ contains
       call set_subpkg_pointer(subpackages, utl_sfrtab_subpackages)
     case ('TVK')
       call set_subpkg_pointer(subpackages, utl_tvk_subpackages)
+    case ('TVKG')
+      call set_subpkg_pointer(subpackages, utl_tvkg_subpackages)
     case ('TVS')
       call set_subpkg_pointer(subpackages, utl_tvs_subpackages)
     case ('SPC')
@@ -217,6 +230,8 @@ contains
     case ('SFRTAB')
       integrated = .true.
     case ('TVK')
+      integrated = .true.
+    case ('TVKG')
       integrated = .true.
     case ('TVS')
       integrated = .true.

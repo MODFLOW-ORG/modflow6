@@ -488,6 +488,12 @@ contains
       return
     end if
 
+    ! grid array input: every period array
+    if (this%loadtype == GRIDARRAY .and. this%blockname == 'PERIOD') then
+      in_scope = .true.
+      return
+    end if
+
     if (tagname == 'BOUNDNAME') then
       in_scope = this%option_check('BOUNDNAMES', 0)
       return

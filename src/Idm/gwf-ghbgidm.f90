@@ -19,6 +19,9 @@ module GwfGhbgInputModule
     logical :: iprpak = .false.
     logical :: iprflow = .false.
     logical :: ipakcb = .false.
+    logical :: tas_filerecord = .false.
+    logical :: tas6 = .false.
+    logical :: tas6_filename = .false.
     logical :: obs_filerecord = .false.
     logical :: obs6 = .false.
     logical :: filein = .false.
@@ -150,6 +153,63 @@ module GwfGhbgInputModule
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfghbg_tas_filerecord = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS_FILERECORD', & ! tag name
+    'TAS_FILERECORD', & ! fortran variable
+    'RECORD TAS6 FILEIN TAS6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfghbg_tas6 = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS6', & ! tag name
+    'TAS6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'time-array series keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfghbg_tas6_filename = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'GHBG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS6_FILENAME', & ! tag name
+    'TAS6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of time series information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
     .false., & ! layered
     .false. & ! timeseries
     )
@@ -304,7 +364,7 @@ module GwfGhbgInputModule
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
-    .false. & ! timeseries
+    .true. & ! timeseries
     )
 
   type(InputParamDefinitionType), parameter :: &
@@ -323,7 +383,7 @@ module GwfGhbgInputModule
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
-    .false. & ! timeseries
+    .true. & ! timeseries
     )
 
   type(InputParamDefinitionType), parameter :: &
@@ -342,7 +402,7 @@ module GwfGhbgInputModule
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
-    .false. & ! timeseries
+    .true. & ! timeseries
     )
 
   type(InputParamDefinitionType), parameter :: &
@@ -354,6 +414,9 @@ module GwfGhbgInputModule
     gwfghbg_iprpak, &
     gwfghbg_iprflow, &
     gwfghbg_ipakcb, &
+    gwfghbg_tas_filerecord, &
+    gwfghbg_tas6, &
+    gwfghbg_tas6_filename, &
     gwfghbg_obs_filerecord, &
     gwfghbg_obs6, &
     gwfghbg_filein, &

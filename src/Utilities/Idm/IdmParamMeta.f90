@@ -7,10 +7,11 @@
 !!    OUTLETS blocks of advanced packages): (ncol, nrow), nonzero where a
 !!    row's value is linked to a time series, and the column names. A
 !!    linked value is written each time step.
-!!  - PARAM_ISTEP, PARAM_RS, PARAM_VARS (keystring loader; PERIOD block
-!!    parameters addressed by node): (ncol, nfeatures), the input step of
-!!    each value's last write and how it was written (RS_VALUES, given in
-!!    a block; RS_SERIES, by a time series), and the column names.
+!!  - PARAM_ISTEP, PARAM_RS, PARAM_VARS (keystring loader, PERIOD block
+!!    parameters addressed by node; grid array loader, full-grid mode
+!!    arrays): (ncol, nfeatures), the input step of each value's last
+!!    write and how it was written (RS_VALUES, given in a block;
+!!    RS_SERIES, by a time series), and the column names.
 !!  - IN\<param\> (layer and grid array loaders; PERIOD block array
 !!    parameters): the read state (RS_*) of the most recent period block.
 !!  - ISTEP (simulation input path): the input step, the number of

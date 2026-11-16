@@ -3,8 +3,9 @@
 !! Gives a package the loading information that the input loaders
 !! publish for some of its input fields (see IdmParamMetaModule):
 !!  - is_written: PERIOD block keystring parameters addressed by node
-!!    (e.g. TVK, TVS), optionally only values given in a block or only
-!!    values written by a time series.
+!!    (e.g. TVK, TVS) and full-grid mode grid arrays (e.g. TVKG),
+!!    optionally only values given in a block or only values written by
+!!    a time series.
 !!  - is_linked: time series values in the PACKAGEDATA and OUTLETS
 !!    blocks of advanced packages (e.g. SFR, LAK, MAW).
 !!  - read_state: PERIOD block array parameters (READASARRAYS,

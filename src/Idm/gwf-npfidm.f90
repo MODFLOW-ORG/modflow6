@@ -38,6 +38,9 @@ module GwfNpfInputModule
     logical :: tvk6 = .false.
     logical :: filein = .false.
     logical :: tvk6_filename = .false.
+    logical :: tvkg_filerecord = .false.
+    logical :: tvkg6 = .false.
+    logical :: tvkg6_filename = .false.
     logical :: export_ascii = .false.
     logical :: export_nc = .false.
     logical :: inewton = .false.
@@ -58,7 +61,8 @@ module GwfNpfInputModule
   character(len=16), parameter :: &
     gwf_npf_subpackages(*) = &
     [ &
-    'UTL-TVK         ' &
+    'UTL-TVK         ', &
+    'UTL-TVKG        ' &
     ]
 
   type(InputParamDefinitionType), parameter :: &
@@ -537,6 +541,63 @@ module GwfNpfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfnpf_tvkg_filerecord = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'NPF', & ! subcomponent
+    'OPTIONS', & ! block
+    'TVKG_FILERECORD', & ! tag name
+    'TVKG_FILERECORD', & ! fortran variable
+    'RECORD TVKG6 FILEIN TVKG6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfnpf_tvkg6 = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'NPF', & ! subcomponent
+    'OPTIONS', & ! block
+    'TVKG6', & ! tag name
+    'TVKG6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'tvkg keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfnpf_tvkg6_filename = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'NPF', & ! subcomponent
+    'OPTIONS', & ! block
+    'TVKG6_FILENAME', & ! tag name
+    'TVKG6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of TVKG information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfnpf_export_ascii = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -792,6 +853,9 @@ module GwfNpfInputModule
     gwfnpf_tvk6, &
     gwfnpf_filein, &
     gwfnpf_tvk6_filename, &
+    gwfnpf_tvkg_filerecord, &
+    gwfnpf_tvkg6, &
+    gwfnpf_tvkg6_filename, &
     gwfnpf_export_ascii, &
     gwfnpf_export_nc, &
     gwfnpf_inewton, &
