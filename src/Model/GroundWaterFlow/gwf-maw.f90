@@ -170,7 +170,7 @@ module MawModule
     !
     ! -- vector data for each connections
     integer(I4B), dimension(:), pointer, contiguous :: gwfnodes => NULL()
-    integer(I4B), dimension(:), pointer, contiguous :: iboundconn => NULL() !< connection status, 0 = inactive; a connection is simulated only if its well is also active
+    integer(I4B), dimension(:), pointer, contiguous :: iboundconn => NULL() !< connection status, 0 = inactive
     real(DP), dimension(:), pointer, contiguous :: sradius => NULL()
     real(DP), dimension(:), pointer, contiguous :: hk => NULL()
     real(DP), dimension(:), pointer, contiguous :: satcond => NULL()
@@ -2393,10 +2393,11 @@ contains
       end if
       !
       ! -- the well bottom, the datum for well storage, may not be above the
-      !    head or the screen bottom of an active connection; a CONSTANT well
-      !    is checked against its well head
+      !    head of an ACTIVE well or the screen bottom of an active connection;
+      !    a CONSTANT well is checked against its well head, and the head of an
+      !    INACTIVE well is not current
       do imaw = 1, this%nmawwells
-        if (ibotset(imaw) /= 0 .and. this%iboundpak(imaw) >= 0) then
+        if (ibotset(imaw) /= 0 .and. this%iboundpak(imaw) > 0) then
           if (this%bot(imaw) > this%xnewpak(imaw)) then
             write (cstr, fmthdbot) this%xnewpak(imaw), this%bot(imaw)
             call this%maw_set_attribute_error(imaw, 'BOTTOM', trim(cstr))
