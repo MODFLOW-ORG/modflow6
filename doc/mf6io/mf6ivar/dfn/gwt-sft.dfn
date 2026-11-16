@@ -128,6 +128,7 @@ tagged true
 optional true
 longname
 description
+mf6internal strand_filerec
 
 block options
 name stranded

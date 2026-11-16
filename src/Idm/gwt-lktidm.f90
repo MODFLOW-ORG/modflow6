@@ -25,7 +25,7 @@ module GwtLktInputModule
     logical :: options_concentration = .false.
     logical :: concfile = .false.
     logical :: strandtol = .false.
-    logical :: stranded_filerecord = .false.
+    logical :: strand_filerec = .false.
     logical :: stranded = .false.
     logical :: strandedfile = .false.
     logical :: budfilerec = .false.
@@ -303,13 +303,13 @@ module GwtLktInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtlkt_stranded_filerecord = InputParamDefinitionType &
+    gwtlkt_strand_filerec = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'LKT', & ! subcomponent
     'OPTIONS', & ! block
     'STRANDED_FILERECORD', & ! tag name
-    'STRANDED_FILERECORD', & ! fortran variable
+    'STRAND_FILEREC', & ! fortran variable
     'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
     '', & ! shape
     '', & ! longname
@@ -1020,7 +1020,7 @@ module GwtLktInputModule
     gwtlkt_options_concentration, &
     gwtlkt_concfile, &
     gwtlkt_strandtol, &
-    gwtlkt_stranded_filerecord, &
+    gwtlkt_strand_filerec, &
     gwtlkt_stranded, &
     gwtlkt_strandedfile, &
     gwtlkt_budfilerec, &

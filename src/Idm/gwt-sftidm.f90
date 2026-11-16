@@ -25,7 +25,7 @@ module GwtSftInputModule
     logical :: options_concentration = .false.
     logical :: concfile = .false.
     logical :: strandtol = .false.
-    logical :: stranded_filerecord = .false.
+    logical :: strand_filerec = .false.
     logical :: stranded = .false.
     logical :: strandedfile = .false.
     logical :: budfilerec = .false.
@@ -303,13 +303,13 @@ module GwtSftInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtsft_stranded_filerecord = InputParamDefinitionType &
+    gwtsft_strand_filerec = InputParamDefinitionType &
     ( &
     'GWT', & ! component
     'SFT', & ! subcomponent
     'OPTIONS', & ! block
     'STRANDED_FILERECORD', & ! tag name
-    'STRANDED_FILERECORD', & ! fortran variable
+    'STRAND_FILEREC', & ! fortran variable
     'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
     '', & ! shape
     '', & ! longname
@@ -1020,7 +1020,7 @@ module GwtSftInputModule
     gwtsft_options_concentration, &
     gwtsft_concfile, &
     gwtsft_strandtol, &
-    gwtsft_stranded_filerecord, &
+    gwtsft_strand_filerec, &
     gwtsft_stranded, &
     gwtsft_strandedfile, &
     gwtsft_budfilerec, &
