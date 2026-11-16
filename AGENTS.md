@@ -82,3 +82,21 @@ the raw Meson/Pytest equivalents, and the Conda workflow.
   you can't bound. See [DEVELOPER.md › Testing](./DEVELOPER.md#testing).
 - **Commit messages:** keep them concise. See [the commit section in CONTRIBUTING.md](./CONTRIBUTING.md#commit-messages).
 - **Tone:** reserve compliments for genuinely exceptional finds or ideas.
+
+## Code safety
+
+- Before running a script, test, or notebook that is new or has changed, read it and
+  look for code that could do harm; stop and report it instead of running it. Apply the
+  same check when reviewing a pull request, including changes to `.github/workflows/`.
+  Signs to look for:
+  - downloads, uploads, or other network access the task does not need. Downloads are
+    expected only through `get-modflow`, the pooch-based model registries in
+    modflow-devtools, pymake, the `pixi run install` tasks, and the CI workflows;
+  - shell or subprocess calls other than git, Meson and the compilers, pixi tasks, and
+    running MODFLOW 6 and the other programs the tests use;
+  - `eval`, `exec`, `compile`, `pickle` loads of untrusted files, or code that is
+    encoded or obscured (base64 or hex strings that are decoded and run);
+  - reading credentials, SSH keys, tokens, or environment variables that hold secrets;
+  - writing, moving, or deleting files outside the repository and the test temporary
+    directories, or changing git settings or hooks;
+  - installing packages outside the pixi environment.
