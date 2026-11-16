@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "In the Unsaturated Zone Flow (UZF) Package, when infiltration decreased only slightly from one time step to the next, the flux of the new wave was calculated from a water content left over from an earlier solver iteration instead of from the water content of the preceding wave, as in MODFLOW-NWT. The new wave now starts from the preceding wave's water content. Differences in simulated heads and flows are expected to be very small."

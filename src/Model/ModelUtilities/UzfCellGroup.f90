@@ -1181,6 +1181,8 @@ contains
         return
       end if
     else
+      this%uzthst(this%nwavst(icell), icell) = &
+        this%uzthst(this%nwavst(icell) - 1, icell)
       this%uzdpst(this%nwavst(icell), icell) = DZERO
       this%uzflst(this%nwavst(icell), icell) = &
         this%vks(icell) * (((this%uzthst(this%nwavst(icell), icell) - &
