@@ -115,7 +115,7 @@ contains
     bind(C, name="update_until")
     !DIR$ ATTRIBUTES DLLEXPORT :: bmi_update_until
     ! -- modules
-    use ConstantsModule, only: DONE, DPREC
+    use ConstantsModule, only: DONE, DEM10
     use TdisModule, only: totim, totalsimtime, endofsimulation
     ! -- dummy variables
     real(kind=c_double), value, intent(in) :: time !< time to advance the simulation to
@@ -126,8 +126,9 @@ contains
 
     bmi_status = BMI_FAILURE
 
-    ! -- times that differ by roundoff are the same time
-    tol = DPREC * max(DONE, abs(time))
+    ! -- times within a relative 1e-10 are the same time, so that roundoff
+    !    accumulated in the simulation time does not add a time step
+    tol = DEM10 * max(DONE, abs(time))
     if (time < totim - tol) then
       write (bmi_last_error, fmt_invalid_time) time, &
         'which is before the current time'
@@ -1226,8 +1227,8 @@ contains
   !> @brief Copy the values of a variable at the given indices into the array
   !!
   !! The indices are zero-based positions in the variable's values in C-style
-  !! (row-major) order, so a variable of rank > 1 is indexed as if flattened.
-  !! The caller should provide @p c_arr_ptr pointing to an array of size
+  !! (row-major) order of the shape returned by get_var_shape(), so a variable
+  !! of rank > 1 is indexed as if flattened. The caller should provide @p c_arr_ptr pointing to an array of size
   !! @p count. Double precision and integer variables are supported.
   !<
   function get_value_at_indices(c_var_address, c_arr_ptr, c_inds, count) &
@@ -1286,7 +1287,8 @@ contains
   !> @brief Set the values of a variable at the given indices
   !!
   !! The indices are zero-based positions in the variable's values in C-style
-  !! (row-major) order, as in get_value_at_indices(). The array pointed to by
+  !! (row-major) order of the shape returned by get_var_shape(), as in
+  !! get_value_at_indices(). The array pointed to by
   !! @p c_arr_ptr holds @p count values. Double precision and integer
   !! variables are supported. A new hydraulic conductivity does not change
   !! the saturated conductance until NPF recalculates it, as it does for TVK.
@@ -1368,6 +1370,11 @@ contains
     integer(I4B) :: i, rank
 
     valid = .false.
+    if (count < 0) then
+      write (bmi_last_error, fmt_invalid_count) count, trim(var_name)
+      call report_bmi_error(bmi_last_error)
+      return
+    end if
     rank = -1
     call get_mem_rank(var_name, mem_path, rank)
     if (rank < 0 .or. rank > 3) then

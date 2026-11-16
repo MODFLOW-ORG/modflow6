@@ -37,6 +37,9 @@ module mf6bmiError
   character(len=*), parameter :: fmt_invalid_index = & !< Index out of range, args: index, variable name
                                  "('BMI Error, index ', i0, &
                                  &' out of range for variable: ', a)"
+  character(len=*), parameter :: fmt_invalid_count = & !< Negative number of indices, args: count, variable name
+                                 "('BMI Error, invalid number of indices ', &
+                                 &i0, ' for variable: ', a)"
   character(len=*), parameter :: fmt_invalid_time = & !< Time cannot be reached, args: time, detail
                                  "('BMI Error, cannot update until time ', &
                                  &g0, ', ', a)"

@@ -162,6 +162,11 @@ contains
                                              c_loc(vals), inds, 1) &
                  == BMI_FAILURE, "get_value_at_indices out of range")
       if (allocated(error)) exit run
+      inds(1) = -1
+      call check(error, get_value_at_indices(c_string('LEFTMODEL/X'), &
+                                             c_loc(vals), inds, 1) &
+                 == BMI_FAILURE, "get_value_at_indices negative index")
+      if (allocated(error)) exit run
 
       ! -- set two of the five horizontal hydraulic conductivities
       inds(1:2) = [1, 3]
@@ -177,6 +182,22 @@ contains
       do i = 1, 5
         call check(error, k(i) == k_expected(i), &
                    "K11 after set_value_at_indices")
+        if (allocated(error)) exit run
+      end do
+
+      ! -- an index out of range sets none of the values
+      inds(1:2) = [0, 5]
+      new_k = [9.0_DP, 9.0_DP]
+      call check(error, set_value_at_indices(c_string('LEFTMODEL/NPF/K11'), &
+                                             inds, 2, c_loc(new_k)) &
+                 == BMI_FAILURE, "set_value_at_indices out of range")
+      if (allocated(error)) exit run
+      call check(error, get_value(c_string('LEFTMODEL/NPF/K11'), ptr) &
+                 == BMI_SUCCESS, "get_value of K11")
+      if (allocated(error)) exit run
+      do i = 1, 5
+        call check(error, k(i) == k_expected(i), &
+                   "K11 changed by a failed set_value_at_indices")
         if (allocated(error)) exit run
       end do
 
