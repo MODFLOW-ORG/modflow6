@@ -107,7 +107,7 @@ contains
 
   end subroutine allocate_arrays
 
-  !> @ brief Initialize package inputs
+  !> @brief Initialize package inputs
   subroutine mip_ar(this)
     ! dummy variables
     class(PrtMipType), intent(inout) :: this !< PrtMipType object

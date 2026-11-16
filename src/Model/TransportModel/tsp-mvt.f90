@@ -180,7 +180,7 @@ contains
     call this%read_options()
   end subroutine mvt_df
 
-  !> @ brief Set pointer to mvrbudobj
+  !> @brief Set pointer to mvrbudobj
   !!
   !! Store a pointer to mvrbudobj, which contains the simulated water
   !! mover flows from either a gwf model MVR package or from a gwf-gwf
@@ -507,7 +507,7 @@ contains
     !call this%budobj%write_budtable(kstp, kper, this%iout)
   end subroutine mvt_ot_bdsummary
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
   !!
   !!  Method to deallocate memory for the package.
   !<
@@ -562,7 +562,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine mvt_da
 
-  !> @ brief Allocate scalar variables for package
+  !> @brief Allocate scalar variables for package
   !!
   !!  Method to allocate scalar variables for the MVT package.
   !<

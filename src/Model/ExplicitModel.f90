@@ -35,32 +35,32 @@ module ExplicitModelModule
 
 contains
 
-  !> @ brief Advance the model
+  !> @brief Advance the model
   subroutine model_ad(this)
     class(ExplicitModelType) :: this
   end subroutine model_ad
 
-  !> @ brief Solve the model
+  !> @brief Solve the model
   subroutine model_solve(this, isuppress_output)
     class(ExplicitModelType) :: this
     integer(I4B), intent(in) :: isuppress_output
   end subroutine model_solve
 
-  !> @ brief Calculate model flows
+  !> @brief Calculate model flows
   subroutine model_cq(this, icnvg, isuppress_output)
     class(ExplicitModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
   end subroutine model_cq
 
-  !> @ brief Calculate model budget
+  !> @brief Calculate model budget
   subroutine model_bd(this, icnvg, isuppress_output)
     class(ExplicitModelType) :: this
     integer(I4B), intent(in) :: icnvg
     integer(I4B), intent(in) :: isuppress_output
   end subroutine model_bd
 
-  !> @ brief Deallocate the model
+  !> @brief Deallocate the model
   subroutine model_da(this)
     class(ExplicitModelType) :: this
 
@@ -84,7 +84,7 @@ contains
     call this%BaseModelType%model_da()
   end subroutine model_da
 
-  !> @ brief Allocate scalar variables
+  !> @brief Allocate scalar variables
   subroutine allocate_scalars(this, modelname)
     class(ExplicitModelType) :: this
     character(len=*), intent(in) :: modelname
@@ -114,7 +114,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Cast a generic object into an explicit model
+  !> @brief Cast a generic object into an explicit model
   function CastAsExplicitModelClass(obj) result(res)
     class(*), pointer, intent(inout) :: obj
     class(ExplicitModelType), pointer :: res
@@ -128,7 +128,7 @@ contains
     end select
   end function CastAsExplicitModelClass
 
-  !> @ brief Add explicit model to a generic list
+  !> @brief Add explicit model to a generic list
   subroutine AddExplicitModelToList(list, model)
     ! dummy
     type(ListType), intent(inout) :: list
@@ -140,7 +140,7 @@ contains
     call list%Add(obj)
   end subroutine AddExplicitModelToList
 
-  !> @ brief Get generic object from list and return as explicit model
+  !> @brief Get generic object from list and return as explicit model
   function GetExplicitModelFromList(list, idx) result(res)
     ! dummy
     type(ListType), intent(inout) :: list

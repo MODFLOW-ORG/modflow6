@@ -212,7 +212,7 @@ contains
 
   ! Non-type-bound procedures
 
-  !> @ brief Create a new ObsType object
+  !> @brief Create a new ObsType object
   !!
   !!  Subroutine to create a new ObsType object. Soubroutine
   !!
@@ -231,7 +231,7 @@ contains
     obs%inUnitObs => inobs
   end subroutine obs_cr
 
-  !> @ brief Process IDstring provided for each observation
+  !> @brief Process IDstring provided for each observation
   !!
   !!  Subroutine to process the IDstring provided for each observation. The
   !!  IDstring identifies the location in the model of the node(s) or feature(s)
@@ -281,7 +281,7 @@ contains
 
   ! Type-bound public procedures
 
-  !> @ brief Define some members of an ObsType object
+  !> @brief Define some members of an ObsType object
   !!
   !!  Subroutine to define some members of an ObsType object.
   !!
@@ -303,7 +303,7 @@ contains
     call this%parser%Initialize(this%inUnitObs, this%iout)
   end subroutine obs_df
 
-  !> @ brief Allocate and read package observations
+  !> @brief Allocate and read package observations
   !!
   !!  Subroutine to allocate and read observations for a package. Subroutine
   !!
@@ -321,7 +321,7 @@ contains
     end if
   end subroutine obs_ar
 
-  !> @ brief Advance package observations
+  !> @brief Advance package observations
   !!
   !!  Subroutine to advance each package observations by resetting the
   !!  "current" value.
@@ -341,7 +341,7 @@ contains
     end do
   end subroutine obs_ad
 
-  !> @ brief Clear observation output lines
+  !> @brief Clear observation output lines
   !!
   !!  Subroutine to clear output lines in preparation for new rows of
   !!  continuous observations.
@@ -354,7 +354,7 @@ contains
     call this%obsOutputList%ResetAllObsEmptyLines()
   end subroutine obs_bd_clear
 
-  !> @ brief Output observation data
+  !> @brief Output observation data
   !!
   !!  Subroutine to output observation data. Subroutine
   !!
@@ -376,7 +376,7 @@ contains
     end if
   end subroutine obs_ot
 
-  !> @ brief Deallocate observation data
+  !> @brief Deallocate observation data
   !!
   !!  Subroutine to deallocate observation data.
   !!
@@ -421,7 +421,7 @@ contains
     nullify (this%inUnitObs)
   end subroutine obs_da
 
-  !> @ brief Save a simulated value
+  !> @brief Save a simulated value
   !!
   !!  Subroutine to save or accumulate a simulated value to its ObserveType
   !!  object.
@@ -451,7 +451,7 @@ contains
     end if
   end subroutine SaveOneSimval
 
-  !> @ brief Store observation type
+  !> @brief Store observation type
   !!
   !!  Subroutine to store type name and related information for an
   !!  observation type that belongs to a package or model in the
@@ -503,7 +503,7 @@ contains
 
   ! Type-bound private procedures
 
-  !> @ brief Allocate observation scalars
+  !> @brief Allocate observation scalars
   !!
   !!  Subroutine to allocate and initialize memory for non-allocatable
   !   members (scalars).
@@ -523,7 +523,7 @@ contains
     this%inputFilename = ''
   end subroutine allocate_scalars
 
-  !> @ brief Read observation options and output formats
+  !> @brief Read observation options and output formats
   !!
   !!  Subroutine to read the options block in the observation input file and
   !!  define output formats.
@@ -550,7 +550,7 @@ contains
     end if
   end subroutine obs_ar1
 
-  !> @ brief Call procedure provided by package
+  !> @brief Call procedure provided by package
   !!
   !!  Subroutine to call procedure provided by package to interpret IDstring
   !!  and store required data.
@@ -589,7 +589,7 @@ contains
     end if
   end subroutine obs_ar2
 
-  !> @ brief Read observation options block
+  !> @brief Read observation options block
   !!
   !!  Subroutine to read the options block in the observation input file.
   !!
@@ -698,7 +698,7 @@ contains
     if (localdigits >= 0) this%idigits = localdigits
   end subroutine read_obs_options
 
-  !> @ brief Define observation output formats
+  !> @brief Define observation output formats
   !!
   !!  Subroutine to define observation output formats.
   !!
@@ -718,7 +718,7 @@ contains
     end if
   end subroutine define_fmts
 
-  !> @ brief Read observations
+  !> @brief Read observations
   !!
   !!  Subroutine to read the observations from the observation input file
   !!  and build headers for the observation output files.
@@ -736,7 +736,7 @@ contains
     call this%build_headers()
   end subroutine read_observations
 
-  !> @ brief Get the number of observations
+  !> @brief Get the number of observations
   !!
   !!  Function to get the number of observationns in this ObsType object.
   !!
@@ -750,7 +750,7 @@ contains
     get_num = this%obsList%Count()
   end function get_num
 
-  !> @ brief Build observation headers
+  !> @brief Build observation headers
   !!
   !!  Subroutine to build headers for CSV-formatted and unformatted
   !!  continuous-observation output files and write them to those files.
@@ -825,7 +825,7 @@ contains
     end do all_obsfiles
   end subroutine build_headers
 
-  !> @ brief Get an array of observations
+  !> @brief Get an array of observations
   !!
   !!  Subroutine to get an array containing all observations in this
   !!  ObsType object.
@@ -847,7 +847,7 @@ contains
     end if
   end subroutine get_obs_array
 
-  !> @ brief Get an ObsDataType object
+  !> @brief Get an ObsDataType object
   !!
   !!  Function to get an ObsDataType object for the specified observation type.
   !!
@@ -876,7 +876,7 @@ contains
     end if
   end function get_obs_datum
 
-  !> @ brief Set observation array values
+  !> @brief Set observation array values
   !!
   !!  Subroutine to set values in an observation array.
   !!
@@ -899,7 +899,7 @@ contains
     end do
   end subroutine set_obs_array
 
-  !> @ brief Get an ObserveType object
+  !> @brief Get an ObserveType object
   !!
   !!  Subroutine to get an ObserveType object from the list of observations
   !!  using an list index.
@@ -914,7 +914,7 @@ contains
     obsrv => GetObsFromList(this%obsList, indx)
   end function get_obs
 
-  !> @ brief Read observation blocks
+  !> @brief Read observation blocks
   !!
   !!  Subroutine to read CONTIGUOUS block from the observation input file.
   !!
@@ -1067,7 +1067,7 @@ contains
     end if
   end subroutine read_obs_blocks
 
-  !> @ brief Write observation data
+  !> @brief Write observation data
   !!
   !!  Subroutine to write observation data for a time step for each observation
   !!  to the observation output file.

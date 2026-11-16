@@ -114,7 +114,7 @@ module GwfGwfExchangeModule
 
 contains
 
-  !> @ brief Create GWF GWF exchange
+  !> @brief Create GWF GWF exchange
   !!
   !! Create a new GWF to GWF exchange object.
   !<
@@ -199,7 +199,7 @@ contains
     call obs_cr(exchange%obs, exchange%inobs)
   end subroutine gwfexchange_create
 
-  !> @ brief Define GWF GWF exchange
+  !> @brief Define GWF GWF exchange
   !!
   !! Define GWF to GWF exchange object.
   !<
@@ -356,7 +356,7 @@ contains
     end if
   end subroutine validate_exchange
 
-  !> @ brief Add connections
+  !> @brief Add connections
   !!
   !! Override parent exg_ac so that gnc can add connections here.
   !<
@@ -383,7 +383,7 @@ contains
     end if
   end subroutine gwf_gwf_ac
 
-  !> @ brief Map connections
+  !> @brief Map connections
   !!
   !! Map the connections in the global matrix
   !<
@@ -410,7 +410,7 @@ contains
     end if
   end subroutine gwf_gwf_mc
 
-  !> @ brief Allocate and read
+  !> @brief Allocate and read
   !!
   !! Allocated and read and calculate saturated conductance
   !<
@@ -428,7 +428,7 @@ contains
     call this%obs%obs_ar()
   end subroutine gwf_gwf_ar
 
-  !> @ brief Read and prepare
+  !> @brief Read and prepare
   !!
   !! Read new data for mover and obs
   !<
@@ -448,7 +448,7 @@ contains
     call this%gwf_gwf_rp_obs()
   end subroutine gwf_gwf_rp
 
-  !> @ brief Advance
+  !> @brief Advance
   !!
   !! Advance mover and obs
   !<
@@ -463,7 +463,7 @@ contains
     call this%obs%obs_ad()
   end subroutine gwf_gwf_ad
 
-  !> @ brief Calculate coefficients
+  !> @brief Calculate coefficients
   !!
   !! Rewet as necessary
   !<
@@ -481,7 +481,7 @@ contains
     call this%rewet(kiter)
   end subroutine gwf_gwf_cf
 
-  !> @ brief Fill coefficients
+  !> @brief Fill coefficients
   !!
   !! Calculate conductance and fill coefficient matrix
   !<
@@ -549,7 +549,7 @@ contains
     end if
   end subroutine gwf_gwf_fc
 
-  !> @ brief Fill Newton
+  !> @brief Fill Newton
   !!
   !! Fill amatsln with Newton terms
   !<
@@ -655,7 +655,7 @@ contains
     end do
   end subroutine gwf_gwf_fn
 
-  !> @ brief Calculate flow
+  !> @brief Calculate flow
   !!
   !! Calculate flow between two cells and store in simvals, also set
   !! information needed for specific discharge calculation
@@ -851,7 +851,7 @@ contains
     end do
   end subroutine gwf_gwf_set_flow_to_npf
 
-  !> @ brief Budget
+  !> @brief Budget
   !!
   !! Accumulate budget terms
   !<
@@ -897,7 +897,7 @@ contains
     if (this%inmvr > 0) call this%mvr%mvr_bd()
   end subroutine gwf_gwf_bd
 
-  !> @ brief gwf-gwf-chd-bd
+  !> @brief gwf-gwf-chd-bd
   !!
   !! Account for flow from an external model into a chd cell
   !<
@@ -960,7 +960,7 @@ contains
     end if
   end subroutine gwf_gwf_chd_bd
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -1152,7 +1152,7 @@ contains
     end do
   end subroutine gwf_gwf_bdsav_model
 
-  !> @ brief Output
+  !> @brief Output
   !!
   !! Write output
   !<
@@ -1223,7 +1223,7 @@ contains
     call this%obs%obs_ot()
   end subroutine gwf_gwf_ot
 
-  !> @ brief Source options
+  !> @brief Source options
   !!
   !! Source the options block
   !<
@@ -1328,7 +1328,7 @@ contains
     end if
   end subroutine source_options
 
-  !> @ brief Read ghost nodes
+  !> @brief Read ghost nodes
   !!
   !! Read and process ghost nodes
   !<
@@ -1382,7 +1382,7 @@ contains
     close (this%ingnc)
   end subroutine read_gnc
 
-  !> @ brief Read mover
+  !> @brief Read mover
   !!
   !! Read and process movers
   !<
@@ -1413,7 +1413,7 @@ contains
     this%mvr%suppress_fileout = this%is_datacopy
   end subroutine read_mvr
 
-  !> @ brief Rewet
+  !> @brief Rewet
   !!
   !! Check if rewetting should propagate from one model to another
   !<
@@ -1551,7 +1551,7 @@ contains
     end do
   end subroutine calc_cond_sat
 
-  !> @ brief Calculate the conductance
+  !> @brief Calculate the conductance
   !!
   !! Calculate the conductance based on state
   !<
@@ -1642,7 +1642,7 @@ contains
     end do
   end subroutine condcalc
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables
   !<
@@ -1673,7 +1673,7 @@ contains
     this%satomega = DZERO
   end subroutine allocate_scalars
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !! Deallocate memory associated with this object
   !<
@@ -1730,7 +1730,7 @@ contains
     call this%DisConnExchangeType%disconnex_da()
   end subroutine gwf_gwf_da
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate arrays
   !<
@@ -1801,7 +1801,7 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @ brief Define observations
+  !> @brief Define observations
   !!
   !! Define the observations associated with this object
   !<
@@ -1817,7 +1817,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => gwf_gwf_process_obsID
   end subroutine gwf_gwf_df_obs
 
-  !> @ brief Read and prepare observations
+  !> @brief Read and prepare observations
   !!
   !! Handle observation exchanges exchange-boundary names.
   !<
@@ -1890,7 +1890,7 @@ contains
     end if
   end subroutine gwf_gwf_rp_obs
 
-  !> @ brief Final processing
+  !> @brief Final processing
   !!
   !! Conduct any final processing
   !<
@@ -1899,7 +1899,7 @@ contains
     class(GwfExchangeType) :: this !<  GwfExchangeType
   end subroutine gwf_gwf_fp
 
-  !> @ brief Calculate flow
+  !> @brief Calculate flow
   !!
   !! Calculate the flow for the specified exchange and node numbers
   !<
@@ -1917,7 +1917,7 @@ contains
     qcalc = this%cond(iexg) * (this%gwfmodel2%x(n2) - this%gwfmodel1%x(n1))
   end function qcalc
 
-  !> @ brief Set symmetric flag
+  !> @brief Set symmetric flag
   !!
   !! Return flag indicating whether or not this exchange will cause the
   !! coefficient matrix to be asymmetric.
@@ -1985,7 +1985,7 @@ contains
     use_im = use_im .or. (inbuy_m1 > 0)
   end function
 
-  !> @ brief Save simulated flow observations
+  !> @brief Save simulated flow observations
   !!
   !! Save the simulated flows for each exchange
   !<
@@ -2030,7 +2030,7 @@ contains
     end if
   end subroutine gwf_gwf_save_simvals
 
-  !> @ brief Obs ID processor
+  !> @brief Obs ID processor
   !!
   !! Process observations for this exchange
   !<
@@ -2069,7 +2069,7 @@ contains
     end if
   end subroutine gwf_gwf_process_obsID
 
-  !> @ brief Cast polymorphic object as exchange
+  !> @brief Cast polymorphic object as exchange
   !!
   !! Cast polymorphic object as exchange
   !<
@@ -2089,7 +2089,7 @@ contains
     end select
   end function CastAsGwfExchange
 
-  !> @ brief Get exchange from list
+  !> @brief Get exchange from list
   !!
   !! Return an exchange from the list for specified index
   !<

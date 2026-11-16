@@ -22,7 +22,7 @@ module ObsUtilityModule
 
 contains
 
-  !> @ brief Write formatted observation
+  !> @brief Write formatted observation
   !!
   !!  Subroutine to write observation data for the end of a time step to
   !!  a formatted file. If the simulation time has not been written to
@@ -65,7 +65,7 @@ contains
     flush (nunit)
   end subroutine write_fmtd_obs
 
-  !> @ brief Write unformatted observation
+  !> @brief Write unformatted observation
   !!
   !!  Subroutine to write observation data for the end of a time step to
   !!  a unformatted file. If the simulation time has not been written for

@@ -241,7 +241,7 @@ contains
     end if
   end subroutine drn_options
 
-  !> @ brief Log DRN specific package options
+  !> @brief Log DRN specific package options
   !<
   subroutine log_drn_options(this, found)
     ! -- modules

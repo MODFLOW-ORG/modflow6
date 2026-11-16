@@ -301,7 +301,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => DefaultObsIdProcessor
   end subroutine esl_df_obs
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
   !!
   !!  Return a bound value associated with an ncolbnd index
   !!  and row.

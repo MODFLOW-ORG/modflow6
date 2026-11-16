@@ -194,7 +194,7 @@ contains
     end if
   end subroutine write_all
 
-  !> @ brief Deallocate message storage.
+  !> @brief Deallocate message storage.
   subroutine deallocate (this)
     class(MessagesType) :: this
     if (allocated(this%messages)) deallocate (this%messages)

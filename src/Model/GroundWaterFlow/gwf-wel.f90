@@ -73,7 +73,7 @@ module WelModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new WEL Package object
   !!
@@ -114,7 +114,7 @@ contains
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine wel_create
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
     !!
     !!  Deallocate WEL package scalars and arrays.
     !!
@@ -138,7 +138,7 @@ contains
     nullify (this%flowred_provider)
   end subroutine wel_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
     !!
     !! Allocate and initialize scalars for the WEL package. The base model
     !! allocate scalars method is also called.
@@ -168,7 +168,7 @@ contains
     this%iafrauxcol = 0
   end subroutine wel_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
     !!
     !! Allocate and initialize arrays for the WEL package
     !!
@@ -193,7 +193,7 @@ contains
                      'Q', this%input_mempath)
   end subroutine wel_allocate_arrays
 
-  !> @ brief Source additional options for package
+  !> @brief Source additional options for package
     !!
     !!  Source additional options for WEL package.
     !!
@@ -310,7 +310,7 @@ contains
     end if
   end subroutine wel_options
 
-  !> @ brief Log WEL specific package options
+  !> @brief Log WEL specific package options
   !<
   subroutine log_wel_options(this, found)
     ! -- modules
@@ -363,7 +363,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_wel_options
 
-  !> @ brief Check WEL period data.
+  !> @brief Check WEL period data.
     !!
     !!  Verify that the per-well AUTO_FLOW_REDUCE_AUXNAME auxiliary values are
     !!  within valid bounds. When FLOW_REDUCTION_LENGTH is not specified the
@@ -434,7 +434,7 @@ contains
     end if
   end subroutine wel_ck
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
     !!
     !!  Formulate the hcof and rhs terms for the WEL package that will be
     !!  added to the coefficient matrix and right-hand side vector.
@@ -517,7 +517,7 @@ contains
 
   end subroutine reduction_factor
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
     !!
     !!  Add the hcof and rhs terms for the WEL package to the
     !!  coefficient matrix and right-hand side vector.
@@ -555,7 +555,7 @@ contains
     end do
   end subroutine wel_fc
 
-  !> @ brief Add Newton-Raphson terms for package into solution.
+  !> @brief Add Newton-Raphson terms for package into solution.
     !!
     !!  Calculate and add the Newton-Raphson terms for the WEL package to the
     !!  coefficient matrix and right-hand side vector.
@@ -651,7 +651,7 @@ contains
     end do
   end subroutine wel_afr_csv_write
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
     !!
     !!  Method defined the list label for the WEL package. The list label is
     !!  the heading that is written to iout when PRINT_INPUT option is used.
@@ -795,7 +795,7 @@ contains
     end if
   end function q_mult
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
     !!
     !!  Return a bound value associated with an ncolbnd index
     !!  and row.

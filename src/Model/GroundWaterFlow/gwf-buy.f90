@@ -1058,7 +1058,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine buy_da
 
-  !> @ brief Source dimensions for package
+  !> @brief Source dimensions for package
   !<
   subroutine source_dimensions(this)
     ! -- modules
@@ -1084,7 +1084,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief source packagedata for package
+  !> @brief source packagedata for package
   !<
   subroutine source_packagedata(this)
     ! -- modules
@@ -1695,7 +1695,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Source input options
+  !> @brief Source input options
   !<
   subroutine source_options(this)
     ! -- modules
@@ -1740,7 +1740,7 @@ contains
     call this%log_options(found, densityfile)
   end subroutine source_options
 
-  !> @ brief log input options
+  !> @brief log input options
   !<
   subroutine log_options(this, found, densityfile)
     ! -- modules

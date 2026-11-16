@@ -1252,7 +1252,7 @@ contains
                  nlist, iout, delt, pertim, totim)
   end subroutine record_srcdst_list_header
 
-  !> @ brief Calculate the flow width between two cells
+  !> @brief Calculate the flow width between two cells
   !!
   !! This should only be called for connections with IHC > 0.
   !! Routine is needed, so it can be overridden by the linear
