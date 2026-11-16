@@ -35,8 +35,9 @@ EXCLUDE = [
     # a name file pointing to inputs in the parent folder
     "testWetDry/mf2005",
     # singular once the EVT cells fall below the extinction depth, so the
-    # result depends on roundoff in the ILU0 factorization
-    "mf2005/testevt",
+    # result depends on roundoff in the ILU0 factorization; matched without
+    # the mf2005/ prefix, which models from a local checkout do not have
+    "testevt",
 ]
 # models to force original regression comparison
 # (otherwise enabled with --original-regression)
