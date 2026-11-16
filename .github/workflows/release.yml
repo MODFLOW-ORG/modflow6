@@ -459,9 +459,6 @@ jobs:
         shell: cmd
         run: |
           :: copy dependencies
-          copy "C:\Windows\System32\ucrtbase.dll" .
-          copy "C:\Windows\System32\msvcrt.dll" .
-          copy "C:\Windows\System32\msvcp_win.dll" .
           copy "C:\Windows\SYSTEM32\MSVCP140.dll" .
           copy "C:\Windows\SYSTEM32\VCRUNTIME140.dll" .
           copy "C:\Windows\SYSTEM32\VCRUNTIME140_1.dll" .
