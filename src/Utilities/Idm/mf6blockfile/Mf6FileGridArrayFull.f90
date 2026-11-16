@@ -13,8 +13,10 @@
 !!    time step at active cells until the array is given again; a series
 !!    DNODATA value leaves the cell unchanged.
 !!
-!! Main array values are stamped when written (see IdmParamMetaModule):
+!! Array values are stamped when written (see IdmParamMetaModule):
 !! RS_VALUES when given in a block, RS_SERIES when written by a series.
+!! Each array has a stamp column, named by its input name for a main
+!! array and by its auxiliary variable name for an aux array.
 !<
 module GridArrayFullLoadModule
 
@@ -41,6 +43,7 @@ module GridArrayFullLoadModule
     procedure :: tas_links_update
     procedure :: destroy
     procedure :: stamp_links
+    procedure, private :: stamp_name
   end type GridArrayFullLoadType
 
 contains
@@ -75,17 +78,17 @@ contains
     end do
   end subroutine mode_init
 
-  !> @brief Allocate write stamps of the main arrays
+  !> @brief Allocate write stamps, one column per array (slot)
   !<
   subroutine df(this)
     class(GridArrayFullLoadType), intent(inout) :: this
     character(len=LENVARNAME), dimension(:), allocatable :: varnames
     integer(I4B) :: islot
     call this%GridArrayLoadType%df()
-    if (this%nmain > 0) then
-      allocate (varnames(this%nmain))
-      do islot = 1, this%nmain
-        varnames(islot) = this%slots(islot)%mf6varname
+    if (size(this%slots) > 0) then
+      allocate (varnames(size(this%slots)))
+      do islot = 1, size(this%slots)
+        varnames(islot) = this%stamp_name(islot)
       end do
       call this%written%allocate(varnames, this%ctx%nodes, &
                                  this%mf6_input%mempath)
@@ -131,10 +134,10 @@ contains
       if (nodes(n) == DNODATA .or. .not. this%active(n)) cycle
       if (iaux == 0) then
         dbl1d(n) = nodes(n)
-        call this%written%set(islot, n, RS_VALUES)
       else
         this%ctx%auxvar(iaux, n) = nodes(n)
       end if
+      call this%written%set(islot, n, RS_VALUES)
     end do
   end subroutine array_store
 
@@ -153,7 +156,7 @@ contains
     call this%make_links(inunit, this%activemap, .true.)
   end subroutine tas_links_update
 
-  !> @brief Stamp the main array values written by series links this step
+  !> @brief Stamp the array values written by series links this step
   !<
   subroutine stamp_links(this)
     use TimeArraySeriesLinkModule, only: TimeArraySeriesLinkType
@@ -166,13 +169,27 @@ contains
       tasLink => this%tasmanager%GetLink(i)
       if (.not. associated(tasLink)) cycle
       if (.not. allocated(tasLink%written)) cycle
-      do islot = 1, this%nmain
-        if (.not. same_word(tasLink%Text, this%slots(islot)%mf6varname)) cycle
+      do islot = 1, size(this%slots)
+        if (.not. same_word(tasLink%Text, this%stamp_name(islot))) cycle
         do n = 1, size(tasLink%written)
           if (tasLink%written(n)) call this%written%set(islot, n, RS_SERIES)
         end do
       end do
     end do
   end subroutine stamp_links
+
+  !> @brief Stamp column name of an array: its input name, or its
+  !! auxiliary variable name for an aux array
+  !<
+  function stamp_name(this, islot) result(name)
+    class(GridArrayFullLoadType), intent(in) :: this
+    integer(I4B), intent(in) :: islot
+    character(len=LENVARNAME) :: name
+    if (this%slots(islot)%iaux > 0) then
+      name = this%slots(islot)%tagname(1:LENVARNAME)
+    else
+      name = this%slots(islot)%mf6varname
+    end if
+  end function stamp_name
 
 end module GridArrayFullLoadModule
