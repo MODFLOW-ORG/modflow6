@@ -108,6 +108,19 @@ module ParticleModule
   end type ParticleType
 
   !> @brief Structure of arrays to store particles.
+  !!
+  !! Arrays are registered with the memory manager (PL*) and can
+  !! be accessed through the API. They are reallocated as particles
+  !! are added, so API users must re-fetch pointers after each time
+  !! step.
+  !!
+  !! PRP packages keep two stores. The committed store holds the
+  !! particle state as of the last finalized time step, and is the
+  !! one to use through the API. The staging store (memory path
+  !! suffix -STAGING) holds the state of the current solve attempt.
+  !! It is internal: it is reset from the committed store at the
+  !! start of each attempt, and its layout and timing may change.
+  !<
   type ParticleStoreType
     private
     ! identity
@@ -232,6 +245,10 @@ contains
     integer(I4B), intent(in) :: np !< number of particles
     character(*), intent(in) :: mempath !< path to memory
 
+    ! Skip if the size is unchanged, so pointers to the
+    ! store's arrays (e.g. via the API) remain valid.
+    if (np == this%num_stored()) return
+
     call mem_reallocate(this%imdl, np, 'PLIMDL', mempath)
     call mem_reallocate(this%iprp, np, 'PLIPRP', mempath)
     call mem_reallocate(this%irpt, np, 'PLIRPT', mempath)
@@ -342,7 +359,11 @@ contains
   end subroutine put
 
   !> @brief Copy all particle state from source to this store.
-  !! The two particle stores must already be of the same size.
+  !!
+  !! This store must be at least as large as the source. Particles
+  !! are copied to the first source%num_stored() slots. Any slots
+  !! after that are left as they are.
+  !<
   subroutine copy_from(this, source)
     ! dummy
     class(ParticleStoreType), intent(inout) :: this
@@ -352,37 +373,37 @@ contains
 
     np = source%num_stored()
 
-    if (this%num_stored() /= np) then
+    if (this%num_stored() < np) then
       write (errmsg, '(a,i0,a,i0,a)') &
-        'Cannot copy particle store, size mismatch (source=', np, &
-        ', dest=', this%num_stored(), ')'
+        'Cannot copy particle store, destination too small (source=', &
+        np, ', dest=', this%num_stored(), ')'
       call pstop(1, errmsg)
     end if
 
-    this%name(:) = source%name(:)
-    this%imdl(:) = source%imdl(:)
-    this%iprp(:) = source%iprp(:)
-    this%irpt(:) = source%irpt(:)
-    this%extend(:) = source%extend(:)
-    this%frctrn(:) = source%frctrn(:)
-    this%istopweaksink(:) = source%istopweaksink(:)
-    this%istopzone(:) = source%istopzone(:)
-    this%idrymeth(:) = source%idrymeth(:)
-    this%iexmeth(:) = source%iexmeth(:)
-    this%icycwin(:) = source%icycwin(:)
-    this%extol(:) = source%extol(:)
-    this%itrdomain(:, :) = source%itrdomain(:, :)
-    this%iboundary(:, :) = source%iboundary(:, :)
-    this%icu(:) = source%icu(:)
-    this%ilay(:) = source%ilay(:)
-    this%izone(:) = source%izone(:)
-    this%istatus(:) = source%istatus(:)
-    this%x(:) = source%x(:)
-    this%y(:) = source%y(:)
-    this%z(:) = source%z(:)
-    this%trelease(:) = source%trelease(:)
-    this%tstop(:) = source%tstop(:)
-    this%ttrack(:) = source%ttrack(:)
+    this%name(1:np) = source%name(:)
+    this%imdl(1:np) = source%imdl(:)
+    this%iprp(1:np) = source%iprp(:)
+    this%irpt(1:np) = source%irpt(:)
+    this%extend(1:np) = source%extend(:)
+    this%frctrn(1:np) = source%frctrn(:)
+    this%istopweaksink(1:np) = source%istopweaksink(:)
+    this%istopzone(1:np) = source%istopzone(:)
+    this%idrymeth(1:np) = source%idrymeth(:)
+    this%iexmeth(1:np) = source%iexmeth(:)
+    this%icycwin(1:np) = source%icycwin(:)
+    this%extol(1:np) = source%extol(:)
+    this%itrdomain(1:np, :) = source%itrdomain(:, :)
+    this%iboundary(1:np, :) = source%iboundary(:, :)
+    this%icu(1:np) = source%icu(:)
+    this%ilay(1:np) = source%ilay(:)
+    this%izone(1:np) = source%izone(:)
+    this%istatus(1:np) = source%istatus(:)
+    this%x(1:np) = source%x(:)
+    this%y(1:np) = source%y(:)
+    this%z(1:np) = source%z(:)
+    this%trelease(1:np) = source%trelease(:)
+    this%tstop(1:np) = source%tstop(:)
+    this%ttrack(1:np) = source%ttrack(:)
   end subroutine copy_from
 
   !> @brief Transform particle coordinates.

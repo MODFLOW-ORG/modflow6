@@ -423,7 +423,7 @@ contains
   subroutine prp_ad(this)
     use TdisModule, only: totalsimtime, kstp, kper
     class(PrtPrpType) :: this
-    integer(I4B) :: ip, it
+    integer(I4B) :: ip, it, np
     real(DP) :: t
 
     ! Notes
@@ -434,15 +434,6 @@ contains
     ! of particles, but only one at any time.
     ! Coincident release times are merged to
     ! a single time by the release scheduler.
-
-    ! Reset staging from committed state for this solve attempt.
-    if (.not. this%fmi%flows_from_file) then
-      call this%particles_staging%resize( &
-        this%particles%num_stored(), &
-        trim(this%memoryPath)//'-STAGING')
-      call this%particles_staging%copy_from(this%particles)
-      this%nparticles = this%particles%num_stored()
-    end if
 
     ! Reset mass accumulators for this time step.
     do ip = 1, this%nreleasepoints
@@ -463,18 +454,26 @@ contains
       call this%schedule%advance()
     end if
 
+    ! Reset staging from the committed state for this solve attempt,
+    ! sized for the particles to be released, which we know from the
+    ! schedule. Resize once to the final size, so an ATS retry, which
+    ! gets here again with the same size, doesn't reallocate and
+    ! invalidate pointers to the store. Always reset, regardless of
+    ! flow source, so changes to the committed store through the API
+    ! take effect.
+    np = this%particles%num_stored()
+    if (this%schedule%any()) &
+      np = np + this%nreleasepoints * this%schedule%count()
+    call this%particles_staging%resize(np, &
+                                       trim(this%memoryPath)//'-STAGING')
+    call this%particles_staging%copy_from(this%particles)
+    this%nparticles = this%particles%num_stored()
+
     ! Check if any releases will be made this time step.
     if (.not. this%schedule%any()) return
 
     ! Log the schedule to the list file.
     call this%log_release()
-
-    ! Expand the staging store. We know from the
-    ! schedule how many particles will be released.
-    call this%particles_staging%resize( &
-      this%particles_staging%num_stored() + &
-      (this%nreleasepoints * this%schedule%count()), &
-      trim(this%memoryPath)//'-STAGING')
 
     ! Release a particle from each point for
     ! each release time in the current step.
