@@ -21,7 +21,6 @@ module GwtApiInputModule
     logical :: obs6 = .false.
     logical :: filein = .false.
     logical :: obs6_filename = .false.
-    logical :: mover = .false.
     logical :: maxbound = .false.
   end type GwtApiParamFoundType
 
@@ -187,25 +186,6 @@ module GwtApiInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
-    gwtapi_mover = InputParamDefinitionType &
-    ( &
-    'GWT', & ! component
-    'API', & ! subcomponent
-    'OPTIONS', & ! block
-    'MOVER', & ! tag name
-    'MOVER', & ! fortran variable
-    'KEYWORD', & ! type
-    '', & ! shape
-    '', & ! longname
-    .false., & ! required
-    .false., & ! developmode
-    .false., & ! multi-record
-    .false., & ! preserve case
-    .false., & ! layered
-    .false. & ! timeseries
-    )
-
-  type(InputParamDefinitionType), parameter :: &
     gwtapi_maxbound = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -235,7 +215,6 @@ module GwtApiInputModule
     gwtapi_obs6, &
     gwtapi_filein, &
     gwtapi_obs6_filename, &
-    gwtapi_mover, &
     gwtapi_maxbound &
     ]
 
