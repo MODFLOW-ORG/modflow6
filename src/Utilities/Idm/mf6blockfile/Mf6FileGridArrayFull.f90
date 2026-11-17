@@ -34,7 +34,7 @@ module GridArrayFullLoadModule
   !<
   type, extends(GridArrayLoadType) :: GridArrayFullLoadType
     integer(I4B), dimension(:), pointer, contiguous :: activemap => null() !< user node if active, else 0
-    type(ParamStampsType) :: written !< write stamps of main arrays
+    type(ParamStampsType) :: written !< write stamps, one column per array
   contains
     procedure :: mode_init
     procedure :: df

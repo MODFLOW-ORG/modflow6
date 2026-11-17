@@ -5,7 +5,8 @@ test_gwf_npf_tvk08, with K at one cell given by a linear time-array series
 (DNODATA at the other cells). The first time step is retried; each retry
 backs up in time, so the series value is applied again. The K value
 applied for each attempt of every time step must be the series average
-over that attempt. A short second period without ATS follows.
+over that attempt. A second period without ATS follows; its one time step
+applies the series value once.
 
 Case 1 (tvkg_atsa): K from the series.
 Case 2 (tvkg_atsb): K from the series and a K33 ratio array (NPF
@@ -133,16 +134,16 @@ def check_output(idx, test):
     t, dt = att[-1]
     assert np.isclose(t + dt, perlen[0]), f"ATS period ended at {t + dt}"
 
-    # value applied for each attempt: the linear series average over it
+    # value applied for each attempt, then for the step of period 2: the
+    # linear series average over it
+    att.append((perlen[0], perlen[1]))
     text = (test.workspace / f"{name}.lst").read_text()
     kvals = applied(text, "K")
-    assert len(kvals) >= len(att), (
-        f"K applied {len(kvals)} times for {len(att)} attempts"
-    )
+    assert len(kvals) == len(att), f"K applied {len(kvals)} times, expected {len(att)}"
     expected = [k0 + (k1 - k0) * (t + 0.5 * dt) / tend for t, dt in att]
     # the listing gives five significant digits
-    assert np.allclose(kvals[: len(att)], expected, rtol=1.0e-4), (
-        f"K applied for each attempt {kvals[: len(att)]}, expected {expected}"
+    assert np.allclose(kvals, expected, rtol=1.0e-4), (
+        f"K applied {kvals}, expected {expected}"
     )
     if name == "tvkg_atsb":
         k33vals = applied(text, "K33")
