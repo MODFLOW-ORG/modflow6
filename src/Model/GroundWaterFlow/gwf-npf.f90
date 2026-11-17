@@ -572,6 +572,10 @@ contains
     !
     do n = 1, this%dis%nodes
       if (this%icelltype(n) /= 0) then
+        !
+        ! -- a convertible cell that is inactive at the start, such as one
+        !    whose starting head is below its bottom, has no saturated
+        !    thickness
         if (this%ibound(n) == 0) then
           satn = DZERO
         else
