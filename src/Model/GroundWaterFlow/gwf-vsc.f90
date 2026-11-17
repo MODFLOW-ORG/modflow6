@@ -454,19 +454,16 @@ contains
     deallocate (locconc)
   end subroutine vsc_ad_bnd
 
-  !> @brief advance ghb while accounting for viscosity
+  !> @brief advance ghb, drn and riv while accounting for viscosity
   !!
-  !! When flow enters from ghb boundary type, take into account the effects
-  !! of viscosity on the user-specified conductance terms
+  !! Set the viscosity ratio that the package applies to each boundary
+  !! conductance
   !<
   subroutine vsc_ad_standard_bnd(packobj, hnew, visc, viscref, locelev, &
                                  locvisc, locconc, dviscdc, cviscref, &
                                  ivisc, a2, a3, a4, ctemp)
     ! -- modules
     use BndModule, only: BndType
-    use DrnModule, only: DrnType
-    use RivModule, only: RivType
-    use GhbModule, only: GhbType
     class(BndType), pointer :: packobj
     ! -- dummy
     real(DP), intent(in), dimension(:) :: hnew
@@ -482,46 +479,18 @@ contains
     real(DP), dimension(:), intent(inout) :: ctemp
     ! -- local
     integer(I4B) :: n
-    integer(I4B) :: node
     real(DP) :: viscbnd
     !
-    ! -- Process density terms for each GHB
+    ! -- Set the viscosity ratio for each boundary
     do n = 1, packobj%nbound
-      node = packobj%nodelist(n)
-      !
-      ! -- Check if boundary cell is active, cycle if not
-      if (packobj%ibound(node) <= 0) cycle
       !
       ! -- calculate the viscosity associated with the boundary
       viscbnd = calc_bnd_viscosity(n, locvisc, locconc, viscref, dviscdc, &
                                    cviscref, ctemp, ivisc, a2, a3, a4, &
                                    packobj%auxvar)
       !
-      ! -- update boundary conductance based on viscosity effects
-      select case (packobj%filtyp)
-      case ('DRN')
-        select type (packobj)
-        type is (DrnType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case ('GHB')
-        select type (packobj)
-        type is (GhbType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case ('RIV')
-        select type (packobj)
-        type is (RivType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case default
-        packobj%bound(2, n) = update_bnd_cond(viscbnd, viscref, &
-                                              packobj%condinput(n))
-      end select
-      !
+      ! -- viscosity ratio applied to the boundary conductance
+      packobj%viscratio(n) = calc_vsc_ratio(viscref, viscbnd)
     end do
   end subroutine vsc_ad_standard_bnd
 
@@ -686,26 +655,6 @@ contains
       end do
     end select
   end subroutine vsc_ad_maw
-
-  !> @brief Apply viscosity to the conductance term
-  !!
-  !! When the viscosity package is active apply the viscosity ratio to the
-  !! active boundary package's conductance term.
-  !<
-  function update_bnd_cond(bndvisc, viscref, spcfdcond) result(updatedcond)
-    ! -- dummy
-    real(DP), intent(in) :: viscref
-    real(DP), intent(in) :: bndvisc
-    real(DP), intent(in) :: spcfdcond
-    ! -- local
-    real(DP) :: vscratio
-    real(DP) :: updatedcond
-    !
-    vscratio = calc_vsc_ratio(viscref, bndvisc)
-    !
-    ! -- calculate new conductance here
-    updatedcond = vscratio * spcfdcond
-  end function update_bnd_cond
 
   !> @brief calculate and return the viscosity ratio
   !<

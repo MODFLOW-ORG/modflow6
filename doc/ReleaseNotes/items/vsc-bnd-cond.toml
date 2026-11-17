@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "stress"
+description = "When the Viscosity (VSC) Package was active, the General-Head Boundary (GHB), Drain (DRN) and River (RIV) Packages applied an AUXMULTCOL conductance multiplier twice, and time-series changes to the conductance or multiplier were ignored. VSC now applies the viscosity ratio to the conductance including the multiplier and time-series values."
