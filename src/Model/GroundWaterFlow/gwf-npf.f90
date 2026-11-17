@@ -72,9 +72,9 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
     real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
-    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
+    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity before VSC modification, including TVK changes
     integer(I4B), pointer :: iavgkeff => null() !< effective conductivity averaging (0: harmonic, 1: arithmetic)
     integer(I4B), pointer :: ik22 => null() !< flag that k22 is specified
     integer(I4B), pointer :: ik33 => null() !< flag that k33 is specified
@@ -356,18 +356,19 @@ contains
       this%vsc => vsc
     end if
     !
-    ! -- allocate arrays to store original user input in case TVK/VSC modify them
+    ! -- allocate arrays to store K before VSC adjustment
     if (this%invsc > 0) then
       !
-      ! -- Reallocate arrays that store user-input values.
+      ! -- Reallocate arrays that store K before VSC adjustment.
       call mem_reallocate(this%k11input, this%dis%nodes, 'K11INPUT', &
                           this%memoryPath)
       call mem_reallocate(this%k22input, this%dis%nodes, 'K22INPUT', &
                           this%memoryPath)
       call mem_reallocate(this%k33input, this%dis%nodes, 'K33INPUT', &
                           this%memoryPath)
-      ! Allocate arrays that will store the original K values.  When VSC active,
-      ! the current Kxx arrays carry the viscosity-adjusted K values.
+      ! Store K before VSC adjustment; TVK changes are made to these arrays.
+      ! When VSC active, the current Kxx arrays carry the viscosity-adjusted
+      ! K values.
       ! This approach leverages existing functionality that makes use of K.
       call this%store_original_k_arrays(this%dis%nodes, this%dis%njas)
     end if
@@ -1409,8 +1410,8 @@ contains
   !!
   !! The K arrays (K11, etc.) get multiplied by the viscosity ratio so that
   !! subsequent uses of K already take into account the effect of viscosity.
-  !! Thus the original user-specified K array values are lost unless they are
-  !! backed up in k11input, for example.  In a new stress period/time step,
+  !! Thus K before VSC adjustment, including TVK changes, is kept in
+  !! k11input, for example.  In a new stress period/time step,
   !! the values in k11input are multiplied by the viscosity ratio, not k11
   !! since it contains viscosity-adjusted hydraulic conductivity values.
   !<

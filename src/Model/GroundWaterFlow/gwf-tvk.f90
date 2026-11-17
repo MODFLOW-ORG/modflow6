@@ -26,9 +26,9 @@ module TvkModule
   type, extends(TvBaseType) :: TvkType
     integer(I4B), pointer :: ik22overk => null() !< NPF flag that k22 is specified as anisotropy ratio
     integer(I4B), pointer :: ik33overk => null() !< NPF flag that k33 is specified as anisotropy ratio
-    real(DP), dimension(:), pointer, contiguous :: k11 => null() !< NPF hydraulic conductivity; if anisotropic, then this is Kx prior to rotation
-    real(DP), dimension(:), pointer, contiguous :: k22 => null() !< NPF hydraulic conductivity; if specified then this is Ky prior to rotation
-    real(DP), dimension(:), pointer, contiguous :: k33 => null() !< NPF hydraulic conductivity; if specified then this is Kz prior to rotation
+    real(DP), dimension(:), pointer, contiguous :: k11 => null() !< NPF hydraulic conductivity (before VSC adjustment if VSC is active); if anisotropic, then this is Kx prior to rotation
+    real(DP), dimension(:), pointer, contiguous :: k22 => null() !< NPF hydraulic conductivity (before VSC adjustment if VSC is active); if specified then this is Ky prior to rotation
+    real(DP), dimension(:), pointer, contiguous :: k33 => null() !< NPF hydraulic conductivity (before VSC adjustment if VSC is active); if specified then this is Kz prior to rotation
     integer(I4B), pointer :: kchangeper => null() !< NPF last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() !< NPF last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() !< NPF grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
@@ -74,6 +74,7 @@ contains
     class(TvkType) :: this
     ! -- local
     character(len=LENMEMPATH) :: npfMemoryPath
+    integer(I4B), pointer :: invsc
     ! -- formats
     character(len=*), parameter :: fmttvk = &
       "(1x,/1x,'TVK -- TIME-VARYING K PACKAGE, VERSION 1, 08/18/2021', &
@@ -84,9 +85,19 @@ contains
     npfMemoryPath = create_mem_path(this%name_model, 'NPF')
     call mem_setptr(this%ik22overk, 'IK22OVERK', npfMemoryPath)
     call mem_setptr(this%ik33overk, 'IK33OVERK', npfMemoryPath)
-    call mem_setptr(this%k11, 'K11', npfMemoryPath)
-    call mem_setptr(this%k22, 'K22', npfMemoryPath)
-    call mem_setptr(this%k33, 'K33', npfMemoryPath)
+    !
+    ! -- with VSC active, change the K values that VSC scales by the
+    !    viscosity ratio each time step
+    call mem_setptr(invsc, 'INVSC', npfMemoryPath)
+    if (invsc > 0) then
+      call mem_setptr(this%k11, 'K11INPUT', npfMemoryPath)
+      call mem_setptr(this%k22, 'K22INPUT', npfMemoryPath)
+      call mem_setptr(this%k33, 'K33INPUT', npfMemoryPath)
+    else
+      call mem_setptr(this%k11, 'K11', npfMemoryPath)
+      call mem_setptr(this%k22, 'K22', npfMemoryPath)
+      call mem_setptr(this%k33, 'K33', npfMemoryPath)
+    end if
     call mem_setptr(this%kchangeper, 'KCHANGEPER', npfMemoryPath)
     call mem_setptr(this%kchangestp, 'KCHANGESTP', npfMemoryPath)
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
