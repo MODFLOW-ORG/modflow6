@@ -75,7 +75,7 @@ module ParticleTracksModule
   type :: ParticleTracksType
     private
     integer(I4B), public :: iout = -1 !< log file unit
-    integer(I4B), public :: ntrackfiles !< number of track files
+    integer(I4B), public :: ntrackfiles = 0 !< number of track files
     type(ParticleTrackFileType), public, allocatable :: files(:) !< track files
     type(ParticleTrackEventSelectionType), public :: selected !< event selection
     class(ParticleTrackEventBufferType), allocatable :: buffer !< event buffer
@@ -116,6 +116,7 @@ contains
     class(ParticleTracksType) :: this
     logical(LGP), intent(in) :: scratch
 
+    if (.not. allocated(this%files)) allocate (this%files(0))
     if (scratch) then
       allocate (ScratchFileBufferType :: this%buffer)
     else
@@ -259,8 +260,10 @@ contains
     type is (ParticleTracksType)
       if (context%iout >= 0) &
         call event%log(context%iout)
-      if (context%is_selected(event)) &
-        call context%buffer_event(particle, event)
+      if (context%ntrackfiles > 0) then
+        if (context%is_selected(event)) &
+          call context%buffer_event(particle, event)
+      end if
       handled = .true.
     end select
   end function add_particle_event
