@@ -4,10 +4,17 @@ package. VSC scales hydraulic conductivity by the viscosity ratio each
 time step; a TVK change must be scaled, not replaced by the scaled
 original value.
 
-Steady flow between constant heads, with a uniform temperature (one
-viscosity ratio for every cell). TVK changes hydraulic conductivity at
-the middle cells in period 2, which has three time steps. The period 2
-heads and flows must match a model with that conductivity given in NPF.
+This test simulates groundwater flow between two constant head boundaries.
+Additionally, a uniform temperature is simulated by an accompanying GWT
+model with the VSC package active so that intercell conductance is
+modified by the VSC package. When TVK is invoked in this setup, the code
+must use the updated K values supplied by TVK rather than the original K
+values in the NPF package, and then scale the intercell conductance values
+based on the viscosity. During the first stress period, flows between the
+reference model and its corresponding scenario are not expected to match
+since the K field does not match. During the second stress period, the TVK
+package updates the K values in NPF to match what is in the reference model
+and the heads and flow rates for each time step match.
 
 Case 1 (vsc07-tvk01): one layer, flow along a row; TVK changes K.
 Case 2 (vsc07-tvk02): two layers, flow from layer 1 to layer 2; TVK
