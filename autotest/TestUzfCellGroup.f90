@@ -34,7 +34,8 @@ contains
                 new_unittest("unsat_stor_partial", test_unsat_stor_partial), &
                 new_unittest("get_wcnew", test_get_wcnew), &
                 new_unittest("water_content_at_depth", test_wc_at_depth), &
-                new_unittest("caph", test_caph) &
+                new_unittest("caph", test_caph), &
+                new_unittest("trailwav_single_wave", test_trailwav_single_wave) &
                 ]
   end subroutine collect_uzfcellgroup
 
@@ -247,5 +248,63 @@ contains
     ! -- above saturation there is no capillary head
     call check(error, uzf%caph(ICELL, THETA_SAT + DONE), DZERO)
   end subroutine test_caph
+
+  !> @brief A small infiltration decrease adds one wave set from the wave above
+  !!
+  !! When the new surface water content is within 1e-9 of the top wave's,
+  !! trailwav adds a single wave rather than a set of trailing waves. Its
+  !! flux and speed come from the preceding wave's water content, as in
+  !! MODFLOW-NWT, and not from whatever is left in the new wave's slot.
+  !<
+  subroutine test_trailwav_single_wave(error)
+    type(error_type), allocatable, intent(out) :: error
+    type(UzfCellGroupType) :: uzf
+    integer(I4B) :: ierr
+    integer(I4B) :: inew
+    real(DP) :: smoist
+    real(DP) :: se
+    real(DP) :: expected_flux
+    real(DP) :: expected_speed
+
+    call setup(uzf, 'TRAILWAVSINGLE')
+    uzf%ntrail = 7
+    ! -- the new wave goes in the slot above the three wave train
+    inew = 4
+    uzf%nwavst(ICELL) = inew
+    ! -- leave junk in the new slot, as earlier routing would
+    uzf%uzthst(inew, ICELL) = -999.0_DP
+    uzf%uzflst(inew, ICELL) = -999.0_DP
+    uzf%uzspst(inew, ICELL) = -999.0_DP
+    uzf%uzdpst(inew, ICELL) = -999.0_DP
+    ! -- infiltration slightly below the flux at the top wave's content
+    smoist = THETA(3) - 1.0e-12_DP
+    uzf%surflux(ICELL) = uzf%vks(ICELL) * &
+                         ((smoist - THETA_RES) / &
+                          (THETA_SAT - THETA_RES))**uzf%eps(ICELL)
+    se = (THETA(3) - THETA_RES) / (THETA_SAT - THETA_RES)
+    expected_flux = uzf%vks(ICELL) * se**uzf%eps(ICELL)
+    expected_speed = uzf%eps(ICELL) * uzf%vks(ICELL) / &
+                     (THETA_SAT - THETA_RES) * se**(uzf%eps(ICELL) - DONE)
+
+    ierr = 0
+    call uzf%trailwav(ICELL, ierr)
+
+    call check(error, ierr, 0)
+    if (allocated(error)) return
+    ! -- a single wave is added, so the wave count is unchanged
+    call check(error, uzf%nwavst(ICELL), inew)
+    if (allocated(error)) return
+    call check(error, uzf%uzthst(inew, ICELL), smoist, thr=1.0e-14_DP)
+    if (allocated(error)) return
+    call check(error, uzf%uzdpst(inew, ICELL), DZERO)
+    if (allocated(error)) return
+    call check(error, uzf%uzflst(inew, ICELL), expected_flux, thr=1.0e-14_DP)
+    if (allocated(error)) return
+    call check(error, uzf%uzspst(inew, ICELL), expected_speed, &
+               thr=1.0e-12_DP)
+    if (allocated(error)) return
+    ! -- the waves below are untouched
+    call check(error, uzf%uzthst(3, ICELL), THETA(3))
+  end subroutine test_trailwav_single_wave
 
 end module TestUzfCellGroup
