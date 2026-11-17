@@ -15,7 +15,9 @@ covers PRT run offline (via FMI) through the API. Check that:
 
 The flow system is the one on the FloPy readme. Particles are
 released from the top left cell at two times, the second in
-the middle of the simulation, so the store grows once.
+the middle of the simulation, so the store grows once. A second
+case adds a release time after the end of the simulation, with
+EXTEND_TRACKING off, which should leave no trace in the store.
 """
 
 from pathlib import Path
@@ -29,9 +31,10 @@ from modflow_devtools.markers import requires_pkg
 from prt_test_utils import FlopyReadmeCase, get_model_name
 
 simname = "prtlibexg"
-cases = [simname]
+cases = [simname, f"{simname}lt"]
 nstp = 5
 releasetimes = [0.0, 0.5]  # second falls in the third time step
+latetime = 5.0  # after the end, dropped without extend tracking
 snapshot_file = "pl_snapshots.csv"
 
 # particle store variables to check against the track output
@@ -50,6 +53,8 @@ pl_vars = {
 
 
 def build_sim(name, ws, exe):
+    late = name.endswith("lt")
+    times = releasetimes + ([latetime] if late else [])
     sim = FlopyReadmeCase.get_gwf_sim(name, ws, exe)
     sim.tdis.perioddata = [(FlopyReadmeCase.perlen, nstp, FlopyReadmeCase.tsmult)]
 
@@ -67,9 +72,9 @@ def build_sim(name, ws, exe):
         pname="prp1",
         nreleasepts=len(FlopyReadmeCase.releasepts_prt),
         packagedata=FlopyReadmeCase.releasepts_prt,
-        nreleasetimes=len(releasetimes),
-        releasetimes=[[t] for t in releasetimes],
-        extend_tracking=True,
+        nreleasetimes=len(times),
+        releasetimes=[[t] for t in times],
+        extend_tracking=not late,
     )
     flopy.mf6.ModflowPrtoc(prt, trackcsv_filerecord=[f"{prt_name}.trk.csv"])
     flopy.mf6.ModflowGwfprt(
