@@ -1,6 +1,8 @@
 """
-Run a GWF and PRT model in the same simulation through the API,
-solving each solution in turn, and check that:
+Run a GWF and PRT model coupled by a GWF-PRT exchange in the same
+simulation through the API, solving each solution in turn. This is
+the API counterpart of test_prt_exg.py. test_prt_libmf6_budget.py
+covers PRT run offline (via FMI) through the API. Check that:
 
 1. the particle tracks match a run of the same simulation with
    the mf6 executable
