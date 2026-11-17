@@ -12,6 +12,7 @@ dependencies:
   - filelock
   - flaky
   - fprettify
+  - gfortran=15
   - fortran-language-server
   - geopandas
   - gitpython
@@ -43,7 +44,6 @@ dependencies:
   - scipy
   - shapely
   - syrupy<5
-  - test-drive
   - xarray
   - xugrid
   

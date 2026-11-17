@@ -1,6 +1,9 @@
 module TestBinaryFileReader
-  use testdrive, only: error_type, unittest_type, new_unittest, check
+  use testdrive, only: error_type, unittest_type, new_unittest, check, &
+                       skip_test
   use KindModule, only: I4B, I8B, DP, LGP
+  use ConstantsModule, only: OSWIN
+  use DefinedMacros, only: get_os
   use BudgetFileReaderModule, only: BudgetFileReaderType, BudgetFileHeaderType
   use HeadFileReaderModule, only: HeadFileReaderType, HeadFileHeaderType
   implicit none
@@ -13,6 +16,12 @@ module TestBinaryFileReader
   !! file is sparse and uses almost no disk space. Scratch files give each run
   !! a unique file, since meson may run the suite in parallel processes.
   integer(I8B), parameter :: POS0 = 2_I8B**31 - 100_I8B
+
+  !> NTFS doesn't make files sparse by default, so on Windows each test that
+  !! writes beyond 2 GiB first fills the gap with zeros. That takes longer than
+  !! meson's test timeout, so these tests are skipped there.
+  character(len=*), parameter :: SKIP_WINDOWS = &
+                                 'writing beyond 2 GiB is too slow on Windows'
 
 contains
 
@@ -40,6 +49,11 @@ contains
     integer(I8B) :: pos1
     integer(I4B) :: iu, i
     logical(LGP) :: success
+
+    if (get_os() == OSWIN) then
+      call skip_test(error, SKIP_WINDOWS)
+      return
+    end if
 
     flowja = [(real(i, DP), i=1, nja)]
     flow = [(-real(i, DP), i=1, nflow)]
@@ -100,6 +114,11 @@ contains
     integer(I8B) :: pos1
     integer(I4B) :: iu, i
     logical(LGP) :: success
+
+    if (get_os() == OSWIN) then
+      call skip_test(error, SKIP_WINDOWS)
+      return
+    end if
 
     head1 = [(real(i, DP), i=1, ncol * nrow)]
     head2 = -head1
@@ -242,6 +261,11 @@ contains
     integer(I8B) :: expected(nrec), pos
     integer(I4B) :: iu, i
     logical(LGP) :: success
+
+    if (get_os() == OSWIN) then
+      call skip_test(error, SKIP_WINDOWS)
+      return
+    end if
 
     flow = reshape([(real(i, DP), i=1, nval * (nrec - 1))], [nval, nrec - 1])
 

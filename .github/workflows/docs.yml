@@ -44,7 +44,6 @@ jobs:
         shell: bash -l {0}
     env:
       FC: gfortran
-      FC_V: 12
       # benchmarks take ~40m, only run them on develop or on request
       BENCHMARK: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/develop') }}
     steps:
@@ -95,12 +94,6 @@ jobs:
       - name: Build MF6IO files from DFNs
         working-directory: modflow6
         run: pixi run run-mf6ivar
-
-      - name: Setup ${{ env.FC }} ${{ env.FC_V }}
-        uses: fortran-lang/setup-fortran@v1
-        with:
-          compiler: gcc
-          version: ${{ env.FC_V }}
 
       - name: Build MF6
         working-directory: modflow6
