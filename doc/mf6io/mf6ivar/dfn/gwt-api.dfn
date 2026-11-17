@@ -80,15 +80,6 @@ optional false
 longname obs6 input filename
 description REPLACE obs6_filename {'{#1}': 'api boundary', '{#2}': '\\ref{table:gwt-obstypetable}'}
 
-block options
-name mover
-type keyword
-tagged true
-reader urword
-optional true
-longname
-description REPLACE mover {'{#1}': 'api boundary'}
-
 # --------------------- gwt api dimensions ---------------------
 
 block dimensions
