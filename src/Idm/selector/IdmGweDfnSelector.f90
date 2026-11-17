@@ -7,6 +7,7 @@ module IdmGweDfnSelectorModule
                                    InputBlockDefinitionType
   use GweNamInputModule
   use GweAdvInputModule
+  use GweApiInputModule
   use GweCtpInputModule
   use GweCndInputModule
   use GweDisvInputModule
@@ -62,6 +63,8 @@ contains
       call set_param_pointer(input_definition, gwe_nam_param_definitions)
     case ('ADV')
       call set_param_pointer(input_definition, gwe_adv_param_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwe_api_param_definitions)
     case ('CTP')
       call set_param_pointer(input_definition, gwe_ctp_param_definitions)
     case ('CND')
@@ -106,6 +109,8 @@ contains
       call set_param_pointer(input_definition, gwe_nam_aggregate_definitions)
     case ('ADV')
       call set_param_pointer(input_definition, gwe_adv_aggregate_definitions)
+    case ('API')
+      call set_param_pointer(input_definition, gwe_api_aggregate_definitions)
     case ('CTP')
       call set_param_pointer(input_definition, gwe_ctp_aggregate_definitions)
     case ('CND')
@@ -150,6 +155,8 @@ contains
       call set_block_pointer(input_definition, gwe_nam_block_definitions)
     case ('ADV')
       call set_block_pointer(input_definition, gwe_adv_block_definitions)
+    case ('API')
+      call set_block_pointer(input_definition, gwe_api_block_definitions)
     case ('CTP')
       call set_block_pointer(input_definition, gwe_ctp_block_definitions)
     case ('CND')
@@ -193,6 +200,8 @@ contains
       multi_package = gwe_nam_multi_package
     case ('ADV')
       multi_package = gwe_adv_multi_package
+    case ('API')
+      multi_package = gwe_api_multi_package
     case ('CTP')
       multi_package = gwe_ctp_multi_package
     case ('CND')
@@ -239,6 +248,8 @@ contains
       is_advanced = gwe_nam_is_advanced
     case ('ADV')
       is_advanced = gwe_adv_is_advanced
+    case ('API')
+      is_advanced = gwe_api_is_advanced
     case ('CTP')
       is_advanced = gwe_ctp_is_advanced
     case ('CND')
@@ -285,6 +296,8 @@ contains
       call set_subpkg_pointer(subpackages, gwe_nam_subpackages)
     case ('ADV')
       call set_subpkg_pointer(subpackages, gwe_adv_subpackages)
+    case ('API')
+      call set_subpkg_pointer(subpackages, gwe_api_subpackages)
     case ('CTP')
       call set_subpkg_pointer(subpackages, gwe_ctp_subpackages)
     case ('CND')
@@ -328,6 +341,8 @@ contains
     case ('NAM')
       integrated = .true.
     case ('ADV')
+      integrated = .true.
+    case ('API')
       integrated = .true.
     case ('CTP')
       integrated = .true.
