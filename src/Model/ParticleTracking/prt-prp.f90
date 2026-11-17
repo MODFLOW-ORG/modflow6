@@ -425,6 +425,7 @@ contains
     class(PrtPrpType) :: this
     integer(I4B) :: ip, it, np
     real(DP) :: t
+    real(DP), allocatable :: times(:)
 
     ! Notes
     ! -----
@@ -454,48 +455,49 @@ contains
       call this%schedule%advance()
     end if
 
+    ! Select the release times to use this time step. Skip
+    ! any before the simulation starts or, without extend
+    ! tracking, after it ends.
+    allocate (times(0))
+    do it = 1, this%schedule%count()
+      t = this%schedule%times(it)
+      if (t < DZERO) then
+        write (warnmsg, '(a,g0,a)') &
+          'Skipping negative release time (t=', t, ').'
+        call store_warning(warnmsg)
+        cycle
+      else if (t > totalsimtime .and. .not. this%extend) then
+        write (warnmsg, '(a,g0,a)') &
+          'Skipping release time falling after the end of the &
+          &simulation (t=', t, '). Enable EXTEND_TRACKING to &
+          &release particles after the simulation end time.'
+        call store_warning(warnmsg)
+        cycle
+      end if
+      times = [times, t]
+    end do
+
     ! Reset staging from the committed state for this solve attempt,
-    ! sized for the particles to be released, which we know from the
-    ! schedule. Resize once to the final size, so an ATS retry, which
-    ! gets here again with the same size, doesn't reallocate and
-    ! invalidate pointers to the store. Always reset, regardless of
-    ! flow source, so changes to the committed store through the API
-    ! take effect.
-    np = this%particles%num_stored()
-    if (this%schedule%any()) &
-      np = np + this%nreleasepoints * this%schedule%count()
+    ! sized for the particles to be released. Resize once to the
+    ! final size, so an ATS retry, which gets here again with the
+    ! same size, doesn't reallocate and invalidate pointers to the
+    ! store. Size for the release times actually used, so no slots
+    ! are left unfilled. Always reset, regardless of flow source, so
+    ! changes to the committed store through the API take effect.
+    np = this%particles%num_stored() + this%nreleasepoints * size(times)
     call this%particles_staging%resize(np, &
                                        trim(this%memoryPath)//'-STAGING')
     call this%particles_staging%copy_from(this%particles)
     this%nparticles = this%particles%num_stored()
 
-    ! Check if any releases will be made this time step.
-    if (.not. this%schedule%any()) return
-
     ! Log the schedule to the list file.
-    call this%log_release()
+    if (this%schedule%any()) call this%log_release()
 
     ! Release a particle from each point for
     ! each release time in the current step.
     do ip = 1, this%nreleasepoints
-      do it = 1, this%schedule%count()
-        t = this%schedule%times(it)
-        ! Skip the release time if it's before the simulation
-        ! starts, or if no `extend_tracking`, after it ends.
-        if (t < DZERO) then
-          write (warnmsg, '(a,g0,a)') &
-            'Skipping negative release time (t=', t, ').'
-          call store_warning(warnmsg)
-          cycle
-        else if (t > totalsimtime .and. .not. this%extend) then
-          write (warnmsg, '(a,g0,a)') &
-            'Skipping release time falling after the end of the &
-            &simulation (t=', t, '). Enable EXTEND_TRACKING to &
-            &release particles after the simulation end time.'
-          call store_warning(warnmsg)
-          cycle
-        end if
-        call this%release(ip, t)
+      do it = 1, size(times)
+        call this%release(ip, times(it))
       end do
     end do
   end subroutine prp_ad
