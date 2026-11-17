@@ -6,8 +6,10 @@
   checked against NOUTLETS, not NLAKES, in both directions.
 - CONNECTIONDATA's total row count (SUM(NLAKECONN)) is summed across
   lakes with different connection counts, not taken from just one.
-- A lake with no connections (NLAKECONN = 0) is rejected, whether or not
-  it is the last lake.
+- A lake with no connections (NLAKECONN = 0) and no lake table is
+  rejected, whether or not it is the last lake. (A lake with no
+  connections and a table is supported, see test_gwf_lak_noconn.py.)
+- A missing CONNECTIONDATA block is rejected if any lake has connections.
 """
 
 import flopy
@@ -21,6 +23,7 @@ cases = [
     "lak-noutlets-lt-nlakes",
     "lak-nlakeconn-sum",
     "lak-nlakeconn-zero",
+    "lak-conndata-missing",
 ]
 
 
@@ -188,8 +191,9 @@ def build_nlakeconn_sum(test):
 
 
 def build_nlakeconn_zero(test):
-    # NLAKES=3: lakes 1 and 3 have no connections and must be rejected, both
-    # before another lake and as the last lake; lake 2 has one and must not.
+    # NLAKES=3: lakes 1 and 3 have no connections and no table and must be
+    # rejected, both before another lake and as the last lake; lake 2 has a
+    # connection and must not.
     name = cases[4]
     sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=test.workspace)
     flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
@@ -215,6 +219,29 @@ def build_nlakeconn_zero(test):
     return sim
 
 
+def build_conndata_missing(test):
+    # lake 1 has a connection but there is no CONNECTIONDATA block
+    name = cases[5]
+    sim = flopy.mf6.MFSimulation(sim_name=name, exe_name="mf6", sim_ws=test.workspace)
+    flopy.mf6.ModflowTdis(sim, nper=1, perioddata=[(1.0, 1, 1.0)])
+    flopy.mf6.ModflowIms(sim, print_option="NONE")
+    gwf = flopy.mf6.ModflowGwf(sim, modelname="lak-nocd")
+    flopy.mf6.ModflowGwfdis(
+        gwf, nlay=1, nrow=1, ncol=3, delr=100.0, delc=100.0, top=10.0, botm=[0.0]
+    )
+    flopy.mf6.ModflowGwfnpf(gwf, k=1.0)
+    flopy.mf6.ModflowGwfic(gwf, strt=5.0)
+    flopy.mf6.ModflowGwfchd(gwf, stress_period_data=[[(0, 0, 0), 5.0]])
+    flopy.mf6.ModflowGwflak(
+        gwf,
+        nlakes=1,
+        packagedata=[(0, 5.0, 1)],
+        perioddata={0: [(0, "status", "active")]},
+        pname="lak-1",
+    )
+    return sim
+
+
 def build_models(idx, test):
     return [
         build_ifno_errors,
@@ -222,6 +249,7 @@ def build_models(idx, test):
         build_noutlets_lt,
         build_nlakeconn_sum,
         build_nlakeconn_zero,
+        build_conndata_missing,
     ][idx](test)
 
 
@@ -267,12 +295,18 @@ def check_nlakeconn_zero(test):
     with open(test.workspace / "mfsim.lst") as f:
         lst = f.read()
     for ilak in (1, 3):
-        assert f"NLAKECONN for lake {ilak} must be greater than zero" in lst, (
+        assert f"Lake {ilak} has no connections (NLAKECONN = 0) and no lake" in lst, (
             f"expected lake {ilak} (no connections) to be rejected; got:\n" + lst
         )
-    assert "NLAKECONN for lake 2" not in lst, (
+    assert "Lake 2 has no connections" not in lst, (
         "lake 2 has a connection and should not have been rejected"
     )
+
+
+def check_conndata_missing(test):
+    with open(test.workspace / "mfsim.lst") as f:
+        lst = f.read()
+    assert "CONNECTIONDATA block not found but SUM(NLAKECONN) is 1" in lst, lst
 
 
 def check_output(idx, test):
@@ -282,6 +316,7 @@ def check_output(idx, test):
         check_noutlets_lt,
         check_nlakeconn_sum,
         check_nlakeconn_zero,
+        check_conndata_missing,
     ][idx](test)
 
 
