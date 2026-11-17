@@ -92,6 +92,7 @@ module PrtPrpModule
     procedure :: prp_packagedata
     procedure :: prp_releasetimes
     procedure :: prp_load_releasetimefrequency
+    procedure :: prp_load_default_release
     procedure :: release
     procedure :: log_release
     procedure :: validate_release_point
@@ -421,10 +422,9 @@ contains
 
   !> @brief Advance a time step and release particles if scheduled.
   subroutine prp_ad(this)
-    use TdisModule, only: totalsimtime, kstp, kper
+    use TdisModule, only: kstp, kper
     class(PrtPrpType) :: this
     integer(I4B) :: ip, it, np
-    real(DP) :: t
 
     ! Notes
     ! -----
@@ -475,27 +475,13 @@ contains
     ! Log the schedule to the list file.
     call this%log_release()
 
-    ! Release a particle from each point for
-    ! each release time in the current step.
+    ! Release a particle from each point for each release time in
+    ! the current step. Release times that won't be used (negative,
+    ! or after the end of the simulation without EXTEND_TRACKING)
+    ! were dropped at load time, so every scheduled time is used.
     do ip = 1, this%nreleasepoints
       do it = 1, this%schedule%count()
-        t = this%schedule%times(it)
-        ! Skip the release time if it's before the simulation
-        ! starts, or if no `extend_tracking`, after it ends.
-        if (t < DZERO) then
-          write (warnmsg, '(a,g0,a)') &
-            'Skipping negative release time (t=', t, ').'
-          call store_warning(warnmsg)
-          cycle
-        else if (t > totalsimtime .and. .not. this%extend) then
-          write (warnmsg, '(a,g0,a)') &
-            'Skipping release time falling after the end of the &
-            &simulation (t=', t, '). Enable EXTEND_TRACKING to &
-            &release particles after the simulation end time.'
-          call store_warning(warnmsg)
-          cycle
-        end if
-        call this%release(ip, t)
+        call this%release(ip, this%schedule%times(it))
       end do
     end do
   end subroutine prp_ad
@@ -747,7 +733,7 @@ contains
   !> @brief Read and prepare period data for particle input
   subroutine prp_rp(this)
     ! modules
-    use TdisModule, only: kper, nper
+    use TdisModule, only: kper
     use MemoryManagerModule, only: mem_setptr
     use CharacterStringModule, only: CharacterStringType
     ! dummy variables
@@ -755,28 +741,12 @@ contains
     ! local variables
     type(CharacterStringType), dimension(:), contiguous, &
       pointer :: settings
-    integer(I4B), pointer :: iper, ionper, nlist
+    integer(I4B), pointer :: iper, nlist
     integer(I4B) :: n
 
-    ! set pointer to last and next period loaded
+    ! return if no period block was loaded for this period
     call mem_setptr(iper, 'IPER', this%input_mempath)
-    call mem_setptr(ionper, 'IONPER', this%input_mempath)
-
-    if (kper == 1 .and. &
-        (iper == 0) .and. &
-        (ionper > nper) .and. &
-        size(this%schedule%time_select%times) == 0) then
-      ! If the user hasn't provided any release settings (neither
-      ! explicit release times, release time frequency, nor period
-      ! block release settings), default to a single release at the
-      ! start of the simulation (t=0). Add t=0 directly to the time
-      ! selection rather than time step selection because the latter
-      ! would fill forward, releasing at the start of every period.
-      call this%schedule%time_select%extend([DZERO])
-      return
-    else if (iper /= kper) then
-      return
-    end if
+    if (iper /= kper) return
 
     ! set input context pointers
     call mem_setptr(nlist, 'NBOUND', this%input_mempath)
@@ -1078,6 +1048,7 @@ contains
     call this%prp_packagedata()
     call this%prp_releasetimes()
     call this%prp_load_releasetimefrequency()
+    call this%prp_load_default_release()
   end subroutine prp_dimensions
 
   !> @brief Dimensions method override for exchange PRP.
@@ -1238,18 +1209,17 @@ contains
 
   !> @brief Load explicitly specified release times.
   subroutine prp_releasetimes(this)
+    use TdisModule, only: totalsimtime
     use MemoryManagerModule, only: mem_setptr, get_isize
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     ! local
     real(DP), dimension(:), pointer, contiguous :: time
     integer(I4B) :: n, isize
+    real(DP) :: t
     real(DP), allocatable :: times(:)
 
     if (this%nreleasetimes <= 0) return
-
-    ! allocate times array
-    allocate (times(this%nreleasetimes))
 
     ! check if input array was read
     call get_isize('TIME', this%input_mempath, isize)
@@ -1264,24 +1234,81 @@ contains
     ! set input context pointer
     call mem_setptr(time, 'TIME', this%input_mempath)
 
-    ! set input data
+    ! make sure times strictly increase, as given
+    do n = 2, size(time)
+      if (time(n) <= time(n - 1)) then
+        errmsg = "RELEASTIMES block entries must strictly increase."
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+        exit
+      end if
+    end do
+
+    ! Keep only release times that will be used. Drop negative times,
+    ! and, unless EXTEND_TRACKING is on, times after the end of the
+    ! simulation. Deciding here rather than at each time step keeps
+    ! the schedule to the releases that actually happen. Options are
+    ! read before dimensions, so EXTEND_TRACKING is known here.
+    allocate (times(0))
     do n = 1, size(time)
-      times(n) = time(n)
+      t = time(n)
+      if (t < DZERO) then
+        write (warnmsg, '(a,g0,a)') &
+          'Skipping negative release time (t=', t, ').'
+        call store_warning(warnmsg)
+        cycle
+      else if (t > totalsimtime .and. .not. this%extend) then
+        write (warnmsg, '(a,g0,a)') &
+          'Skipping release time falling after the end of the &
+          &simulation (t=', t, '). Enable EXTEND_TRACKING to &
+          &release particles after the simulation end time.'
+        call store_warning(warnmsg)
+        cycle
+      end if
+      times = [times, t]
     end do
 
     ! register times with the release schedule
     call this%schedule%time_select%extend(times)
 
-    ! make sure times strictly increase
-    if (.not. this%schedule%time_select%increasing()) then
-      errmsg = "RELEASTIMES block entries must strictly increase."
-      call store_error(errmsg)
-      call store_error_filename(this%input_fname)
-    end if
-
     ! deallocate
     deallocate (times)
   end subroutine prp_releasetimes
+
+  !> @brief Release once at t=0 if the input configures no releases.
+  !!
+  !! The default depends on the input only: no explicit release times,
+  !! no release time frequency, and no period blocks. It doesn't depend
+  !! on the schedule, which only holds the times that will be used, so
+  !! explicit times that are all dropped don't trigger the default.
+  !!
+  !! The exchange PRP doesn't get this default, on purpose: it carries
+  !! particles between models and never calls prp_dimensions.
+  !<
+  subroutine prp_load_default_release(this)
+    ! modules
+    use TdisModule, only: nper
+    use MemoryManagerModule, only: mem_setptr
+    ! dummy
+    class(PrtPrpType), intent(inout) :: this
+    ! local
+    integer(I4B), pointer :: ionper
+
+    ! IDM reads the first period block header before any model is
+    ! defined, and sets IONPER to its period number, or nper + 1 if
+    ! there are no period blocks. A first block numbered above nper
+    ! also gives nper + 1, so it counts as no blocks here.
+    ! TODO: use an explicit IDM "has period blocks" flag instead.
+    call mem_setptr(ionper, 'IONPER', this%input_mempath)
+    if (this%nreleasetimes > 0) return
+    if (this%rtfreq > DZERO) return
+    if (ionper <= nper) return
+
+    ! Add t=0 to the time selection rather than the time step
+    ! selection, because the latter would fill forward, releasing
+    ! at the start of every period.
+    call this%schedule%time_select%extend([DZERO])
+  end subroutine prp_load_default_release
 
   !> @brief Load regularly spaced release times if configured.
   subroutine prp_load_releasetimefrequency(this)
