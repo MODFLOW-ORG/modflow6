@@ -248,6 +248,7 @@ contains
     use ConstantsModule, only: DHNOFLO
     use PrtPrpModule, only: PrtPrpType
     use PrtMipModule, only: PrtMipType
+    use SimVariablesModule, only: warnmsg
     ! dummy
     class(PrtModelType) :: this
     ! locals
@@ -286,7 +287,6 @@ contains
         nprp = nprp + 1
         call packobj%prp_set_pointers(this%ibound, this%mip%izone)
         call packobj%bnd_ar()
-        call packobj%bnd_ar()
         if (packobj%itrkout > 0) then
           call this%tracks%init_file( &
             packobj%itrkout, &
@@ -308,6 +308,14 @@ contains
       call this%tracks%init_file(this%oc%itrkout)
     if (this%oc%itrkcsv > 0) &
       call this%tracks%init_file(this%oc%itrkcsv, csv=.true.)
+
+    ! Warn if no track files are configured
+    if (this%tracks%ntrackfiles == 0) then
+      write (warnmsg, '(a)') &
+        'No particle track output configured (TRACK or TRACKCSV FILEOUT &
+        &in OC or any PRP). Particle events will not be saved.'
+      call store_warning(warnmsg)
+    end if
 
     ! Initialize and select the tracking method based on discretization
     select type (dis => this%dis)

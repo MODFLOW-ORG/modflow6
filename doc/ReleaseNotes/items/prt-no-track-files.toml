@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A Particle Tracking (PRT) Model with no track output files (no TRACK or TRACKCSV FILEOUT in Output Control or any Particle Release Point (PRP) package) crashed on the first time step. Such a model now runs normally and reports a warning that particle events will not be saved."
