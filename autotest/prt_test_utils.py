@@ -221,6 +221,50 @@ class FlopyReadmeCase:
 
         return sim
 
+    @staticmethod
+    def get_prt_sim(
+        name, ws, mf6, nstp, releasetimes, extend_tracking=False
+    ) -> flopy.mf6.MFSimulation:
+        """
+        GWF simulation with an exchange-coupled PRT model releasing
+        particles at the given times, with a CSV track file.
+        """
+
+        sim = FlopyReadmeCase.get_gwf_sim(name, ws, mf6)
+        sim.tdis.perioddata = [(FlopyReadmeCase.perlen, nstp, FlopyReadmeCase.tsmult)]
+
+        # create prt model
+        prt_name = get_model_name(name, "prt")
+        prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
+        flopy.mf6.ModflowGwfdis(
+            prt,
+            nlay=FlopyReadmeCase.nlay,
+            nrow=FlopyReadmeCase.nrow,
+            ncol=FlopyReadmeCase.ncol,
+        )
+        flopy.mf6.ModflowPrtmip(prt, porosity=FlopyReadmeCase.porosity)
+        flopy.mf6.ModflowPrtprp(
+            prt,
+            pname="prp1",
+            nreleasepts=len(FlopyReadmeCase.releasepts_prt),
+            packagedata=FlopyReadmeCase.releasepts_prt,
+            nreleasetimes=len(releasetimes),
+            releasetimes=[[t] for t in releasetimes],
+            extend_tracking=extend_tracking,
+        )
+        flopy.mf6.ModflowPrtoc(prt, trackcsv_filerecord=[f"{prt_name}.trk.csv"])
+
+        # couple to gwf, solve separately
+        flopy.mf6.ModflowGwfprt(
+            sim,
+            exgtype="GWF6-PRT6",
+            exgmnamea=get_model_name(name, "gwf"),
+            exgmnameb=prt_name,
+        )
+        ems = flopy.mf6.ModflowEms(sim, filename=f"{prt_name}.ems")
+        sim.register_solution_package(ems, [prt.name])
+        return sim
+
 
 def check_track_data(
     track_bin: os.PathLike,

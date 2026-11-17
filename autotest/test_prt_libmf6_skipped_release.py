@@ -1,102 +1,73 @@
 """
-Release times that won't be used are dropped when the PRP
-package is loaded: negative times, and times after the end of
-the simulation unless EXTEND_TRACKING is on. Check through the
-API that the committed particle store holds only the particles
-actually released, after each time step. The release scheduler
-hands times after the end to the last time step, so a dropped
-time would otherwise leave unfilled slots there.
+Test that PRP drops unused release times: negative times,
+and times after the end of the simulation unless
+EXTEND_TRACKING is on. Run through the API and check the
+committed particle store after each time step, and check
+the warnings in the listing.
+
+The flow system is the one on the FloPy readme. Particles
+are released from the top left cell.
 
 Cases:
-- late:     one time after the end, dropped
-- lateext:  one time after the end, kept (EXTEND_TRACKING)
-- alllate:  all times after the end, dropped; this must not
-            trigger the default release at t=0
-- neg:      one negative time, dropped
+  late:    a time after the end, dropped
+  lateext: a time after the end, kept with EXTEND_TRACKING
+  alllate: all times after the end, dropped, no default
+           release at t=0
+  neg:     a negative time, dropped
 """
 
 from pathlib import Path
 
-import flopy
 import numpy as np
 import pytest
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
 from prt_test_utils import FlopyReadmeCase, get_model_name
 
-nstp = 3
-perlen = FlopyReadmeCase.perlen  # simulation ends at t=1
+nstp = 3  # simulation ends at t=1
+late_warning = "Skipping release time falling after the end"
+neg_warning = "Skipping negative release time"
 
-LATE_WARNING = "Skipping release time falling after the end"
-NEG_WARNING = "Skipping negative release time"
-
-# releasetimes: explicit release times in the PRP input
-# extend: whether EXTEND_TRACKING is on
-# released: release times expected in the store after each step
-# warnings: expected count of each warning in mfsim.stdout
+# released: release times in the store after each step
 cases = {
     "prtlate": {
         "releasetimes": [0.0, 5.0],
         "extend": False,
         "released": [[0.0], [0.0], [0.0]],
-        "warnings": {LATE_WARNING: 1, NEG_WARNING: 0},
+        "warnings": {late_warning: 1, neg_warning: 0},
     },
     "prtlateext": {
         "releasetimes": [0.0, 5.0],
         "extend": True,
         "released": [[0.0], [0.0], [0.0, 5.0]],
-        "warnings": {LATE_WARNING: 0, NEG_WARNING: 0},
+        "warnings": {late_warning: 0, neg_warning: 0},
     },
     "prtalllate": {
         "releasetimes": [5.0, 6.0],
         "extend": False,
         "released": [[], [], []],
-        "warnings": {LATE_WARNING: 2, NEG_WARNING: 0},
+        "warnings": {late_warning: 2, neg_warning: 0},
     },
     "prtneg": {
         "releasetimes": [-1.0, 0.0],
         "extend": False,
         "released": [[0.0], [0.0], [0.0]],
-        "warnings": {LATE_WARNING: 0, NEG_WARNING: 1},
+        "warnings": {late_warning: 0, neg_warning: 1},
     },
 }
 names = list(cases)
 
 
 def build_models(idx, test):
-    name = test.name
-    case = cases[name]
-    sim = FlopyReadmeCase.get_gwf_sim(name, test.workspace, test.targets["libmf6"])
-    sim.tdis.perioddata = [(perlen, nstp, FlopyReadmeCase.tsmult)]
-
-    prt_name = get_model_name(name, "prt")
-    prt = flopy.mf6.ModflowPrt(sim, modelname=prt_name)
-    flopy.mf6.ModflowGwfdis(
-        prt,
-        nlay=FlopyReadmeCase.nlay,
-        nrow=FlopyReadmeCase.nrow,
-        ncol=FlopyReadmeCase.ncol,
-    )
-    flopy.mf6.ModflowPrtmip(prt, porosity=FlopyReadmeCase.porosity)
-    flopy.mf6.ModflowPrtprp(
-        prt,
-        pname="prp1",
-        nreleasepts=len(FlopyReadmeCase.releasepts_prt),
-        packagedata=FlopyReadmeCase.releasepts_prt,
-        nreleasetimes=len(case["releasetimes"]),
-        releasetimes=[[t] for t in case["releasetimes"]],
+    case = cases[test.name]
+    return FlopyReadmeCase.get_prt_sim(
+        test.name,
+        test.workspace,
+        test.targets["libmf6"],
+        nstp=nstp,
+        releasetimes=case["releasetimes"],
         extend_tracking=case["extend"],
     )
-    flopy.mf6.ModflowPrtoc(prt, trackcsv_filerecord=[f"{prt_name}.trk.csv"])
-    flopy.mf6.ModflowGwfprt(
-        sim,
-        exgtype="GWF6-PRT6",
-        exgmnamea=get_model_name(name, "gwf"),
-        exgmnameb=prt_name,
-    )
-    ems = flopy.mf6.ModflowEms(sim, filename=f"{prt_name}.ems")
-    sim.register_solution_package(ems, [prt.name])
-    return sim
 
 
 def api_func(exe, idx, model_ws=None):
@@ -110,24 +81,23 @@ def api_func(exe, idx, model_ws=None):
 
     mf6 = ModflowApi(exe, working_directory=model_ws)
     mf6.initialize()
+
+    def get(var):
+        return mf6.get_value(mf6.get_var_address(var, prt_name, "PRP1"))
+
     try:
         kstp = 0
         while mf6.get_current_time() < mf6.get_end_time():
             mf6.update()
             kstp += 1
-
-            def get(var):
-                return mf6.get_value(mf6.get_var_address(var, prt_name, "PRP1"))
-
             released = case["released"][kstp - 1]
             irpt = get("PLIRPT")
-            trelease = get("PLTRELEASE")
             assert irpt.size == nrpt * len(released), (
                 f"step {kstp}: expected {nrpt * len(released)} particles, "
                 f"got {irpt.size}"
             )
             assert np.all((irpt >= 1) & (irpt <= nrpt))
-            assert np.allclose(np.unique(trelease), released)
+            assert np.allclose(np.unique(get("PLTRELEASE")), released)
             assert get("NPARTICLES")[0] == irpt.size
         assert kstp == nstp
     finally:
