@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "internal"
+description = "Hydraulic Flow Barrier (HFB) Package barriers had no effect on a connection after the hydraulic conductivity of either cell changed: for confined cells, or any cell with the Newton-Raphson formulation, changed by the Time-Varying Hydraulic Conductivity (TVK) Package, and for every barrier when the Viscosity (VSC) Package was active with the Newton-Raphson formulation. A later HFB PERIOD block also restored the conductance from before the change. Barriers are now applied again after hydraulic conductivity changes."
