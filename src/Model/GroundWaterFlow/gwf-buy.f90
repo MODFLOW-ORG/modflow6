@@ -1589,9 +1589,12 @@ contains
   !! its distance to the face is half the saturated thickness, and the weight
   !! is recalculated with it; with CL1 and CL2 a fluid at rest would flow
   !! across the connection. In general the weight is recalculated so that the
-  !! change in density stays where CL1 and CL2 place it for full cells, which
-  !! also covers a pass-through (IDOMAIN -1) cell of nonzero thickness between
-  !! the two cells. Horizontal connections keep the CL1 and CL2 weight.
+  !! change in density stays where CL1 and CL2 place it for full cells.
+  !! Across a pass-through (IDOMAIN -1) cell of nonzero thickness this keeps
+  !! the full-cell treatment of the gap between the two cells; whether that
+  !! treatment is appropriate is an open question, because the fluid in the
+  !! gap has no defined density. Horizontal connections keep the CL1 and CL2
+  !! weight.
   !<
   subroutine hh_weight_elev(this, n, m, icon, wt, elevn, elevm)
     ! -- dummy
@@ -1616,7 +1619,11 @@ contains
     if (elevn == elevm) return
     zswitch = zcn - wt * (zcn - zcm)
     !
-    ! -- weight that keeps it there with the actual cell elevations
+    ! -- weight that keeps it there with the actual cell elevations. On DIS
+    !    and DISV grids it is always between 0 and 1. With DISU connection
+    !    lengths shorter than half the cell thickness, the change in density
+    !    can lie inside a partially saturated cell, above its elevation; the
+    !    weight is then limited to 0.
     wt = (elevn - zswitch) / (elevn - elevm)
     wt = min(max(wt, DZERO), DONE)
   end subroutine hh_weight_elev
