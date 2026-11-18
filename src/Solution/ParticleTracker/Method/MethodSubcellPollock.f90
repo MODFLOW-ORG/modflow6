@@ -392,6 +392,7 @@ contains
       x = xL * dx
       if (v1 .gt. zro) dt = (dx - x) / v1
       if (v1 .lt. zrom) dt = -x / v1
+      if (dt < DZERO) dt = DZERO
       dvdx = DZERO
       status = OK_EXIT_CONSTANT
       return
@@ -399,8 +400,16 @@ contains
 
     ! Velocity has a linear variation.
     ! Compute velocity corresponding to particle position.
+    ! Take the face velocity exactly if the particle is on a face,
+    ! rather than rely on the interpolation reproducing it.
     dvdx = dv / dx
-    v = (DONE - xL) * v1 + xL * v2
+    if (xL <= DZERO) then
+      v = v1
+    else if (xL >= DONE) then
+      v = v2
+    else
+      v = (DONE - xL) * v1 + xL * v2
+    end if
 
     ! If flow is into the cell from both sides there is no outflow.
     ! In that case, set status = 3 and return.
@@ -452,7 +461,18 @@ contains
     end if
 
     ! Compute travel time to exit face. Return with status = 0.
-    dt = log(vr) / dvdx
+    ! A particle on the face it's moving towards exits immediately.
+    ! Set dt to exactly zero rather than rely on log(vr) = log(1).
+    ! vr = v2 / v2 may not be exactly 1: under a fast FP model the
+    ! compiler may compute it as v2 * (1 / v2), which rounds twice,
+    ! making dt slightly positive or negative and
+    ! deciding whether coincident events (e.g. a tracking time) are
+    ! reported before or after the exit. Never return a negative dt.
+    if ((xL <= DZERO .and. v < DZERO) .or. (xL >= DONE .and. v > DZERO)) then
+      dt = DZERO
+    else
+      dt = max(log(vr) / dvdx, DZERO)
+    end if
     status = OK_EXIT
 
   end function calculate_dt
