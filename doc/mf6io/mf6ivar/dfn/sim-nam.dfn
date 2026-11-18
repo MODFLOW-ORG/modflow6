@@ -51,6 +51,14 @@ longname print input to listing file
 description keyword to activate printing of simulation input summaries to the simulation list file (mfsim.lst). With this keyword, input summaries will be written for those packages that support newer input data model routines.  Not all packages are supported yet by the newer input data model routines.
 
 block options
+name strict
+type keyword
+reader urword
+optional true
+longname strict input checking
+description keyword to indicate that unrecognized top-level input option tags should be treated as errors rather than warnings. By default, any top-level tag (not a subfield of a record) that is not recognized for a package will generate a warning and be skipped, allowing input files written for a newer version of MODFLOW 6 to be used with an older version. When STRICT is specified, unrecognized tags will instead cause the simulation to terminate with an error.
+
+block options
 name hpc_filerecord
 type record hpc6 filein hpc6_filename
 shape
