@@ -429,6 +429,7 @@ contains
         write (errmsg, '(a,g0,a,1x,a,1x,a,a)') &
           'Coarse-grained material CG_SKE_CR (', cg_ske_cr, ') is less', &
           'than zero in cell', trim(adjustl(cellid)), '.'
+        call store_error(errmsg)
       end if
       !
       ! -- storage (STO) package error condition
@@ -437,10 +438,12 @@ contains
       end if
       !
       ! -- porosity error condition
-      if (theta > DONE .or. theta < DZERO) then
+      if (theta >= DONE .or. theta < DZERO) then
         write (errmsg, '(a,g0,a,1x,a,1x,a,a)') &
-          'Coarse-grained material THETA (', theta, ') is less', &
-          'than zero or greater than 1 in cell', trim(adjustl(cellid)), '.'
+          'Coarse-grained material CG_THETA (', theta, ') is less', &
+          'than zero or greater than or equal to 1 in cell', &
+          trim(adjustl(cellid)), '.'
+        call store_error(errmsg)
       end if
     end do
     !
@@ -1441,9 +1444,9 @@ contains
       end if
 
       ! -- set porosity
-      if (theta(n) <= DZERO .or. theta(n) > DONE) then
+      if (theta(n) <= DZERO .or. theta(n) >= DONE) then
         write (errmsg, '(a,1x,a,1x,i0,a)') &
-          'THETA must be greater than 0 and less than or equal to 1', &
+          'THETA must be greater than 0 and less than 1', &
           'for packagedata entry', csubno, '.'
         call store_error(errmsg)
       end if

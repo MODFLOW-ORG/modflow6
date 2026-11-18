@@ -26,6 +26,7 @@ module TvsModule
   type, extends(TvBaseType) :: TvsType
     integer(I4B), pointer :: integratechanges => null() !< STO flag indicating if mid-simulation ss and sy changes should be integrated via an additional matrix formulation term
     integer(I4B), pointer :: iusesy => null() !< STO flag set if any cell is convertible (0, 1)
+    integer(I4B), pointer :: incsub => null() !< model CSUB package flag (0 if unused)
     real(DP), dimension(:), pointer, contiguous :: ss => null() !< STO specific storage or storage coefficient
     real(DP), dimension(:), pointer, contiguous :: sy => null() !< STO specific yield
     real(DP), dimension(:), pointer, contiguous :: ss_src => null() !< input SS values
@@ -82,6 +83,7 @@ contains
     call mem_setptr(this%iusesy, 'IUSESY', stoMemoryPath)
     call mem_setptr(this%ss, 'SS', stoMemoryPath)
     call mem_setptr(this%sy, 'SY', stoMemoryPath)
+    call mem_setptr(this%incsub, 'INCSUB', create_mem_path(this%name_model))
     !
     ! -- Instruct STO to integrate storage changes, since TVS is active
     this%integratechanges = 1
@@ -213,6 +215,9 @@ contains
     character(len=*), parameter :: fmtserr = &
       "(1x, a, ' changed storage property ', a, ' is < 0 for cell ', a,' ', &
       &1pg15.6)"
+    character(len=*), parameter :: fmtcsuberr = &
+      "(1x, a, ' cannot change SS for cell ', a, ' to ', g0, &
+      &' because the CSUB package is active.')"
     character(len=*), parameter :: fmtsyerr = &
       "(1x, a, ' cannot change ', a ,' for cell ', a, ' because SY is unused &
       &in this model (all ICONVERT flags are 0).')"
@@ -221,6 +226,11 @@ contains
       if (this%ss(n) < DZERO) then
         call this%dis%noder_to_string(n, cellstr)
         write (errmsg, fmtserr) trim(adjustl(this%packName)), 'SS', &
+          trim(cellstr), this%ss(n)
+        call store_error(errmsg)
+      elseif (this%incsub > 0 .and. this%ss(n) /= DZERO) then
+        call this%dis%noder_to_string(n, cellstr)
+        write (errmsg, fmtcsuberr) trim(adjustl(this%packName)), &
           trim(cellstr), this%ss(n)
         call store_error(errmsg)
       end if
@@ -249,6 +259,7 @@ contains
     !
     nullify (this%integratechanges)
     nullify (this%iusesy)
+    nullify (this%incsub)
     nullify (this%ss)
     nullify (this%sy)
     nullify (this%ss_src)
