@@ -223,11 +223,12 @@ class FlopyReadmeCase:
 
     @staticmethod
     def get_prt_sim(
-        name, ws, mf6, nstp, releasetimes, extend_tracking=False
+        name, ws, mf6, nstp, releasetimes, extend_tracking=False, perioddata=None
     ) -> flopy.mf6.MFSimulation:
         """
         GWF simulation with an exchange-coupled PRT model releasing
-        particles at the given times, with a CSV track file.
+        particles at the given times, and with the given PRP period
+        data if any, with a CSV track file.
         """
 
         sim = FlopyReadmeCase.get_gwf_sim(name, ws, mf6)
@@ -249,8 +250,9 @@ class FlopyReadmeCase:
             nreleasepts=len(FlopyReadmeCase.releasepts_prt),
             packagedata=FlopyReadmeCase.releasepts_prt,
             nreleasetimes=len(releasetimes),
-            releasetimes=[[t] for t in releasetimes],
+            releasetimes=[[t] for t in releasetimes] if releasetimes else None,
             extend_tracking=extend_tracking,
+            perioddata=perioddata,
         )
         flopy.mf6.ModflowPrtoc(prt, trackcsv_filerecord=[f"{prt_name}.trk.csv"])
 

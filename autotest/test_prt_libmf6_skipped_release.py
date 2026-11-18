@@ -14,6 +14,13 @@ Cases:
   alllate: all times after the end, dropped, no default
            release at t=0
   neg:     a negative time, dropped
+  default: no times or period blocks, default release at t=0
+  blklate: only a period block numbered above NPER, no
+           default release
+  bothlate: all times after the end and a period block
+           numbered above NPER, no default release
+
+Cases that release nothing must warn once, naming why.
 """
 
 from pathlib import Path
@@ -27,6 +34,10 @@ from prt_test_utils import FlopyReadmeCase, get_model_name
 nstp = 3  # simulation ends at t=1
 late_warning = "Skipping release time falling after the end"
 neg_warning = "Skipping negative release time"
+none_warning = "No particles will be released"
+blk_cause = "all PERIOD blocks are numbered above NPER"
+time_cause = "all release times are negative or fall after the end"
+none_warnings = {none_warning: 0, blk_cause: 0, time_cause: 0}
 
 # released: release times in the store after each step
 cases = {
@@ -34,25 +45,64 @@ cases = {
         "releasetimes": [0.0, 5.0],
         "extend": False,
         "released": [[0.0], [0.0], [0.0]],
-        "warnings": {late_warning: 1, neg_warning: 0},
+        "warnings": {late_warning: 1, neg_warning: 0, **none_warnings},
     },
     "prtlateext": {
         "releasetimes": [0.0, 5.0],
         "extend": True,
         "released": [[0.0], [0.0], [0.0, 5.0]],
-        "warnings": {late_warning: 0, neg_warning: 0},
+        "warnings": {late_warning: 0, neg_warning: 0, **none_warnings},
     },
     "prtalllate": {
         "releasetimes": [5.0, 6.0],
         "extend": False,
         "released": [[], [], []],
-        "warnings": {late_warning: 2, neg_warning: 0},
+        "warnings": {
+            late_warning: 2,
+            neg_warning: 0,
+            none_warning: 1,
+            blk_cause: 0,
+            time_cause: 1,
+        },
     },
     "prtneg": {
         "releasetimes": [-1.0, 0.0],
         "extend": False,
         "released": [[0.0], [0.0], [0.0]],
-        "warnings": {late_warning: 0, neg_warning: 1},
+        "warnings": {late_warning: 0, neg_warning: 1, **none_warnings},
+    },
+    "prtdefault": {
+        "releasetimes": [],
+        "extend": False,
+        "released": [[0.0], [0.0], [0.0]],
+        "warnings": {late_warning: 0, neg_warning: 0, **none_warnings},
+    },
+    # nper is 1, so period block 2 is never loaded
+    "prtblklate": {
+        "releasetimes": [],
+        "extend": False,
+        "perioddata": {1: [("FIRST",)]},
+        "released": [[], [], []],
+        "warnings": {
+            late_warning: 0,
+            neg_warning: 0,
+            none_warning: 1,
+            blk_cause: 1,
+            time_cause: 0,
+        },
+    },
+    "prtbothlate": {
+        "releasetimes": [5.0, 6.0],
+        "extend": False,
+        "perioddata": {1: [("FIRST",)]},
+        "released": [[], [], []],
+        "warnings": {
+            late_warning: 2,
+            neg_warning: 0,
+            none_warning: 1,
+            blk_cause: 1,
+            time_cause: 1,
+        },
     },
 }
 names = list(cases)
@@ -67,6 +117,7 @@ def build_models(idx, test):
         nstp=nstp,
         releasetimes=case["releasetimes"],
         extend_tracking=case["extend"],
+        perioddata=case.get("perioddata"),
     )
 
 
@@ -107,7 +158,8 @@ def api_func(exe, idx, model_ws=None):
 
 
 def check_output(idx, test):
-    stdout = (test.workspace / "mfsim.stdout").read_text()
+    # warnings are wrapped, so join lines
+    stdout = " ".join((test.workspace / "mfsim.stdout").read_text().split())
     for warning, count in cases[test.name]["warnings"].items():
         assert stdout.count(warning) == count, warning
 
