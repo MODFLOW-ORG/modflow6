@@ -40,6 +40,7 @@ module IdmMf6FileModule
     type(BlockParserType), pointer :: parser !< parser for MF6File period blocks
     integer(I4B), pointer :: iper => null() !< memory managed variable, loader iper
     integer(I4B), pointer :: ionper => null() !< memory managed variable, next load period
+    logical(LGP), pointer :: hasperiodblocks => null() !< memory managed variable, file has a PERIOD block
     class(AsciiDynamicPkgLoadBaseType), pointer :: rp_loader => null()
   contains
     procedure :: init => dynamic_init
@@ -166,10 +167,13 @@ contains
     ! allocate scalars
     call mem_allocate(this%iper, 'IPER', mf6_input%mempath)
     call mem_allocate(this%ionper, 'IONPER', mf6_input%mempath)
+    call mem_allocate(this%hasperiodblocks, 'HASPERIODBLOCKS', &
+                      mf6_input%mempath)
 
     ! initialize
     this%iper = 0
     this%ionper = 0
+    this%hasperiodblocks = .false.
 
     ! open input file
     inunit = open_mf6file(mf6_input%pkgtype, input_name, &
@@ -240,6 +244,12 @@ contains
                               blockRequired=.false.)
     ! set first period block IPER
     if (isblockfound) then
+      ! the file has a PERIOD block, whatever its number. only set
+      ! here: at end of file IONPER is nper + 1, the same value as
+      ! a block numbered nper + 1, so IONPER can't tell them apart.
+      ! never set false: later calls reach end of file after the
+      ! last block, which would clear it for a file that has blocks.
+      this%hasperiodblocks = .true.
       this%ionper = this%parser%GetInteger()
       if (this%ionper <= this%iper) then
         write (errmsg, '(a, i0, a, i0, a, i0, a)') &
@@ -325,6 +335,7 @@ contains
     ! deallocate scalars
     call mem_deallocate(this%iper)
     call mem_deallocate(this%ionper)
+    call mem_deallocate(this%hasperiodblocks)
 
     ! deallocate loader
     nullify (this%rp_loader%nc_vars)
