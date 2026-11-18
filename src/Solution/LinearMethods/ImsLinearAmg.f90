@@ -5,7 +5,8 @@
 !<
 module ImsLinearAmgModule
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DZERO, DHALF, DONE, DHUNDRED, DEP20, LINELENGTH
+  use ConstantsModule, only: DZERO, DEM3, DHALF, DONE, DHUNDRED, DEP20, &
+                             LINELENGTH
   use SimModule, only: store_error
   use IMSLinearMisc, only: ims_base_pccrs, ims_base_pcilu0, ims_base_ilu0a
   use ImsLinearSettingsModule, only: SMOOTHER_ILU0, SMOOTHER_L1GS, &
@@ -980,8 +981,10 @@ contains
     integer(I4B), allocatable :: iw(:)
     real(DP), allocatable :: w(:)
     integer(I4B) :: ipcflag
+    integer(I4B) :: icount
     integer(I4B) :: n
     real(DP) :: amax
+    real(DP) :: delta
 
     ! Guard: skip factorization if matrix contains overflow-scale values;
     ! the V-cycle output check in ims_amg_apply will catch the bad result.
@@ -1009,11 +1012,27 @@ contains
       call ims_base_pccrs(lev%neq, lev%nja, lev%ia, lev%ja, lev%iapc, lev%japc)
     end if
 
+    ! -- retry a zero or sign-changing pivot with a larger diagonal, and
+    !    replace bad pivots on the last attempt, as in ims_base_pcu
     allocate (iw(lev%neq), w(lev%neq))
     ipcflag = 0
-    call ims_base_pcilu0(lev%nja, lev%neq, lev%a, lev%ia, lev%ja, &
-                         lev%apc, lev%iapc, lev%japc, iw, w, &
-                         DZERO, ipcflag, DZERO)
+    icount = 0
+    delta = DZERO
+    do
+      call ims_base_pcilu0(lev%nja, lev%neq, lev%a, lev%ia, lev%ja, &
+                           lev%apc, lev%iapc, lev%japc, iw, w, &
+                           DZERO, ipcflag, delta)
+      if (ipcflag < 1) exit
+      delta = 1.5_DP * delta + DEM3
+      ipcflag = 0
+      if (delta > DHALF) then
+        delta = DHALF
+        ipcflag = 2
+      end if
+      icount = icount + 1
+      if (icount == 10) ipcflag = 2
+      if (icount > 10) exit
+    end do
     deallocate (iw, w)
 
   end subroutine build_ilu0
