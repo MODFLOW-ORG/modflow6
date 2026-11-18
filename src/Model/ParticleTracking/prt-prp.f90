@@ -726,6 +726,7 @@ contains
     end if
 
     particle%ttrack = particle%trelease
+    particle%tusertime = -huge(DONE)
     particle%itrdomain(LEVEL_MODEL) = 0
     particle%iboundary(LEVEL_MODEL) = 0
     particle%itrdomain(LEVEL_FEATURE) = ic

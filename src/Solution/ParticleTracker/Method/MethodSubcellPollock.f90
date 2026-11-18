@@ -160,6 +160,10 @@ contains
     if (this%tracktimes%any()) then
       do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
         t = this%tracktimes%times(i)
+        ! Skip times already reported, e.g. one equal to an exit
+        ! time, which was reported in the subcell being left. Exact
+        ! comparison is safe since both are copies of times(i).
+        if (t <= particle%tusertime) cycle
         if (t < particle%ttrack) cycle
         if (t > texit .or. t > tmax) exit
         dt = t - t0
