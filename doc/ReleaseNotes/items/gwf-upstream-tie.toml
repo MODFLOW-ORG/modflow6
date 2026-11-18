@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "solution"
+description = "With the Newton-Raphson formulation, the upstream-weighted conductance between connected cells with equal heads depended on the order in which the cells were listed, so the iteration history of a multi-model simulation depended on how the models were distributed over processes in a parallel run. The larger of the two saturations is now used; converged heads are unaffected."

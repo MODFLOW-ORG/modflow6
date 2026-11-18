@@ -36,6 +36,7 @@ module ImsLinearSettingsModule
     integer(I4B), pointer :: level => null() !< nr. of preconditioner levels
     real(DP), pointer :: droptol => null() !< drop tolerance for preconditioner
     integer(I4B), pointer :: ifdparam => null() !< complexity option
+    real(DP), pointer :: eta => null() !< forcing term, relative L2 residual reduction (0 if not used)
   contains
     procedure :: init
     procedure :: preset_config
@@ -65,6 +66,7 @@ contains
     call mem_allocate(this%level, 'LEVEL', this%memory_path)
     call mem_allocate(this%droptol, 'DROPTOL', this%memory_path)
     call mem_allocate(this%ifdparam, 'IDFPARAM', this%memory_path)
+    call mem_allocate(this%eta, 'ETA', this%memory_path)
 
     ! defaults
     this%dvclose = DZERO
@@ -79,6 +81,7 @@ contains
     this%level = 0
     this%droptol = DZERO
     this%ifdparam = 0
+    this%eta = DZERO
 
   end subroutine init
 
@@ -282,6 +285,7 @@ contains
     call mem_deallocate(this%level)
     call mem_deallocate(this%droptol)
     call mem_deallocate(this%ifdparam)
+    call mem_deallocate(this%eta)
 
   end subroutine destroy
 
