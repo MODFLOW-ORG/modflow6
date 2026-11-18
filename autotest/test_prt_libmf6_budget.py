@@ -1,6 +1,8 @@
 """
-This test runs the simulations in test_prt_budget.py, but uses the api
-to run the PRT test.
+Run the GWF, GWT and PRT simulations from test_prt_budget.py in turn
+through the API and check the PRT budget. PRT runs offline, reading
+GWF output via FMI. test_prt_libmf6_exg.py covers PRT coupled to GWF
+by an exchange in the same simulation through the API.
 """
 
 from pathlib import Path
