@@ -3,7 +3,10 @@ Test the SSM Package and the auxmixed option.  Use the recharge package to
 remove water at a concentration of zero for the first stress period, which
 will cause the concentration to increase.  Then for the second stress period
 add recharge water with a concentration of zero which will dilute the solute
-concentration.  Simulation results are compared against a simple calculation.
+concentration.  Simulation results are compared against a simple calculation
+that keeps all of the solute in the water, so the storage formulation of earlier
+versions (LEGACY_STORAGE) is used; with stranded mass, the solute that recharge
+leaves behind is deposited in the drained part of the cell.
 """
 
 import os
@@ -177,7 +180,7 @@ def build_models(idx, test):
     adv = flopy.mf6.ModflowGwtadv(gwt, scheme="UPSTREAM", filename=f"{gwtname}.adv")
 
     # mass storage and transfer
-    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=sy[idx])
+    mst = flopy.mf6.ModflowGwtmst(gwt, porosity=sy[idx], legacy_storage=True)
 
     # flow model interface
     fmi = flopy.mf6.ModflowGwtfmi(gwt, flow_imbalance_correction=True)
