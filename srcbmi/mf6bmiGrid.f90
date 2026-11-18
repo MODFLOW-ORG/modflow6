@@ -249,7 +249,7 @@ contains
                       create_mem_path(model_name, 'DIS'))
       ! The dimension of y is in the second last element of the shape array.
       ! + 1 because we count corners, not centers.
-      y_size = grid_shape_ptr(size(grid_shape_ptr - 1)) + 1
+      y_size = grid_shape_ptr(size(grid_shape_ptr) - 1) + 1
       grid_y(1:y_size) = [(i, i=y_size - 1, 0, -1)]
     else if (grid_type_f == "unstructured") then
       call mem_setptr(vertices_ptr, "VERTICES", &
