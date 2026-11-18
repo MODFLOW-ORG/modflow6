@@ -2,13 +2,14 @@ module CommandArguments
   use KindModule
   use ConstantsModule, only: LINELENGTH, LENBIGLINE, LENHUGELINE, &
                              VSUMMARY, VALL, VDEBUG, &
-                             MVALIDATE
+                             MVALIDATE, ISOCHK_TSTEP, ISOCHK_OUTER
   use VersionModule, only: VERSION, FULLVERSION, MFVNAM, IDEVELOPMODE, &
                            FMTDISCLAIMER, write_license
   use CompilerVersion
   use SimVariablesModule, only: istdout, isim_level, &
                                 simfile, simlstfile, simstdout, &
-                                isim_mode, simulation_mode
+                                isim_mode, simulation_mode, &
+                                icheck_isolated
   use SimModule, only: store_error, ustop
   use MessageModule, only: write_message, write_message_counter
   use InputOutputModule, only: upcase, getunit
@@ -165,6 +166,29 @@ contains
         call write_message('', fmt=FMTDISCLAIMER)
       case ('-P', '--PARALLEL')
         simulation_mode = 'PARALLEL'
+      case ('-CI', '--CHECK-ISOLATED')
+        ! -- an optional FIRST or ALL follows as the next argument
+        icheck_isolated = ISOCHK_TSTEP
+        if (iarg < icountcmd) then
+          call get_command_argument(iarg + 1, cmode)
+          call upcase(cmode)
+          select case (trim(adjustl(cmode)))
+          case ('FIRST')
+            iarg = iarg + 1
+          case ('ALL')
+            iarg = iarg + 1
+            icheck_isolated = ISOCHK_OUTER
+          end select
+        end if
+        if (icheck_isolated == ISOCHK_OUTER) then
+          line = trim(adjustl(cexe))//': every outer iteration will be '// &
+                 'checked for cells with an undetermined dependent variable.'
+        else
+          line = trim(adjustl(cexe))//': the first outer iteration of every '// &
+                 'time step will be checked for cells with an undetermined '// &
+                 'dependent variable.'
+        end if
+        call write_message_counter(line, skipbefore=1, skipafter=1)
       case ('-LIC', '--LICENSE')
         lstop = .TRUE.
         call write_license()
@@ -215,8 +239,9 @@ contains
         ! -- write message to stdout
         line = trim(adjustl(cexe))//': MODFLOW 6 simulation mode '// &
                trim(adjustl(cmode))//'. Model input will be checked for all '// &
-               'stress periods but the matrix equations will not be '// &
-               'assembled or solved.'
+               'stress periods, and the matrix equations will be assembled '// &
+               'at the starting values of each stress period to check for '// &
+               'cells with an undetermined dependent variable, but not solved.'
         call write_message_counter(line, skipbefore=1, skipafter=1)
       case default
         lstop = .TRUE.
@@ -274,14 +299,25 @@ contains
       &' -c        --compiler       Display compiler information.',/,&
       &' -co       --compiler-opt   Display compiler options.',/,&
       &' -s        --silent         All STDOUT to mfsim.stdout.',/,"// &
+      "' -ci [str] --check-isolated Check for cells with an undetermined',/,&
+      &'                            dependent variable (for example, head).',/,&
+      &'                            Without -ci, only the first assembly is',/,&
+      &'                            checked.',/,&
+      &'                            str=first First outer iteration of every',/,&
+      &'                                      time step (default for -ci).',/,&
+      &'                            str=all   Every outer iteration.',/,"// &
       "' -l <str>  --level <str>    STDOUT output to screen based on <str>.',/,&
       &'                            <str>=summary Limited output to STDOUT.',/,&
       &'                            <str>=debug   Enhanced output to STDOUT.',/,&
       &' -m <str>  --mode <str>     MODFLOW 6 simulation mode based on <str>.',/,&
       &'                            <str>=validate Check model input for',/,&
-      &'                                           errors but do not ',/,&
-      &'                                           assemble or solve matrix ',/,&
-      &'                                           equations or write ',/,&
+      &'                                           errors and check the',/,&
+      &'                                           starting values of each',/,&
+      &'                                           stress period for cells',/,&
+      &'                                           with an undetermined',/,&
+      &'                                           dependent variable, but',/,&
+      &'                                           do not solve matrix',/,&
+      &'                                           equations or write',/,&
       &'                                           solution output.',/,"// &
       "'                                                                    ',/,&
       &'Bug reporting and contributions are welcome from the community. ',/,&

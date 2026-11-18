@@ -12,6 +12,7 @@ program tester
   use TestHashTable, only: collect_hashtable
   use TestImsLinear, only: collect_imslinear
   use TestInputOutput, only: collect_inputoutput
+  use TestIsolatedCells, only: collect_isolatedcells
   use TestKeyValueList, only: collect_keyvaluelist
   use TestList, only: collect_list
   use TestListIterator, only: collect_listiterator
@@ -52,6 +53,7 @@ program tester
                new_testsuite("HashTable", collect_hashtable), &
                new_testsuite("ImsLinear", collect_imslinear), &
                new_testsuite("InputOutput", collect_inputoutput), &
+               new_testsuite("IsolatedCells", collect_isolatedcells), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &
                new_testsuite("List", collect_list), &
                new_testsuite("ListIterator", collect_listiterator), &

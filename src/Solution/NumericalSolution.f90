@@ -10,8 +10,8 @@ module NumericalSolutionModule
                              DEM4, DEM3, DEM2, DEM1, DHALF, DONETHIRD, &
                              DONE, DTHREE, DEP3, DEP6, DEP20, DNODATA, &
                              TABLEFT, TABRIGHT, &
-                             MNORMAL, MVALIDATE, &
-                             LENMEMPATH
+                             MNORMAL, MVALIDATE, ISOCHK_TSTEP, ISOCHK_OUTER, &
+                             LENMEMPATH, LENMODELNAME
   use MemoryHelperModule, only: create_mem_path
   use TableModule, only: TableType, table_cr
   Use MessageModule, only: write_message
@@ -23,6 +23,7 @@ module NumericalSolutionModule
   use ListModule, only: ListType
   use ListsModule, only: basesolutionlist
   use InputOutputModule, only: getunit, append_processor_id
+  use IsolatedCellsModule, only: IsolatedTrackerType
   use NumericalModelModule, only: NumericalModelType, &
                                   AddNumericalModelToList, &
                                   GetNumericalModelFromList
@@ -31,7 +32,8 @@ module NumericalSolutionModule
                                      GetNumericalExchangeFromList
   use SparseModule, only: sparsematrix
   use SimVariablesModule, only: iout, isim_mode, errmsg, &
-                                proc_id, nr_procs, simulation_mode
+                                proc_id, nr_procs, simulation_mode, &
+                                icheck_isolated
   use SimStagesModule
   use BlockParserModule, only: BlockParserType
   use IMSLinearModule
@@ -125,6 +127,11 @@ module NumericalSolutionModule
     integer(I4B), pointer :: idv_scale => null() !< flag indicating if the X and right hand side will be scaled
     real(DP), pointer :: dscale => null() !< X and RHS scaling factor (maximum X)
     !
+    ! -- check for groups of cells whose heads are not determined
+    integer(I4B), pointer :: icheckisolated => null() !< check at the next assembly (1) or not (0)
+    type(IsolatedTrackerType) :: isotrack !< cells with an undetermined dv
+    integer(I4B) :: nisonote = 0 !< listing notes written about newly found cells
+    !
     ! -- pseudo-transient continuation
     integer(I4B), pointer :: iallowptc => null() !< flag indicating if ptc applied this time step
     integer(I4B), pointer :: iptcopt => null() !< option for how to calculate the initial PTC value (ptcdel0)
@@ -188,6 +195,12 @@ module NumericalSolutionModule
     procedure :: apply_backtracking
     procedure :: sln_get_idvscale
     procedure :: sln_maxval
+    procedure :: sln_set_fixed_rows
+    procedure :: sln_check_isolated
+    procedure :: sln_merge_isolated
+    procedure :: sln_record_isolated
+    procedure :: sln_isolated_label
+    procedure :: sln_isolated_summary
 
     ! private
     procedure, private :: sln_connect
@@ -323,6 +336,7 @@ contains
     call mem_allocate(this%icsvinnerout, 'ICSVINNEROUT', this%memory_path)
     call mem_allocate(this%nitermax, 'NITERMAX', this%memory_path)
     call mem_allocate(this%convnmod, 'CONVNMOD', this%memory_path)
+    call mem_allocate(this%icheckisolated, 'ICHECKISOLATED', this%memory_path)
     call mem_allocate(this%iallowptc, 'IALLOWPTC', this%memory_path)
     call mem_allocate(this%iptcopt, 'IPTCOPT', this%memory_path)
     call mem_allocate(this%iptcout, 'IPTCOUT', this%memory_path)
@@ -367,6 +381,7 @@ contains
     this%icsvinnerout = 0
     this%nitermax = 0
     this%convnmod = 0
+    this%icheckisolated = 1
     this%iallowptc = 1
     this%iptcopt = 0
     this%iptcout = 0
@@ -1107,6 +1122,9 @@ contains
     ! write PTC info on models to iout
     call this%writePTCInfoToFile(kper)
 
+    ! -- check every time step with -ci
+    if (icheck_isolated >= ISOCHK_TSTEP) this%icheckisolated = 1
+
     ! reset convergence flag and inner solve counter
     this%icnvg = 0
     this%itertot_timestep = 0
@@ -1134,6 +1152,9 @@ contains
     use SimVariablesModule, only: iout
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    !
+    ! -- report cells with an undetermined dependent variable
+    call this%sln_isolated_summary()
     !
     ! -- write timer output
     if (IDEVELOPMODE == 1) then
@@ -1253,6 +1274,7 @@ contains
     call mem_deallocate(this%icsvinnerout)
     call mem_deallocate(this%nitermax)
     call mem_deallocate(this%convnmod)
+    call mem_deallocate(this%icheckisolated)
     call mem_deallocate(this%iallowptc)
     call mem_deallocate(this%iptcopt)
     call mem_deallocate(this%iptcout)
@@ -1271,6 +1293,8 @@ contains
   !!
   !<
   subroutine sln_ca(this, isgcnvg, isuppress_output)
+    ! -- modules
+    use TdisModule, only: kstp, kper
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     integer(I4B), intent(inout) :: isgcnvg !< solution group convergence flag
@@ -1288,6 +1312,15 @@ contains
     select case (isim_mode)
     case (MVALIDATE)
       line = 'mode="validation" -- Skipping matrix assembly and solution.'
+      ! -- assemble at the starting heads of each stress period and check
+      if (kstp == 1) then
+        call this%sln_buildsystem(1, inewton=1)
+        call this%sln_set_fixed_rows()
+        call this%sln_check_isolated(kper, kstp)
+        line = 'mode="validation" -- Assembled at the starting '// &
+               'values to check for cells with an undetermined dependent '// &
+               'variable; skipping solution.'
+      end if
       fmt = "(/,1x,a,/)"
       do im = 1, this%modellist%Count()
         mp => GetNumericalModelFromList(this%modellist, im)
@@ -2413,10 +2446,8 @@ contains
     integer(I4B) :: ipos
     integer(I4B) :: icol_s
     integer(I4B) :: icol_e
-    integer(I4B) :: jcol
     integer(I4B) :: iptct
     integer(I4B) :: iallowptc
-    real(DP) :: adiag
     real(DP) :: diagval
     real(DP) :: l2norm
     real(DP) :: ptcval
@@ -2425,51 +2456,20 @@ contains
     character(len=*), parameter :: fmtfname = "('mf6mat_', i0, '_', i0, &
       &'_', i0, '_', i0, '.txt')"
     !
-    ! -- take care of loose ends for all nodes before call to solver
+    ! -- store x in temporary location
     do ieq = 1, this%neq
-      !
-      ! -- get (global) cell id
-      irow_glo = ieq + this%matrix_offset
-      !
-      ! -- store x in temporary location
       this%xtemp(ieq) = this%x(ieq)
-      !
-      ! -- make adjustments to the continuity equation for the node
-      ! -- adjust small diagonal coefficient in an active cell
-      if (this%active(ieq) > 0) then
-        diagval = -DONE
-        adiag = abs(this%system_matrix%get_diag_value(irow_glo))
-        if (adiag < DEM15) then
-          call this%system_matrix%set_diag_value(irow_glo, diagval)
-          this%rhs(ieq) = this%rhs(ieq) + diagval * this%x(ieq)
-        end if
-        ! -- Dirichlet boundary or no-flow cell
-      else
-        call this%system_matrix%set_diag_value(irow_glo, DONE)
-        call this%system_matrix%zero_row_offdiag(irow_glo)
-        this%rhs(ieq) = this%x(ieq)
-      end if
     end do
     !
-    ! -- complete adjustments for Dirichlet boundaries for a symmetric matrix
-    if (this%isymmetric == 1 .and. simulation_mode == "SEQUENTIAL") then
-      do ieq = 1, this%neq
-        if (this%active(ieq) > 0) then
-          icol_s = this%system_matrix%get_first_col_pos(ieq)
-          icol_e = this%system_matrix%get_last_col_pos(ieq)
-          do ipos = icol_s, icol_e
-            jcol = this%system_matrix%get_column(ipos)
-            if (jcol == ieq) cycle
-            if (this%active(jcol) < 0) then
-              this%rhs(ieq) = this%rhs(ieq) - &
-                              (this%system_matrix%get_value_pos(ipos) * &
-                               this%x(jcol))
-              call this%system_matrix%set_value_pos(ipos, DZERO)
-            end if
-
-          end do
-        end if
-      end do
+    ! -- set the rows of constant-head and no-flow cells and small diagonals
+    call this%sln_set_fixed_rows()
+    !
+    ! -- check the assembled system, with the constant-head and no-flow rows
+    !    set and before PTC is added, for groups of cells whose heads are not
+    !    determined; the first assembly, or more often with -ci
+    if (this%icheckisolated == 1) then
+      call this%sln_check_isolated(kper, kstp)
+      if (icheck_isolated /= ISOCHK_OUTER) this%icheckisolated = 0
     end if
     !
     ! -- pseudo transient continuation
@@ -2948,6 +2948,371 @@ contains
       end if
     end do
   end subroutine sln_calcdx
+
+  !> @brief Set the rows of constant-head and no-flow cells and small diagonals
+  !!
+  !! A constant-head or no-flow row becomes the identity with the current head
+  !! on the right-hand side, and an active cell with a diagonal near zero holds
+  !! its current head.
+  !<
+  subroutine sln_set_fixed_rows(this)
+    ! -- dummy variables
+    class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
+    ! -- local variables
+    integer(I4B) :: ieq
+    integer(I4B) :: irow_glo
+    integer(I4B) :: ipos
+    integer(I4B) :: icol_s
+    integer(I4B) :: icol_e
+    integer(I4B) :: jcol
+    real(DP) :: adiag
+    real(DP) :: diagval
+    !
+    do ieq = 1, this%neq
+      !
+      ! -- get (global) cell id
+      irow_glo = ieq + this%matrix_offset
+      !
+      ! -- make adjustments to the continuity equation for the node
+      ! -- adjust small diagonal coefficient in an active cell
+      if (this%active(ieq) > 0) then
+        diagval = -DONE
+        adiag = abs(this%system_matrix%get_diag_value(irow_glo))
+        if (adiag < DEM15) then
+          call this%system_matrix%set_diag_value(irow_glo, diagval)
+          this%rhs(ieq) = this%rhs(ieq) + diagval * this%x(ieq)
+        end if
+        ! -- Dirichlet boundary or no-flow cell
+      else
+        call this%system_matrix%set_diag_value(irow_glo, DONE)
+        call this%system_matrix%zero_row_offdiag(irow_glo)
+        this%rhs(ieq) = this%x(ieq)
+      end if
+    end do
+    !
+    ! -- complete adjustments for Dirichlet boundaries for a symmetric matrix
+    if (this%isymmetric == 1 .and. simulation_mode == "SEQUENTIAL") then
+      do ieq = 1, this%neq
+        if (this%active(ieq) > 0) then
+          icol_s = this%system_matrix%get_first_col_pos(ieq)
+          icol_e = this%system_matrix%get_last_col_pos(ieq)
+          do ipos = icol_s, icol_e
+            jcol = this%system_matrix%get_column(ipos)
+            if (jcol == ieq) cycle
+            if (this%active(jcol) < 0) then
+              this%rhs(ieq) = this%rhs(ieq) - &
+                              (this%system_matrix%get_value_pos(ipos) * &
+                               this%x(jcol))
+              call this%system_matrix%set_value_pos(ipos, DZERO)
+            end if
+
+          end do
+        end if
+      end do
+    end if
+  end subroutine sln_set_fixed_rows
+
+  !> @brief Warn about cells with an undetermined dependent variable
+  !!
+  !! Groups the rows connected by nonzero terms and reports the groups in
+  !! which every row sums to zero, which have no storage, dependent-variable
+  !! boundary, or constant value. Constant-head and no-flow rows have already
+  !! been set to the identity. Rows of models other than GWF are treated as
+  !! controlled.
+  !<
+  subroutine sln_check_isolated(this, kper, kstp)
+    ! -- modules
+    use IsolatedCellsModule, only: row_is_controlled, find_groups, &
+                                   boundary_links
+    ! -- dummy
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(in) :: kper !< stress period
+    integer(I4B), intent(in) :: kstp !< time step
+    ! -- local
+    class(NumericalModelType), pointer :: mp
+    integer(I4B), dimension(:), allocatable :: ia, ja, row_control, igid
+    integer(I4B), dimension(:), allocatable :: group_determined
+    integer(I4B), dimension(:), allocatable :: brow, bgid, lgid, lrow
+    real(DP), dimension(:), allocatable :: a
+    integer(I4B) :: nrow, roff, nnz, n, k, ipos, ipos0, ipos1
+    integer(I4B) :: im, mstart, mend, nbrow, nlink
+    !
+    ! -- copy the local rows, with global column numbers
+    nrow = this%neq
+    roff = this%system_matrix%get_row_offset()
+    allocate (ia(nrow + 1))
+    ia(1) = 1
+    do n = 1, nrow
+      ipos0 = this%system_matrix%get_first_col_pos(n + roff)
+      ipos1 = this%system_matrix%get_last_col_pos(n + roff)
+      ia(n + 1) = ia(n) + ipos1 - ipos0 + 1
+    end do
+    nnz = ia(nrow + 1) - 1
+    allocate (ja(nnz), a(nnz), row_control(nrow), igid(nrow), &
+              group_determined(nrow))
+    do n = 1, nrow
+      ipos0 = this%system_matrix%get_first_col_pos(n + roff)
+      ipos1 = this%system_matrix%get_last_col_pos(n + roff)
+      k = ia(n)
+      do ipos = ipos0, ipos1
+        ja(k) = this%system_matrix%get_column(ipos)
+        a(k) = this%system_matrix%get_value_pos(ipos)
+        k = k + 1
+      end do
+      row_control(n) = row_is_controlled(ia(n + 1) - ia(n), a(ia(n)))
+    end do
+    !
+    ! -- rows of models other than GWF are treated as controlled
+    do im = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      if (mp%macronym == 'GWF') cycle
+      call mp%get_mrange(mstart, mend)
+      do n = mstart - roff, mend - roff
+        row_control(n) = 1
+      end do
+    end do
+    !
+    ! -- group the rows, merge groups that cross processes, and report
+    call find_groups(nrow, roff, ia, ja, a, row_control, igid, group_determined)
+    call boundary_links(nrow, roff, ia, ja, a, igid, nbrow, brow, bgid, &
+                        nlink, lgid, lrow)
+    call this%sln_merge_isolated(nrow, roff, group_determined, nbrow, brow, &
+                                 bgid, nlink, lgid, lrow)
+    call this%sln_record_isolated(nrow, roff, igid, group_determined, kper, kstp)
+    !
+    deallocate (ia, ja, a, row_control, igid, group_determined, brow, bgid, &
+                lgid, lrow)
+  end subroutine sln_check_isolated
+
+  !> @brief Merge groups that cross processes (none in a serial solution)
+  !<
+  subroutine sln_merge_isolated(this, nrow, roff, group_determined, nbrow, &
+                                brow, bgid, nlink, lgid, lrow)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(in) :: nrow !< number of local rows
+    integer(I4B), intent(in) :: roff !< global number of the row before the first
+    integer(I4B), dimension(nrow), intent(inout) :: &
+      group_determined !< group has a controlled row (1)
+    integer(I4B), intent(in) :: nbrow !< number of boundary rows
+    integer(I4B), dimension(nbrow), intent(in) :: brow !< global boundary rows
+    integer(I4B), dimension(nbrow), intent(in) :: bgid !< their groups
+    integer(I4B), intent(in) :: nlink !< number of links to other processes
+    integer(I4B), dimension(nlink), intent(in) :: lgid !< local group
+    integer(I4B), dimension(nlink), intent(in) :: lrow !< remote row
+  end subroutine sln_merge_isolated
+
+  !> @brief Record the cells with an undetermined dependent variable found
+  !!
+  !! A cell is dry when its head is below its bottom. The first time cells
+  !! are found, a note is written to the listing file.
+  !<
+  subroutine sln_record_isolated(this, nrow, roff, igid, group_determined, &
+                                 kper, kstp)
+    ! -- dummy
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(in) :: nrow !< number of local rows
+    integer(I4B), intent(in) :: roff !< global number of the row before the first
+    integer(I4B), dimension(nrow), intent(in) :: igid !< group of each row
+    integer(I4B), dimension(nrow), intent(in) :: &
+      group_determined !< group has a controlled row (1)
+    integer(I4B), intent(in) :: kper !< stress period
+    integer(I4B), intent(in) :: kstp !< time step
+    ! -- local
+    integer(I4B), parameter :: MAXNOTES = 20 !< notes written
+    integer(I4B), parameter :: MAXCELLS = 5 !< cells named in a note
+    class(NumericalModelType), pointer :: mp
+    character(len=LINELENGTH) :: label
+    character(len=LENMODELNAME) :: mname
+    character(len=LINELENGTH) :: cellid
+    character(len=:), allocatable :: msg
+    integer(I4B), dimension(:), allocatable :: ifound, idry
+    integer(I4B) :: n, node, im, mstart, mend, nnew, nlisted
+    !
+    ! -- the rows found, and whether each is a dry cell
+    allocate (ifound(nrow), idry(nrow))
+    do n = 1, nrow
+      ifound(n) = 0
+      idry(n) = 0
+      if (group_determined(igid(n) - roff) == 0) ifound(n) = 1
+    end do
+    do im = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      call mp%get_mrange(mstart, mend)
+      do n = mstart - roff, mend - roff
+        node = n + roff - mstart + 1
+        if (ifound(n) == 0 .or. node > mp%dis%nodes) cycle
+        if (this%x(n) < mp%dis%bot(node)) idry(n) = 1
+      end do
+    end do
+    call this%isotrack%record(nrow, ifound, idry, kper, kstp, nnew)
+    !
+    ! -- note the first cells found
+    if (nnew > 0 .and. this%nisonote < MAXNOTES) then
+      this%nisonote = this%nisonote + 1
+      write (label, '(3(a,i0),a)') 'Stress period ', kper, ', time step ', &
+        kstp, ': ', nnew, ' cell(s) with an undetermined dependent variable '// &
+        'found for the first time'
+      msg = trim(label)//':'
+      nlisted = 0
+      do n = 1, nrow
+        if (ifound(n) == 0 .or. this%isotrack%nfound(n) /= 1) cycle
+        call this%sln_isolated_label(n + roff, mname, cellid)
+        msg = msg//' '//trim(mname)//' '//trim(cellid)
+        nlisted = nlisted + 1
+        if (nlisted == MAXCELLS) exit
+      end do
+      if (nnew > MAXCELLS) msg = msg//' ...'
+      write (iout, '(/,1x,a)') msg
+    end if
+    deallocate (ifound, idry)
+  end subroutine sln_record_isolated
+
+  !> @brief Return the model name and user cell ID of a global row
+  !<
+  subroutine sln_isolated_label(this, irow, mname, cellid)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(in) :: irow !< global row
+    character(len=*), intent(inout) :: mname !< model name
+    character(len=*), intent(inout) :: cellid !< user cell ID
+    ! -- local
+    class(NumericalModelType), pointer :: mp
+    character(len=LINELENGTH) :: mcellid
+    integer(I4B) :: im, mstart, mend
+
+    mname = ''
+    cellid = ''
+    do im = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      call mp%get_mrange(mstart, mend)
+      if (irow >= mstart .and. irow <= mend) then
+        ! -- get_mcellid gives the model number and type before the first '-'
+        call mp%get_mcellid(irow - mstart + 1, mcellid)
+        mname = mp%name
+        cellid = mcellid(index(mcellid, '-') + 1:)
+        exit
+      end if
+    end do
+  end subroutine sln_isolated_label
+
+  !> @brief Write the table of cells with an undetermined dependent variable
+  !<
+  subroutine sln_isolated_summary(this)
+    ! -- modules
+    use ConstantsModule, only: TABCENTER, TABLEFT, TABRIGHT
+    use TableModule, only: TableType, table_cr
+    use SimModule, only: store_warning
+    ! -- dummy
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- local
+    integer(I4B), parameter :: MAXROWS = 1000 !< cells listed in the table
+    class(NumericalModelType), pointer :: mp
+    type(TableType), pointer :: tbl => null()
+    character(len=LINELENGTH) :: tag, cellid
+    character(len=LENMODELNAME) :: mname
+    character(len=20), dimension(4) :: cnum
+    character(len=:), allocatable :: models
+    integer(I4B) :: n, ncell, ninput, nrecov, npersist, nrows, roff
+    integer(I4B) :: im, mstart, mend, nmcell
+    !
+    if (.not. allocated(this%isotrack%nfound)) return
+    roff = this%system_matrix%get_row_offset()
+    !
+    ! -- count the cells by cause and status, and list the models with cells
+    ncell = 0
+    ninput = 0
+    nrecov = 0
+    npersist = 0
+    models = ''
+    do im = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      call mp%get_mrange(mstart, mend)
+      nmcell = 0
+      do n = mstart - roff, mend - roff
+        if (this%isotrack%nfound(n) == 0) cycle
+        nmcell = nmcell + 1
+        if (this%isotrack%cause(n) == 'INPUT') then
+          ninput = ninput + 1
+        else if (this%isotrack%status(n) == 'RECOVERED') then
+          nrecov = nrecov + 1
+        else
+          npersist = npersist + 1
+        end if
+      end do
+      if (nmcell == 0) cycle
+      if (ncell > 0) models = models//', '
+      models = models//trim(mp%name)
+      ncell = ncell + nmcell
+    end do
+    nrows = min(ncell, MAXROWS)
+    !
+    ! -- table of the cells
+    tag = 'CELLS WITH AN UNDETERMINED DEPENDENT VARIABLE IN SOLUTION '// &
+          trim(this%name)
+    call table_cr(tbl, this%name, tag)
+    call tbl%table_df(nrows, 10, iout)
+    tag = 'MODEL'
+    call tbl%initialize_column(tag, LENMODELNAME, alignment=TABLEFT)
+    tag = 'CELL'
+    call tbl%initialize_column(tag, 20, alignment=TABLEFT)
+    tag = 'CAUSE'
+    call tbl%initialize_column(tag, 6, alignment=TABCENTER)
+    tag = 'STATUS'
+    call tbl%initialize_column(tag, 13, alignment=TABCENTER)
+    tag = 'FIRST STRESS PERIOD'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    tag = 'FIRST TIME STEP'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    tag = 'LAST STRESS PERIOD'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    tag = 'LAST TIME STEP'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    tag = 'CHECKS FINDING CELL'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    tag = 'CHECKS SINCE FIRST FOUND'
+    call tbl%initialize_column(tag, 8, alignment=TABRIGHT)
+    ncell = 0
+    do n = 1, this%neq
+      if (this%isotrack%nfound(n) == 0) cycle
+      ncell = ncell + 1
+      if (ncell > nrows) exit
+      call this%sln_isolated_label(n + roff, mname, cellid)
+      call tbl%add_term(trim(mname))
+      call tbl%add_term(trim(cellid))
+      call tbl%add_term(this%isotrack%cause(n))
+      call tbl%add_term(this%isotrack%status(n))
+      call tbl%add_term(this%isotrack%kper_first(n))
+      call tbl%add_term(this%isotrack%kstp_first(n))
+      call tbl%add_term(this%isotrack%kper_last(n))
+      call tbl%add_term(this%isotrack%kstp_last(n))
+      call tbl%add_term(this%isotrack%nfound(n))
+      call tbl%add_term(this%isotrack%ncheck - this%isotrack%icheck_first(n) &
+                        + 1)
+    end do
+    call tbl%table_da()
+    deallocate (tbl)
+    !
+    ! -- one warning for the simulation
+    write (cnum(1), '(i0)') ninput + nrecov + npersist
+    write (cnum(2), '(i0)') ninput
+    write (cnum(3), '(i0)') nrecov
+    write (cnum(4), '(i0)') npersist
+    call store_warning(trim(cnum(1))//' cell(s) in solution '// &
+                       trim(this%name)//' (model(s) '//models//') had no '// &
+                       'storage, dependent-variable boundary, or constant '// &
+                       'value, so their dependent '// &
+                       'variable was not determined: '//trim(cnum(2))// &
+                       ' cut off by the input (not dry), '//trim(cnum(3))// &
+                       ' dry and later reconnected, and '//trim(cnum(4))// &
+                       ' dry and still isolated at the last check. See the '// &
+                       'table of cells with an undetermined dependent '// &
+                       'variable in the simulation listing file.')
+    if (ncell > MAXROWS) then
+      write (cnum(1), '(i0)') MAXROWS
+      call store_warning('Only the first '//trim(cnum(1))//' cells with an '// &
+                         'undetermined dependent variable are listed in the '// &
+                         'table.')
+    end if
+  end subroutine sln_isolated_summary
 
   !> @brief Calculate pseudo-transient continuation factor
   !< from the models in the solution

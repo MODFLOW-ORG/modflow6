@@ -578,6 +578,7 @@
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>
 					</FileConfiguration>
 				</File>
+				<File RelativePath="..\src\Solution\IsolatedCells.f90"/>
 				<File RelativePath="..\src\Solution\NumericalSolution.f90"/>
 				<File RelativePath="..\src\Solution\ParallelSolution.f90">
 					<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true">

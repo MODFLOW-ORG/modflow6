@@ -342,6 +342,7 @@ modflow_sources = files(
     'Solution' / 'ExplicitSolution.f90',
     'Solution' / 'LinearSolverBase.f90',
     'Solution' / 'LinearSolverFactory.F90',
+    'Solution' / 'IsolatedCells.f90',
     'Solution' / 'NumericalSolution.f90',
     'Solution' / 'SolutionFactory.F90',
     'Solution' / 'SolutionGroup.f90',

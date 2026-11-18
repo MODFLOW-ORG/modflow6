@@ -27,6 +27,7 @@ if test_drive.found()
     'HashTable',
     'ImsLinear',
     'InputOutput',
+    'IsolatedCells',
     'KeyValueList',
     'List',
     'ListIterator',
