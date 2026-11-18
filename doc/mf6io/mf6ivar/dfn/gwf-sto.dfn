@@ -11,6 +11,15 @@ description keyword to indicate that cell-by-cell flow terms will be written to 
 mf6internal ipakcb
 
 block options
+name save_storage_volume
+type keyword
+reader urword
+optional true
+longname keyword to save storage volumes
+description keyword to indicate that the volume of water in compressible storage and the saturation at the end of the previous time step will be written to the file specified with ``BUDGET SAVE FILE'' in Output Control as DATA-STOVOL.  A transport model that reads the flows from the budget file uses them for the water volume of each cell when stranded mass is simulated.
+mf6internal isavvol
+
+block options
 name storagecoefficient
 type keyword
 reader urword
