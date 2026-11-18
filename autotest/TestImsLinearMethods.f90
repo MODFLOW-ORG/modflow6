@@ -92,6 +92,7 @@ contains
     integer(I4B) :: nja, i, pos
     real(DP) :: pi
     real(DP) :: kf(n - 1) !< conductance K at each interface, i = 1 .. n-1
+    real(DP), parameter :: sto = 1.0_DP !< storage, keeps the no-flow system nonsingular
 
     ! alternate between high (10) and low (0.1) so every large-K interface
     ! is bordered by a small-K interface and vice versa
@@ -115,16 +116,16 @@ contains
 
     pos = 1
     ! row 1: left boundary - diagonal first (MODFLOW 6 CSR: diagonal at ia(n))
-    ja(pos) = 1; a(pos) = kf(1); pos = pos + 1
+    ja(pos) = 1; a(pos) = kf(1) + sto; pos = pos + 1
     ja(pos) = 2; a(pos) = -kf(1); pos = pos + 1
     ! interior rows: diagonal first, then off-diagonals
     do i = 2, n - 1
-      ja(pos) = i; a(pos) = kf(i - 1) + kf(i); pos = pos + 1
+      ja(pos) = i; a(pos) = kf(i - 1) + kf(i) + sto; pos = pos + 1
       ja(pos) = i - 1; a(pos) = -kf(i - 1); pos = pos + 1
       ja(pos) = i + 1; a(pos) = -kf(i); pos = pos + 1
     end do
     ! row n: right boundary - diagonal first
-    ja(pos) = n; a(pos) = kf(n - 1); pos = pos + 1
+    ja(pos) = n; a(pos) = kf(n - 1) + sto; pos = pos + 1
     ja(pos) = n - 1; a(pos) = -kf(n - 1)
 
     pi = acos(-1.0_DP)
@@ -133,13 +134,13 @@ contains
     end do
 
     ! b = A * x_exact (manufactured RHS)
-    b(1) = kf(1) * x_exact(1) - kf(1) * x_exact(2)
+    b(1) = (kf(1) + sto) * x_exact(1) - kf(1) * x_exact(2)
     do i = 2, n - 1
       b(i) = -kf(i - 1) * x_exact(i - 1) + &
-             (kf(i - 1) + kf(i)) * x_exact(i) - &
+             (kf(i - 1) + kf(i) + sto) * x_exact(i) - &
              kf(i) * x_exact(i + 1)
     end do
-    b(n) = -kf(n - 1) * x_exact(n - 1) + kf(n - 1) * x_exact(n)
+    b(n) = -kf(n - 1) * x_exact(n - 1) + (kf(n - 1) + sto) * x_exact(n)
   end subroutine build_poisson1d
 
   !> @brief Compute the relative residual ||b - A*x|| / ||b||
