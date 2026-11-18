@@ -1,0 +1,21 @@
+# --------------------- exg swiswi options ---------------------
+# flopy multi-package
+
+
+block options
+name dev_no_cross_storage
+type keyword
+reader urword
+optional true
+longname disable cross-fluid storage Newton terms
+description keyword to disable the cross-fluid storage Newton (Jacobian) terms in the SWI-SWI Exchange.  This is a developer option for diagnosing convergence.  These terms cancel at convergence, so disabling them does not change the converged solution, but it may slow or prevent convergence.
+mf6internal inocrossstorage
+
+block options
+name dev_no_cross_flow
+type keyword
+reader urword
+optional true
+longname disable cross-fluid flow Newton terms
+description keyword to disable the cross-fluid flow Newton (Jacobian) terms in the SWI-SWI Exchange.  This is a developer option for diagnosing convergence.  These terms cancel at convergence, so disabling them does not change the converged solution, but it may slow or prevent convergence.
+mf6internal inocrossflow

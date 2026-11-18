@@ -1,0 +1,7 @@
+# Single-fluid mode with a constant sea level of 0.5 above the datum.
+# The interface elevation is written to the binary file island.zta.
+
+BEGIN OPTIONS
+  ZETA FILEOUT island.zta
+  SALTWATER_HEAD 0.5
+END OPTIONS

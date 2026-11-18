@@ -32,6 +32,7 @@ module IdmGwfDfnSelectorModule
   use GwfRivgInputModule
   use GwfSfrInputModule
   use GwfStoInputModule
+  use GwfSwiInputModule
   use GwfUzfInputModule
   use GwfVscInputModule
   use GwfWelInputModule
@@ -126,6 +127,8 @@ contains
       call set_param_pointer(input_definition, gwf_sfr_param_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_param_definitions)
+    case ('SWI')
+      call set_param_pointer(input_definition, gwf_swi_param_definitions)
     case ('UZF')
       call set_param_pointer(input_definition, gwf_uzf_param_definitions)
     case ('VSC')
@@ -198,6 +201,8 @@ contains
       call set_param_pointer(input_definition, gwf_sfr_aggregate_definitions)
     case ('STO')
       call set_param_pointer(input_definition, gwf_sto_aggregate_definitions)
+    case ('SWI')
+      call set_param_pointer(input_definition, gwf_swi_aggregate_definitions)
     case ('UZF')
       call set_param_pointer(input_definition, gwf_uzf_aggregate_definitions)
     case ('VSC')
@@ -270,6 +275,8 @@ contains
       call set_block_pointer(input_definition, gwf_sfr_block_definitions)
     case ('STO')
       call set_block_pointer(input_definition, gwf_sto_block_definitions)
+    case ('SWI')
+      call set_block_pointer(input_definition, gwf_swi_block_definitions)
     case ('UZF')
       call set_block_pointer(input_definition, gwf_uzf_block_definitions)
     case ('VSC')
@@ -341,6 +348,8 @@ contains
       multi_package = gwf_sfr_multi_package
     case ('STO')
       multi_package = gwf_sto_multi_package
+    case ('SWI')
+      multi_package = gwf_swi_multi_package
     case ('UZF')
       multi_package = gwf_uzf_multi_package
     case ('VSC')
@@ -415,6 +424,8 @@ contains
       is_advanced = gwf_sfr_is_advanced
     case ('STO')
       is_advanced = gwf_sto_is_advanced
+    case ('SWI')
+      is_advanced = gwf_swi_is_advanced
     case ('UZF')
       is_advanced = gwf_uzf_is_advanced
     case ('VSC')
@@ -489,6 +500,8 @@ contains
       call set_subpkg_pointer(subpackages, gwf_sfr_subpackages)
     case ('STO')
       call set_subpkg_pointer(subpackages, gwf_sto_subpackages)
+    case ('SWI')
+      call set_subpkg_pointer(subpackages, gwf_swi_subpackages)
     case ('UZF')
       call set_subpkg_pointer(subpackages, gwf_uzf_subpackages)
     case ('VSC')
@@ -560,6 +573,8 @@ contains
     case ('SFR')
       integrated = .true.
     case ('STO')
+      integrated = .true.
+    case ('SWI')
       integrated = .true.
     case ('UZF')
       integrated = .true.
