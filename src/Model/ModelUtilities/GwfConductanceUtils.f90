@@ -102,8 +102,12 @@ contains
 
     if (hn > hm) then
       sat_up = satn
-    else
+    else if (hm > hn) then
       sat_up = satm
+    else
+      ! equal heads have no upstream cell; use the larger saturation so the
+      ! result does not depend on cell order
+      sat_up = max(satn, satm)
     end if
     condnm = sat_up * condsat
   end function convertible_upstream
@@ -363,8 +367,10 @@ contains
     elseif (iupstream == 1) then
       if (hn > hm) then
         res = satn * (topn - botn)
-      else
+      else if (hm > hn) then
         res = satm * (topm - botm)
+      else
+        res = max(satn * (topn - botn), satm * (topm - botm))
       end if
       !
       ! At least one of the cells is convertible and not upstream weighted
