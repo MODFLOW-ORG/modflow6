@@ -15,6 +15,8 @@ Cases:
            release at t=0
   neg:     a negative time, dropped
   default: no times or period blocks, default release at t=0
+  blkin:   only a period block within NPER, releases from it,
+           no warning
   blklate: only a period block numbered above NPER, no
            default release
   bothlate: all times after the end and a period block
@@ -74,6 +76,14 @@ cases = {
     "prtdefault": {
         "releasetimes": [],
         "extend": False,
+        "released": [[0.0], [0.0], [0.0]],
+        "warnings": {late_warning: 0, neg_warning: 0, **none_warnings},
+    },
+    # FIRST in period block 1 releases at t=0, not as a default
+    "prtblkin": {
+        "releasetimes": [],
+        "extend": False,
+        "perioddata": {0: [("FIRST",)]},
         "released": [[0.0], [0.0], [0.0]],
         "warnings": {late_warning: 0, neg_warning: 0, **none_warnings},
     },
