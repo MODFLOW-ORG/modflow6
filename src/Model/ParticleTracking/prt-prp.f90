@@ -93,6 +93,7 @@ module PrtPrpModule
     procedure :: prp_releasetimes
     procedure :: prp_load_releasetimefrequency
     procedure :: prp_load_default_release
+    procedure :: prp_check_releases
     procedure :: release
     procedure :: log_release
     procedure :: validate_release_point
@@ -369,22 +370,26 @@ contains
   !> @brief Allocate scalars for exchange PRP.
   !!
   !! The exchange PRP is a headless package (no input file) but BndExtType
-  !! expects certain variables to exist in the input context (IPER, IONPER)
-  !! so we need to manually create them before calling the parent procedure.
+  !! expects certain variables to exist in the input context (IPER, IONPER,
+  !! HASPERIODBLOCKS) so we need to manually create them before calling the
+  !! parent procedure.
   subroutine exg_prp_allocate_scalars(this)
     use MemoryManagerModule, only: mem_allocate
     class(ExgPrtPrpType) :: this
     integer(I4B), pointer :: iper, ionper
+    logical(LGP), pointer :: hasperiodblocks
 
     this%input_mempath = trim(this%memoryPath)//'-INPUT'
 
     call mem_allocate(iper, 'IPER', this%input_mempath)
     call mem_allocate(ionper, 'IONPER', this%input_mempath)
+    call mem_allocate(hasperiodblocks, 'HASPERIODBLOCKS', this%input_mempath)
 
     ! set iper = 0. this forces BndExtType%bnd_rp to
     ! return early, since iper will never match kper.
     iper = 0
     ionper = 0
+    hasperiodblocks = .false.
 
     call this%PrtPrpType%prp_allocate_scalars()
   end subroutine exg_prp_allocate_scalars
@@ -1049,6 +1054,7 @@ contains
     call this%prp_releasetimes()
     call this%prp_load_releasetimefrequency()
     call this%prp_load_default_release()
+    call this%prp_check_releases()
   end subroutine prp_dimensions
 
   !> @brief Dimensions method override for exchange PRP.
@@ -1287,28 +1293,67 @@ contains
   !<
   subroutine prp_load_default_release(this)
     ! modules
-    use TdisModule, only: nper
     use MemoryManagerModule, only: mem_setptr
     ! dummy
     class(PrtPrpType), intent(inout) :: this
     ! local
-    integer(I4B), pointer :: ionper
+    logical(LGP), pointer :: hasperiodblocks
 
-    ! IDM reads the first period block header before any model is
-    ! defined, and sets IONPER to its period number, or nper + 1 if
-    ! there are no period blocks. A first block numbered above nper
-    ! also gives nper + 1, so it counts as no blocks here.
-    ! TODO: use an explicit IDM "has period blocks" flag instead.
-    call mem_setptr(ionper, 'IONPER', this%input_mempath)
+    ! a period block counts whatever its number, so blocks numbered
+    ! above nper (never loaded) also suppress the default.
+    call mem_setptr(hasperiodblocks, 'HASPERIODBLOCKS', this%input_mempath)
     if (this%nreleasetimes > 0) return
     if (this%rtfreq > DZERO) return
-    if (ionper <= nper) return
+    if (hasperiodblocks) return
 
     ! Add t=0 to the time selection rather than the time step
     ! selection, because the latter would fill forward, releasing
     ! at the start of every period.
     call this%schedule%time_select%extend([DZERO])
   end subroutine prp_load_default_release
+
+  !> @brief Warn if the input configures releases but none will happen.
+  !!
+  !! Call after release times, the release time frequency and the
+  !! default are loaded. Then an empty time selection means no time-based
+  !! releases, and IONPER still holds the first period block's number,
+  !! or nper + 1 if there is no block to load.
+  !<
+  subroutine prp_check_releases(this)
+    ! modules
+    use TdisModule, only: nper
+    use MemoryManagerModule, only: mem_setptr
+    ! dummy
+    class(PrtPrpType), intent(inout) :: this
+    ! local
+    integer(I4B), pointer :: ionper
+    logical(LGP), pointer :: hasperiodblocks
+    character(len=:), allocatable :: causes
+
+    call mem_setptr(ionper, 'IONPER', this%input_mempath)
+    call mem_setptr(hasperiodblocks, 'HASPERIODBLOCKS', this%input_mempath)
+
+    ! releases at times: kept explicit times, frequency, or default
+    if (allocated(this%schedule%time_select%times)) then
+      if (size(this%schedule%time_select%times) > 0) return
+    end if
+
+    ! releases from a period block within the run
+    if (hasperiodblocks .and. ionper <= nper) return
+
+    ! name the causes. one applies, or the default would have released.
+    causes = ''
+    if (hasperiodblocks) &
+      causes = 'all PERIOD blocks are numbered above NPER'
+    if (this%nreleasetimes > 0) then
+      if (len(causes) > 0) causes = causes//' and '
+      causes = causes//'all release times are negative or fall after &
+               &the end of the simulation'
+    end if
+    write (warnmsg, '(a)') 'No particles will be released from package '// &
+      trim(this%packName)//': '//causes//'.'
+    call store_warning(warnmsg)
+  end subroutine prp_check_releases
 
   !> @brief Load regularly spaced release times if configured.
   subroutine prp_load_releasetimefrequency(this)

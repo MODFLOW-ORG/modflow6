@@ -2,7 +2,7 @@ Particle Release Point (PRP) Package information is read from the file that is s
 
 The PRP Package offers multiple ways to specify particle release times.  Particle release times may either be provided explicitly, relative to the simulation start time, or configured relative to the time discretization of stress periods via period block settings.  When multiple ways of specifying release times are used together, the resulting set of release times is the union of the times specified by each method.
 
-If no release settings are specified, then a single particle will be released from each release point at the beginning of the simulation.  If release times are configured via period block settings, the release setting for a given period block will continue to apply for subsequent stress periods until overridden by release settings for a later period block.  The example input file below demonstrates how to explicitly specify a single release at the beginning of the first stress period, equivalent to the default release behavior.
+If no release settings are specified, then a single particle will be released from each release point at the beginning of the simulation.  PERIOD blocks numbered above NPER are never loaded, but still count as release settings, so they suppress this default release.  Release times before the simulation start, or after the end of the simulation unless EXTEND\_TRACKING is set, are skipped with a warning.  If no releases remain, the package releases no particles and writes a warning.  If release times are configured via period block settings, the release setting for a given period block will continue to apply for subsequent stress periods until overridden by release settings for a later period block.  The example input file below demonstrates how to explicitly specify a single release at the beginning of the first stress period, equivalent to the default release behavior.
 
 This package contains options to configure how particles behave in dry conditions. Each of these is described in detail below. Their interaction is summarized in the PRT chapter introduction.
 
@@ -15,7 +15,7 @@ This package contains options to configure how particles behave in dry condition
 \vspace{5mm}
 \noindent \textit{FOR ANY STRESS PERIOD}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/prt-prp-period.dat}
-\packageperioddescription \: If no PERIOD block is specified for any period, a single particle is released from each release point at the beginning of the simulation.
+\packageperioddescription \: If no release settings are given (no RELEASETIMES block, no RELEASE\_TIME\_FREQUENCY, and no PERIOD blocks), a single particle is released from each release point at the beginning of the simulation.
 %\noindent All of the stress period information in a PERIOD block will apply only to that stress period; the information will not continue to apply for subsequent stress periods.  Note that this behavior is different from the simple stress packages (CHD, WEL, DRN, RIV,
 %GHB, RCH and EVT) and the advanced stress packages (MAW, SFR, LAK, and UZF).
 
