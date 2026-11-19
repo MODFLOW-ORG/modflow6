@@ -6,7 +6,6 @@ module PrtFmiModule
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
-  use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
 
@@ -42,7 +41,6 @@ module PrtFmiModule
   contains
 
     procedure :: fmi_ad
-    procedure :: fmi_df => prtfmi_df
     procedure :: fmi_da => prtfmi_da
     procedure :: allocate_scalars => prtfmi_allocate_scalars
     procedure :: allocate_arrays => prtfmi_allocate_arrays
@@ -152,26 +150,6 @@ contains
 
   end subroutine fmi_ad
 
-  !> @brief Define the flow model interface
-  subroutine prtfmi_df(this, dis, idryinactive)
-    class(PrtFmiType) :: this
-    class(DisBaseType), pointer, intent(in) :: dis
-    integer(I4B), intent(in) :: idryinactive
-
-    call this%FlowModelInterfaceType%fmi_df(dis, idryinactive)
-
-    this%max_faces = this%dis%get_max_npolyverts() + 2
-    if (this%max_faces > 32) then
-      write (errmsg, '(a,i0,a,i0,a)') &
-        'DISV grid contains a cell with ', this%max_faces - 2, &
-        ' lateral faces. Cells may have at most 30 lateral faces.'
-      call store_error(errmsg)
-      call this%parser%StoreErrorUnit()
-      return
-    end if
-
-  end subroutine prtfmi_df
-
   !> @brief Allocate scalars
   subroutine prtfmi_allocate_scalars(this)
     class(PrtFmiType) :: this
@@ -186,9 +164,24 @@ contains
   end subroutine prtfmi_allocate_scalars
 
   !> @brief Allocate arrays
+  !!
+  !! Sets max_faces here rather than in an fmi_df override. Calling the
+  !! parent fmi_df through the parent component would bind the procedures
+  !! it calls (source_options, initialize_bfr/hfr) to the parent versions.
+  !<
   subroutine prtfmi_allocate_arrays(this, nodes)
     class(PrtFmiType) :: this
     integer(I4B), intent(in) :: nodes
+
+    this%max_faces = this%dis%get_max_npolyverts() + 2
+    if (this%max_faces > 32) then
+      write (errmsg, '(a,i0,a,i0,a)') &
+        'DISV grid contains a cell with ', this%max_faces - 2, &
+        ' lateral faces. Cells may have at most 30 lateral faces.'
+      call store_error(errmsg)
+      call this%parser%StoreErrorUnit()
+      return
+    end if
 
     ! allocate parent arrays
     call this%FlowModelInterfaceType%allocate_arrays(nodes)
