@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "When the adaptive time stepping (ATS) Package retried a failed time step that would have ended the simulation, the simulation ended after the shorter retried time step, with normal termination and no message, instead of continuing to the end of the last stress period. The end of the simulation is now determined from the length of the retried time step, as the end of the stress period already was."
