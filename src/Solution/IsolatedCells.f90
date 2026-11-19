@@ -8,7 +8,8 @@ module IsolatedCellsModule
 
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO
-  use SortModule, only: qsort
+  use SortModule, only: qsort, search_sorted
+  use DisjointSetModule, only: DisjointSetType
 
   implicit none
   private
@@ -82,30 +83,27 @@ contains
     integer(I4B), dimension(nrow), intent(inout) :: &
       group_determined !< group has a controlled row (1)
     ! -- local
-    integer(I4B), dimension(:), allocatable :: parent
+    type(DisjointSetType) :: groups
     integer(I4B) :: n, k, m
 
-    allocate (parent(nrow))
-    do n = 1, nrow
-      parent(n) = n
-    end do
+    call groups%init(nrow)
     do n = 1, nrow
       do k = ia(n), ia(n + 1) - 1
         m = ja(k) - roff
         if (m < 1 .or. m > nrow .or. m == n) cycle
         if (a(k) == DZERO) cycle
-        call join(parent, n, m)
+        call groups%join(n, m)
       end do
     end do
     do n = 1, nrow
       group_determined(n) = 0
     end do
     do n = 1, nrow
-      m = find_root(parent, n)
+      m = groups%find(n)
       igid(n) = m + roff
       if (row_control(n) /= 0) group_determined(m) = 1
     end do
-    deallocate (parent)
+    call groups%destroy()
   end subroutine find_groups
 
   !> @brief List the links from local groups to rows on other processes
@@ -182,13 +180,13 @@ contains
     integer(I4B), dimension(nlink), intent(in) :: lgid !< group on one side
     integer(I4B), dimension(nlink), intent(in) :: lrow !< row on the other side
     ! -- local
-    integer(I4B), dimension(:), allocatable :: parent
+    type(DisjointSetType) :: groups
     integer(I4B), dimension(:), allocatable :: gsort, gidx, rsort, ridx
     integer(I4B) :: i, ga, gb, ir
 
-    allocate (parent(ng), gsort(ng), gidx(ng), rsort(nb), ridx(nb))
+    call groups%init(ng)
+    allocate (gsort(ng), gidx(ng), rsort(nb), ridx(nb))
     do i = 1, ng
-      parent(i) = i
       gsort(i) = gid(i)
       gidx(i) = i
     end do
@@ -199,21 +197,22 @@ contains
     call qsort(gidx, gsort)
     call qsort(ridx, rsort)
     do i = 1, nlink
-      ir = lookup(rsort, ridx, lrow(i))
+      ir = search_sorted(rsort, ridx, lrow(i))
       if (ir == 0) cycle
-      ga = lookup(gsort, gidx, lgid(i))
-      gb = lookup(gsort, gidx, bgid(ir))
+      ga = search_sorted(gsort, gidx, lgid(i))
+      gb = search_sorted(gsort, gidx, bgid(ir))
       if (ga == 0 .or. gb == 0) cycle
-      call join(parent, ga, gb)
+      call groups%join(ga, gb)
     end do
     ! -- a merged group is determined if any member is
     do i = 1, ng
-      if (group_determined(i) /= 0) group_determined(find_root(parent, i)) = 1
+      if (group_determined(i) /= 0) group_determined(groups%find(i)) = 1
     end do
     do i = 1, ng
-      group_determined(i) = group_determined(find_root(parent, i))
+      group_determined(i) = group_determined(groups%find(i))
     end do
-    deallocate (parent, gsort, gidx, rsort, ridx)
+    call groups%destroy()
+    deallocate (gsort, gidx, rsort, ridx)
   end subroutine merge_groups
 
   !> @brief Record the rows found in one check
@@ -303,62 +302,5 @@ contains
       this%idry(n) = 0
     end do
   end subroutine allocate_tracker
-
-  !> @brief Join the union-find trees of two elements under the smaller root
-  !<
-  subroutine join(parent, i, j)
-    integer(I4B), dimension(:), intent(inout) :: parent !< union-find parents
-    integer(I4B), intent(in) :: i, j !< elements
-    ! -- local
-    integer(I4B) :: ri, rj
-
-    ri = find_root(parent, i)
-    rj = find_root(parent, j)
-    if (ri < rj) then
-      parent(rj) = ri
-    else if (rj < ri) then
-      parent(ri) = rj
-    end if
-  end subroutine join
-
-  !> @brief Return the root of a union-find tree, halving the path
-  !<
-  function find_root(parent, i) result(r)
-    integer(I4B), dimension(:), intent(inout) :: parent !< union-find parents
-    integer(I4B), intent(in) :: i !< element
-    integer(I4B) :: r
-
-    r = i
-    do while (parent(r) /= r)
-      parent(r) = parent(parent(r))
-      r = parent(r)
-    end do
-  end function find_root
-
-  !> @brief Return the original position of a value in a sorted array, or 0
-  !<
-  function lookup(svals, sidx, val) result(ipos)
-    integer(I4B), dimension(:), intent(in) :: svals !< sorted values
-    integer(I4B), dimension(:), intent(in) :: sidx !< their original positions
-    integer(I4B), intent(in) :: val !< value to find
-    integer(I4B) :: ipos
-    ! -- local
-    integer(I4B) :: lo, hi, mid
-
-    ipos = 0
-    lo = 1
-    hi = size(svals)
-    do while (lo <= hi)
-      mid = (lo + hi) / 2
-      if (svals(mid) == val) then
-        ipos = sidx(mid)
-        return
-      else if (svals(mid) < val) then
-        lo = mid + 1
-      else
-        hi = mid - 1
-      end if
-    end do
-  end function lookup
 
 end module IsolatedCellsModule
