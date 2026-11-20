@@ -197,6 +197,7 @@
 				<File RelativePath="..\src\Idm\exg-gwtgwtidm.f90"/>
 				<File RelativePath="..\src\Idm\exg-olfgwfidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-advidm.f90"/>
+				<File RelativePath="..\src\Idm\gwe-apiidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-cndidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-ctpidm.f90"/>
 				<File RelativePath="..\src\Idm\gwe-disidm.f90"/>
