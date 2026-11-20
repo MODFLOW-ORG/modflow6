@@ -1,0 +1,56 @@
+\subsection{Storage (STO) Package}
+
+The Storage (STO) Package contributes the transient storage terms to the flow
+equation. Unlike the conductance in the Node Property Flow Package, the storage
+capacities are not precomputed: the specific storage and specific yield arrays
+are read directly during every formulate step (through the \texttt{SsCapacity}
+and \texttt{SyCapacity} functions). Modifying \texttt{SS} or \texttt{SY} through
+the API therefore changes the storage contribution immediately, with no derived
+array to set instead.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the STO Package that are candidates for
+modification through the API. The memory address of each variable is
+\texttt{MODELNAME/STO/VARNAME}.} \label{table:api-gwf-sto} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{SS} & Live input &
+Specific storage, dimensioned by the number of cells (NODES). Read directly at
+every formulate step to compute the confined storage capacity, so changes made
+through the API take effect immediately and persist. (Interpreted as a storage
+coefficient rather than a specific storage when the \texttt{STORAGECOEFFICIENT}
+option is active; the value set should match that interpretation.)
+\emph{Caveat:} when time-varying storage (TVS) is active, \texttt{SS} is updated
+each time step and overwrites externally set values. \\
+
+\texttt{SY} & Live input &
+Specific yield, dimensioned by NODES. Read directly at every formulate step to
+compute the unconfined (water-table) storage capacity for convertible cells, so
+changes made through the API take effect immediately and persist. Only used for
+cells marked convertible by \texttt{ICONVERT}. \emph{Caveat:} when time-varying
+storage (TVS) is active, \texttt{SY} is updated each time step and overwrites
+externally set values. \\
+
+\texttt{ICONVERT} & Structural / read-only &
+Storage convertibility flag (0 for confined storage, nonzero for
+convertible/water-table storage), dimensioned by NODES. Read every formulate step
+to select the storage formulation. Changing it at run time switches a cell's
+storage behavior mid-simulation and is not supported; treat as read-only. \\
+
+\texttt{STRGSS}, \texttt{STRGSY} & Overwritten &
+Cell-by-cell confined and unconfined storage flow rates, dimensioned by NODES.
+These are outputs, recomputed every time step from the heads and the storage
+capacities; values set through the API are overwritten. To change the storage
+contribution, set \texttt{SS} or \texttt{SY} instead. \\
+
+\hline
+\end{longtable}

@@ -1,0 +1,101 @@
+The list-based stress packages (Well, River, General-Head Boundary, and Drain,
+among others) share a common structure, so the same guidance applies to all of
+them. The per-boundary input values---pumping rates, boundary heads,
+conductances, and elevations---are stored in named arrays that are re-read from
+the input context at the start of each stress period during Read and Prepare.
+These variables are therefore in the \textbf{Period-reset} class: a value set
+through the API once before the time loop is overwritten at the next Read and
+Prepare and has no effect, whereas a value set every time step (after
+\texttt{prepare\_time\_step}) takes effect. The memory address of each variable
+is \texttt{MODELNAME/PACKAGENAME/VARNAME}, where \texttt{PACKAGENAME} is the
+user-assigned package name (not necessarily the package type).
+
+\subsection{Variables Common to the Stress Packages}
+
+In addition to its value variables, each package's table below includes the
+per-boundary variables that are common to all of these packages and are most
+often modified through the API: the auxiliary values (\texttt{AUXVAR}), the cell
+of each boundary (\texttt{NODELIST}), and the number of active boundaries
+(\texttt{NBOUND}). The following variables are also common to these packages but
+are not listed in the per-package tables, because they are either fixed or are
+recomputed by the program rather than set by the user:
+
+\begin{description}
+\item[\texttt{MAXBOUND}] The maximum number of boundaries the package can hold.
+This is the allocated size of \texttt{NODELIST}, the value arrays, and
+\texttt{AUXVAR}; it is fixed when the package is allocated and is in the
+\textbf{Structural / read-only} class. It cannot be increased through the API.
+\item[\texttt{HCOF}, \texttt{RHS}] The head-coefficient and right-hand-side
+contributions of each boundary, dimensioned by \texttt{MAXBOUND}. These are
+recomputed from the boundary input at every formulate step, so they are in the
+\textbf{Overwritten} class. They are the mechanism by which a custom API package
+injects boundary terms, but they are not the knob for a standard package---set
+the boundary input variables instead.
+\item[\texttt{SIMVALS}] The simulated flow for each boundary, dimensioned by
+\texttt{MAXBOUND}. This is an output, recomputed every time step
+(\textbf{Overwritten}).
+\end{description}
+
+\subsection{Changing Boundary Locations}
+
+The cells a stress package acts on are not fixed: a boundary can be moved to a
+different cell, and boundaries can be activated or deactivated, by editing
+\texttt{NODELIST} and \texttt{NBOUND} through the API. Because these variables
+are Period-reset, the same timing rule as for the value arrays applies---set them
+every time step after \texttt{prepare\_time\_step}, so the change is not
+overwritten by Read and Prepare.
+
+\subsubsection{Node numbers in \texttt{NODELIST}}
+
+The entries of \texttt{NODELIST} are one-dimensional node numbers: each is a
+single flat index identifying a cell, regardless of the model's discretization
+type. The cell identifier supplied in the input---layer-row-column
+\texttt{(k, i, j)} for a structured (DIS) grid, layer-cell \texttt{(k, n)} for a
+layered unstructured (DISV) grid, or node \texttt{(n)} for a fully unstructured
+(DISU) grid---is converted to this single node number, which is what
+\texttt{NODELIST} stores; it is not stored in the multi-component form used in the
+input.
+
+These node numbers are \emph{reduced} node numbers whenever any cell in the model
+has an \texttt{IDOMAIN} value less than one, because cells removed from the active
+grid are excluded from the numbering. When no cells are removed, the reduced node
+numbers are identical to the user node numbers of the original discretization.
+
+When reduced numbering is in effect, a \texttt{NODELIST} value cannot be
+interpreted directly as a position in the original discretization; it must first
+be mapped from a reduced node number to a user node number. Use the mapping arrays
+\texttt{MODELNAME/DIS/NODEUSER} (reduced node number to user node number) and
+\texttt{MODELNAME/DIS/NODEREDUCED} (user node number to reduced node number, zero
+for removed cells), substituting \texttt{DISV} or \texttt{DISU} for \texttt{DIS}
+according to the grid type. When the model has no removed cells these arrays are
+allocated with a length of one, which itself signals that reduced and user node
+numbers coincide. The user node number can then be converted to the
+\texttt{(k, i, j)}, \texttt{(k, n)}, or \texttt{(n)} cell identifier of the
+original grid from the grid dimensions; the same mapping is used in reverse to set
+\texttt{NODELIST} from a known cell.
+
+\begin{description}
+\item[Moving a boundary] Set \texttt{NODELIST[i]} to the reduced node number of
+the target cell. The boundary's value arrays (for example \texttt{COND} and
+\texttt{BHEAD}) keep their entry index, so they continue to apply to boundary
+\texttt{i} at its new cell.
+\item[Activating a boundary] Increase \texttt{NBOUND} (up to \texttt{MAXBOUND})
+and fill every array for the new index: \texttt{NODELIST}, the value arrays, and
+any \texttt{AUXVAR}. Entries beyond the original \texttt{NBOUND} hold
+unspecified memory until they are set, so all of them must be assigned.
+\item[Deactivating a boundary] Decrease \texttt{NBOUND}, or move the unwanted
+boundary to an inactive cell; boundaries whose cell is inactive contribute
+nothing.
+\end{description}
+
+\noindent Several constraints and cautions apply. \texttt{MAXBOUND} is the hard
+upper limit on the number of boundaries and cannot be grown through the API, so a
+model that will gain boundaries at run time must be given a large enough
+\texttt{MAXBOUND} in its input (for example, by specifying placeholder
+boundaries). The target cell of a moved or activated boundary must be active.
+The matrix structure is unaffected, because these packages contribute only to the
+diagonal of the boundary cell, which always exists. Finally, anything keyed to a
+boundary's position---auxiliary variables, boundary names, observations, and
+Mover (MVR) connections---is indexed by the boundary's position in the list and
+does not follow the boundary to a new cell, so relocating boundaries can
+invalidate those associations.
