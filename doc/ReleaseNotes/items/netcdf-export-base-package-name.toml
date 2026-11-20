@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "netcdf"
+description = "NetCDF export (EXPORT\\_ARRAY\\_NETCDF) of GRIDDATA arrays named a package that a model can have only one of, such as NPF or MST, by the name given for it in the model name file, which is used only for stress packages, instead of by its package type. MODFLOW 6 reads NetCDF input for these packages by package type, so a file exported for a package given a name different from its type could not be used as input by any version. These packages are now exported by package type."

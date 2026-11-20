@@ -709,7 +709,8 @@ contains
     use MemoryManagerExtModule, only: mem_set_value
     use MemoryHelperModule, only: create_mem_path
     use IdmDfnSelectorModule, only: param_definitions
-    use SourceCommonModule, only: idm_subcomponent_type
+    use SourceCommonModule, only: idm_subcomponent_type, &
+                                  idm_subcomponent_name
     class(DisNCStructuredType), intent(inout) :: this
     character(LENCOMPONENTNAME) :: ptype, pname, pkgtype
     type(CharacterStringType), dimension(:), contiguous, &
@@ -749,6 +750,8 @@ contains
 
         if (export_arrays > 0) then
           pkgtype = idm_subcomponent_type(this%modeltype, ptype)
+          ! base packages are named by type, as in the input context
+          pname = idm_subcomponent_name(this%modeltype, pkgtype, pname)
           param_dfns => param_definitions(this%modeltype, pkgtype)
           call this%export_input_arrays(ptype, pname, mempath, param_dfns)
         end if
