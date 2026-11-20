@@ -26,6 +26,7 @@ if test_drive.found()
     'GridFileReader',
     'HashTable',
     'ImsLinear',
+    'ImsLinearMethods',
     'InputOutput',
     'KeyValueList',
     'List',
