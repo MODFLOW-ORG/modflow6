@@ -30,6 +30,7 @@ program tester
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
   use TestTimeStepSelect, only: collect_timestepselect
+  use TestUltimateScheme, only: collect_ultimatescheme
   use TestUzfCellGroup, only: collect_uzfcellgroup
   use TestUzfEtUtil, only: collect_uzfetutil
   use TestXmi, only: collect_xmi
@@ -71,6 +72,7 @@ program tester
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
                new_testsuite("TimeStepSelect", collect_timestepselect), &
+               new_testsuite("UltimateScheme", collect_ultimatescheme), &
                new_testsuite("UzfCellGroup", collect_uzfcellgroup), &
                new_testsuite("UzfEtUtil", collect_uzfetutil), &
                new_testsuite("Xmi", collect_xmi) &

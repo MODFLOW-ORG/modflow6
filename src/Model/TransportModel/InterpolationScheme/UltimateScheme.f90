@@ -14,6 +14,8 @@ module UltimateSchemeModule
   private
 
   public :: UltimateSchemeType
+  public :: universal_limiter
+  public :: multidim_bounds
 
   !> Slack allowed on the Courant number before the time step is rejected.  The
   !! stability limit is one, but ATS arrives at the time step by dividing the
@@ -67,6 +69,10 @@ module UltimateSchemeModule
     real(DP), dimension(:, :), allocatable :: span !< (3, nodes) distance across both neighbors
     real(DP), dimension(:, :), allocatable :: width !< (3, nodes) cell width along each axis
     real(DP), dimension(:, :), allocatable :: courant_axis !< (3, nodes) signed cell Courant number
+    real(DP), dimension(:), allocatable :: courant_in !< (nodes) cell Courant number for total inflow
+    real(DP), dimension(:), allocatable :: courant_out !< (nodes) cell Courant number for total outflow
+    real(DP), dimension(:), allocatable :: phimin !< (nodes) smallest field value in the cell and its upstream neighbors
+    real(DP), dimension(:), allocatable :: phimax !< (nodes) largest field value in the cell and its upstream neighbors
     real(DP), dimension(:, :), allocatable :: grad_axis !< (3, nodes) centered first derivative
     real(DP), dimension(:, :), allocatable :: curv_axis !< (3, nodes) centered second derivative
     real(DP), dimension(:, :), allocatable :: cross_axis !< (3, nodes) mixed derivative in the normal plane
@@ -77,6 +83,9 @@ module UltimateSchemeModule
 
     procedure, private :: build_stencil
     procedure, private :: check_courant
+    procedure, private :: pore_capacity
+    procedure, private :: calc_bounds
+    procedure, private :: multidim_limiter
     procedure, private :: calc_derivatives
     procedure, private :: diagonal_node
     procedure, private :: face_value
@@ -117,6 +126,10 @@ contains
     allocate (interpolation_scheme%span(3, dis%nodes))
     allocate (interpolation_scheme%width(3, dis%nodes))
     allocate (interpolation_scheme%courant_axis(3, dis%nodes))
+    allocate (interpolation_scheme%courant_in(dis%nodes))
+    allocate (interpolation_scheme%courant_out(dis%nodes))
+    allocate (interpolation_scheme%phimin(dis%nodes))
+    allocate (interpolation_scheme%phimax(dis%nodes))
     allocate (interpolation_scheme%grad_axis(3, dis%nodes))
     allocate (interpolation_scheme%curv_axis(3, dis%nodes))
     allocate (interpolation_scheme%cross_axis(3, dis%nodes))
@@ -288,6 +301,7 @@ contains
     this%phiold => phiold
     call this%check_courant()
     call this%calc_derivatives()
+    call this%calc_bounds()
 
     this%phiface(:) = DZERO
     do n = 1, this%dis%nodes
@@ -297,7 +311,8 @@ contains
         if (m < n) cycle ! each face is visited once
         if (this%ibound(m) == 0) cycle
         isympos = this%dis%con%jas(ipos)
-        this%phiface(isympos) = this%face_value(n, m, ipos)
+        this%phiface(isympos) = &
+          this%multidim_limiter(n, m, ipos, this%face_value(n, m, ipos))
       end do
     end do
   end subroutine prepare
@@ -327,6 +342,10 @@ contains
     courantmax = DZERO
     nrmax = 0
     this%courant_axis(:, :) = DZERO
+    do n = 1, this%dis%nodes
+      this%courant_in(n) = DZERO
+      this%courant_out(n) = DZERO
+    end do
 
     do n = 1, this%dis%nodes
       if (this%ibound(n) == 0) cycle
@@ -345,10 +364,13 @@ contains
       end do
       flowmax = max(flowsumin, flowsumout)
       if (flowmax < DPREC) cycle
-      capacity = this%dis%get_cell_volume(n, this%dis%top(n)) * &
-                 this%fmi%gwfsat(n) * this%porosity(n) * this%retardation(n)
+      capacity = this%pore_capacity(n)
       if (capacity < DPREC) cycle
-      courant = flowmax * delt / capacity
+      !
+      ! -- The update is bounded if the cell loses no more than its pore volume
+      courant = flowsumout * delt / capacity
+      this%courant_in(n) = flowsumin * delt / capacity
+      this%courant_out(n) = courant
       !
       ! -- Resolve the flow through the cell onto each grid axis by averaging
       !    the flow through the two faces normal to it, signed positive in the
@@ -559,8 +581,7 @@ contains
     !    front advances at the retarded velocity, not the water velocity.  This
     !    is the same measure of advective travel distance that the ADV Package
     !    submits to the ATS Package for this scheme.
-    capacity = this%dis%get_cell_volume(iup, this%dis%top(iup)) * &
-               this%fmi%gwfsat(iup) * this%porosity(iup) * this%retardation(iup)
+    capacity = this%pore_capacity(iup)
     if (capacity < DPREC) return
     courant = abs(qnm) * delt / capacity
     !
@@ -634,6 +655,117 @@ contains
     phi_face = universal_limiter(phi_face, phi_2up, phi_up, phi_dn, courant)
   end function face_value
 
+  !> @brief Return the retarded mobile pore volume of a cell
+  !!
+  !! Use the smaller of the saturation at the start and end of the time step.
+  !<
+  function pore_capacity(this, n) result(capacity)
+    ! -- modules
+    use TdisModule, only: delt
+    ! -- return
+    real(DP) :: capacity !< retarded mobile pore volume
+    ! -- dummy
+    class(UltimateSchemeType) :: this
+    integer(I4B), intent(in) :: n !< cell
+    ! -- local
+    real(DP) :: sat
+
+    sat = min(this%fmi%gwfsat(n), this%fmi%gwfsatold(n, delt))
+    capacity = this%dis%get_cell_volume(n, this%dis%top(n)) * sat * &
+               this%porosity(n) * this%retardation(n)
+  end function pore_capacity
+
+  !> @brief Calculate the field range over each cell and its upstream neighbors
+  !<
+  subroutine calc_bounds(this)
+    ! -- dummy
+    class(UltimateSchemeType) :: this
+    ! -- local
+    integer(I4B) :: n, m, ipos
+
+    do n = 1, this%dis%nodes
+      this%phimin(n) = this%phiold(n)
+      this%phimax(n) = this%phiold(n)
+      if (this%ibound(n) == 0) cycle
+      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
+        if (this%dis%con%mask(ipos) == 0) cycle
+        m = this%dis%con%ja(ipos)
+        if (this%ibound(m) == 0) cycle
+        ! -- flow is positive into n, so m is upstream of n
+        if (this%fmi%gwfflowja(ipos) <= DZERO) cycle
+        this%phimin(n) = min(this%phimin(n), this%phiold(m))
+        this%phimax(n) = max(this%phimax(n), this%phiold(m))
+      end do
+    end do
+  end subroutine calc_bounds
+
+  !> @brief Apply Thuburn's multidimensional limiter to a face value
+  !!
+  !! Keep the face value within the range of the downstream cell and within the
+  !! outflow bounds that keep the upstream cell inside its own range.
+  !<
+  function multidim_limiter(this, n, m, iposnm, phi_face) result(phi_limited)
+    ! -- return
+    real(DP) :: phi_limited !< limited face value
+    ! -- dummy
+    class(UltimateSchemeType) :: this
+    integer(I4B), intent(in) :: n !< first cell
+    integer(I4B), intent(in) :: m !< second cell
+    integer(I4B), intent(in) :: iposnm !< position of the n-m connection
+    real(DP), intent(in) :: phi_face !< face value to limit
+    ! -- local
+    integer(I4B) :: iup, idn
+    real(DP) :: lower, upper
+
+    phi_limited = phi_face
+    if (abs(this%fmi%gwfflowja(iposnm)) < DPREC) return
+    if (this%fmi%gwfflowja(iposnm) > DZERO) then
+      iup = m
+      idn = n
+    else
+      iup = n
+      idn = m
+    end if
+    call multidim_bounds(this%phiold(iup), this%phimin(iup), &
+                         this%phimax(iup), this%phimin(idn), &
+                         this%phimax(idn), this%courant_in(iup), &
+                         this%courant_out(iup), lower, upper)
+    phi_limited = max(min(phi_limited, upper), lower)
+  end function multidim_limiter
+
+  !> @brief Calculate Thuburn's bounds on a face value
+  !!
+  !! The face value must lie within the range of the downstream cell and within
+  !! the outflow bounds that keep the upstream cell inside its own range.
+  !<
+  pure subroutine multidim_bounds(phi_up, phimin_up, phimax_up, phimin_dn, &
+                                  phimax_dn, cin, cout, lower, upper)
+    ! -- dummy
+    real(DP), intent(in) :: phi_up !< upstream cell value
+    real(DP), intent(in) :: phimin_up !< smallest value around the upstream cell
+    real(DP), intent(in) :: phimax_up !< largest value around the upstream cell
+    real(DP), intent(in) :: phimin_dn !< smallest value around the downstream cell
+    real(DP), intent(in) :: phimax_dn !< largest value around the downstream cell
+    real(DP), intent(in) :: cin !< upstream cell inflow Courant number
+    real(DP), intent(in) :: cout !< upstream cell outflow Courant number
+    real(DP), intent(out) :: lower !< smallest allowed face value
+    real(DP), intent(out) :: upper !< largest allowed face value
+
+    lower = phimin_dn
+    upper = phimax_dn
+    !
+    ! -- Outflow bounds of the upstream cell, assuming its inflow face values
+    !    lie anywhere within its own range
+    if (cout > DPREC) then
+      lower = max(lower, (phi_up + (cin - DONE) * phimax_up) / cout)
+      upper = min(upper, (phi_up + (cin - DONE) * phimin_up) / cout)
+    end if
+    !
+    ! -- Upwinding always satisfies the bounds, so keep it inside them
+    lower = min(lower, phi_up)
+    upper = max(upper, phi_up)
+  end subroutine multidim_bounds
+
   !> @brief Apply Leonard's universal limiter to a face value
   !!
   !! Clamp the high-order face value to the range that keeps the explicit update
@@ -642,7 +774,7 @@ contains
   !! there is no monotonic range to preserve and the face value reverts to
   !! first-order upwinding.
   !<
-  function universal_limiter(phi_face, phi_2up, phi_up, phi_dn, courant) &
+  pure function universal_limiter(phi_face, phi_2up, phi_up, phi_dn, courant) &
     result(phi_limited)
     ! -- return
     real(DP) :: phi_limited !< limited face value

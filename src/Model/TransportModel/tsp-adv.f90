@@ -306,6 +306,10 @@ contains
         end if
       end do
       flowmax = max(flowsumneg, flowsumpos)
+      !
+      ! -- An explicit update is bounded if no cell loses more than its pore
+      !    volume, so the ULTIMATE limit depends on outflow alone
+      if (this%iadvwt == ADV_SCHEME_ULTIMATE) flowmax = flowsumneg
       if (flowmax < DPREC) cycle
       cell_volume = this%dis%get_cell_volume(n, this%dis%top(n))
       dt = cell_volume * this%fmi%gwfsat(n) * this%porosity(n) / flowmax
