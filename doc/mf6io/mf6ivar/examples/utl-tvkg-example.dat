@@ -1,0 +1,41 @@
+BEGIN OPTIONS
+  READARRAYGRID
+  TAS6 FILEIN tvkg_k.tas
+  # Note: time-array series file tvkg_k.tas defines time-array series k_ts
+END OPTIONS
+
+# A model with 1 layer, 2 rows, and 3 columns.
+#
+# No changes are made in stress period 1 due to an absence of a block
+# for that period; cells keep the values specified in the NPF package.
+#
+# In stress period 2, K is changed in the first row only; DNODATA
+# (3.0E+30) leaves the second row unchanged.
+
+BEGIN PERIOD 2
+  K
+    INTERNAL
+      5.0     5.0     5.0
+      3.0E+30 3.0E+30 3.0E+30
+END PERIOD
+
+# In stress period 4, K is obtained from time-array series k_ts.  Cells
+# where k_ts is DNODATA keep their current values.  K33 is changed for the
+# whole grid.
+
+BEGIN PERIOD 4
+  K TIMEARRAYSERIES k_ts
+  K33
+    CONSTANT 0.1
+END PERIOD
+
+# Values persist until they are changed.  To return the first row to the
+# NPF value of K (1.0 in this example), that value is specified again.  K
+# is no longer obtained from k_ts.
+
+BEGIN PERIOD 6
+  K
+    INTERNAL
+      1.0     1.0     1.0
+      3.0E+30 3.0E+30 3.0E+30
+END PERIOD

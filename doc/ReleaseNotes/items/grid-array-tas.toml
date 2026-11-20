@@ -1,0 +1,3 @@
+section = "features"
+subsection = "stress"
+description = "The CHDG, DRNG, GHBG, RIVG and WELG Packages (READARRAYGRID) can now use time-array series (TAS6 option). An array linked to a time-array series is updated each time step and is used with the other arrays in the PERIOD block to determine the boundary cells; the link continues until the array is specified again or an empty PERIOD block is specified. With NetCDF export (EXPORT\\_ARRAY\\_NETCDF), an array linked to a time-array series is written as the fill value, and its TIMEARRAYSERIES entry must remain in the package file."

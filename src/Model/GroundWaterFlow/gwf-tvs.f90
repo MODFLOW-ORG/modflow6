@@ -7,13 +7,13 @@
 !<
 module TvsModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, DNODATA
-  use KindModule, only: I4B, DP
+  use ConstantsModule, only: LINELENGTH, LENMEMPATH, DZERO, LENVARNAME
+  use KindModule, only: I4B, DP, LGP
   use MemoryManagerModule, only: mem_setptr, get_isize
   use MemoryHelperModule, only: create_mem_path
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg
-  use TdisModule, only: kper
+  use TdisModule, only: kper, kstp
   use TvBaseModule, only: TvBaseType, tvbase_da
 
   implicit none
@@ -89,6 +89,9 @@ contains
     ! -- set input mempath pointers
     call mem_setptr(this%ss_src, 'SS', this%input_mempath)
     call mem_setptr(this%sy_src, 'SY', this%input_mempath)
+    !
+    ! -- input fields, in the order they are applied
+    this%fieldnames = [character(len=LENVARNAME) :: 'SS', 'SY']
   end subroutine tvs_ar_set_pointers
 
   !> @brief Source TVS-specific options from the input memory path.
@@ -111,28 +114,24 @@ contains
     end if
   end subroutine tvs_source_package_options
 
-  !> @brief Apply this node's SS/SY input values to node.
-  !!
-  !! Called for every tracked node; the DNODATA check on each field
-  !! makes this a no-op except where a value is set. node may be invalid
-  !! even when a field has a value at nodeu, so each field validates
-  !! node itself before using it.
+  !> @brief Apply the selected SS and SY input values at a node
   !<
-  subroutine tvs_apply_row_changes(this, nodeu, node)
+  subroutine tvs_apply_row_changes(this, nodeu, node, fields)
     ! -- dummy
     class(TvsType) :: this
-    integer(I4B), intent(in) :: nodeu
-    integer(I4B), intent(in) :: node
+    integer(I4B), intent(in) :: nodeu !< user node number
+    integer(I4B), intent(in) :: node !< reduced node number; may be invalid, each field checks it
+    logical(LGP), dimension(:), intent(in) :: fields !< fields to apply, in fieldnames order
     ! -- local
     character(len=LINELENGTH) :: cellstr
     ! -- formats
     character(len=*), parameter :: fmtvalchg = &
-      "(a, ' package: Setting ', a, ' value for cell ', a, ' at start of &
-      &stress period ', i0, ' = ', g12.5)"
+      "(a, ' package: Setting ', a, ' value for cell ', a, ' in stress &
+      &period ', i0, ', time step ', i0, ' = ', g12.5)"
     !
-    if (this%ss_src(nodeu) /= DNODATA) then
+    if (fields(1)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -142,15 +141,15 @@ contains
         if (this%iprpak /= 0) then
           call this%dis%noder_to_string(node, cellstr)
           write (this%iout, fmtvalchg) &
-            trim(adjustl(this%packName)), 'SS', trim(cellstr), kper, &
+            trim(adjustl(this%packName)), 'SS', trim(cellstr), kper, kstp, &
             this%ss(node)
         end if
       end if
     end if
     !
-    if (this%sy_src(nodeu) /= DNODATA) then
+    if (fields(2)) then
       if (node < 1 .or. node > this%dis%nodes) then
-        call this%dis%noder_to_string(node, cellstr)
+        call this%dis%nodeu_to_string(nodeu, cellstr)
         write (errmsg, '(a,2(1x,a))') &
           'CELLID', trim(cellstr), 'is not in the active model domain.'
         call store_error(errmsg)
@@ -160,7 +159,7 @@ contains
         if (this%iprpak /= 0) then
           call this%dis%noder_to_string(node, cellstr)
           write (this%iout, fmtvalchg) &
-            trim(adjustl(this%packName)), 'SY', trim(cellstr), kper, &
+            trim(adjustl(this%packName)), 'SY', trim(cellstr), kper, kstp, &
             this%sy(node)
         end if
       end if
@@ -184,9 +183,7 @@ contains
 
   !> @brief Clear all per-node change flags
   !!
-  !! Deferred procedure implementation called by the TvBaseType code when a
-  !! new time step commences, indicating that any previously set per-node
-  !! property value change flags should be reset.
+  !! Called at the first input value change in a time step.
   !<
   subroutine tvs_reset_change_flags(this)
     ! -- dummy

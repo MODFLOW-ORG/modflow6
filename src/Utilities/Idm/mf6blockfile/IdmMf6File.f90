@@ -278,14 +278,17 @@ contains
   !<
   subroutine dynamic_create_loader(this)
     use LayerArrayLoadModule, only: LayerArrayLoadType
-    use GridArrayLoadModule, only: GridArrayLoadType
+    use GridArrayLoadModule, only: defines_maxbound
+    use GridArrayCompressedLoadModule, only: GridArrayCompressedLoadType
+    use GridArrayFullLoadModule, only: GridArrayFullLoadType
     use ListLoadModule, only: ListLoadType
     use Mf6FileSettingLoadModule, only: SettingLoadType
     use Mf6FileKeystringModule, only: KeystringLoadType
     use Mf6FileStoInputModule, only: StoInputType
     class(Mf6FileDynamicPkgLoadType), intent(inout) :: this
     class(ListLoadType), pointer :: list_loader
-    class(GridArrayLoadType), pointer :: arrgrid_loader
+    class(GridArrayCompressedLoadType), pointer :: arrgrid_cloader
+    class(GridArrayFullLoadType), pointer :: arrgrid_floader
     class(LayerArrayLoadType), pointer :: arrlayer_loader
     class(SettingLoadType), pointer :: setting_loader
     class(KeystringLoadType), pointer :: keystring_loader
@@ -306,8 +309,14 @@ contains
       allocate (arrlayer_loader)
       this%rp_loader => arrlayer_loader
     else if (this%readarraygrid) then
-      allocate (arrgrid_loader)
-      this%rp_loader => arrgrid_loader
+      ! storage mode: compressed if the package defines MAXBOUND
+      if (defines_maxbound(this%mf6_input)) then
+        allocate (arrgrid_cloader)
+        this%rp_loader => arrgrid_cloader
+      else
+        allocate (arrgrid_floader)
+        this%rp_loader => arrgrid_floader
+      end if
     else
       allocate (list_loader)
       this%rp_loader => list_loader

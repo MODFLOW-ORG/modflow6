@@ -1,0 +1,23 @@
+Input to the Time-Varying Hydraulic Conductivity with Grid Array Input (TVKG) Utility is read from the file that is specified in the TVKG6 record of the OPTIONS block in the NPF package.  TVKG provides the same changes to hydraulic conductivity as the TVK Utility, with values specified as arrays for the model grid rather than as a list of cells.  TVK6 and TVKG6 cannot both be specified.
+
+\packageperioddescriptiongridarrayfull{hydraulic conductivity}
+
+\vspace{5mm}
+\subsubsection{Structure of Blocks}
+\vspace{5mm}
+
+\noindent \textit{FOR EACH SIMULATION}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tvkg-options.dat}
+\vspace{5mm}
+\noindent \textit{FOR ANY STRESS PERIOD}
+\lstinputlisting[style=blockdefinition]{./mf6ivar/tex/utl-tvkg-period.dat}
+
+\vspace{5mm}
+\subsubsection{Explanation of Variables}
+\begin{description}
+\input{./mf6ivar/tex/utl-tvkg-desc.tex}
+\end{description}
+
+\vspace{5mm}
+\subsubsection{Example Input File}
+\lstinputlisting[style=inputfile]{./mf6ivar/examples/utl-tvkg-example.dat}

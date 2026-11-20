@@ -3,7 +3,8 @@ its series when a later PERIOD block reappears only for a different,
 unrelated cell (tvkcontinue, tvscontinue); a TS-linked value switching
 cleanly between two different series across periods with no leftover
 value from the prior one (tvkswitch); and a plain (non-TS) value
-persisting across a later, present-but-empty PERIOD block (tvkempty).
+persisting across later, present-but-empty PERIOD blocks without being
+applied again (tvkempty, tvsempty).
 """
 
 import re
@@ -13,7 +14,7 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["tvkcontinue", "tvkswitch", "tvscontinue", "tvkempty"]
+cases = ["tvkcontinue", "tvkswitch", "tvscontinue", "tvkempty", "tvsempty"]
 
 # tvkcontinue / tvscontinue: TS-linked cell (0,0,1) must keep tracking its
 # series across periods 2/3, whose own PERIOD blocks reappear only for a
@@ -33,7 +34,14 @@ SWITCH_EXPECTED = (TS_A_VALS[0.0], TS_B_VALS[1.0], TS_A_VALS[2.0])
 
 # tvkempty: a plain (non-TS) K value set once in period 1 must persist
 # across periods 2/3, whose own PERIOD blocks reappear present but empty.
+# It is applied (logged) in period 1 only; heads must match a model with
+# that K given in NPF.
 EMPTY_K_VAL = 5.0
+
+# tvsempty: as tvkempty, for a plain SS value, without storage change
+# integration so the heads match a model with that SS given in STO.
+SS0 = 1.0e-5
+EMPTY_SS_VAL = 5.0e-4
 
 
 def _build_base(name, ws):
@@ -121,6 +129,22 @@ def build_models(idx, test):
             perioddata={0: [((0, 0, 1), "K", EMPTY_K_VAL)], 1: [], 2: []},
             filename=f"{name}.tvk",
         )
+    elif name == "tvsempty":
+        sto = flopy.mf6.ModflowGwfsto(
+            gwf,
+            iconvert=0,
+            ss=SS0,
+            sy=0.1,
+            steady_state={0: False},
+            transient={0: True},
+        )
+        flopy.mf6.ModflowUtltvs(
+            sto,
+            print_input=True,
+            disable_storage_change_integration=True,
+            perioddata={0: [((0, 0, 1), "SS", EMPTY_SS_VAL)], 1: [], 2: []},
+            filename=f"{name}.tvs",
+        )
     else:  # tvscontinue
         sto = flopy.mf6.ModflowGwfsto(
             gwf,
@@ -166,10 +190,10 @@ def check_output(idx, test):
     lst_fname = test.workspace / f"{name}.lst"
     text = lst_fname.read_text()
 
-    field = "SS" if name == "tvscontinue" else "K"
+    field = "SS" if name.startswith("tvs") else "K"
     pattern = re.compile(
-        rf"Setting {field} value for cell\s+(\S+)\s+at start of\s+stress "
-        r"period\s+(\d+)\s*=\s*([\d.eE+-]+)"
+        rf"Setting {field} value for cell\s+(\S+)\s+in stress\s+period\s+(\d+),"
+        r"\s+time step\s+\d+\s*=\s*([\d.eE+-]+)"
     )
     matches = pattern.findall(text)
     assert len(matches) > 0, (
@@ -208,22 +232,42 @@ def check_output(idx, test):
         assert np.allclose(vals_by_period[3], p3), (
             f"Period 3 {field} expected {p3}, got {vals_by_period[3]}"
         )
-    elif name == "tvkempty":
-        assert 1 in vals_by_period, "No K applications logged for period 1"
-        assert np.allclose(vals_by_period[1], EMPTY_K_VAL), (
-            f"Period 1 K expected {EMPTY_K_VAL}, got {vals_by_period[1]}"
+    elif name in ("tvkempty", "tvsempty"):
+        val = EMPTY_K_VAL if name == "tvkempty" else EMPTY_SS_VAL
+        assert list(vals_by_period) == [1], (
+            f"{field} expected to be applied in period 1 only, got {vals_by_period}"
         )
-        assert 2 in vals_by_period, (
-            f"No K applications logged for period 2 -- plain (non-TS) K "
-            f"did not persist across period 2's present-but-empty PERIOD "
-            f"block. vals_by_period={vals_by_period}"
+        assert np.allclose(vals_by_period[1], val), (
+            f"Period 1 {field} expected {val}, got {vals_by_period[1]}"
         )
-        assert np.allclose(vals_by_period[2], EMPTY_K_VAL), (
-            f"Period 2 K expected {EMPTY_K_VAL}, got {vals_by_period[2]}"
+
+        # reference: the same value given in NPF or STO, without TVK/TVS
+        ws = test.workspace / "ref"
+        sim, gwf = _build_base(name, ws)
+        sim.exe_name = test.targets["mf6"]
+        if name == "tvkempty":
+            flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=[10.0, val, 10.0], k33=10.0)
+        else:
+            flopy.mf6.ModflowGwfnpf(gwf, icelltype=0, k=10.0, k33=10.0)
+            flopy.mf6.ModflowGwfsto(
+                gwf,
+                iconvert=0,
+                ss=[SS0, val, SS0],
+                sy=0.1,
+                steady_state={0: False},
+                transient={0: True},
+            )
+        flopy.mf6.ModflowGwfoc(
+            gwf, head_filerecord=f"{name}.hds", saverecord=[("HEAD", "ALL")]
         )
-        assert 3 in vals_by_period, "No K applications logged for period 3"
-        assert np.allclose(vals_by_period[3], EMPTY_K_VAL), (
-            f"Period 3 K expected {EMPTY_K_VAL}, got {vals_by_period[3]}"
+        sim.write_simulation(silent=True)
+        success, _ = sim.run_simulation(silent=True)
+        assert success, "reference simulation failed"
+        h = flopy.utils.HeadFile(test.workspace / f"{name}.hds").get_alldata()
+        href = flopy.utils.HeadFile(ws / f"{name}.hds").get_alldata()
+        assert np.allclose(h, href, atol=1e-10), (
+            f"{field} did not persist across the empty PERIOD blocks: max head "
+            f"difference from the reference {np.abs(h - href).max()}"
         )
     else:  # tvkswitch
         p1, p2, p3 = SWITCH_EXPECTED

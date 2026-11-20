@@ -25,6 +25,9 @@ module GwfWelgInputModule
     logical :: fileout = .false.
     logical :: afrcsvfile = .false.
     logical :: iflowredlen = .false.
+    logical :: tas_filerecord = .false.
+    logical :: tas6 = .false.
+    logical :: tas6_filename = .false.
     logical :: obs_filerecord = .false.
     logical :: filein = .false.
     logical :: obs6 = .false.
@@ -274,6 +277,63 @@ module GwfWelgInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfwelg_tas_filerecord = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WELG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS_FILERECORD', & ! tag name
+    'TAS_FILERECORD', & ! fortran variable
+    'RECORD TAS6 FILEIN TAS6_FILENAME', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfwelg_tas6 = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WELG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS6', & ! tag name
+    'TAS6', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'time-array series keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfwelg_tas6_filename = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'WELG', & ! subcomponent
+    'OPTIONS', & ! block
+    'TAS6_FILENAME', & ! tag name
+    'TAS6_FILENAME', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file name of time series information', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfwelg_obs_filerecord = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -422,7 +482,7 @@ module GwfWelgInputModule
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
-    .false. & ! timeseries
+    .true. & ! timeseries
     )
 
   type(InputParamDefinitionType), parameter :: &
@@ -441,7 +501,7 @@ module GwfWelgInputModule
     .false., & ! multi-record
     .false., & ! preserve case
     .true., & ! layered
-    .false. & ! timeseries
+    .true. & ! timeseries
     )
 
   type(InputParamDefinitionType), parameter :: &
@@ -459,6 +519,9 @@ module GwfWelgInputModule
     gwfwelg_fileout, &
     gwfwelg_afrcsvfile, &
     gwfwelg_iflowredlen, &
+    gwfwelg_tas_filerecord, &
+    gwfwelg_tas6, &
+    gwfwelg_tas6_filename, &
     gwfwelg_obs_filerecord, &
     gwfwelg_filein, &
     gwfwelg_obs6, &

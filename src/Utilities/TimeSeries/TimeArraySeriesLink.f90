@@ -1,6 +1,6 @@
 module TimeArraySeriesLinkModule
 
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: LENPACKAGENAME, LENTIMESERIESTEXT
   use InputOutputModule, only: UPCASE
   use ListModule, only: ListType
@@ -20,7 +20,13 @@ module TimeArraySeriesLinkModule
     integer(I4B), public :: Iprpak = 1
     logical, public :: UseDefaultProc = .true.
     logical, public :: ConvertFlux = .false.
+    logical, public :: keep_nodata = .false. !< keep values where series is DNODATA
+    logical(LGP), dimension(:), allocatable, public :: written !< elements set by the last update (keep_nodata links)
     integer(I4B), dimension(:), pointer, contiguous, public :: nodelist => null()
+    ! imap maps BndArray(i) to series array element imap(i) for
+    ! i = 1..nmap
+    integer(I4B), dimension(:), pointer, contiguous, public :: imap => null()
+    integer(I4B), pointer, public :: nmap => null()
     ! BndArray can point to an array in either the bound or auxval
     ! array of BndType, or any other double precision variable or array
     ! element that contains a value that could be controlled by a time series.
@@ -42,9 +48,12 @@ contains
     class(TimeArraySeriesLinkType), intent(inout) :: this
     !
     this%nodelist => null()
+    this%imap => null()
+    this%nmap => null()
     this%bndarray => null()
     this%rmultarray => null()
     this%TimeArraySeries => null()
+    if (allocated(this%written)) deallocate (this%written)
   end subroutine tasl_da
 
   !> @brief Construct a time series of arrays that are linked
