@@ -22,7 +22,10 @@ tdis_rc = [
 nlay, nrow, ncol = 2, 1, 1
 delr = delc = 10.0
 top, botm = 10.0, [9.0, 8.0]
-strt = top
+# start just below the top so that specific yield storage, which the Newton
+# formulation smooths to zero at the top of a convertible cell, is active
+# from the first iteration; starting at the top left the first matrix singular
+strt = top - 0.01
 hk = 1.0
 sy = 0.1
 wellq = 0.25
