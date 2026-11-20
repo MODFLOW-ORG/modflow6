@@ -15,6 +15,14 @@ class Comparison(Enum):
     LIBMF6 = "libmf6"
     MF6 = "mf6"
     MF6_REGRESSION = "mf6_regression"
+    # the simulation re-written with NetCDF package input by flopy4
+    FP4_STRUCTURED = "fp4_structured"
+    FP4_LAYERED = "fp4_layered"
+    # the simulation re-written as plain ASCII input by flopy4, no NetCDF
+    FP4_ASCII = "fp4_ascii"
+    # the simulation re-run with input read from the NetCDF file MF6 exports
+    MF6_EXPORT_STRUCTURED = "mf6_export_structured"
+    MF6_EXPORT_LAYERED = "mf6_export_layered"
 
 
 EXTTEXT = {
@@ -456,7 +464,7 @@ def get_ftypes(namefile, ftypekeys):
 
 
 def get_comparison_files(
-    workspace: os.PathLike, extensions
+    workspace: os.PathLike, extensions, cmp_dir: str = "mf6_regression"
 ) -> tuple[list[str], list[str]]:
     if isinstance(extensions, str):
         extensions = [extensions]
@@ -469,7 +477,7 @@ def get_comparison_files(
             for extension in extensions:
                 if file_name.lower().endswith(extension):
                     files0.append(fpth0)
-                    fpth1 = os.path.join(workspace, "mf6_regression", file_name)
+                    fpth1 = os.path.join(workspace, cmp_dir, file_name)
                     files1.append(fpth1)
                     break
     return files0, files1

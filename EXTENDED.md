@@ -194,6 +194,27 @@ $ pytest --netcdf test_netcdf_gwe_cnd.py
 
 Running without the `--parallel` and `--netcdf` flags will simply skip these tests.
 
+### NetCDF input tests
+
+A test can re-run its simulation with package input read from NetCDF by adding a comparison to its `compare` parameters. The re-run is compared with the ASCII run and checked again (by `check_rerun`, or `check` if none is given). Two kinds of comparison write the NetCDF input:
+
+- `Comparison.MF6_EXPORT_STRUCTURED` and `Comparison.MF6_EXPORT_LAYERED` use the file MODFLOW 6 exports in validate mode (`EXPORT_ARRAY_NETCDF`), and need nothing beyond an extended build. They run with `--netcdf`.
+- `Comparison.FP4_STRUCTURED` and `Comparison.FP4_LAYERED` re-write the simulation with [flopy4](https://github.com/modflowpy/pyphoenix-project), and `Comparison.FP4_ASCII` re-writes it as plain text input. These run only with `--flopy4`, which needs flopy4 installed, and are marked `flopy4`. The MODFLOW 6 continuous integration does not install flopy4; the flopy4 repository runs these comparisons against MODFLOW 6.
+
+A test that can't be re-written by flopy4 is marked `flopy4_exclude`, with the reason; the marker documents the exclusion and doesn't change how the test runs.
+
+To run the flopy4 comparisons locally, install flopy4 into the pixi environment and generate both versions of FloPy from this repository's DFN files:
+
+```
+$ pixi run pip install -e /path/to/flopy4
+$ pixi run update-flopy
+$ pixi run flopy4 mf6 sync doc/mf6io/mf6ivar/dfn --mf6-version $(cat version.txt)
+$ cd autotest
+$ pixi run pytest --netcdf --flopy4 -m flopy4 test_netcdf_gwt_dsp01.py
+```
+
+Installing flopy4 replaces the environment's `modflow-devtools` with the version flopy4 requires; an explicit `pixi install` restores it.
+
 ## Debugging
 
 The most straightforward way to debug a parallel simulation is to start a run and have it pause to attach the debugger(s). Make sure that the MODFLOW executable was compiled with `-Ddebug=true`. In parallel mode the program uses the PETSc solver and a configuration file `.petscrc` should be present in the same folder as the simulation's `mfsim.nam`. In that PETSc resource file, you should add the following option:
