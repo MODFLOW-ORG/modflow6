@@ -18,6 +18,8 @@ module BinaryFileReaderModule
     integer(I4B) :: nrecords = 0
     logical(LGP) :: indexed = .false.
     logical(LGP) :: endoffile = .false.
+    logical(LGP) :: backward = .false. !< traverse records in reverse order
+    integer(I4B) :: current_index = 0 !< index of the current record
     integer(I8B), allocatable :: record_positions(:) !< record start positions
     class(BinaryFileHeaderType), allocatable :: header
     class(BinaryFileHeaderType), allocatable :: headernext
@@ -95,6 +97,13 @@ contains
     end do
     call this%rewind()
 
+    ! Initialize index position based on direction
+    if (this%backward) then
+      this%current_index = this%nrecords + 1
+    else
+      this%current_index = 0
+    end if
+
     this%indexed = .true.
   end subroutine build_index
 
@@ -118,15 +127,33 @@ contains
     if (.not. allocated(this%headernext)) &
       allocate (this%headernext, mold=this%header)
     this%endoffile = .false.
+    this%current_index = index
   end subroutine seek_to_index
 
   !> @brief Peek to see if another record is available.
   subroutine peek_record(this)
     class(BinaryFileReaderType), intent(inout) :: this
     ! local
-    integer(I4B) :: iostat
+    integer(I4B) :: iostat, next_idx
 
-    if (.not. this%endoffile) then
+    if (this%endoffile) return
+
+    if (this%indexed .and. this%backward) then
+      ! Peek at the previous record in the index, then return
+      ! to the start of the current record
+      next_idx = this%current_index - 1
+      if (next_idx >= 1 .and. next_idx <= this%nrecords) then
+        this%headernext%pos = this%record_positions(next_idx)
+        read (this%inunit, pos=this%headernext%pos, iostat=iostat) &
+          this%headernext%kstp, this%headernext%kper
+        if (this%current_index >= 1 .and. &
+            this%current_index <= this%nrecords) &
+          read (this%inunit, pos=this%record_positions(this%current_index), &
+                iostat=iostat)
+      else
+        this%endoffile = .true.
+      end if
+    else
       inquire (this%inunit, pos=this%headernext%pos)
       read (this%inunit, iostat=iostat) this%headernext%kstp, this%headernext%kper
       if (iostat == 0) then
@@ -150,6 +177,13 @@ contains
     this%header%pos = 1
     this%headernext%pos = 1
     this%endoffile = .false.
+
+    ! Reset index position based on direction
+    if (this%indexed .and. this%backward) then
+      this%current_index = this%nrecords + 1
+    else
+      this%current_index = 0
+    end if
   end subroutine rewind
 
 end module BinaryFileReaderModule
