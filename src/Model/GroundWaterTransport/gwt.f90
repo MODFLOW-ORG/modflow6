@@ -261,7 +261,9 @@ contains
     if (this%inmvt > 0) call this%mvt%mvt_ar()
     if (this%inic > 0) call this%ic%ic_ar(this%x)
     if (this%inmst > 0) call this%mst%mst_ar(this%dis, this%ibound)
-    if (this%inadv > 0) call this%adv%adv_ar(this%dis, this%ibound)
+    if (this%inadv > 0) call this%adv%adv_ar(this%dis, this%ibound, &
+                                             this%mst%thetam, &
+                                             this%mst%retardation)
     if (this%indsp > 0) call this%dsp%dsp_ar(this%ibound, this%mst%thetam)
     if (this%inssm > 0) call this%ssm%ssm_ar(this%dis, this%ibound, this%x)
     if (this%inobs > 0) call this%obs%tsp_obs_ar(this%ic, this%x, this%flowja)
@@ -339,7 +341,7 @@ contains
     dtmax = DNODATA
 
     ! advection package courant stability
-    call this%adv%adv_dt(dtmax, msg, this%mst%thetam)
+    call this%adv%adv_dt(dtmax, msg)
     if (msg /= '') then
       call ats%ats_submit_delt(kstp, kper, dtmax, msg)
     end if
@@ -384,6 +386,8 @@ contains
     call this%fmi%fmi_ad(this%x)
     !
     ! -- Advance
+    if (this%inmst > 0) call this%mst%mst_calc_retardation(this%xold)
+    if (this%inadv > 0) call this%adv%adv_ad(this%xold)
     if (this%indsp > 0) call this%dsp%dsp_ad()
     if (this%inssm > 0) call this%ssm%ssm_ad()
     do ip = 1, this%bndlist%Count()
