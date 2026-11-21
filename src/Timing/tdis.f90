@@ -233,7 +233,8 @@ contains
       end if
     end if
     !
-    ! -- Set end of simulation indicator
+    ! -- Set end of simulation indicator for the retried time step
+    endofsimulation = .false.
     if (endofperiod .and. kper == nper) then
       endofsimulation = .true.
       totim = totalsimtime
