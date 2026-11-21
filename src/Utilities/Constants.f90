@@ -208,6 +208,14 @@ module ConstantsModule
     ENUMERATOR :: MRUN = 2 !< run output mode
   END ENUM
 
+  !> @brief enumerator that defines the check for cells with undetermined heads
+  !<
+  ENUM, BIND(C)
+    ENUMERATOR :: ISOCHK_START = 0 !< check the first assembly of the simulation
+    ENUMERATOR :: ISOCHK_TSTEP = 1 !< check the first outer iteration of every time step
+    ENUMERATOR :: ISOCHK_OUTER = 2 !< check every outer iteration
+  END ENUM
+
   !> @brief enumerator that defines the compiler
   !<
   ENUM, BIND(C)

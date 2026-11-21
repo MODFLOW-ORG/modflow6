@@ -6,7 +6,7 @@ module SortModule
   implicit none
 
   private
-  public :: qsort, selectn, unique_values
+  public :: qsort, selectn, unique_values, search_sorted
 
   interface qsort
     module procedure qsort_int1d, qsort_dbl1d
@@ -459,6 +459,35 @@ contains
       end do
     end if
   end subroutine selectn
+
+  !> @brief Return the original position of a value in a sorted array, or 0
+  !!
+  !! svals and sidx are the values and index returned by qsort in increasing
+  !! order.
+  !<
+  function search_sorted(svals, sidx, val) result(ipos)
+    integer(I4B), dimension(:), intent(in) :: svals !< sorted values
+    integer(I4B), dimension(:), intent(in) :: sidx !< their original positions
+    integer(I4B), intent(in) :: val !< value to find
+    integer(I4B) :: ipos
+    ! -- local
+    integer(I4B) :: lo, hi, mid
+
+    ipos = 0
+    lo = 1
+    hi = size(svals)
+    do while (lo <= hi)
+      mid = (lo + hi) / 2
+      if (svals(mid) == val) then
+        ipos = sidx(mid)
+        return
+      else if (svals(mid) < val) then
+        lo = mid + 1
+      else
+        hi = mid - 1
+      end if
+    end do
+  end function search_sorted
 
   subroutine rswap(a, b)
     ! -- dummy arguments

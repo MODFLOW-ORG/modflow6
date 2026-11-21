@@ -73,7 +73,7 @@ def get_workspace(sim_or_model) -> Path:
         raise ValueError(f"Unsupported model type: {type(sim_or_model)}")
 
 
-def run_parallel(workspace, target, ncpus) -> tuple[bool, list[str]]:
+def run_parallel(workspace, target, ncpus, cargs=None) -> tuple[bool, list[str]]:
     if not is_in_ci() and get_ostag() in ["mac"]:
         oversubscribed = ["--hostfile", "localhost"]
         with open(f"{workspace}/localhost", "w") as f:
@@ -91,6 +91,9 @@ def run_parallel(workspace, target, ncpus) -> tuple[bool, list[str]]:
         mpiexec_cmd = ["mpiexec", "-np", str(ncpus), target, "-p"]
     else:
         mpiexec_cmd = ["mpiexec"] + oversubscribed + ["-np", str(ncpus), target, "-p"]
+
+    if cargs:
+        mpiexec_cmd += [cargs] if isinstance(cargs, str) else list(cargs)
 
     proc = Popen(mpiexec_cmd, stdout=PIPE, stderr=STDOUT, cwd=workspace)
 
@@ -548,7 +551,7 @@ class TestFramework:
             if self.parallel and ncpus > 1:
                 print(f"Parallel test {self.name} on {self.ncpus} processes")
                 success, buff, error = attempt(
-                    lambda: run_parallel(workspace, target, ncpus),
+                    lambda: run_parallel(workspace, target, ncpus, cargs),
                     f"MODFLOW 6 parallel test {self.name}",
                 )
             else:

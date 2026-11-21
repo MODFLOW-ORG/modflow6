@@ -10,7 +10,7 @@ module SimVariablesModule
   use, intrinsic :: iso_fortran_env, only: output_unit
   use KindModule, only: DP, I4B
   use ConstantsModule, only: LINELENGTH, MAXCHARLEN, IUSTART, &
-                             VALL, MNORMAL, LENMODELNAME
+                             VALL, MNORMAL, LENMODELNAME, ISOCHK_START
   public
   character(len=LINELENGTH) :: simfile = 'mfsim.nam' !< simulation name file
   character(len=LINELENGTH) :: simlstfile = 'mfsim.lst' !< simulation listing file name
@@ -30,6 +30,7 @@ module SimVariablesModule
   integer(I4B) :: istdout = output_unit !< unit number for stdout
   integer(I4B) :: isim_level = VALL !< simulation output level
   integer(I4B) :: isim_mode = MNORMAL !< simulation mode
+  integer(I4B) :: icheck_isolated = ISOCHK_START !< check for cells with undetermined heads
   integer(I4B) :: iout !< file unit number for simulation output
   integer(I4B) :: isimcnvg !< simulation convergence flag (1) if all objects have converged, (0) otherwise
   integer(I4B) :: isimcontinue = 0 !< simulation continue flag (1) to continue if isimcnvg = 0, (0) to terminate
