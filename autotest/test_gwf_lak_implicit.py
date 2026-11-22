@@ -19,9 +19,10 @@ The cases focus on the dry-lake handling:
                   lakebotfill scenario), exercising the lakebed seepage coupling
                   for both connection types.
 
-A test of a vertical connection whose cell goes dry under the standard
-formulation checks that the connection, moved to the active cell below, is
-coupled on that cell and matches the legacy solver.
+Tests of a vertical connection whose cell goes dry under the standard
+formulation check that the connection, moved to the active cell below, is
+coupled on that cell and matches the legacy solver, also for a constant-stage
+lake, and that a connection over a column with no active cell exchanges no water.
 
 A separate test ("perched") covers a steady-state lake completely disconnected
 from the aquifer: holding the connected-cell head at the lake bottom keeps the
@@ -35,6 +36,7 @@ its budget reporting (lak_cq) against silently disagreeing.
 
 import os
 import re
+from functools import partial
 
 import flopy
 import numpy as np
@@ -1345,14 +1347,21 @@ def test_connectionless_lake_errors(function_tmpdir, targets):
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()
 
 
-def _build_dry_below(ws, exe):
+def _build_dry_below(ws, exe, variant="moved"):
     # a lake vertically connected to a convertible cell that goes dry under the
     # standard (non-Newton) formulation, so the connection moves to the active
     # cell below (lak_cf). Rainfall keeps the lake wet, and its leakage passes
     # through the lower layer to constant heads at the edges.
+    #   constant : the lake is held at its starting stage; the connected cell
+    #              starts dry, since the held stage would keep it wet
+    #   alldry   : both cells below the lake start dry, so no active cell is
+    #              left in the column; transient, so the rainfall is stored
     name = "lk"
     sim = flopy.mf6.MFSimulation(sim_name=name, sim_ws=ws, exe_name=exe)
-    flopy.mf6.ModflowTdis(sim)
+    if variant == "alldry":
+        flopy.mf6.ModflowTdis(sim, perioddata=[(10.0, 1, 1.0)])
+    else:
+        flopy.mf6.ModflowTdis(sim)
     flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",
@@ -1377,10 +1386,20 @@ def _build_dry_below(ws, exe):
         idomain=idomain,
     )
     flopy.mf6.ModflowGwfnpf(gwf, icelltype=1, k=10.0)
-    flopy.mf6.ModflowGwfic(gwf, strt=8.0)
+    strt = np.full((3, 1, 3), 8.0)
+    if variant == "constant":
+        strt[1, 0, 1] = 4.0
+    if variant == "alldry":
+        strt[1, 0, 1] = 4.0
+        strt[2, 0, 1] = -1.0
+        flopy.mf6.ModflowGwfsto(gwf, iconvert=1, ss=1e-5, sy=0.1, transient={0: True})
+    flopy.mf6.ModflowGwfic(gwf, strt=strt)
     flopy.mf6.ModflowGwfchd(
         gwf, stress_period_data=[[(2, 0, 0), 3.0], [(2, 0, 2), 3.0]]
     )
+    perioddata = [[0, "RAINFALL", 0.01]]
+    if variant == "constant":
+        perioddata = [[0, "STATUS", "CONSTANT"], [0, "STAGE", 9.5]]
     flopy.mf6.ModflowGwflak(
         gwf,
         print_stage=True,
@@ -1391,7 +1410,7 @@ def _build_dry_below(ws, exe):
         noutlets=0,
         packagedata=[[0, 9.5, 1]],
         connectiondata=[[0, 0, (1, 0, 1), "VERTICAL", 0.1, 0.0, 0.0, 0.0, 0.0]],
-        perioddata=[[0, "RAINFALL", 0.01]],
+        perioddata=perioddata,
     )
     flopy.mf6.ModflowGwfoc(
         gwf,
@@ -1421,5 +1440,52 @@ def test_connection_moves_below_dry_cell(function_tmpdir, targets):
         # all of the rainfall (0.01 m/d over 1e4 m2) leaks to the aquifer
         qgwf = _lak_flows(ws, "lk", "GWF").sum()
         assert np.isclose(qgwf, -100.0, rtol=1e-6), f"lake-aquifer flow {qgwf}"
+
+    _framework(function_tmpdir, targets, build, check).run()
+
+
+def test_constant_stage_moved_connection(function_tmpdir, targets):
+    # a constant-stage lake whose connection moves below a dry cell: the
+    # exchange must be applied to the cell below and match the legacy solver
+    def build(test):
+        builder = partial(_build_dry_below, variant="constant")
+        sim_i, _ = _write_implicit(test, builder)
+        return sim_i, _write_legacy(test, builder)
+
+    def check(test):
+        ws = str(test.workspace)
+        _assert_budget_closes(ws, "lk")
+        head = _heads(ws, "lk")
+        assert head[1, 0, 1] < -1e29, "the connected cell did not go dry"
+        assert head[2, 0, 1] > 3.0, "the cell below the dry cell went dry"
+        assert abs(_stage(ws, "lk") - 9.5) < 1e-6, "stage not held constant"
+        qgwf = _lak_flows(ws, "lk", "GWF").sum()
+        qlegacy = _lak_flows(os.path.join(ws, "mf6"), "lk", "GWF").sum()
+        assert qgwf < 0.0, f"no leakage from the lake: {qgwf}"
+        assert np.isclose(qgwf, qlegacy, rtol=1e-6), f"{qgwf} != {qlegacy}"
+
+    _framework(function_tmpdir, targets, build, check).run()
+
+
+def test_connection_over_dry_column(function_tmpdir, targets):
+    # every cell below the lake is dry, so the connection moves to the bottom
+    # cell of the column, which is also dry: the lake exchanges no water with
+    # the aquifer and stores the rainfall, as with the legacy solver
+    def build(test):
+        builder = partial(_build_dry_below, variant="alldry")
+        sim_i, _ = _write_implicit(test, builder)
+        return sim_i, _write_legacy(test, builder)
+
+    def check(test):
+        ws = str(test.workspace)
+        _assert_budget_closes(ws, "lk")
+        head = _heads(ws, "lk")
+        assert head[1, 0, 1] < -1e29, "the connected cell is not dry"
+        assert head[2, 0, 1] < -1e29, "the cell below the lake is not dry"
+        qgwf = _lak_flows(ws, "lk", "GWF")
+        assert np.all(qgwf == 0.0), f"lake-aquifer flow over a dry column {qgwf}"
+        # 0.01 m/d of rainfall for 10 days on the lake
+        stage = _stage(ws, "lk")
+        assert np.isclose(stage, 9.6, rtol=1e-8), f"stage {stage}"
 
     _framework(function_tmpdir, targets, build, check).run()
