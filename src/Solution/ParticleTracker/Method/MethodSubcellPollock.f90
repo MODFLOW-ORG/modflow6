@@ -101,7 +101,7 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleModule, only: TERM_NO_EXITS_SUB, TERM_TIMEOUT
+    use ParticleModule, only: TERM_NO_EXITS_SUB
     use ParticleEventModule, only: TIMESTEP, FEATEXIT
     ! dummy
     class(MethodSubcellPollockType), intent(inout) :: this
