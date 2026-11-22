@@ -101,7 +101,7 @@ contains
   !! this context and for any modifications or errors.
   !<
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB, TERM_TIMEOUT
+    use ParticleModule, only: TERM_NO_EXITS_SUB, TERM_TIMEOUT
     use ParticleEventModule, only: TIMESTEP, FEATEXIT
     ! dummy
     class(MethodSubcellPollockType), intent(inout) :: this
@@ -173,7 +173,6 @@ contains
         particle%y = y * subcell%dy
         particle%z = z * subcell%dz
         particle%ttrack = t
-        particle%istatus = ACTIVE
         call this%usertime(particle)
       end do
     end if
@@ -190,7 +189,6 @@ contains
       z = new_x(exit_z%v, exit_z%dvdx, subcell%vz1, subcell%vz2, &
                 dt, z0, subcell%dz, exit_z%status == 1)
       exit_face = 0
-      particle%istatus = ACTIVE
       particle%advancing = .false.
       particle%x = x * subcell%dx
       particle%y = y * subcell%dy
