@@ -1,28 +1,14 @@
 """
-Test the PRP release time coincidence tolerance.
+PRP merges release times closer than RELEASE_TIME_TOLERANCE. The
+default scales with total simulation time T. Times within ~100 ulps
+are always merged, even below a specified tolerance.
 
-The default RELEASE_TIME_TOLERANCE scales with the simulation
-length T (the sum of all stress period lengths), so whether two
-nearby release times are merged depends on their spacing relative
-to T, not on the model's time units. Separately, release times
-indistinguishable at floating-point precision are always merged,
-even if the specified tolerance is below the ulp spacing.
-
-Each case releases particles from one point at two explicit times
-(or one explicit time and one period-block time), and checks how
-many distinct releases occurred.
-
-Cases:
-    - floor: T = 2e10, period-block FIRST release in period 2 at
-      t = 1e10, and an explicit release 10 ulps earlier. Tolerance
-      is set far below the ulp spacing. Expect a single release.
-    - sclsml: T = 1, explicit releases 1e-6 * T apart. Expect two.
-      (The old fixed default, ~2.2e-5, merged these.)
-    - sclbig: T = 1e6, explicit releases 1e-6 * T apart. Expect two.
-    - short: T = 1, explicit releases 1e-7 apart. Expect two.
-      (The old fixed default merged these.)
-    - long: T = 1e6, explicit releases 1e-4 apart. Expect one.
-      (The old fixed default kept these separate.)
+Cases release from one point and check the number of releases:
+    - floor: explicit release 10 ulps from a period-block release
+      at t = 1e10, tolerance 1e-12. Expect one.
+    - sclsml, sclbig: releases 1e-6 T apart, T = 1 and 1e6. Expect two.
+    - short: T = 1, releases 1e-7 apart. Expect two (one before).
+    - long: T = 1e6, releases 1e-4 apart. Expect one (two before).
 """
 
 import numpy as np
