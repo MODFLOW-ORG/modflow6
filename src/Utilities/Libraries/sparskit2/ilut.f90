@@ -491,23 +491,27 @@
   ! ------local
   !
   integer(kind=4) :: i, k
+  real(kind=8) :: t
   !
-  ! forward solve
+  ! forward solve, summed in t so x(i) is not stored and reloaded for
+  ! each term
   !
   do i = 1, n
-    x(i) = y(i)
+    t = y(i)
     do k = jlu(i), ju(i)-1
-      x(i) = x(i) - alu(k)* x(jlu(k))
+      t = t - alu(k)* x(jlu(k))
     end do
+    x(i) = t
   end do
   !
   !     backward solve.
   !
   do i = n, 1, -1
+    t = x(i)
     do k = ju(i), jlu(i+1)-1
-      x(i) = x(i) - alu(k)*x(jlu(k))
+      t = t - alu(k)*x(jlu(k))
     end do
-    x(i) = alu(i)*x(i)
+    x(i) = alu(i)*t
   end do
   !
   return

@@ -100,7 +100,7 @@ module GwfStoModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new storage (STO) object
   !!
@@ -127,7 +127,7 @@ contains
     stoobj%iout = iout
   end subroutine sto_cr
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the STO package.
   !!
@@ -175,7 +175,7 @@ contains
 
   end subroutine sto_ar
 
-  !> @ brief Read and prepare method for package
+  !> @brief Read and prepare method for package
   !!
   !!  Method to read and prepare stress period data for the STO package.
   !!
@@ -228,7 +228,7 @@ contains
     end if
   end subroutine sto_rp
 
-  !> @ brief Advance the package
+  !> @brief Advance the package
   !!
   !!  Advance data in the STO package.
   !!
@@ -250,7 +250,7 @@ contains
     end if
   end subroutine sto_ad
 
-  !> @ brief Fill A and right-hand side for the package
+  !> @brief Fill A and right-hand side for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with the STO package terms.
   !!
@@ -413,7 +413,7 @@ contains
 
   end subroutine fc_default_sto
 
-  !> @ brief Fill Newton-Raphson terms in A and right-hand side for the package
+  !> @brief Fill Newton-Raphson terms in A and right-hand side for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with STO package
   !!  with Newton-Raphson terms.
@@ -543,7 +543,7 @@ contains
 
   end subroutine fn_default_sto
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Flow calculation for the STO package components. Components include
   !!  specific storage and specific yield storage.
@@ -721,7 +721,7 @@ contains
 
   end subroutine cq_default_sto
 
-  !> @ brief Model budget calculation for package
+  !> @brief Model budget calculation for package
   !!
   !!  Budget calculation for the STO package components. Components include
   !!  specific storage and specific yield storage.
@@ -760,7 +760,7 @@ contains
     end if
   end subroutine sto_bd
 
-  !> @ brief Save model flows for package
+  !> @brief Save model flows for package
   !!
   !!  Save cell-by-cell budget terms for the STO package.
   !!
@@ -813,7 +813,7 @@ contains
     end if
   end subroutine sto_save_model_flows
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate STO package scalars and arrays.
   !!
@@ -871,7 +871,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine sto_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the STO package. The base numerical
   !! package allocate scalars method is also called.
@@ -906,7 +906,7 @@ contains
     this%intvs = 0
   end subroutine allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
   !!
   !!  Allocate and initialize STO package arrays.
   !!
@@ -960,7 +960,7 @@ contains
     end select
   end subroutine allocate_arrays
 
-  !> @ brief Source input options for package
+  !> @brief Source input options for package
   !!
   !!  Source options block parameters for STO package.
   !!
@@ -1022,7 +1022,7 @@ contains
     end if
   end subroutine source_options
 
-  !> @ brief Log found options for package
+  !> @brief Log found options for package
   !!
   !!  Log options block for STO package.
   !!
@@ -1076,7 +1076,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF STORAGE OPTIONS'
   end subroutine log_options
 
-  !> @ brief Source input data for package
+  !> @brief Source input data for package
   !!
   !!  Source griddata block parameters for STO package.
   !!
@@ -1171,7 +1171,7 @@ contains
     end do
   end subroutine source_data
 
-  !> @ brief Save old storage property values
+  !> @brief Save old storage property values
   !!
   !!  Save ss and sy values from the previous time step for use with storage
   !!  integration when integratechanges is non-zero.

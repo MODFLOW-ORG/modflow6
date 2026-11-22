@@ -94,7 +94,10 @@ def build_models(idx, test):
     olf = flopy.mf6.ModflowOlf(sim, modelname=olfname, save_flows=True)
 
     nouter, ninner = 15, 100
-    hclose, rclose, relax = 1e-8, 1e-8, 1.0
+    # ILU0 rather than MILU0: with a relaxation factor of 1.0 the modified
+    # factorization flips the sign of the pivots of dry cells about 300 times,
+    # and the solution depended on the replaced pivots and roundoff
+    hclose, rclose, relax = 1e-8, 1e-8, 0.0
     imsolf = flopy.mf6.ModflowIms(
         sim,
         print_option="SUMMARY",

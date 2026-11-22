@@ -180,6 +180,9 @@ def check_output(idx, test, export, gridded_input):
             assert chnk == [1, 5]
         assert not cmpr["shuffle"]
         assert cmpr["complevel"] == 3
+        # concentration units are not known from the input
+        conc = "concentration" if export == "structured" else "concentration_l1"
+        assert "units" not in ds.variables[conc].ncattrs()
 
         if export == "structured":
             proj = ds.variables["projection"]

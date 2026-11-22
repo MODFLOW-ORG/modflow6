@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "Lake (LAK) and Multi-Aquifer Well (MAW) observations that give a lake or well number and a connection number (the LAK, CONDUCTANCE and WETTED-AREA types in LAK, and the MAW and CONDUCTANCE types in MAW) now stop the simulation with an error if the connection number is less than 1 or greater than the feature's number of connections, or if the lake or well number is invalid. Previously a connection number greater than the feature's number of connections was counted into the next feature's connections, and the observation silently reported a different feature's connection. Simulated heads and flows were not affected."

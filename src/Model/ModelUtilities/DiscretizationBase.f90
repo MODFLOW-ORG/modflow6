@@ -206,7 +206,7 @@ contains
                      terminate=.true.)
   end subroutine write_grb
 
-  !> @brier Deallocate variables
+  !> @brief Deallocate variables
   subroutine dis_da(this)
     ! -- modules
     use MemoryManagerModule, only: mem_deallocate
@@ -1182,7 +1182,7 @@ contains
     area = this%area(node)
   end function get_area
 
-  !> @ brief Calculate the area factor for the cell connection
+  !> @brief Calculate the area factor for the cell connection
   !!
   !!  Function calculates the area factor for the cell connection. The sum of
   !!  all area factors for all cell connections to overlying or underlying
@@ -1210,7 +1210,7 @@ contains
     area_factor = area_conn / area_node
   end function get_area_factor
 
-  !> @ brief Calculate the flow width between two cells
+  !> @brief Calculate the flow width between two cells
   !!
   !! This should only be called for connections with IHC > 0.
   !! Routine is needed, so it can be overridden by the linear
@@ -1235,7 +1235,7 @@ contains
 
   end subroutine get_flow_width
 
-  !> @Brief return true if grid is three dimensional
+  !> @brief return true if grid is three dimensional
   function is_3d(this) result(r)
     ! dummy
     class(DisBaseType) :: this
@@ -1248,7 +1248,7 @@ contains
     end select
   end function is_3d
 
-  !> @Brief return true if grid is two dimensional
+  !> @brief return true if grid is two dimensional
   function is_2d(this) result(r)
     ! dummy
     class(DisBaseType) :: this
@@ -1261,7 +1261,7 @@ contains
     end select
   end function is_2d
 
-  !> @Brief return true if grid is one dimensional
+  !> @brief return true if grid is one dimensional
   function is_1d(this) result(r)
     ! dummy
     class(DisBaseType) :: this

@@ -312,7 +312,7 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @ brief Source input options for package
+  !> @brief Source input options for package
   !<
   subroutine source_options(this)
     ! -- modules
@@ -339,7 +339,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
   end subroutine source_options
 
-  !> @ brief Source input options for package
+  !> @brief Source input options for package
   !<
   subroutine source_packagedata(this)
     ! -- modules

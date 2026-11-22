@@ -313,7 +313,7 @@ module GwfCsubModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new CSUB object
   !!
@@ -348,7 +348,7 @@ contains
     csubobj%iout = iout
   end subroutine csub_cr
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the CSUB package.
   !!
@@ -561,7 +561,7 @@ contains
     end if
   end subroutine csub_ar
 
-  !> @ brief Source options for package
+  !> @brief Source options for package
   !!
   !!  Source options for CSUB package.
   !!
@@ -745,7 +745,7 @@ contains
     deallocate (ibs)
   end subroutine source_options
 
-  !> @ brief log options for package
+  !> @brief log options for package
   !!
   !!  log options block for CSUB package.
   !!
@@ -876,7 +876,7 @@ contains
     write (this%iout, '((1X,A))') 'END PACKAGE SETTINGS'
   end subroutine log_options
 
-  !> @ brief Source dimensions for package
+  !> @brief Source dimensions for package
   !!
   !!  Read the number of interbeds and maximum number of cells with a specified
   !!  overlying geostatic stress.
@@ -921,7 +921,7 @@ contains
     call this%define_listlabel()
   end subroutine csub_source_dimensions
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the CSUB package. The base model
   !! allocate scalars method is also called.
@@ -1039,7 +1039,7 @@ contains
     this%gwfiss0 = 0
   end subroutine csub_allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
   !!
   !!  Allocate and initialize CSUB package arrays.
   !!
@@ -1212,7 +1212,7 @@ contains
     end do
   end subroutine csub_allocate_arrays
 
-  !> @ brief Source griddata for package
+  !> @brief Source griddata for package
   !<
   subroutine csub_source_griddata(this)
     ! -- modules
@@ -1260,7 +1260,7 @@ contains
     end if
   end subroutine csub_source_griddata
 
-  !> @ brief source packagedata for package
+  !> @brief source packagedata for package
   !!
   !!  Read delay and no-delay interbed input data for the CSUB package. Method
   !!  also validates interbed input data.
@@ -1634,7 +1634,7 @@ contains
     call memorystore_release('BOUNDNAME', this%input_mempath)
   end subroutine csub_source_packagedata
 
-  !> @ brief Print packagedata
+  !> @brief Print packagedata
   !<
   subroutine csub_print_packagedata(this)
     class(GwfCsubType) :: this
@@ -1734,7 +1734,7 @@ contains
 
   end subroutine csub_print_packagedata
 
-  !> @ brief Final processing for package
+  !> @brief Final processing for package
   !!
   !!  Final processing for the  CSUB package. This method generates the final
   !!  strain tables that are output so that the user can evaluate if calculated
@@ -2145,7 +2145,7 @@ contains
     deallocate (pctcomp_arr)
   end subroutine csub_fp
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate CSUB package scalars and arrays.
   !!
@@ -2373,7 +2373,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine csub_da
 
-  !> @ brief Read and prepare stress period data for package
+  !> @brief Read and prepare stress period data for package
   !!
   !!  Method reads and prepares stress period data for the CSUB package.
   !!  The overlying geostatic stress (sig0) is the only stress period data
@@ -2475,7 +2475,7 @@ contains
     call this%csub_rp_obs()
   end subroutine csub_rp
 
-  !> @ brief Advance the package
+  !> @brief Advance the package
   !!
   !!  Advance data in the CSUB package. The method sets data for the previous
   !!  time step to the current value for the data (e.g., HOLD = HNEW). The
@@ -2592,7 +2592,7 @@ contains
     call this%obs%obs_ad()
   end subroutine csub_ad
 
-  !> @ brief Fill A and r for the package
+  !> @brief Fill A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with the CSUB package terms.
   !!
@@ -2705,14 +2705,10 @@ contains
     end if
   end subroutine csub_fc
 
-  !> @ brief Fill Newton-Raphson terms in A and r for the package
+  !> @brief Fill Newton-Raphson terms in A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with CSUB package
   !!  with Newton-Raphson terms.
-  !!
-  !! @param[in,out]  amat  A matrix
-  !! @param[in,out]  rhs   right-hand side
-  !!
   !<
   subroutine csub_fn(this, kiter, hold, hnew, matrix_sln, idxglo, rhs)
     ! -- modules
@@ -2806,7 +2802,7 @@ contains
     end if
   end subroutine csub_fn
 
-  !> @ brief Initialize optional tables
+  !> @brief Initialize optional tables
   !!
   !! Subroutine to initialize optional tables. Tables include:
   !!   o delay interbeds convergence tables
@@ -2860,18 +2856,13 @@ contains
 
   end subroutine csub_initialize_tables
 
-  !> @ brief Final convergence check
+  !> @brief Final convergence check
   !!
   !! Final convergence check for the CSUB package. The final convergence
   !! check is only required when the simulation includes delay interbeds.
   !! The final convergence check compares the sum of water contributed
   !! by storage and water compressibility in the delay bed to the fluid
   !! exchange between the delay interbed and the gwf cell.
-  !!
-  !! @param[in,out]  cpak  string location of the maximum change in csub package
-  !! @param[in,out]  ipak  node with the maximum change in csub package
-  !! @param[in,out]  dpak  maximum change in csub package
-  !!
   !<
   subroutine csub_cc(this, innertot, kiter, iend, icnvgmod, nodes, &
                      hnew, hold, cpak, ipak, dpak)
@@ -3050,13 +3041,11 @@ contains
     end if
   end subroutine csub_cc
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Flow calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
   !!  compressibility.
-  !!
-  !!  @param[in,out]  model_budget  model budget object
   !!
   !<
   subroutine csub_cq(this, nodes, hnew, hold, isuppress_output, flowja)
@@ -3349,14 +3338,11 @@ contains
     end if
   end subroutine csub_cq
 
-  !> @ brief Model budget calculation for package
+  !> @brief Model budget calculation for package
   !!
   !!  Budget calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
   !!  compressibility.
-  !!
-  !!  @param[in,out]  model_budget  model budget object
-  !!
   !<
   subroutine csub_bd(this, isuppress_output, model_budget)
     ! -- modules
@@ -3393,7 +3379,7 @@ contains
     return
   end subroutine csub_bd
 
-!> @ brief Save model flows for package
+!> @brief Save model flows for package
 !!
 !!  Save cell-by-cell budget terms for the CSUB package.
 !!
@@ -3483,7 +3469,7 @@ contains
     end if
   end subroutine csub_save_model_flows
 
-!> @ brief Save and print dependent values for package
+!> @brief Save and print dependent values for package
 !!
 !!  Method saves cell-by-cell compaction and z-displacement terms. The method
 !!  also calls the method to process observation output.
@@ -3747,7 +3733,7 @@ contains
     end if
   end subroutine csub_ot_dv
 
-  !> @ brief Calculate the stress for model cells
+  !> @brief Calculate the stress for model cells
   !!
   !!  Method calculates the geostatic stress, pressure head, and effective
   !!  stress at the bottom of each cell. The method also applies the overlying
@@ -3879,7 +3865,7 @@ contains
     end do
   end subroutine csub_cg_calc_stress
 
-  !> @ brief Check effective stress values
+  !> @brief Check effective stress values
   !!
   !!  Method checks calculated effective stress values to ensure that
   !!  effective stress values are positive. An error condition and message are
@@ -3955,7 +3941,7 @@ contains
     end if
   end subroutine csub_cg_chk_stress
 
-  !> @ brief Update no-delay material properties
+  !> @brief Update no-delay material properties
   !!
   !!  Method updates no-delay material properties based on the current
   !!  compaction value.
@@ -3993,17 +3979,12 @@ contains
     end if
   end subroutine csub_nodelay_update
 
-  !> @ brief Calculate no-delay interbed storage coefficients
+  !> @brief Calculate no-delay interbed storage coefficients
   !!
   !!  Method calculates the skeletal storage coefficients for a no-delay
   !!  interbed. The method also calculates the contribution of the
   !!  no-delay interbed to the right-hand side of the groundwater flow
   !!  equation for the cell.
-  !!
-  !!  @param[in,out]  rho1  no-delay storage value using Sske
-  !!  @param[in,out]  rho2  no-delay storage value using Ssk
-  !!  @param[in,out]  rhs   no-delay right-hand side contribution
-  !!
   !<
   subroutine csub_nodelay_fc(this, ib, hcell, hcellold, rho1, rho2, rhs, &
                              argtled)
@@ -4104,15 +4085,10 @@ contains
     this%sk(ib) = rho2
   end subroutine csub_nodelay_fc
 
-  !> @ brief Calculate no-delay interbed compaction
+  !> @brief Calculate no-delay interbed compaction
   !!
   !!  Method calculates the compaction for a no-delay interbed. The method
   !!  also calculates the storage coefficients for the no-delay interbed.
-  !!
-  !!  @param[in,out]  comp  no-delay compaction
-  !!  @param[in,out]  rho1  no-delay storage value using Sske
-  !!  @param[in,out]  rho2  no-delay storage value using Ssk
-  !!
   !<
   subroutine csub_nodelay_calc_comp(this, ib, hcell, hcellold, comp, rho1, rho2)
     ! -- dummy variables
@@ -4149,7 +4125,7 @@ contains
     end if
   end subroutine csub_nodelay_calc_comp
 
-  !> @ brief Set initial states for the package
+  !> @brief Set initial states for the package
   !!
   !!  Method sets the initial states for coarse-grained materials and fine-
   !!  grained sediments in the interbeds.
@@ -4535,14 +4511,10 @@ contains
     end if
   end subroutine csub_set_initial_state
 
-  !> @ brief Formulate the coefficients for coarse-grained materials
+  !> @brief Formulate the coefficients for coarse-grained materials
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_fc(this, node, tled, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -4600,15 +4572,11 @@ contains
     end if
   end subroutine csub_cg_fc
 
-  !> @ brief Formulate coarse-grained Newton-Raphson terms
+  !> @brief Formulate coarse-grained Newton-Raphson terms
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell when using the Newton-Raphson
   !!  formulation.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_fn(this, node, tled, area, hcell, hcof, rhs)
     ! -- dummy variables
@@ -4673,14 +4641,10 @@ contains
     end if
   end subroutine csub_cg_fn
 
-  !> @ brief Formulate the coefficients for a interbed
+  !> @brief Formulate the coefficients for a interbed
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for a interbed in a cell.
-  !!
-  !!  @param[in,out]  hcof  interbed A matrix entry
-  !!  @param[in,out]  rhs   interbed right-hand side entry
-  !!
   !<
   subroutine csub_interbed_fc(this, ib, node, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -4759,14 +4723,10 @@ contains
     end if
   end subroutine csub_interbed_fc
 
-  !> @ brief Formulate the coefficients for a interbed
+  !> @brief Formulate the coefficients for a interbed
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for a interbed in a cell.
-  !!
-  !!  @param[in,out]  hcof  interbed A matrix entry
-  !!  @param[in,out]  rhs   interbed right-hand side entry
-  !!
   !<
   subroutine csub_interbed_fn(this, ib, node, hcell, hcellold, hcof, rhs)
     ! -- modules
@@ -4851,12 +4811,9 @@ contains
     end if
   end subroutine csub_interbed_fn
 
-  !> @ brief Calculate Sske for a cell
+  !> @brief Calculate Sske for a cell
   !!
   !!  Method calculates Sske for coarse-grained materials in a cell.
-  !!
-  !!  @param[in,out]  sske  coarse-grained Sske
-  !!
   !<
   subroutine csub_cg_calc_sske(this, n, sske, hcell)
     ! -- dummy variables
@@ -4908,12 +4865,9 @@ contains
     sske = f * this%cg_ske_cr(n)
   end subroutine csub_cg_calc_sske
 
-  !> @ brief Calculate coarse-grained compaction in a cell
+  !> @brief Calculate coarse-grained compaction in a cell
   !!
   !!  Method calculates coarse-grained compaction in a cell.
-  !!
-  !!  @param[in,out]  comp  coarse-grained compaction
-  !!
   !<
   subroutine csub_cg_calc_comp(this, node, hcell, hcellold, comp)
     ! -- dummy variables
@@ -4939,7 +4893,7 @@ contains
     comp = hcof * hcell - rhs
   end subroutine csub_cg_calc_comp
 
-  !> @ brief Update coarse-grained material properties
+  !> @brief Update coarse-grained material properties
   !!
   !!  Method updates coarse-grained material properties in a cell.
   !!
@@ -4978,15 +4932,11 @@ contains
     end if
   end subroutine csub_cg_update
 
-  !> @ brief Formulate coarse-grained water compressibility coefficients
+  !> @brief Formulate coarse-grained water compressibility coefficients
   !!
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
   !!  sediments.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_wcomp_fc(this, node, tled, area, hcell, hcellold, &
                               hcof, rhs)
@@ -5033,15 +4983,11 @@ contains
     rhs = -wc0 * snold * hcellold
   end subroutine csub_cg_wcomp_fc
 
-  !> @ brief Formulate coarse-grained water compressibility coefficients
+  !> @brief Formulate coarse-grained water compressibility coefficients
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
   !!  sediments.
-  !!
-  !!  @param[in,out]  hcof  coarse-grained A matrix entry
-  !!  @param[in,out]  rhs   coarse-grained right-hand side entry
-  !!
   !<
   subroutine csub_cg_wcomp_fn(this, node, tled, area, hcell, hcellold, hcof, rhs)
     ! -- dummy variables
@@ -5095,15 +5041,11 @@ contains
     rhs = hcof * hcell
   end subroutine csub_cg_wcomp_fn
 
-  !> @ brief Formulate no-delay interbed water compressibility coefficients
+  !> @brief Formulate no-delay interbed water compressibility coefficients
   !!
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
   !!  interbeds.
-  !!
-  !!  @param[in,out]  hcof  no-delay A matrix entry
-  !!  @param[in,out]  rhs   no-delay right-hand side entry
-  !!
   !<
   subroutine csub_nodelay_wcomp_fc(this, ib, node, tled, area, &
                                    hcell, hcellold, hcof, rhs)
@@ -5145,15 +5087,11 @@ contains
     rhs = -wc0 * snold * hcellold
   end subroutine csub_nodelay_wcomp_fc
 
-  !> @ brief Formulate no-delay interbed water compressibility coefficients
+  !> @brief Formulate no-delay interbed water compressibility coefficients
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
   !!  interbeds.
-  !!
-  !!  @param[in,out]  hcof  no-delay A matrix entry
-  !!  @param[in,out]  rhs   no-delay right-hand side entry
-  !!
   !<
   subroutine csub_nodelay_wcomp_fn(this, ib, node, tled, area, &
                                    hcell, hcellold, hcof, rhs)
@@ -5363,10 +5301,6 @@ contains
   !!
   !! Method to calculate the cell saturation for the current and
   !! previous time step.
-  !!
-  !! @param[in,out]  snnew  current saturation
-  !! @param[in,out]  snold  previous saturation
-  !!
   !<
   subroutine csub_calc_sat(this, node, hcell, hcellold, snnew, snold)
     ! -- dummy variables
@@ -5426,9 +5360,6 @@ contains
   !! Method to calculate the factor that is used to calculate skeletal
   !! specific storage coefficients. Can be used for coarse-grained
   !! materials and interbeds.
-  !!
-  !! @param[in,out]  fact  skeletal storage coefficient factor
-  !!
   !<
   subroutine csub_calc_sfacts(this, node, bot, znode, theta, es, es0, geo, fact)
     ! -- dummy variables
@@ -5478,17 +5409,13 @@ contains
   !> @brief Calculate new material properties
   !!
   !! Method to calculate the current thickness and porosity.
-  !!
-  !! @param[in,out]  thick  initial and current thickness
-  !! @param[in,out]  theta  initial and current porosity
-  !!
   !<
   subroutine csub_adj_matprop(this, comp, thick, theta)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     real(DP), intent(in) :: comp !< compaction
-    real(DP), intent(inout) :: thick !< thickness
-    real(DP), intent(inout) :: theta !< porosity
+    real(DP), intent(inout) :: thick !< initial and current thickness
+    real(DP), intent(inout) :: theta !< initial and current porosity
     ! -- local variables
     real(DP) :: strain
     real(DP) :: void_ratio
@@ -6202,10 +6129,6 @@ contains
   !> @brief Calculate delay interbed saturation
   !!
   !! Method to calculate the saturation in a delay interbed cell.
-  !!
-  !! @param[in,out]  snnew  current saturation in delay interbed cell n
-  !! @param[in,out]  snold  previous saturation in delay interbed cell n
-  !!
   !<
   subroutine csub_delay_calc_sat(this, node, idelay, n, hcell, hcellold, &
                                  snnew, snold)
@@ -6273,18 +6196,14 @@ contains
   !> @brief Calculate delay interbed storage change
   !!
   !! Method to calculate the storage change in a delay interbed.
-  !!
-  !! @param[in,out]  stoe   current elastic storage change in delay interbed
-  !! @param[in,out]  stoi   current inelastic storage changes in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_dstor(this, ib, hcell, stoe, stoi)
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
     real(DP), intent(in) :: hcell !< current head in cell
-    real(DP), intent(inout) :: stoe !< elastic storage change
-    real(DP), intent(inout) :: stoi !< inelastic storage change
+    real(DP), intent(inout) :: stoe !< current elastic storage change in delay interbed
+    real(DP), intent(inout) :: stoi !< current inelastic storage change in delay interbed
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: ielastic
@@ -6358,9 +6277,6 @@ contains
   !> @brief Calculate delay interbed water compressibility
   !!
   !! Method to calculate the change in water compressibility in a delay interbed.
-  !!
-  !! @param[in,out]  dwc    current water compressibility change in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_wcomp(this, ib, dwc)
     ! -- modules
@@ -6368,7 +6284,7 @@ contains
     ! -- dummy variables
     class(GwfCsubType), intent(inout) :: this
     integer(I4B), intent(in) :: ib !< interbed number
-    real(DP), intent(inout) :: dwc !< water compressibility change
+    real(DP), intent(inout) :: dwc !< current water compressibility change in delay interbed
     ! -- local variables
     integer(I4B) :: idelay
     integer(I4B) :: node
@@ -6409,11 +6325,6 @@ contains
   !> @brief Calculate delay interbed compaction
   !!
   !! Method to calculate the compaction in a delay interbed.
-  !!
-  !! @param[in,out]  comp   compaction in delay interbed
-  !! @param[in,out]  compi  inelastic compaction in delay interbed
-  !! @param[in,out]  compe  elastic compaction in delay interbed
-  !!
   !<
   subroutine csub_delay_calc_comp(this, ib, hcell, hcellold, comp, compi, compe)
     ! -- dummy variables
@@ -6569,10 +6480,6 @@ contains
   !! Method to calculate the coefficients to calculate the delay interbed
   !! contribution to a cell. The product of hcof* h - rhs equals the
   !! delay contribution to the cell
-  !!
-  !! @param[in,out]  hcof   coefficient dependent on current head
-  !! @param[in,out]  rhs    right-hand side contributions
-  !!
   !<
   subroutine csub_delay_fc(this, ib, hcof, rhs)
     ! -- dummy variables
@@ -7098,13 +7005,22 @@ contains
           ! -- Observation location(s) is(are) based on a boundary name.
           !    Iterate through all boundaries to identify and store
           !    corresponding index(indices) in bound array.
-          do j = 1, this%ninterbeds
-            if (this%boundname(j) == bname) then
-              obsrv%BndFound = .true.
-              obsrv%CurrentTimeStepEndValue = DZERO
-              call obsrv%AddObsIndex(j)
-            end if
-          end do
+          if (this%inamedbound /= 0) then
+            do j = 1, this%ninterbeds
+              if (this%boundname(j) == bname) then
+                obsrv%BndFound = .true.
+                obsrv%CurrentTimeStepEndValue = DZERO
+                call obsrv%AddObsIndex(j)
+              end if
+            end do
+          end if
+          if (.not. obsrv%BndFound) then
+            write (errmsg, '(7a)') &
+              'Boundary "', trim(bname), '" for observation "', &
+              trim(obsrv%Name), '" is invalid in package "', &
+              trim(this%packName), '"'
+            call store_error(errmsg)
+          end if
           !
           ! -- one value per cell
         else if (obsrv%ObsTypeId == 'GSTRESS-CELL' .or. &
@@ -7349,7 +7265,7 @@ contains
     obsrv%NodeNumber = nn1
   end subroutine csub_process_obsID
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the CSUB package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.

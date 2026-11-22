@@ -268,9 +268,9 @@ contains
 
   !> @brief Build the subpackage name prefix for the given parent package.
   !!
-  !! For single-instance parents (e.g. NPF), prefix is '<TYPE>-'.
+  !! For single-instance parents (e.g. NPF), prefix is '\<TYPE\>-'.
   !! For multi-instance parents (e.g. WEL), prefix includes the instance
-  !! number: '<TYPE><N>-' (e.g. 'WEL1-').  EXG packages return ''.
+  !! number: '\<TYPE\>\<N\>-' (e.g. 'WEL1-').  EXG packages return ''.
   !<
   function build_subpkg_prefix(component_type, component_name, &
                                parent_sctype, parent_scname, &

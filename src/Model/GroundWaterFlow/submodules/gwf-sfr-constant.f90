@@ -1,12 +1,7 @@
 submodule(SfrModule) SfrModuleConstant
 contains
 
-  !> @brief Method for solving for simple reaches
-    !!
-    !! Method to solve the continuity equation for a SFR package
-    !! reach using the simple approach.
-    !!
-  !<
+  ! -- documented on the SfrType type-bound procedure in gwf-sfr.f90
   module procedure sfr_calc_constant
   real(DP) :: qsrc
 

@@ -343,7 +343,7 @@ contains
     end if
   end subroutine mwt_fc_expanded
 
-  !> @ brief Add terms specific to multi-aquifer wells to the explicit multi-
+  !> @brief Add terms specific to multi-aquifer wells to the explicit multi-
   !! aquifer well solute transport solve
   !<
   subroutine mwt_solve(this)

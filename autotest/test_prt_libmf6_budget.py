@@ -1,6 +1,8 @@
 """
-This test runs the simulations in test_prt_budget.py, but uses the api
-to run the PRT test.
+Run the GWF, GWT and PRT simulations from test_prt_budget.py in turn
+through the API and check the PRT budget. PRT runs offline, reading
+GWF output via FMI. test_prt_libmf6_exg.py covers PRT coupled to GWF
+by an exchange in the same simulation through the API.
 """
 
 from pathlib import Path
@@ -53,9 +55,13 @@ def api_func(exe, idx, model_ws=None):
     # time loop
     current_time = mf6.get_current_time()
     end_time = mf6.get_end_time()
+    try:
+        max_iter = mf6.get_value(mf6.get_var_address("MXITER", "SLN_1"))[0]
+    except Exception:
+        # the explicit solution (PRT) has no MXITER, one solve is enough
+        max_iter = 1
 
     # model time loop
-    idx = 0
     while current_time < end_time:
         # get dt and prepare for non-linear iterations
         dt = mf6.get_time_step()
@@ -64,15 +70,18 @@ def api_func(exe, idx, model_ws=None):
         # convergence loop
         kiter = 0
         mf6.prepare_solve()
-        has_converged = mf6.solve()
+        while kiter < max_iter:
+            has_converged = mf6.solve()
+            kiter += 1
+            if has_converged:
+                break
         mf6.finalize_solve()
+        if not has_converged:
+            return False, open(output_file_path).readlines()
 
         # finalize time step and update time
         mf6.finalize_time_step()
         current_time = mf6.get_current_time()
-
-        # increment counter
-        idx += 1
 
     # cleanup
     try:
@@ -86,7 +95,6 @@ def api_func(exe, idx, model_ws=None):
 
 @requires_pkg("modflowapi")
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-@pytest.mark.skip(reason="storage term disagreement")
 def test_mf6model(idx, name, function_tmpdir, targets):
     test = TestFramework(
         name=name,

@@ -36,7 +36,7 @@ module ObsOutputListModule
 
 contains
 
-  !> @ brief Reset empty line logical for all observations
+  !> @brief Reset empty line logical for all observations
   !!
   !!  Subroutine to reset the empty line logical for all ObsOutputType
   !!  objects in the list.
@@ -56,7 +56,7 @@ contains
     end do
   end subroutine ResetAllObsEmptyLines
 
-  !> @ brief Count the number of ObsOutputType objects
+  !> @brief Count the number of ObsOutputType objects
   !!
   !!  Subroutine to return the number of ObsOutputType objects in the list.
   !!
@@ -70,7 +70,7 @@ contains
     Count = this%ObsOutputs%Count()
   end function Count
 
-  !> @ brief Determine if a file name is in the list of ObsOutputType objects
+  !> @brief Determine if a file name is in the list of ObsOutputType objects
   !!
   !!  Function to determine if a file name is in the list of
   !!  ObsOutptType objects.
@@ -95,7 +95,7 @@ contains
     end do loop1
   end function ContainsFile
 
-  !> @ brief Add a ObsOutputType object to the list
+  !> @brief Add a ObsOutputType object to the list
   !!
   !!  Subroutine to add a new ObsOutputType object to the ObsOutputList and
   !!  assign ObsOutputType members.
@@ -113,7 +113,7 @@ contains
     call AddObsOutputToList(this%ObsOutputs, obsOutput)
   end subroutine Add
 
-  !> @ brief Write line returns for all ObsOutputListType
+  !> @brief Write line returns for all ObsOutputListType
   !!
   !!  Subroutine to write line returns for a time step for all observation
   !!  output files in a ObsOutputListType.
@@ -135,7 +135,7 @@ contains
     end do
   end subroutine WriteAllObsLineReturns
 
-  !> @ brief Get an item from a ObsOutputListType
+  !> @brief Get an item from a ObsOutputListType
   !!
   !!  Function to get a ObsOutputType from a ObsOutputListType list.
   !!
@@ -150,7 +150,7 @@ contains
     obsOutput => GetObsOutputFromList(this%ObsOutputs, indx)
   end function Get
 
-  !> @ brief Clear a ObsOutputListType
+  !> @brief Clear a ObsOutputListType
   !!
   !!  Subroutine to clear a ObsOutputListType list.
   !!
@@ -162,7 +162,7 @@ contains
     call this%ObsOutputs%Clear()
   end subroutine Clear
 
-  !> @ brief Deallocate a ObsOutputListType
+  !> @brief Deallocate a ObsOutputListType
   !!
   !!  Subroutine to deallocate a ObsOutputListType list.
   !!

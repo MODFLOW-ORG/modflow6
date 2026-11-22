@@ -27,7 +27,7 @@ module LoadNCInputModule
 contains
 
 #if !defined(__WITH_NETCDF__)
-  !> @brief Set an error and exit if NetCDF libraries aren't available
+  !> @brief Set an error and exit if NetCDF libraries are not available
   !<
   subroutine error_and_exit(tagname, input_fname)
     use SimVariablesModule, only: errmsg

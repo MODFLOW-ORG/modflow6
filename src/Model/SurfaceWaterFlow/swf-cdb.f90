@@ -61,7 +61,7 @@ module SwfCdbModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new CDB Package object
   !!
@@ -116,7 +116,7 @@ contains
     cdbobj%gravconv = DGRAVITY * lengthconv * timeconv**2
   end subroutine cdb_create
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the CDB package. The base model
   !! allocate scalars method is also called.
@@ -138,7 +138,7 @@ contains
     this%gravconv = DZERO
   end subroutine cdb_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
     !!
     !! Allocate and initialize arrays for the SWF package
     !!
@@ -166,7 +166,7 @@ contains
                      'WIDTH', this%input_mempath)
   end subroutine cdb_allocate_arrays
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate SWF package scalars and arrays.
   !!
@@ -188,7 +188,7 @@ contains
     call mem_deallocate(this%gravconv)
   end subroutine cdb_da
 
-  !> @ brief Source additional options for package
+  !> @brief Source additional options for package
   !!
   !!  Source additional options for SWF package.
   !!
@@ -211,7 +211,7 @@ contains
     call this%log_cdb_options()
   end subroutine cdb_options
 
-  !> @ brief Log SWF specific package options
+  !> @brief Log SWF specific package options
   !<
   subroutine log_cdb_options(this)
     ! -- dummy variables
@@ -228,7 +228,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_cdb_options
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
   !!
   !!  Formulate the hcof and rhs terms for the CDB package that will be
   !!  added to the coefficient matrix and right-hand side vector.
@@ -311,7 +311,7 @@ contains
 
   end function qcalc
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
   !!
   !!  Add the hcof and rhs terms for the CDB package to the
   !!  coefficient matrix and right-hand side vector.
@@ -349,7 +349,7 @@ contains
     end do
   end subroutine cdb_fc
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the CDB package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.
@@ -490,7 +490,7 @@ contains
     end do
   end subroutine cdb_rp_ts
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
   !!
   !!  Return a bound value associated with an ncolbnd index
   !!  and row.

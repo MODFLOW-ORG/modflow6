@@ -15,7 +15,8 @@ module GridArrayLoadModule
   use MemoryManagerModule, only: mem_allocate, mem_setptr
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType
+  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
+                               RS_VALUES, RS_NETCDF
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none
@@ -28,6 +29,9 @@ module GridArrayLoadModule
     type(ReadStateVarType), dimension(:), allocatable :: param_reads !< read states for current load
     type(LoadContextType) :: ctx
     integer(I4B), dimension(:), pointer, contiguous :: nodeulist
+    logical(LGP), dimension(:), allocatable :: active !< user node IDOMAIN > 0
+    logical(LGP) :: nodeulist_set = .false. !< nodeulist set in this block
+    integer(I4B), dimension(:), pointer, contiguous :: aux_reads => null() !< read state of each auxiliary variable
   contains
     procedure :: ainit
     procedure :: df
@@ -37,6 +41,7 @@ module GridArrayLoadModule
     procedure :: reset
     procedure :: params_alloc
     procedure :: param_load
+    procedure :: set_active
   end type GridArrayLoadType
 
 contains
@@ -79,6 +84,9 @@ contains
 
     ! initialize input context memory
     call this%ctx%init(mf6_input)
+
+    ! set active user nodes
+    call this%set_active()
 
     ! allocate user nodelist
     call mem_allocate(this%nodeulist, this%ctx%maxbound, &
@@ -163,18 +171,78 @@ contains
     use MemoryManagerModule, only: mem_deallocate
     class(GridArrayLoadType), intent(inout) :: this
     call mem_deallocate(this%nodeulist)
+    if (allocated(this%active)) deallocate (this%active)
   end subroutine destroy
+
+  !> @brief Set active user nodes from discretization IDOMAIN input
+  !!
+  !! Cells with IDOMAIN less than one are not boundaries. All cells are
+  !! active if IDOMAIN is not given.
+  !<
+  subroutine set_active(this)
+    use ConstantsModule, only: LENMEMPATH, DIS, DISV, DISU
+    use MemoryManagerModule, only: get_isize
+    use MemoryHelperModule, only: create_mem_path
+    use SimVariablesModule, only: idm_context
+    class(GridArrayLoadType), intent(inout) :: this
+    character(len=LENMEMPATH) :: model_mempath, dis_mempath
+    integer(I4B), pointer :: disenum
+    integer(I4B), dimension(:), pointer, contiguous :: int1d
+    integer(I4B), dimension(:, :), pointer, contiguous :: int2d
+    integer(I4B), dimension(:, :, :), pointer, contiguous :: int3d
+    integer(I4B) :: isize
+
+    allocate (this%active(this%ctx%nodes))
+    this%active = .true.
+
+    ! set discretization input mempath
+    model_mempath = create_mem_path(component=this%mf6_input%component_name, &
+                                    context=idm_context)
+    call mem_setptr(disenum, 'DISENUM', model_mempath)
+    select case (disenum)
+    case (DIS)
+      dis_mempath = create_mem_path(this%mf6_input%component_name, 'DIS', &
+                                    idm_context)
+    case (DISV)
+      dis_mempath = create_mem_path(this%mf6_input%component_name, 'DISV', &
+                                    idm_context)
+    case (DISU)
+      dis_mempath = create_mem_path(this%mf6_input%component_name, 'DISU', &
+                                    idm_context)
+    case default
+      return
+    end select
+
+    ! IDOMAIN is optional; read before the discretization package
+    ! releases its input
+    call get_isize('IDOMAIN', dis_mempath, isize)
+    if (isize /= this%ctx%nodes) return
+
+    select case (disenum)
+    case (DIS)
+      call mem_setptr(int3d, 'IDOMAIN', dis_mempath)
+      this%active = reshape(int3d, [this%ctx%nodes]) > 0
+    case (DISV)
+      call mem_setptr(int2d, 'IDOMAIN', dis_mempath)
+      this%active = reshape(int2d, [this%ctx%nodes]) > 0
+    case (DISU)
+      call mem_setptr(int1d, 'IDOMAIN', dis_mempath)
+      this%active = int1d > 0
+    end select
+  end subroutine set_active
 
   subroutine reset(this)
     class(GridArrayLoadType), intent(inout) :: this
     integer(I4B) :: n
 
     this%ctx%nbound = 0
+    this%nodeulist_set = .false.
 
     do n = 1, this%nparam
       ! reset read state
-      this%param_reads(n)%invar = 0
+      this%param_reads(n)%invar = RS_NONE
     end do
+    this%aux_reads = RS_NONE
   end subroutine reset
 
   subroutine params_alloc(this)
@@ -199,8 +267,13 @@ contains
       rs_varname = this%ctx%rsv_alloc(this%param_names(iparam))
       call mem_setptr(intvar, rs_varname, this%mf6_input%mempath)
       this%param_reads(iparam)%invar => intvar
-      this%param_reads(iparam)%invar = 0
+      this%param_reads(iparam)%invar = RS_NONE
     end do
+
+    ! read state of each auxiliary variable
+    call mem_allocate(this%aux_reads, this%ctx%naux, 'INAUXVARS', &
+                      this%mf6_input%mempath)
+    this%aux_reads = RS_NONE
   end subroutine params_alloc
 
   subroutine param_load(this, parser, idt, mempath, layered, netcdf, iaux)
@@ -244,19 +317,19 @@ contains
 
       call idm_log_var(nodes, idt%tagname, mempath, this%iout)
 
-      if (this%ctx%nbound > 0) then
+      if (this%nodeulist_set) then
         ! nodeulist already established: extract values at known positions
         do n = 1, this%ctx%nbound
           dbl1d(n) = nodes(this%nodeulist(n))
         end do
       else
-        ! first array: filter by DNODATA to establish nodeulist and nbound
+        ! first array sets nodeulist and nbound (defined, active cells)
         do n = 1, this%ctx%nodes
-          if (nodes(n) /= DNODATA) then
+          if (nodes(n) /= DNODATA .and. this%active(n)) then
             nnode = nnode + 1
             if (nnode > this%ctx%maxbound) then
               write (errmsg, '(a,i0,a)') &
-                'Input error: number of defined (non-DNODATA) cells &
+                'Input error: number of defined (non-DNODATA) active cells &
                 &exceeds MAXBOUND=', this%ctx%maxbound, '.'
               call store_error(errmsg)
               call store_error_filename(this%input_name)
@@ -266,6 +339,7 @@ contains
           end if
         end do
         this%ctx%nbound = nnode
+        this%nodeulist_set = .true.
       end if
       deallocate (nodes)
     case ('DOUBLE2D')
@@ -285,19 +359,19 @@ contains
 
       call idm_log_var(nodes, idt%tagname, mempath, this%iout)
 
-      if (this%ctx%nbound > 0) then
+      if (this%nodeulist_set) then
         ! nodeulist already established: extract values at known positions
         do n = 1, this%ctx%nbound
           dbl2d(iaux, n) = nodes(this%nodeulist(n))
         end do
       else
-        ! first array: filter by DNODATA to establish nodeulist and nbound
+        ! first array sets nodeulist and nbound (defined, active cells)
         do n = 1, this%ctx%nodes
-          if (nodes(n) /= DNODATA) then
+          if (nodes(n) /= DNODATA .and. this%active(n)) then
             nnode = nnode + 1
             if (nnode > this%ctx%maxbound) then
               write (errmsg, '(a,i0,a)') &
-                'Input error: number of defined (non-DNODATA) cells &
+                'Input error: number of defined (non-DNODATA) active cells &
                 &exceeds MAXBOUND=', this%ctx%maxbound, '.'
               call store_error(errmsg)
               call store_error_filename(this%input_name)
@@ -307,8 +381,10 @@ contains
           end if
         end do
         this%ctx%nbound = nnode
+        this%nodeulist_set = .true.
       end if
       deallocate (nodes)
+      this%aux_reads(iaux) = merge(RS_NETCDF, RS_VALUES, netcdf)
     case default
       errmsg = 'IDM unimplemented. GridArrayLoad::param_load &
                &datatype='//trim(idt%datatype)
@@ -319,7 +395,7 @@ contains
     ! if param is tracked set read state
     iparam = ifind(this%param_names, idt%tagname)
     if (iparam > 0) then
-      this%param_reads(iparam)%invar = 1
+      this%param_reads(iparam)%invar = merge(RS_NETCDF, RS_VALUES, netcdf)
     end if
   end subroutine param_load
 

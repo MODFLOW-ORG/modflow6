@@ -91,7 +91,7 @@ module SwfGwfExchangeModule
 
 contains
 
-  !> @ brief Initialize SWF GWF exchange
+  !> @brief Initialize SWF GWF exchange
   !<
   subroutine initialize(this, filename, name, swf_ftype, id, m1_id, m2_id, &
                         input_mempath)
@@ -171,7 +171,7 @@ contains
 
   end subroutine initialize
 
-  !> @ brief Add connections
+  !> @brief Add connections
   !!
   !! Override parent exg_ac so that gnc can add connections here.
   !<
@@ -193,7 +193,7 @@ contains
     end do
   end subroutine swf_gwf_ac
 
-  !> @ brief Map connections
+  !> @brief Map connections
   !!
   !! Map the connections in the global matrix
   !<
@@ -215,7 +215,7 @@ contains
     end do
   end subroutine swf_gwf_mc
 
-  !> @ brief Fill coefficients
+  !> @brief Fill coefficients
   !!
   !! Fill conductance into coefficient matrix.  For now assume
   !! all connections are vertical and no newton correction is
@@ -301,7 +301,7 @@ contains
 
   end subroutine swf_gwf_fc
 
-  !> @ brief Calculate flow
+  !> @brief Calculate flow
   !!
   !! Calculate flow between two cells and store in simvals, also set
   !! information needed for specific discharge calculation
@@ -324,7 +324,7 @@ contains
     call this%swf_gwf_add_to_flowja()
   end subroutine swf_gwf_cq
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !! Deallocate memory associated with this object
   !<
@@ -357,7 +357,7 @@ contains
     call mem_deallocate(this%inobs)
   end subroutine swf_gwf_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables
   !<
@@ -385,7 +385,7 @@ contains
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
-  !! connected nodes @param nexg
+  !! connected nodes @p nexg
   !<
   subroutine allocate_arrays(this)
     ! -- dummy
@@ -488,7 +488,7 @@ contains
     end do
   end subroutine swf_gwf_calc_simvals
 
-  !> @ brief Calculate flow
+  !> @brief Calculate flow
   !!
   !! Calculate the flow for the specified exchange and node numbers.
   !! Flow is positive into the surface water model
@@ -510,7 +510,7 @@ contains
 
   end function qcalc
 
-  !> @ brief Calculate conductance
+  !> @brief Calculate conductance
   !!
   !! Calculate the conductance between the surface water cell
   !! and the underlying groundwater cell.
@@ -559,7 +559,7 @@ contains
     get_cond = smooth_factor * this%bedleak(iexg) * area
   end function get_cond
 
-  !> @ brief Get wetted perimeter for swf channel model
+  !> @brief Get wetted perimeter for swf channel model
   !<
   function get_wetted_perimeter(this, nodeswf, depth) result(wp)
     ! return
@@ -614,7 +614,7 @@ contains
     end do
   end subroutine swf_gwf_add_to_flowja
 
-  !> @ brief Budget
+  !> @brief Budget
   !!
   !! Accumulate budget terms
   !<
@@ -657,7 +657,7 @@ contains
     call this%swf_gwf_chd_bd()
   end subroutine swf_gwf_bd
 
-  !> @ brief swf-gwf-chd-bd
+  !> @brief swf-gwf-chd-bd
   !!
   !! Account for flow from an external model into a chd cell
   !<
@@ -719,7 +719,7 @@ contains
     end if
   end subroutine swf_gwf_chd_bd
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -909,7 +909,7 @@ contains
   !   return
   ! end subroutine swf_gwf_bdsav_model
 
-  !> @ brief Output
+  !> @brief Output
   !!
   !! Write output
   !<
@@ -954,7 +954,7 @@ contains
     call this%obs%obs_ot()
   end subroutine swf_gwf_ot
 
-  !> @ brief Save simulated flow observations
+  !> @brief Save simulated flow observations
   !!
   !! Save the simulated flows for each exchange
   !<

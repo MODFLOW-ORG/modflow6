@@ -27,7 +27,7 @@ module LakModule
   use InputOutputModule, only: URWORD, extract_idnum_or_bndname, &
                                GetUnit, openfile, assign_iounit
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_warning, store_error_filename, &
                        deprecation_warning
   use MathUtilModule, only: is_close
@@ -285,7 +285,36 @@ module LakModule
     procedure :: bnd_fn => lak_fn
     procedure :: bnd_nur => lak_nur
     procedure :: bnd_cc => lak_cc
+    !> @brief Switch a stalled IMPLICIT lake back to the legacy solver
+    !!
+    !! Under the IMPLICIT option a weakly connected or disconnected lake (one with
+    !! a small lakebed conductance) gives a poorly conditioned lake-stage equation
+    !! that the coupled solver may be unable to advance. Such a lake is the
+    !! convergence bottleneck: its stage keeps changing by much more than its
+    !! connected aquifer heads, which have settled. A well-connected lake, by
+    !! contrast, changes its stage in step with its aquifer. When the stage change
+    !! exceeds the connected-head change by a large factor for several outer
+    !! iterations (see the inline criterion), the lake is flagged (ilegacy), and
+    !! lak_fc_implicit then solves and assembles it with the robust substitution
+    !! solver instead. A lake that changes in step with its aquifer is never
+    !! switched. The flag and the per-lake tracking are cleared at the start of
+    !! each time step, so a lake switched in one time step is reconsidered for the
+    !! implicit formulation in the next, where transient storage or different
+    !! stresses may make its stage equation better conditioned.
+    !<
     procedure, private :: lak_set_legacy
+    !> @brief Warn when a legacy-solved lake still prevents IMPLICIT convergence
+    !!
+    !! Called on the last outer iteration of a solution that did not converge. By
+    !! this point any stalled lake has already been switched to the legacy
+    !! substitution solver (lak_set_legacy). If at least one lake is on it and the
+    !! solution still did not converge, the implicit formulation needed more outer
+    !! iterations than were allowed; a one-time warning reports this and points
+    !! the user to the remedies, including the default formulation, which
+    !! converges this kind of lake in far fewer outer iterations. No warning is
+    !! issued when no lake was switched, because then the lake is not the cause of
+    !! the failure.
+    !<
     procedure, private :: lak_check_disconnected
     procedure :: bnd_cq => lak_cq
     procedure :: bnd_ot_model_flows => lak_ot_model_flows
@@ -340,7 +369,46 @@ module LakModule
     procedure, private :: lak_solve
     procedure, private :: lak_solve_single
     procedure, private :: lak_estimate_seepage_single
+    !> @brief Assemble the lake equations into the groundwater flow matrix
+    !!
+    !! Implicit formulation. For each active lake the water-balance equation is
+    !! assembled directly into the matrix:
+    !!   - the lakebed seepage to each connected cell is a conductance coupling
+    !!     between the lake-stage row and the cell row. In the seepage, the lake
+    !!     stage and the connected-cell head are each kept at or above the lake
+    !!     bottom (the same wet/dry cutoff as the default formulation), so a wet
+    !!     connection couples both stage and head, while a perched connection
+    !!     keeps the stage coupling (a non-zero lake-stage diagonal) but drops the
+    !!     head coupling, and
+    !!   - the remaining (non-seepage) budget terms -- rainfall, evaporation,
+    !!     withdrawal, runoff, specified and external inflow, outlet inflow and
+    !!     outflow, and transient storage -- are linearized in stage with a finite
+    !!     difference (lak_budget_nogwf) and added to the diagonal and right-hand
+    !!     side. This captures the stage-dependent surface area and the storage
+    !!     term.
+    !! The implicit lake-aquifer coupling is asymmetric (a perched connection
+    !! couples the lake to the cell but not the reverse), so the coefficient
+    !! matrix is asymmetric and the BICGSTAB linear acceleration is required.
+    !! Lake-to-lake outlet routing is lagged one outer iteration through
+    !! simoutrate. A constant-stage lake holds its row at the specified stage; an
+    !! inactive lake is disconnected from the aquifer. A lake row whose diagonal
+    !! is still (near) zero (no wet connections and no storage) is kept solvable
+    !! with a small diagonal term that holds the stage at its current value and
+    !! becomes zero at convergence. A lake flagged for the legacy solver
+    !! (lak_set_legacy) is instead solved by the default substitution solver and
+    !! assembled like a constant-stage lake at that solved stage.
+    !<
     procedure, private :: lak_fc_implicit
+    !> @brief Sum the non-seepage lake budget terms at a given stage
+    !!
+    !! Returns B(stage), the sum of every lake-budget term except the groundwater
+    !! seepage: rainfall + runoff + specified and external inflow + outlet inflow
+    !! and outflow - evaporation - withdrawal + transient storage. The
+    !! stage-driven losses are ramped to zero as the stage approaches the lake
+    !! bottom (over the surfdep interval) so a drying lake cannot remove more
+    !! water than it holds. lak_fc_implicit calls this routine at two stages to
+    !! finite-difference the lake-row diagonal and right-hand side.
+    !<
     procedure, private :: lak_budget_nogwf
     procedure, private :: lak_outlet_outflow_rate
     procedure, private :: lak_bisection
@@ -363,24 +431,24 @@ module LakModule
   !    submodule (submodules/gwf-lak-implicit.f90)
   interface
     module subroutine lak_budget_nogwf(this, n, stage, b)
-      class(LakType), intent(inout) :: this
-      integer(I4B), intent(in) :: n
-      real(DP), intent(in) :: stage
-      real(DP), intent(inout) :: b
+      class(LakType), intent(inout) :: this !< LakType object
+      integer(I4B), intent(in) :: n !< lake number
+      real(DP), intent(in) :: stage !< lake stage
+      real(DP), intent(inout) :: b !< sum of the non-seepage budget terms
     end subroutine
   end interface
 
   interface
     module subroutine lak_fc_implicit(this, rhs, matrix_sln)
-      class(LakType) :: this
-      real(DP), dimension(:), intent(inout) :: rhs
-      class(MatrixBaseType), pointer :: matrix_sln
+      class(LakType) :: this !< LakType object
+      real(DP), dimension(:), intent(inout) :: rhs !< right-hand side vector
+      class(MatrixBaseType), pointer :: matrix_sln !< solution coefficient matrix
     end subroutine
   end interface
 
   interface
     module subroutine lak_set_legacy(this, kiter, icnvgmod)
-      class(LakType), intent(inout) :: this
+      class(LakType), intent(inout) :: this !< LakType object
       integer(I4B), intent(in) :: kiter !< outer (Picard) iteration number
       integer(I4B), intent(in) :: icnvgmod !< 0 if the model has not converged
     end subroutine
@@ -388,7 +456,7 @@ module LakModule
 
   interface
     module subroutine lak_check_disconnected(this)
-      class(LakType), intent(inout) :: this
+      class(LakType), intent(inout) :: this !< LakType object
     end subroutine
   end interface
 
@@ -777,18 +845,9 @@ contains
       this%strt(ilak) = strt(n)
       !
       ! -- nlakeconn
-      if (nlakeconn(n) < 0) then
-        write (errmsg, '(a,1x,i0)') 'nlakeconn MUST BE >= 0 for lake ', ilak
-        call store_error(errmsg)
-      end if
-      !
-      ! -- the IMPLICIT formulation solves the lake stage as a matrix unknown,
-      !    which requires at least one groundwater connection to give the lake
-      !    row a non-zero diagonal; a lake with no connections is not supported
-      if (this%iimplicit /= 0 .and. nlakeconn(n) == 0) then
+      if (nlakeconn(n) < 1) then
         write (errmsg, '(a,1x,i0,1x,a)') &
-          'lake', ilak, 'has no connections; the IMPLICIT option requires &
-          &each lake to have at least one GWF connection.'
+          'NLAKECONN for lake', ilak, 'must be greater than zero.'
         call store_error(errmsg)
       end if
       !
@@ -1368,7 +1427,7 @@ contains
         if (vol > DZERO) exit
         ! -- set lake bottom
         this%lakebot(ilak) = laketable%tabstage(n)
-        this%belev(ilak) = laketable%tabstage(n)
+        this%belev(iconn) = laketable%tabstage(n)
       end do
       ! -- set maximum surface area for rainfall
       n = this%ntabrow(ilak)
@@ -4720,8 +4779,7 @@ contains
                       this%memoryPath)
     !
     ! -- lake rows: a per-lake diagonal position and the per-connection
-    !    lake->cell off-diagonals. The diagonal is stored per lake (idxdiag) so a
-    !    lake with no connections still has a valid diagonal position.
+    !    lake->cell off-diagonals.
     ipos = 1
     do n = 1, this%nlakes
       iglo = moffset + this%dis%nodes + this%ioffset + n
@@ -5012,7 +5070,7 @@ contains
       !
       ! -- write summary of error messages
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine lak_bd_obs
@@ -5058,14 +5116,16 @@ contains
             if (obsrv%ObsTypeId == 'LAK' .or. &
                 obsrv%ObsTypeId == 'CONDUCTANCE' .or. &
                 obsrv%ObsTypeId == 'WETTED-AREA') then
-              do j = 1, this%nlakes
-                do jj = this%idxlakeconn(j), this%idxlakeconn(j + 1) - 1
-                  if (this%boundname(jj) == bname) then
-                    jfound = .true.
-                    call obsrv%AddObsIndex(jj)
-                  end if
+              if (this%inamedbound /= 0) then
+                do j = 1, this%nlakes
+                  do jj = this%idxlakeconn(j), this%idxlakeconn(j + 1) - 1
+                    if (this%boundname(jj) == bname) then
+                      jfound = .true.
+                      call obsrv%AddObsIndex(jj)
+                    end if
+                  end do
                 end do
-              end do
+              end if
             else if (obsrv%ObsTypeId == 'EXT-OUTFLOW' .or. &
                      obsrv%ObsTypeId == 'TO-MVR' .or. &
                      obsrv%ObsTypeId == 'OUTLET') then
@@ -5096,8 +5156,24 @@ contains
                 obsrv%ObsTypeId == 'CONDUCTANCE' .or. &
                 obsrv%ObsTypeId == 'WETTED-AREA') then
               nn2 = obsrv%NodeNumber2
-              j = this%idxlakeconn(nn1) + nn2 - 1
-              call obsrv%AddObsIndex(j)
+              if (nn1 < 1 .or. nn1 > this%nlakes) then
+                write (errmsg, '(5a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), ' was assigned lake ', &
+                  nn1, '. Lake must be >= 1 and <= ', this%nlakes, '.'
+                call store_error(errmsg)
+              else if (nn2 < 1 .or. nn2 > this%nlakeconn(nn1)) then
+                write (errmsg, '(5a,i0,a,i0,a,i0,a)') &
+                  'Observation ', trim(obsrv%Name), ' of type ', &
+                  trim(adjustl(obsrv%ObsTypeId)), &
+                  ' was assigned connection ', nn2, ' of lake ', nn1, &
+                  '. Connection must be >= 1 and <= ', &
+                  this%nlakeconn(nn1), '.'
+                call store_error(errmsg)
+              else
+                j = this%idxlakeconn(nn1) + nn2 - 1
+                call obsrv%AddObsIndex(j)
+              end if
             else
               call obsrv%AddObsIndex(nn1)
             end if
@@ -5162,7 +5238,7 @@ contains
       !
       ! -- evaluate if there are any observation errors
       if (count_errors() > 0) then
-        call store_error_unit(this%inunit)
+        call store_error_filename(this%input_fname)
       end if
     end if
   end subroutine lak_rp_obs
@@ -5739,7 +5815,7 @@ contains
     end do estseep
   end subroutine lak_estimate_seepage_single
 
-  !> @ brief Lake package bisection method
+  !> @brief Lake package bisection method
   !!
   !!  Use bisection method to find lake stage that reduces the residual
   !<

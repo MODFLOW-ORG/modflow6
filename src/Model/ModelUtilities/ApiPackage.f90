@@ -10,9 +10,8 @@
 !!
 !<
 module apimodule
-  use KindModule, only: DP, I4B
+  use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, LENFTYPE, LENPACKAGENAME
-  use MemoryHelperModule, only: create_mem_path
   use BndModule, only: BndType
   use ObsModule, only: DefaultObsIdProcessor
   use TimeSeriesLinkModule, only: TimeSeriesLinkType, &
@@ -41,7 +40,7 @@ module apimodule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new USR Package object
   !!
@@ -80,33 +79,33 @@ contains
     packobj%ibcnum = ibcnum
     packobj%ncolbnd = 2
     packobj%iscloc = 2
-    packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine api_create
 
-  !> @ brief Source package options from input context
+  !> @brief Source package options from input context
   !<
   subroutine source_options(this)
     use MemoryManagerExtModule, only: mem_set_value
     use InputOutputModule, only: GetUnit, openfile
     use SourceCommonModule, only: filein_fname
-    use GwfApiInputModule, only: GwfApiParamFoundType
     ! -- dummy variables
     class(ApiType), intent(inout) :: this
-    type(GwfApiParamFoundType) :: found
+    ! -- local variables
+    logical(LGP) :: found_iprpak, found_iprflow, found_ipakcb
+    logical(LGP) :: found_boundnames, found_mover
     ! -- formats
     character(len=*), parameter :: fmtflow2 = &
       &"(4x, 'FLOWS WILL BE SAVED TO BUDGET FILE SPECIFIED IN OUTPUT CONTROL')"
 
     ! update default values from input context
-    call mem_set_value(this%iprpak, 'IPRPAK', this%input_mempath, found%iprpak)
-    call mem_set_value(this%iprflow, 'IPRFLOW', this%input_mempath, found%iprflow)
-    call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found%ipakcb)
+    call mem_set_value(this%iprpak, 'IPRPAK', this%input_mempath, found_iprpak)
+    call mem_set_value(this%iprflow, 'IPRFLOW', this%input_mempath, found_iprflow)
+    call mem_set_value(this%ipakcb, 'IPAKCB', this%input_mempath, found_ipakcb)
     call mem_set_value(this%inamedbound, 'BOUNDNAMES', this%input_mempath, &
-                       found%boundnames)
-    call mem_set_value(this%imover, 'MOVER', this%input_mempath, found%mover)
+                       found_boundnames)
+    call mem_set_value(this%imover, 'MOVER', this%input_mempath, found_mover)
 
     ! update internal state
-    if (found%ipakcb) this%ipakcb = -1
+    if (found_ipakcb) this%ipakcb = -1
 
     ! enforce 0 or 1 OBS6_FILENAME entries in option block
     if (filein_fname(this%obs%inputFilename, 'OBS6_FILENAME', &
@@ -119,39 +118,38 @@ contains
     ! log package options
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text)) &
       //' OPTIONS'
-    if (found%iprpak) then
+    if (found_iprpak) then
       write (this%iout, '(4x,a)') &
         'LISTS OF '//trim(adjustl(this%text))//' CELLS WILL BE PRINTED.'
     end if
-    if (found%iprflow) then
+    if (found_iprflow) then
       write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
         ' FLOWS WILL BE PRINTED TO LISTING FILE.'
     end if
-    if (found%ipakcb) write (this%iout, fmtflow2)
-    if (found%boundnames) then
+    if (found_ipakcb) write (this%iout, fmtflow2)
+    if (found_boundnames) then
       write (this%iout, '(4x,a)') trim(adjustl(this%text))// &
         ' BOUNDARIES HAVE NAMES IN LAST COLUMN.'
     end if
-    if (found%mover) write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
+    if (found_mover) write (this%iout, '(4x,A)') 'MOVER OPTION ENABLED'
     write (this%iout, '(1x,a)') &
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine source_options
 
-  !> @ brief Source package dimensions from input context
+  !> @brief Source package dimensions from input context
   !<
   subroutine source_dimensions(this)
     use SimVariablesModule, only: errmsg
     use SimModule, only: store_error, store_error_filename
     use MemoryManagerExtModule, only: mem_set_value
-    use GwfApiInputModule, only: GwfApiParamFoundType
     ! -- dummy variables
     class(ApiType), intent(inout) :: this
     ! -- local variables
-    type(GwfApiParamFoundType) :: found
+    logical(LGP) :: found_maxbound
 
     ! update dimensions from input context
     call mem_set_value(this%maxbound, 'MAXBOUND', this%input_mempath, &
-                       found%maxbound)
+                       found_maxbound)
 
     ! log dimensions
     write (this%iout, '(/1x,a)') 'PROCESSING '//trim(adjustl(this%text))// &
@@ -168,7 +166,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief Read and prepare stress period data for package
+  !> @brief Read and prepare stress period data for package
   !!
   !!  Method reads and prepares stress period data for the USR package.
   !!  This method overrides the base read and prepare method and does not read
@@ -180,7 +178,7 @@ contains
     class(ApiType), intent(inout) :: this
   end subroutine api_rp
 
-  !> @ brief Fill A and r for the package
+  !> @brief Fill A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with the USR
   !!  package terms.

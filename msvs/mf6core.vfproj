@@ -358,8 +358,10 @@
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-steady.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-transient.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-tvd.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-uzf-input.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-uzf-obs.f90"/>
+					<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-uzf-budget.f90"/>
 					</Filter>
-					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-api.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-buy.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-chd.f90"/>
 					<File RelativePath="..\src\Model\GroundWaterFlow\gwf-csub.f90"/>
@@ -403,6 +405,7 @@
 					<File RelativePath="..\src\Model\GroundWaterTransport\gwt.f90"/>
 				</Filter>
 				<Filter Name="ModelUtilities">
+					<File RelativePath="..\src\Model\ModelUtilities\ApiPackage.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\BoundaryPackage.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\BoundaryPackageExt.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\Connections.f90"/>
@@ -438,6 +441,8 @@
 					<File RelativePath="..\src\Model\ModelUtilities\TspAdvOptions.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\TspSpc.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfCellGroup.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\submodules\uzf-waves.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\submodules\uzf-et.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfDevSoil.f90"/>

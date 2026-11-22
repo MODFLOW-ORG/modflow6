@@ -34,7 +34,7 @@ module SfrModule
   use ObserveModule, only: ObserveType
   use InputOutputModule, only: extract_idnum_or_bndname, upcase
   use BaseDisModule, only: DisBaseType
-  use SimModule, only: count_errors, store_error, store_error_unit, &
+  use SimModule, only: count_errors, store_error, &
                        store_error_filename, store_warning, deprecation_warning
   use SimVariablesModule, only: errmsg, warnmsg
   use GwfSfrCrossSectionUtilsModule, only: get_saturated_topwidth, &
@@ -239,10 +239,31 @@ module SfrModule
     ! -- private procedures
 
     procedure, private :: sfr_solve
+    !> @brief Method for solving for simple reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the simple approach.
+    !<
     procedure, private :: sfr_calc_constant
+    !> @brief Method for solving for transient reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the kinematic wave approximation.
+    !<
     procedure, private :: sfr_calc_transient
+    !> @brief Kinematic-wave routing with TVD flux limiter
+    !!
+    !! Explicit van Leer TVD update of the continuity equation with exact
+    !! volume balance; reverts to first-order upwind for Cr > 1 and at
+    !! confluences.
+    !<
     procedure, private :: sfr_calc_tvd
     procedure, private :: sfr_calc_celerity
+    !> @brief Method for solving for standard reaches
+    !!
+    !! Method to solve the continuity equation for a SFR package
+    !! reach using the standard approach.
+    !<
     procedure, private :: sfr_calc_steady
     procedure, private :: sfr_precompute_tvd
     procedure, private :: sfr_update_flows
@@ -360,7 +381,7 @@ module SfrModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new SFR Package object
   !<
@@ -404,7 +425,7 @@ contains
     packobj%ictMemPath = create_mem_path(namemodel, 'NPF')
   end subroutine sfr_create
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the SFR package. The base model
   !! allocate scalars method is also called.
@@ -476,7 +497,7 @@ contains
     this%ncrossptstot = 0
   end subroutine sfr_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate and initialize array for the SFR package.
   !<
@@ -1675,7 +1696,7 @@ contains
     call memorystore_release('INITIALSTAGE', this%input_mempath)
   end subroutine sfr_source_initialstages
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to read and prepare period data for the SFR package.
   !<
@@ -1776,7 +1797,7 @@ contains
     end if
   end subroutine sfr_ar
 
-  !> @ brief Read and prepare period data for package
+  !> @brief Read and prepare period data for package
   !!
   !!  Method to read and prepare period data for the SFR package.
   !<
@@ -2025,7 +2046,7 @@ contains
     end if
   end subroutine sfr_rp
 
-  !> @ brief Advance the package
+  !> @brief Advance the package
   !!
   !!  Advance data in the SFR package. The method sets advances
   !!  time series, time array series, and observation data.
@@ -2123,7 +2144,7 @@ contains
     end if
   end subroutine sfr_ad
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
   !!
   !!  Formulate the hcof and rhs terms for the WEL package that will be
   !!  added to the coefficient matrix and right-hand side vector.
@@ -2151,7 +2172,7 @@ contains
     end do
   end subroutine sfr_cf
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
   !!
   !!  Add the hcof and rhs terms for the SFR package to the
   !!  coefficient matrix and right-hand side vector.
@@ -2251,7 +2272,7 @@ contains
     end do
   end subroutine sfr_fc
 
-  !> @ brief Add Newton-Raphson terms for package into solution.
+  !> @brief Add Newton-Raphson terms for package into solution.
   !!
   !!  Calculate and add the Newton-Raphson terms for the SFR package to the
   !!  coefficient matrix and right-hand side vector.
@@ -2301,7 +2322,7 @@ contains
     end do
   end subroutine sfr_fn
 
-  !> @ brief Convergence check for package.
+  !> @brief Convergence check for package.
   !!
   !!  Perform additional convergence checks on the flow between the SFR package
   !!  and the model it is attached to.
@@ -2503,7 +2524,7 @@ contains
     end if
   end subroutine sfr_cc
 
-  !> @ brief Calculate package flows.
+  !> @brief Calculate package flows.
   !!
   !!  Calculate the flow between connected SFR package control volumes.
   !<
@@ -2580,7 +2601,7 @@ contains
     call this%sfr_fill_budobj()
   end subroutine sfr_cq
 
-  !> @ brief Output package flow terms.
+  !> @brief Output package flow terms.
   !!
   !!  Output SFR package flow terms.
   !<
@@ -2633,7 +2654,7 @@ contains
     end if
   end subroutine sfr_ot_package_flows
 
-  !> @ brief Output package dependent-variable terms.
+  !> @brief Output package dependent-variable terms.
   !!
   !!  Output SFR boundary package dependent-variable terms.
   !<
@@ -2745,7 +2766,7 @@ contains
     end if
   end subroutine sfr_ot_dv
 
-  !> @ brief Output advanced package budget summary.
+  !> @brief Output advanced package budget summary.
   !!
   !!  Output SFR package budget summary.
   !<
@@ -2860,7 +2881,7 @@ contains
     end if
   end subroutine sfr_calc_celerity
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate SFR package scalars and arrays.
   !<
@@ -3051,7 +3072,7 @@ contains
     end do
   end subroutine sfr_precompute_tvd
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the SFR package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.
@@ -3322,12 +3343,14 @@ contains
             !    Iterate through all boundaries to identify and store
             !    corresponding index(indices) in bound array.
             jfound = .false.
-            do j = 1, this%maxbound
-              if (this%boundname(j) == bname) then
-                jfound = .true.
-                call obsrv%AddObsIndex(j)
-              end if
-            end do
+            if (this%inamedbound /= 0) then
+              do j = 1, this%maxbound
+                if (this%boundname(j) == bname) then
+                  jfound = .true.
+                  call obsrv%AddObsIndex(j)
+                end if
+              end do
+            end if
             if (.not. jfound) then
               write (errmsg, 10) &
                 trim(bname), trim(obsrv%name), trim(this%packName)

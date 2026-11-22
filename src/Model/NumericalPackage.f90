@@ -59,7 +59,7 @@ module NumericalPackageModule
   !
 contains
   !
-  !> @ brief Set package names
+  !> @brief Set package names
   !!
   !!  Method to assign the filtyp (ftype), the model name, and package name for
   !!  a package. This method also creates the memoryPath and memoryPathModel that
@@ -97,7 +97,7 @@ contains
     this%memoryPathModel = create_mem_path(name_model)
   end subroutine set_names
 
-  !> @ brief Allocate package scalars
+  !> @brief Allocate package scalars
   !!
   !!  Allocate and initialize base numerical package scalars.
   !!
@@ -165,7 +165,7 @@ contains
     end if
   end subroutine allocate_scalars
 
-  !> @ brief Deallocate package scalars
+  !> @brief Deallocate package scalars
   !!
   !!  Deallocate and initialize base numerical package scalars.
   !!
@@ -191,7 +191,7 @@ contains
     call mem_deallocate(this%lastonper)
   end subroutine da
 
-  !> @ brief Check ionper
+  !> @brief Check ionper
   !!
   !!  Generic method to read and check ionperiod, which is used to determine
   !!  if new period data should be read from the input file. The check of
@@ -220,7 +220,7 @@ contains
     end if
   end subroutine read_check_ionper
 
-  !> @ brief Read griddata block for a package
+  !> @brief Read griddata block for a package
   !!
   !!  Generic method to read data in the GRIDDATA block for a package.
   !!

@@ -227,7 +227,7 @@ contains
 
   !> @brief Compress the halo for all solutions. This will
   !! activate the mapping tables in the virtual data items
-  !< such that only relevant part of data arrays can be sync'ed
+  !! such that only relevant part of data arrays can be synced
   subroutine vds_compress_halo(this)
     use ArrayHandlersModule, only: ifind
     use InputOutputModule, only: getunit

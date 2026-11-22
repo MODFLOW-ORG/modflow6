@@ -31,7 +31,7 @@ module OlfGwfExchangeModule
 
 contains
 
-  !> @ brief Create OLF GWF exchange
+  !> @brief Create OLF GWF exchange
   !!
   !! High level wrapper over the SWF-GWF exchange, which is generic in that
   !! it can be used to couple either a CHF or OLF surface water model to a
@@ -60,7 +60,7 @@ contains
 
   end subroutine olfgwf_cr
 
-  !> @ brief Define OLF GWF exchange
+  !> @brief Define OLF GWF exchange
   !<
   subroutine olf_gwf_df(this)
     !  modules
@@ -106,7 +106,7 @@ contains
 
   end subroutine olf_gwf_df
 
-  !> @ brief Source options
+  !> @brief Source options
   !<
   subroutine source_options(this, iout)
     !  modules

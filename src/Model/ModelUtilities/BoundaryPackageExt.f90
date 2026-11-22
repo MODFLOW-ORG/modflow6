@@ -23,7 +23,7 @@ module BndExtModule
   private
   public :: BndExtType
 
-  !> @ brief BndExtType
+  !> @brief BndExtType
   !!
   !!  Generic extended boundary package type.  This derived type can be
   !!  overridden to define concrete boundary package types that source
@@ -65,7 +65,7 @@ module BndExtModule
     procedure :: bound_value
   end type BndExtType
 
-  !> @ brief BndExtFoundType
+  !> @brief BndExtFoundType
   !!
   !!  This type is used to simplify the tracking of common parameters
   !!  that are sourced from the input context.
@@ -84,7 +84,7 @@ module BndExtModule
 
 contains
 
-  !> @ brief Define boundary package options and dimensions
+  !> @brief Define boundary package options and dimensions
     !!
     !!  Define base boundary package options and dimensions for
     !!  a model boundary package.
@@ -218,7 +218,7 @@ contains
     end if
   end subroutine bndext_rp_log
 
-  !> @ brief Validate a list-input row's IFNO and update the per-feature
+  !> @brief Validate a list-input row's IFNO and update the per-feature
   !!  coverage counter
   !!
   !! Returns the validated feature index, or 0 if out of range (an error is
@@ -248,7 +248,7 @@ contains
     nboundchk(idx) = nboundchk(idx) + 1
   end function validate_ifno
 
-  !> @ brief Report missing or duplicate list-input rows for each feature
+  !> @brief Report missing or duplicate list-input rows for each feature
   !!
   !! Set check_missing=.false. for an optional block where not every
   !! feature is expected to have a row (duplicates are still reported).
@@ -283,7 +283,7 @@ contains
     end do
   end subroutine report_ifno_coverage
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !<
   subroutine bndext_da(this)
     ! -- modules
@@ -323,7 +323,7 @@ contains
     call this%BndType%bnd_da()
   end subroutine bndext_da
 
-  !> @ brief Allocate package scalars
+  !> @brief Allocate package scalars
     !!
     !!  Allocate and initialize base boundary package scalars. This method
     !!  only needs to be overridden if additional scalars are defined
@@ -354,7 +354,7 @@ contains
     this%ts_active = .false.
   end subroutine bndext_allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
     !!
     !!  Allocate and initialize base boundary package arrays. This method
     !!  only needs to be overridden if additional arrays are defined
@@ -439,7 +439,7 @@ contains
     end if
   end subroutine allocate_featureauxvar
 
-  !> @ brief Source package options from input context
+  !> @brief Source package options from input context
   !<
   subroutine source_options(this)
     ! -- modules
@@ -551,7 +551,7 @@ contains
     end if
   end subroutine source_options
 
-  !> @ brief Log package options
+  !> @brief Log package options
   !<
   subroutine log_options(this, found, sfacauxname)
     ! -- modules
@@ -614,7 +614,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' BASE OPTIONS'
   end subroutine log_options
 
-  !> @ brief Source package dimensions from input context
+  !> @brief Source package dimensions from input context
   !<
   subroutine source_dimensions(this)
     use MemoryManagerExtModule, only: mem_set_value
@@ -649,7 +649,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief Update package nodelist
+  !> @brief Update package nodelist
     !!
     !! Convert period updated cellids to node numbers.
     !!
@@ -712,33 +712,38 @@ contains
     end if
   end subroutine cellid_to_nlist
 
-  !> @ brief Update package nodelist
+  !> @brief Update package nodelist
   !!
-  !! Convert period user nodes to reduced nodes
+  !! Convert period user nodes to reduced nodes. Inactive cells are
+  !! excluded by the input loader.
   !!
   !<
   subroutine nodeu_to_nlist(this)
-    ! -- modules
-    use MemoryManagerModule, only: mem_setptr
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
-    integer(I4B) :: n, noder, nodeuser, ninactive
-
-    ninactive = 0
+    integer(I4B) :: n, noder, nodeuser
+    character(len=LINELENGTH) :: nodestr
 
     ! -- Set the nodelist
     do n = 1, this%nbound
       nodeuser = this%nodeulist(n)
       noder = this%dis%get_nodenumber(nodeuser, 0)
-      if (noder > 0) then
-        this%nodelist(n) = noder
-      else
-        ninactive = ninactive + 1
+      if (noder <= 0) then
+        call this%dis%nodeu_to_string(nodeuser, nodestr)
+        write (errmsg, *) &
+          ' Cell is outside active grid domain: '// &
+          trim(adjustl(nodestr))
+        call store_error(errmsg)
       end if
+      this%nodelist(n) = noder
     end do
 
-    ! update nbound
-    this%nbound = this%nbound - ninactive
+    ! -- exit if errors were found
+    if (count_errors() > 0) then
+      write (errmsg, *) count_errors(), ' errors encountered.'
+      call store_error(errmsg)
+      call store_error_filename(this%input_fname)
+    end if
   end subroutine nodeu_to_nlist
 
   !> @brief Update the nodelist based on layer number variable input
@@ -746,14 +751,15 @@ contains
   !! This is a module scoped routine to check for I<filtyp>
   !! input. If array input was provided, INI<filtyp> and I<filtyp>
   !! will be allocated in the input context.  If the read
-  !! state variable INI<filtyp> is set to 1 during this period
-  !! update, I<filtyp> input was read and is used here to update
-  !! the nodelist.
+  !! state variable INI<filtyp> shows values were given in this period
+  !! block, I<filtyp> input was read and is used here to update the
+  !! nodelist.
   !!
   !<
   subroutine layarr_to_nlist(this)
     ! -- modules
     use MemoryManagerModule, only: mem_setptr
+    use LoadContextModule, only: RS_VALUES, RS_NETCDF
     use ConstantsModule, only: LENVARNAME
     ! -- dummy
     class(BndExtType) :: this !< BndExtType object
@@ -772,7 +778,7 @@ contains
     call mem_setptr(inilay, inilayname, this%input_mempath)
     !
     ! -- check read state
-    if (inilay == 1) then
+    if (inilay == RS_VALUES .or. inilay == RS_NETCDF) then
       ! -- ilay variable was read this period
       !
       ! -- set pointer to input context layer index variable
@@ -824,7 +830,7 @@ contains
     end if
   end subroutine default_nodelist
 
-  !> @ brief Check for valid cellid
+  !> @brief Check for valid cellid
   !<
   subroutine check_cellid(this, ii, cellid, mshape, ndim)
     ! -- modules
@@ -881,7 +887,7 @@ contains
     end select
   end subroutine check_cellid
 
-  !> @ brief Log package stress period input
+  !> @brief Log package stress period input
     !!
     !! Log period based input. This routine requires a package specific
     !! bound_value() routine to report accurate bound values.
@@ -1043,7 +1049,7 @@ contains
     deallocate (words)
   end subroutine write_lstfile
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
     !!
     !!  Return a bound value associated with an ncolbnd index
     !!  and row.  This function should be overridden in the

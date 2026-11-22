@@ -56,7 +56,7 @@ module BlockParserModule
 
 contains
 
-  !> @ brief Initialize the block parser
+  !> @brief Initialize the block parser
   !!
   !! Method to initialize the block parser.
   !!
@@ -76,7 +76,7 @@ contains
     this%linesRead = 0
   end subroutine Initialize
 
-  !> @ brief Close the block parser
+  !> @brief Close the block parser
   !!
   !! Method to clear the block parser, which closes file(s) and clears member
   !! variables.
@@ -115,7 +115,7 @@ contains
     deallocate (this%line)
   end subroutine Clear
 
-  !> @ brief Get block
+  !> @brief Get block
   !!
   !! Method to get the block from a file. The file is read until the blockname
   !! is found.
@@ -173,7 +173,7 @@ contains
     this%linesRead = 0
   end subroutine GetBlock
 
-  !> @ brief Get the next line
+  !> @brief Get the next line
   !!
   !! Method to get the next line from a file.
   !!
@@ -233,7 +233,7 @@ contains
     end do loop1
   end subroutine GetNextLine
 
-  !> @ brief Get a integer
+  !> @brief Get a integer
   !!
   !! Function to get a integer from the current line.
   !!
@@ -258,7 +258,7 @@ contains
     end if
   end function GetInteger
 
-  !> @ brief Get the number of lines read
+  !> @brief Get the number of lines read
   !!
   !! Function to get the number of lines read from the current block.
   !!
@@ -273,7 +273,7 @@ contains
     nlines = this%linesRead
   end function GetLinesRead
 
-  !> @ brief Get a double precision real
+  !> @brief Get a double precision real
   !!
   !! Function to get adouble precision floating point number from
   !! the current line.
@@ -340,7 +340,7 @@ contains
 
   end subroutine TryGetInteger
 
-  !> @ brief Issue a read error
+  !> @brief Issue a read error
   !!
   !! Method to issue an unable to read error.
   !!
@@ -366,7 +366,7 @@ contains
     call this%StoreErrorUnit()
   end subroutine ReadScalarError
 
-  !> @ brief Get a string
+  !> @brief Get a string
   !!
   !! Method to get a string from the current line and optionally convert it
   !! to upper case.
@@ -401,7 +401,7 @@ contains
     this%laststring = this%line(istart:istop)
   end subroutine GetString
 
-  !> @ brief Get an upper case string
+  !> @brief Get an upper case string
   !!
   !! Method to get a string from the current line and convert it
   !! to upper case.
@@ -416,7 +416,7 @@ contains
     call this%GetString(string, convertToUpper=.true.)
   end subroutine GetStringCaps
 
-  !> @ brief Get the rest of a line
+  !> @brief Get the rest of a line
   !!
   !! Method to get the rest of the line from the current line.
   !!
@@ -438,7 +438,7 @@ contains
     line(newlinelen:newlinelen) = ' '
   end subroutine GetRemainingLine
 
-  !> @ brief Ensure that the block is closed
+  !> @brief Ensure that the block is closed
   !!
   !! Method to ensure that the block is closed with an "end".
   !!
@@ -459,7 +459,7 @@ contains
     end if
   end subroutine terminateblock
 
-  !> @ brief Get a cellid
+  !> @brief Get a cellid
   !!
   !! Method to get a cellid from a line.
   !!
@@ -508,7 +508,7 @@ contains
     end do
   end subroutine GetCellid
 
-  !> @ brief Get the current line
+  !> @brief Get the current line
   !!
   !! Method to get the current line.
   !!
@@ -522,7 +522,7 @@ contains
     line = this%line
   end subroutine GetCurrentLine
 
-  !> @ brief Store the unit number
+  !> @brief Store the unit number
   !!
   !! Method to store the unit number for the file that caused a read error.
   !! Default is to terminate the simulation when this method is called.
@@ -546,7 +546,7 @@ contains
     call store_error_unit(this%iuext, terminate=lterminate)
   end subroutine StoreErrorUnit
 
-  !> @ brief Get the unit number
+  !> @brief Get the unit number
   !!
   !! Function to get the unit number for the block parser.
   !!
@@ -561,7 +561,7 @@ contains
     i = this%iuext
   end function GetUnit
 
-  !> @ brief Disable development option in release mode
+  !> @brief Disable development option in release mode
   !!
   !! Terminate with an error if in release mode (IDEVELOPMODE = 0). Enables
   !! options for development and testing while disabling for public release.

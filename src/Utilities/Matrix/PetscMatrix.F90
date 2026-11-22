@@ -387,7 +387,7 @@ contains
   end subroutine pm_get_aij
 
   !> @brief Get the ia/ja and amat values for the local
-  !< diagonal block of this matrix. It's a copy.
+  !! diagonal block of this matrix. It is a copy.
   subroutine pm_get_aij_local(this, ia, ja, amat)
     class(PetscMatrixType) :: this
     integer(I4B), dimension(:), pointer, contiguous :: ia

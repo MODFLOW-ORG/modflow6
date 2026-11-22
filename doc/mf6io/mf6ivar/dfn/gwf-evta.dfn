@@ -175,7 +175,7 @@ numeric_index true
 optional true
 netcdf true
 longname layer number for evapotranspiration
-description IEVT is the layer number that defines the layer in each vertical column where evapotranspiration is applied. If IEVT is omitted, evapotranspiration by default is applied to cells in layer 1.  If IEVT is specified, it must be specified as the first variable in the PERIOD block or MODFLOW will terminate with an error.
+description IEVT is the layer number that defines the layer in each vertical column where evapotranspiration is applied. If IEVT is not specified, evapotranspiration is applied to cells in layer 1 until IEVT is specified.  If IEVT is specified, it must be specified as the first variable in the PERIOD block or MODFLOW will terminate with an error.
 
 block period
 name surface

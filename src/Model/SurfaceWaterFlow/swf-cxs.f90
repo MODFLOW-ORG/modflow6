@@ -147,7 +147,7 @@ contains
     end if
   end subroutine cxs_cr
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the package. The base model
   !! allocate scalars method is also called.

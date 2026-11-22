@@ -104,7 +104,7 @@ module GwtGwtExchangeModule
 
 contains
 
-  !> @ brief Create GWT GWT exchange
+  !> @brief Create GWT GWT exchange
   !!
   !! Create a new GWT to GWT exchange object.
   !<
@@ -189,7 +189,7 @@ contains
     call obs_cr(exchange%obs, exchange%inobs)
   end subroutine gwtexchange_create
 
-  !> @ brief Define GWT GWT exchange
+  !> @brief Define GWT GWT exchange
   !!
   !! Define GWT to GWT exchange object.
   !<
@@ -304,7 +304,7 @@ contains
     end if
   end subroutine validate_exchange
 
-  !> @ brief Allocate and read
+  !> @brief Allocate and read
   !!
   !! Allocated and read and calculate saturated conductance
   !<
@@ -319,7 +319,7 @@ contains
     call this%obs%obs_ar()
   end subroutine gwt_gwt_ar
 
-  !> @ brief Read and prepare
+  !> @brief Read and prepare
   !!
   !! Read new data for mover and obs
   !<
@@ -339,7 +339,7 @@ contains
     call this%gwt_gwt_rp_obs()
   end subroutine gwt_gwt_rp
 
-  !> @ brief Advance
+  !> @brief Advance
   !!
   !! Advance mover and obs
   !<
@@ -371,7 +371,7 @@ contains
 
   end subroutine gwt_gwt_cf
 
-  !> @ brief Fill coefficients
+  !> @brief Fill coefficients
   !!
   !! Calculate conductance and fill coefficient matrix
   !<
@@ -395,7 +395,7 @@ contains
     end if
   end subroutine gwt_gwt_fc
 
-  !> @ brief Budget
+  !> @brief Budget
   !!
   !! Accumulate budget terms
   !<
@@ -437,7 +437,7 @@ contains
     if (this%inmvt > 0) call this%mvt%mvt_bd()
   end subroutine gwt_gwt_bd
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -471,7 +471,7 @@ contains
     end if
   end subroutine gwt_gwt_bdsav
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -639,7 +639,7 @@ contains
     end do
   end subroutine gwt_gwt_bdsav_model
 
-  !> @ brief Output
+  !> @brief Output
   !!
   !! Write output
   !<
@@ -693,7 +693,7 @@ contains
     call this%obs%obs_ot()
   end subroutine gwt_gwt_ot
 
-  !> @ brief Source options
+  !> @brief Source options
   !!
   !! Source the options block
   !<
@@ -786,7 +786,7 @@ contains
     write (iout, '(1x,a)') 'END OF GWT-GWT EXCHANGE OPTIONS'
   end subroutine source_options
 
-  !> @ brief Read mover
+  !> @brief Read mover
   !!
   !! Read and process movers
   !<
@@ -807,7 +807,7 @@ contains
 
   end subroutine read_mvt
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables
   !<
@@ -831,7 +831,7 @@ contains
     this%inmvt = 0
   end subroutine allocate_scalars
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !! Deallocate memory associated with this object
   !<
@@ -877,7 +877,7 @@ contains
     call this%DisConnExchangeType%disconnex_da()
   end subroutine gwt_gwt_da
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate arrays
   !<
@@ -945,7 +945,7 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @ brief Define observations
+  !> @brief Define observations
   !!
   !! Define the observations associated with this object
   !<
@@ -961,7 +961,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => gwt_gwt_process_obsID
   end subroutine gwt_gwt_df_obs
 
-  !> @ brief Read and prepare observations
+  !> @brief Read and prepare observations
   !!
   !! Handle observation exchanges exchange-boundary names.
   !<
@@ -997,14 +997,16 @@ contains
         !    Iterate through all boundaries to identify and store
         !    corresponding index(indices) in bound array.
         jfound = .false.
-        do j = 1, this%nexg
-          if (this%boundname(j) == bname) then
-            jfound = .true.
-            obsrv%BndFound = .true.
-            obsrv%CurrentTimeStepEndValue = DZERO
-            call obsrv%AddObsIndex(j)
-          end if
-        end do
+        if (this%inamedbound /= 0) then
+          do j = 1, this%nexg
+            if (this%boundname(j) == bname) then
+              jfound = .true.
+              obsrv%BndFound = .true.
+              obsrv%CurrentTimeStepEndValue = DZERO
+              call obsrv%AddObsIndex(j)
+            end if
+          end do
+        end if
         if (.not. jfound) then
           write (errmsg, 10) trim(bname), trim(obsrv%ObsTypeId), trim(this%name)
           call store_error(errmsg)
@@ -1032,7 +1034,7 @@ contains
     end if
   end subroutine gwt_gwt_rp_obs
 
-  !> @ brief Final processing
+  !> @brief Final processing
   !!
   !! Conduct any final processing
   !<
@@ -1042,7 +1044,7 @@ contains
   end subroutine gwt_gwt_fp
 
   !> @brief Return true when this exchange provides matrix coefficients for
-  !! solving @param model
+  !! solving @p model
   !<
   function gwt_gwt_connects_model(this, model) result(is_connected)
     ! -- dummy
@@ -1083,7 +1085,7 @@ contains
     use_im = .true.
   end function
 
-  !> @ brief Save simulated flow observations
+  !> @brief Save simulated flow observations
   !!
   !! Save the simulated flows for each exchange
   !<
@@ -1127,7 +1129,7 @@ contains
     end if
   end subroutine gwt_gwt_save_simvals
 
-  !> @ brief Obs ID processor
+  !> @brief Obs ID processor
   !!
   !! Process observations for this exchange
   !<
@@ -1166,7 +1168,7 @@ contains
     end if
   end subroutine gwt_gwt_process_obsID
 
-  !> @ brief Cast polymorphic object as exchange
+  !> @brief Cast polymorphic object as exchange
   !!
   !! Cast polymorphic object as exchange
   !<
@@ -1186,7 +1188,7 @@ contains
     end select
   end function CastAsGwtExchange
 
-  !> @ brief Get exchange from list
+  !> @brief Get exchange from list
   !!
   !! Return an exchange from the list for specified index
   !<

@@ -38,7 +38,7 @@ module IdmLoggerModule
 
 contains
 
-  !> @ brief log a header message
+  !> @brief log a header message
   !<
   subroutine idm_log_header(component, subcomponent, iout)
     character(len=*), intent(in) :: component !< component name
@@ -50,7 +50,7 @@ contains
     end if
   end subroutine idm_log_header
 
-  !> @ brief log the closing message
+  !> @brief log the closing message
   !<
   subroutine idm_log_close(component, subcomponent, iout)
     character(len=*), intent(in) :: component !< component name
@@ -61,7 +61,7 @@ contains
     end if
   end subroutine idm_log_close
 
-  !> @ brief log a dynamic header message
+  !> @brief log a dynamic header message
   !<
   subroutine idm_log_period_header(component, iout)
     use TdisModule, only: kper, kstp
@@ -73,7 +73,7 @@ contains
     end if
   end subroutine idm_log_period_header
 
-  !> @ brief log the period closing message
+  !> @brief log the period closing message
   !<
   subroutine idm_log_period_close(iout)
     use TdisModule, only: kstp
@@ -84,7 +84,7 @@ contains
     end if
   end subroutine idm_log_period_close
 
-  !> @ brief log the period closing message
+  !> @brief log the period closing message
   !<
   subroutine idm_log_var_ts(varname, mempath, iout, is_tas, detail)
     character(len=*), intent(in) :: varname !< variable name
@@ -766,10 +766,10 @@ contains
   !> @brief Create export file
   !!
   !! Name formats where l=layer, a=auxiliary, p=period
-  !!    : <comp>-<subcomp>.varname.txt
-  !!    : <comp>-<subcomp>.varname.l<num>.txt
-  !!    : <comp>-<subcomp>.varname.p<num>.txt
-  !!    : <comp>-<subcomp>.varname.a<num>.p<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.txt
+  !!    : \<comp\>-\<subcomp\>.varname.l<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.p<num>.txt
+  !!    : \<comp\>-\<subcomp\>.varname.a<num>.p<num>.txt
   !<
   function create_export_file(varname, mempath, layer, iout) &
     result(inunit)

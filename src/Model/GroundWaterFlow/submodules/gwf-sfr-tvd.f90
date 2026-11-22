@@ -1,12 +1,7 @@
 submodule(SfrModule) SfrModuleTvd
 contains
 
-  !> @brief Kinematic-wave routing with TVD flux limiter
-  !!
-  !! Explicit van Leer TVD update of the continuity equation with exact
-  !! volume balance; reverts to first-order upwind for Cr > 1 and at
-  !! confluences.
-  !<
+  ! -- documented on the SfrType type-bound procedure in gwf-sfr.f90
   module procedure sfr_calc_tvd
   use TdisModule, only: delt
   ! -- local

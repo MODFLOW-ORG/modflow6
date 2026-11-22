@@ -24,6 +24,7 @@ contains
   !> @brief Open a file
   !!
   !! Subroutine to open a file using the specified arguments
+  !! @hidecallergraph
   !<
   subroutine openfile(iu, iout, fname, ftype, fmtarg_opt, accarg_opt, &
                       filstat_opt, mode_opt)
@@ -175,7 +176,7 @@ contains
     getunit = iunit
   end function getunit
 
-  !> @ brief assign io unit number
+  !> @brief assign io unit number
   !!
   !!  Generic method to assign io unit number to unassigned integer
   !!  variable (initialized less than or equal to 0).  Assigns a valid
@@ -416,6 +417,7 @@ contains
   !! error is written to default output if iout is 0; no error message is
   !! written if iout is negative.
   !!
+  !! @hidecallergraph
   !<
   subroutine URWORD(line, icol, istart, istop, ncode, n, r, iout, in)
     ! -- dummy

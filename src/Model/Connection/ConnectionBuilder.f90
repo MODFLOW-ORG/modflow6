@@ -76,7 +76,7 @@ contains
   !!
   !! If the configuration demands it, this will create connections,
   !! for the exchanges (one connection per exchange) add them to
-  !! the global list, and return them as @param newConnections
+  !! the global list, and return them as @p newConnections
   !<
   subroutine processExchanges(this, exchanges, newConnections)
     use ListsModule, only: baseconnectionlist, baseexchangelist

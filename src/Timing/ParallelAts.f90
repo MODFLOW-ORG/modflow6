@@ -19,7 +19,7 @@ module ParallelAtsModule
 
 contains
 
-  !> @ brief Allow and external caller to submit preferred time step
+  !> @brief Allow and external caller to submit preferred time step
   !!
   !!  Submit a preferred time step length.  Alternatively, if idir is
   !!  is passed, then either increase or decrease the submitted time
@@ -52,7 +52,7 @@ contains
 
   end subroutine par_ats_submit_delt
 
-  !> @ brief Set time step
+  !> @brief Set time step
   !!
   !! Set the time step length (delt) for this time step using the ATS
   !! controls, but with synchronization across ranks.

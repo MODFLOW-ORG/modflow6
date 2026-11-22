@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "In the Unsaturated Zone Flow (UZF) Package, when infiltration decreased only slightly from one time step to the next, the new wave added at land surface could move far too slowly, or in rare cases far too fast, through the unsaturated zone. Its speed is now calculated as in MODFLOW-NWT. Differences in simulated heads and flows are expected to be very small."

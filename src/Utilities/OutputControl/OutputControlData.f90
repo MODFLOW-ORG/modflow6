@@ -42,14 +42,14 @@ module OutputControlDataModule
 
 contains
 
-  !> @ brief Create a new output control data type.
+  !> @brief Create a new output control data type.
   subroutine ocd_cr(ocdobj)
     type(OutputControlDataType), pointer :: ocdobj !< this instance
     allocate (ocdobj)
     call ocdobj%allocate_scalars()
   end subroutine ocd_cr
 
-  !> @ brief Check the output control data type for consistency.
+  !> @brief Check the output control data type for consistency.
   subroutine ocd_rp_check(this, input_fname)
     ! modules
     use ConstantsModule, only: LINELENGTH
@@ -169,7 +169,7 @@ contains
                       this%editdesc, this%nvaluesp, this%nwidthp, 0)
   end subroutine init_dbl
 
-  !> @ brief Initialize the output control data type for integer data.
+  !> @brief Initialize the output control data type for integer data.
   subroutine init_int(this, cname, intvec, dis, cdefpsm, cdeffmp, iout, &
                       inodata)
     class(OutputControlDataType) :: this !< OutputControlDataType object
@@ -191,7 +191,7 @@ contains
                       this%nwidthp, 0)
   end subroutine init_int
 
-  !> @ brief Allocate scalar variables
+  !> @brief Allocate scalar variables
   subroutine allocate (this)
     ! modules
     use ConstantsModule, only: DZERO
@@ -218,7 +218,7 @@ contains
     this%psm => create_psm()
   end subroutine allocate
 
-  !> @ brief Set PRINT_FORMAT based on an input string.
+  !> @brief Set PRINT_FORMAT based on an input string.
   subroutine set_prnfmt(this, prnfmt, inunit)
     ! modules
     use InputOutputModule, only: print_format

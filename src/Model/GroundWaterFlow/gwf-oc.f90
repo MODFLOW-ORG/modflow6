@@ -10,7 +10,7 @@ module GwfOcModule
   private
   public GwfOcType, oc_cr
 
-  !> @ brief Output control for GWF
+  !> @brief Output control for GWF
   !!
   !!  Concrete implementation of OutputControlType for the
   !!  GWF Model
@@ -22,7 +22,7 @@ module GwfOcModule
 
 contains
 
-  !> @ brief Create GwfOcType
+  !> @brief Create GwfOcType
   !!
   !!  Create by allocating a new GwfOcType object and initializing
   !!  member variables.
@@ -47,7 +47,7 @@ contains
     ocobj%iout = iout
   end subroutine oc_cr
 
-  !> @ brief Allocate and read GwfOcType
+  !> @brief Allocate and read GwfOcType
   !!
   !!  Setup head and budget as output control variables.
   !!

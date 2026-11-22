@@ -204,7 +204,7 @@ contains
 
   end subroutine dfw_df
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the package. The base model
   !! allocate scalars method is also called.
@@ -808,7 +808,7 @@ contains
   !> @brief Calculate half cell conductance
   !!
   !! Calculate half-cell conductance for cell n
-  !< using conveyance and Manning's equation
+  !! using conveyance and Manning equation
   function get_cond_n(this, n, depth, dx, width, dhds) result(c)
     ! modules
     ! dummy
@@ -1083,7 +1083,7 @@ contains
 
   end subroutine calc_dhds
 
-  !> @ brief Newton under relaxation
+  !> @brief Newton under relaxation
   !!
   !<  If stage is below the bottom, then pull it up a bit
   subroutine dfw_nur(this, neqmod, x, xtemp, dx, inewtonur, dxmax, locmax)
@@ -1125,7 +1125,7 @@ contains
 
   end subroutine dfw_nur
 
-  !> @ brief Calculate flow for each connection and store in flowja
+  !> @brief Calculate flow for each connection and store in flowja
   !<
   subroutine dfw_cq(this, stage, stage_old, flowja)
     ! dummy
@@ -1149,7 +1149,7 @@ contains
 
   end subroutine dfw_cq
 
-  !> @ brief Model budget calculation for package
+  !> @brief Model budget calculation for package
   !<
   subroutine dfw_bd(this, isuppress_output, model_budget)
     ! modules
@@ -1164,7 +1164,7 @@ contains
 
   end subroutine dfw_bd
 
-  !> @ brief save flows for package
+  !> @brief save flows for package
   !<
   subroutine dfw_save_model_flows(this, flowja, icbcfl, icbcun)
     ! dummy
@@ -1198,7 +1198,7 @@ contains
 
   end subroutine dfw_save_model_flows
 
-  !> @ brief print flows for package
+  !> @brief print flows for package
   !<
   subroutine dfw_print_model_flows(this, ibudfl, flowja)
     ! modules

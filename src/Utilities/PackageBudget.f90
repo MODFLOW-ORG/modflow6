@@ -51,7 +51,7 @@ module PackageBudgetModule
 
 contains
 
-  !> @ brief Initialize a PackageBudgetType object
+  !> @brief Initialize a PackageBudgetType object
   !!
   !!  Establish the memory path and allocate and initialize member variables.
   !!
@@ -78,7 +78,7 @@ contains
     this%nbound = 0
   end subroutine initialize
 
-  !> @ brief Set names for this PackageBudgetType object
+  !> @brief Set names for this PackageBudgetType object
   !!
   !!  Set the name of the package and the name of the of budget text
   !!
@@ -91,7 +91,7 @@ contains
     this%budtxt = budtxt
   end subroutine set_name
 
-  !> @ brief Set aux names for this PackageBudgetType object
+  !> @brief Set aux names for this PackageBudgetType object
   !!
   !!  Set the number of auxiliary variables and the names of the
   !!  auxiliary variables
@@ -108,7 +108,7 @@ contains
     this%auxname(:) = auxname(:)
   end subroutine set_auxname
 
-  !> @ brief Point members of this class to data stored in GWF packages
+  !> @brief Point members of this class to data stored in GWF packages
   !!
   !!  The routine is called when a GWF model is being run concurrently with
   !!  a GWT model.  In this situation, the member variables NBOUND, NODELIST,
@@ -150,7 +150,7 @@ contains
                          auxvarname, mem_path_target)
   end subroutine set_pointers
 
-  !> @ brief Copy data read from a budget file into this object
+  !> @brief Copy data read from a budget file into this object
   !!
   !!  The routine is called when GWF flows are read from a budget file
   !!  created from a previous GWF simulation.  Arrays here must be
@@ -186,7 +186,7 @@ contains
     end do
   end subroutine copy_values
 
-  !> @ brief Get flow rate for specified entry
+  !> @brief Get flow rate for specified entry
   !!
   !!  Return the flow rate for the specified entry
   !!
@@ -198,7 +198,7 @@ contains
     flow = this%flow(i)
   end function get_flow
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !!  Free any memory associated with this object
   !!

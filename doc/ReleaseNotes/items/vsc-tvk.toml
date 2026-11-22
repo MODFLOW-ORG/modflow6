@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "internal"
+description = "When the Viscosity (VSC) Package was active, changes to hydraulic conductivity made by the Time-Varying Hydraulic Conductivity (TVK) Package had no effect, because VSC applied the viscosity ratio to the hydraulic conductivity specified in the Node Property Flow (NPF) Package. VSC now applies the viscosity ratio to the hydraulic conductivity including TVK changes."

@@ -55,7 +55,7 @@ module MvrModule
 
 contains
 
-  !> @ brief Set values from input data
+  !> @brief Set values from input data
   !!
   !! Set values and pointers for mover object.
   !!
@@ -84,7 +84,7 @@ contains
     this%iRchNrSrcMapped = -1
   end subroutine set_values
 
-  !> @ brief Prepare object
+  !> @brief Prepare object
   !!
   !! Set values and pointers for mover object.
   !! pckMemPaths is an array of strings which are the memory paths for those
@@ -183,7 +183,7 @@ contains
     end if
   end subroutine prepare
 
-  !> @ brief Echo data to list file
+  !> @brief Echo data to list file
   !!
   !! Write mover values to output file.
   !!
@@ -203,7 +203,7 @@ contains
       trim(mvrtypes(this%imvrtype)), ' ', this%value
   end subroutine echo
 
-  !> @ brief Advance
+  !> @brief Advance
   !!
   !! Advance mover object.  Does nothing now.
   !!
@@ -215,7 +215,7 @@ contains
     ! -- local
   end subroutine advance
 
-  !> @ brief Formulate coefficients
+  !> @brief Formulate coefficients
   !!
   !! Make mover calculations for provider.
   !!
@@ -248,7 +248,7 @@ contains
     this%qformvr_ptr = this%qformvr_ptr - qpactual
   end subroutine update_provider
 
-  !> @ brief Formulate coefficients
+  !> @brief Formulate coefficients
   !!
   !! Make mover calculations for receiver.
   !!
@@ -260,7 +260,7 @@ contains
     this%qfrommvr_ptr = this%qfrommvr_ptr + this%qpactual
   end subroutine update_receiver
 
-  !> @ brief Flow to receiver
+  !> @brief Flow to receiver
   !!
   !! Calculate the rate of water provided to receiver.
   !!
@@ -308,7 +308,7 @@ contains
     end select
   end function qrcalc
 
-  !> @ brief Write flow
+  !> @brief Write flow
   !!
   !! Write a line of output for this mover object.
   !!

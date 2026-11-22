@@ -93,7 +93,7 @@ module VersionModule
 
 contains
 
-  !> @ brief Write program header
+  !> @brief Write program header
   !!
   !!  Write header for program to the program listing file.
   !!
@@ -184,7 +184,7 @@ contains
 
   end subroutine write_listfile_header
 
-  !> @ brief Write program license
+  !> @brief Write program license
   !!
   !!  Write license for program to the program listing file.
   !!

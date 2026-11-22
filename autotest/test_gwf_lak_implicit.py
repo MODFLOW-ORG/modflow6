@@ -1327,10 +1327,8 @@ def test_buy_errors(function_tmpdir, targets):
 
 
 def test_connectionless_lake_errors(function_tmpdir, targets):
-    # a lake with no groundwater connections cannot be solved as a matrix
-    # unknown (its lake row would have no off-diagonal coupling and a singular
-    # diagonal), so the IMPLICIT option must terminate with an informative error
-    # rather than producing a meaningless stage.
+    # a lake with no connections is not supported, so the simulation must
+    # terminate with an informative error.
     def build(test):
         sim_i, _ = _write_implicit(test, _build_drylake)
         _make_connectionless(str(test.workspace / "lk.lak"))
@@ -1338,7 +1336,6 @@ def test_connectionless_lake_errors(function_tmpdir, targets):
 
     def check(test):
         msg = (test.workspace / "mfsim.lst").read_text().lower()
-        assert "has no connections" in msg, msg
-        assert "implicit" in msg, msg
+        assert "nlakeconn for lake 1 must be greater than zero" in msg, msg
 
     _framework(function_tmpdir, targets, build, check, compare=None, xfail=True).run()

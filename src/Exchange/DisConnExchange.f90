@@ -72,7 +72,7 @@ module DisConnExchangeModule
 
   end type DisConnExchangeType
 
-  !> @ brief DisConnExchangeFoundType
+  !> @brief DisConnExchangeFoundType
   !!
   !!  This type is used to simplify the tracking of common parameters
   !!  that are sourced from the input context.
@@ -442,7 +442,7 @@ contains
   end subroutine allocate_scalars
 
   !> @brief Allocate array data, using the number of
-  !! connected nodes @param nexg
+  !! connected nodes @p nexg
   !<
   subroutine allocate_arrays(this)
     ! -- dummy
