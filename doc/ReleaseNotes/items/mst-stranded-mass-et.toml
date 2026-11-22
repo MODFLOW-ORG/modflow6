@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "Stranded mass also holds the solute that a sink carrying no solute, such as evapotranspiration given a mixed (AUXMIXED) concentration in the Source and Sink Mixing (SSM) Package, leaves in the drained part of a cell, and returns it as the cell rewets or as recharge flushes it. Previously, the concentration of a cell that evapotranspiration nearly drained grew without bound and the transport solution could fail."

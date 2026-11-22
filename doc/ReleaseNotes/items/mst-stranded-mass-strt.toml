@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "Stranded mass can be given at the start of a simulation with the optional STRANDED\\_AQUEOUS, STRANDED\\_SORBED, and STRANDED\\_ET\\_SOLUTE arrays of the Mobile Storage and Transfer (MST) Package, and the new STRANDED\\_AQ, STRANDED\\_SRB, and STRANDED\\_ET FILEOUT options write it to binary files, so a simulation can continue from the end of another."

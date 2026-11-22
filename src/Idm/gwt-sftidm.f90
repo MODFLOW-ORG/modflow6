@@ -24,6 +24,10 @@ module GwtSftInputModule
     logical :: conc_filerec = .false.
     logical :: options_concentration = .false.
     logical :: concfile = .false.
+    logical :: strandtol = .false.
+    logical :: strand_filerec = .false.
+    logical :: stranded = .false.
+    logical :: strandedfile = .false.
     logical :: budfilerec = .false.
     logical :: budget = .false.
     logical :: fileout = .false.
@@ -43,6 +47,10 @@ module GwtSftInputModule
     logical :: strt = .false.
     logical :: aux = .false.
     logical :: boundname = .false.
+    logical :: strand_ifno = .false.
+    logical :: stranded_mass = .false.
+    logical :: stranded_volume = .false.
+    logical :: largest_volume = .false.
     logical :: ifno = .false.
     logical :: status = .false.
     logical :: concentration = .false.
@@ -264,6 +272,82 @@ module GwtSftInputModule
     'OPTIONS', & ! block
     'CONCFILE', & ! tag name
     'CONCFILE', & ! fortran variable
+    'STRING', & ! type
+    '', & ! shape
+    'file keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .true., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_strandtol = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_TOLERANCE', & ! tag name
+    'STRANDTOL', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'tolerance for holding the solute of a dry reach', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_strand_filerec = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED_FILERECORD', & ! tag name
+    'STRAND_FILEREC', & ! fortran variable
+    'RECORD STRANDED FILEOUT STRANDEDFILE', & ! type
+    '', & ! shape
+    '', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_stranded = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDED', & ! tag name
+    'STRANDED', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'stranded keyword', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_strandedfile = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'OPTIONS', & ! block
+    'STRANDEDFILE', & ! tag name
+    'STRANDEDFILE', & ! fortran variable
     'STRING', & ! type
     '', & ! shape
     'file keyword', & ! longname
@@ -637,6 +721,82 @@ module GwtSftInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwtsft_strand_ifno = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'IFNO', & ! tag name
+    'STRAND_IFNO', & ! fortran variable
+    'INTEGER', & ! type
+    '', & ! shape
+    'reach number for this entry', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_stranded_mass = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDED_MASS', & ! tag name
+    'STRANDED_MASS', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'held mass', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_stranded_volume = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDED_VOLUME', & ! tag name
+    'STRANDED_VOLUME', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'volume holding the mass', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_largest_volume = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'LARGEST_VOLUME', & ! tag name
+    'LARGEST_VOLUME', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'largest volume since dry', & ! longname
+    .true., & ! required
+    .false., & ! developmode
+    .true., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwtsft_ifno = InputParamDefinitionType &
     ( &
     'GWT', & ! component
@@ -859,6 +1019,10 @@ module GwtSftInputModule
     gwtsft_conc_filerec, &
     gwtsft_options_concentration, &
     gwtsft_concfile, &
+    gwtsft_strandtol, &
+    gwtsft_strand_filerec, &
+    gwtsft_stranded, &
+    gwtsft_strandedfile, &
     gwtsft_budfilerec, &
     gwtsft_budget, &
     gwtsft_fileout, &
@@ -878,6 +1042,10 @@ module GwtSftInputModule
     gwtsft_strt, &
     gwtsft_aux, &
     gwtsft_boundname, &
+    gwtsft_strand_ifno, &
+    gwtsft_stranded_mass, &
+    gwtsft_stranded_volume, &
+    gwtsft_largest_volume, &
     gwtsft_ifno, &
     gwtsft_status, &
     gwtsft_concentration, &
@@ -903,6 +1071,25 @@ module GwtSftInputModule
     'NREACHES', & ! shape
     '', & ! longname
     .true., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwtsft_strandeddata = InputParamDefinitionType &
+    ( &
+    'GWT', & ! component
+    'SFT', & ! subcomponent
+    'STRANDEDDATA', & ! block
+    'STRANDEDDATA', & ! tag name
+    'STRANDEDDATA', & ! fortran variable
+    'RECARRAY IFNO STRANDED_MASS STRANDED_VOLUME LARGEST_VOLUME', & ! type
+    'NREACHES', & ! shape
+    '', & ! longname
+    .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
     .false., & ! preserve case
@@ -953,6 +1140,7 @@ module GwtSftInputModule
     gwt_sft_aggregate_definitions(*) = &
     [ &
     gwtsft_packagedata, &
+    gwtsft_strandeddata, &
     gwtsft_reachperioddata, &
     gwtsft_reachsetting &
     ]
@@ -969,6 +1157,12 @@ module GwtSftInputModule
     InputBlockDefinitionType( &
     'PACKAGEDATA', & ! blockname
     .true., & ! required
+    .true., & ! aggregate
+    .false. & ! block_variable
+    ), &
+    InputBlockDefinitionType( &
+    'STRANDEDDATA', & ! blockname
+    .false., & ! required
     .true., & ! aggregate
     .false. & ! block_variable
     ), &
