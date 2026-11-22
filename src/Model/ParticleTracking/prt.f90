@@ -1095,7 +1095,6 @@ contains
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           if (particle%istatus == 0) then
-            particle%istatus = ACTIVE ! Set active status in case of release
             if (particle%trelease >= totimc) then
               if (particle%trelease > particle%tstop) then
                 ! The package's stop time is earlier than the release time.
