@@ -298,17 +298,18 @@ contains
   !! come from multiple sources (e.g. period block configuration and an
   !! explicitly specified set of release times).
   !<
-  function contains_close(this, t, tolerance) result(found)
+  function contains_close(this, t, tolerance, rtol) result(found)
     class(TimeSelectType) :: this
     real(DP), intent(in) :: t
-    real(DP), intent(in) :: tolerance
+    real(DP), intent(in) :: tolerance !< absolute tolerance
+    real(DP), intent(in), optional :: rtol !< relative tolerance (is_close default if absent)
     logical(LGP) :: found
     integer(I4B) :: i
 
     found = .false.
     if (.not. allocated(this%times)) return
     do i = 1, size(this%times)
-      if (is_close(this%times(i), t, atol=tolerance)) then
+      if (is_close(this%times(i), t, rtol=rtol, atol=tolerance)) then
         found = .true.
         return
       end if
