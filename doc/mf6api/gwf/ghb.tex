@@ -1,0 +1,52 @@
+\subsection{General-Head Boundary (GHB) Package}
+
+The General-Head Boundary Package represents a head-dependent flux to a boundary
+held at a specified head through a specified conductance. Its two per-boundary
+inputs are the boundary head and the conductance.
+
+\begin{longtable}{p{0.15\textwidth} p{0.15\textwidth} p{0.60\textwidth}}
+\caption{Memory-manager variables in the GHB Package that are candidates for
+modification through the API. See also the variables common to all stress
+packages described above.} \label{table:api-gwf-ghb} \\
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Variable} & \textbf{Class} & \textbf{Guidance} \\
+\hline
+\endhead
+
+\texttt{BHEAD} & Period-reset &
+Boundary head for each boundary, dimensioned by \texttt{MAXBOUND}. Read from
+input at the start of each stress period; set it every time step to change the
+boundary head at run time. \\
+
+\texttt{COND} & Period-reset &
+Hydraulic conductance for each boundary, dimensioned by \texttt{MAXBOUND}. Read
+from input at the start of each stress period; set it every time step to change
+the conductance at run time. \\
+
+\texttt{AUXVAR} & Period-reset &
+Auxiliary variable values, dimensioned by the number of auxiliary variables and
+\texttt{MAXBOUND} (present when \texttt{AUXILIARY} variables are specified).
+Re-read each stress period; set after \texttt{prepare\_time\_step}. Indexed by
+boundary position, so a value follows the boundary index, not the cell. \\
+
+\texttt{NODELIST} & Period-reset &
+One-based reduced node number of the cell containing each boundary, dimensioned
+by \texttt{MAXBOUND}. Set it after \texttt{prepare\_time\_step} to relocate a
+boundary (see ``Changing Boundary Locations''). \\
+
+\texttt{NBOUND} & Period-reset &
+Number of active boundaries in the current stress period, from 0 to
+\texttt{MAXBOUND}. Increase it (and fill the new entries) to activate boundaries
+or decrease it to deactivate them (see ``Changing Boundary Locations''). \\
+
+\hline
+\end{longtable}
+
+\noindent As with all of these variables, a value supplied by a time series is
+refreshed each time step and overwrites API changes.

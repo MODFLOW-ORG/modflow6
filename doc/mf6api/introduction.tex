@@ -1,0 +1,151 @@
+% Introduction: API loop, addressing convention, and the variable taxonomy.
+
+The MODFLOW 6 Application Programming Interface (API) provides access to the
+program's internal memory while a simulation is running. The API implements the
+Basic Model Interface (BMI) and an eXtended Model Interface (XMI) that exposes
+the nonlinear solution loop. The API is distributed
+as a shared library (\texttt{libmf6}) and is most commonly driven from Python
+through the \texttt{modflowapi} and \texttt{xmipy} packages.
+
+Every variable stored in the MODFLOW 6 memory manager is exposed through the
+API. A variable is referenced by its \emph{memory address}, which has the form
+
+\begin{quote}
+\texttt{MODELNAME/PACKAGENAME/VARNAME}
+\end{quote}
+
+\noindent where all components are uppercase (for example,
+\texttt{MYMODEL/NPF/CONDSAT} or \texttt{MYMODEL/STO/SS}).
+
+\subsection{Reading and Writing Variables: Pointers versus Copies}
+
+A variable's value is accessed through one of three routines, which differ in
+both cost and semantics. Choosing the right one matters for performance in a
+time loop and for correctness when a value is written.
+
+\begin{description}
+\item[\texttt{get\_value\_ptr}] returns an array that is a direct view of
+MODFLOW 6's memory; no data are copied. Reading it always reflects the current
+value, and assigning into it in place writes directly into MODFLOW 6's memory.
+Because nothing is copied, a pointer can be obtained once (for example, just
+after \texttt{initialize}) and reused for the entire simulation, which makes it
+the most efficient option for a variable accessed every time step or every
+iteration. The view shares MODFLOW 6's exact data type and shape, so it must be
+written with the matching type and dimensions. A pointer is valid only while the
+underlying array remains allocated in place; if MODFLOW 6 reallocates the
+variable the pointer becomes stale and must be obtained again. Writing through a
+pointer bypasses the memory-set handler described below, and pointers are not
+available for string variables.
+
+\item[\texttt{get\_value}] returns a \emph{copy} of the value. The copy is
+independent of MODFLOW 6's memory: it is a snapshot that does not change when
+MODFLOW 6 later updates the variable, and it cannot be invalidated by
+reallocation. Each call allocates and fills a new array, costing memory and time
+proportional to the variable's size, so it is best for occasional reads or when
+an unchanging snapshot is wanted (for example, to compare a value before and
+after a solve).
+
+\item[\texttt{set\_value}] copies a supplied array \emph{into} MODFLOW 6's
+memory. Like \texttt{get\_value} it copies element by element and pays that cost
+on every call. Unlike a write through a pointer, \texttt{set\_value} invokes
+MODFLOW 6's memory-set handler, so it is the appropriate choice if a variable
+ever triggers a recomputation when it is set externally. No standard package
+registers such a handler at present, but the mechanism exists and
+\texttt{set\_value} is the forward-compatible setter.
+\end{description}
+
+\noindent In short: obtain a pointer with \texttt{get\_value\_ptr} and reuse it
+when repeatedly reading or writing the same variable inside the time loop; use
+\texttt{get\_value} when an independent snapshot is wanted; and use
+\texttt{set\_value} for a single copy-in or when honoring a memory-set handler
+matters. The pseudo-code and example in this report obtain a pointer once and
+write through it, which is the common pattern for an API time loop. The named
+routines follow the \texttt{xmipy} and \texttt{modflowapi} interfaces; the
+\texttt{modflowapi} package additionally offers higher-level helpers, but the
+cost and semantics described here are the same.
+
+\subsection{The Simulation Loop and When Variables Are Written}
+
+Whether a modification ``takes'' depends entirely on \emph{when} MODFLOW 6 next
+writes the variable relative to when the user sets it. A MODFLOW 6 simulation
+advances through a fixed sequence of phases, and each package writes its
+memory-manager variables at well-defined points in that sequence:
+
+\begin{itemize}
+\item \textbf{Allocate and Read (AR)} --- executed once, after input is read.
+Many derived quantities (for example, saturated conductance in the Node
+Property Flow Package) are computed here from the raw input arrays and then used
+unchanged for the rest of the simulation.
+\item \textbf{Read and Prepare (RP)} --- executed at the start of each stress
+period. List-based and array-based stress data (for example, well pumping rates)
+are re-read from the input context here, overwriting any externally set values.
+\item \textbf{Advance (AD)} --- executed at the start of each time step.
+Time-varying inputs (for example, time-varying hydraulic conductivity, TVK) and
+the quantities derived from them are refreshed here when those options are
+active.
+\item \textbf{Formulate (CF/FC/FN)} --- executed at every outer (Picard or
+Newton) iteration. Variables read directly here (for example, specific storage
+and specific yield in the Storage Package) reflect whatever value is currently
+in memory at each iteration.
+\item \textbf{Calculate Flows (CQ)} and output --- executed at the end of each
+time step.
+\end{itemize}
+
+\noindent When using \texttt{modflowapi}, these phases correspond to callback
+hooks (such as the stress-period and time-step callbacks); a value should be set
+in the callback that fires \emph{after} MODFLOW 6 last writes the variable and
+\emph{before} the variable is next used. As a general rule, values are set after
+\texttt{prepare\_time\_step} and before the solve.
+
+\subsection{Variable Modifiability Classes}
+
+Each variable documented in this report is assigned one of the following
+classes. The class can depend on which package options are active, as noted in
+the per-variable entries.
+
+\begin{description}
+\item[Live input] An input array that is read once (or re-read each stress
+period) and then used directly in the formulate step. Setting it through the API
+changes the simulation, and the change persists until MODFLOW 6 next reads that
+input. Example: \texttt{STO/SS}, \texttt{STO/SY}.
+
+\item[Derived variable] A quantity computed from input during AR and then used
+directly thereafter. This is the variable to set in order to change the
+associated behavior; setting the raw input that produced it has no effect.
+Example: \texttt{NPF/CONDSAT} (set this to change intercell conductance).
+
+\item[Inert input] An input that is used only to compute a derived variable
+during AR. Setting it after AR has no effect, because the derived quantity has
+already been computed. To achieve the intended change, set the corresponding
+derived variable instead. Example: \texttt{NPF/K} (when time-varying
+conductivity is not active).
+
+\item[Period-reset] A variable that is re-read from the input context at the
+start of every stress period. It can be set through the API, but the value is
+overwritten at the next Read and Prepare. Example: well pumping rates in
+\texttt{WEL/BOUND}.
+
+\item[Overwritten] A variable that MODFLOW 6 recomputes every time step (or
+every iteration). Setting it has no lasting effect. This class includes derived
+knobs whose source inputs are refreshed each time step when an option such as
+TVK, time-varying storage (TVS), the Viscosity Package (VSC), or a time series
+is active.
+
+\item[State] Solution state owned by the solver or model, such as the dependent
+variable (head). These can be set through the API but require care, because they
+participate directly in the nonlinear solution.
+
+\item[Structural / read-only] Grid geometry, cell connectivity, and array sizes.
+These define invariants relied upon throughout the program and must be treated
+as read-only. Example: \texttt{DIS/NODES}, connection arrays.
+\end{description}
+
+\subsection{How to Read the Package Tables}
+
+Each package section lists the memory-manager variables that an API user is
+likely to want to modify. For each variable the table gives its name (the
+\texttt{VARNAME} component of the memory address), its modifiability class, and
+guidance describing what to set, when to set it, any options that change the
+classification, and the variable to set instead when the listed variable is
+inert or overwritten. Variables that are purely structural or that are internal
+bookkeeping are generally omitted unless they are a common source of confusion.
