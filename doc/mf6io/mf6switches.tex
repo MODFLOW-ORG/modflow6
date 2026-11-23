@@ -14,8 +14,8 @@ Options   GNU long option   Meaning
  -c        --compiler       Display compiler information.
  -co       --compiler-opt   Display compiler options.
  -s        --silent         All STDOUT to mfsim.stdout.
- -ci [str] --check-isolated Check for cells with an undetermined
-                            dependent variable (for example, head).
+ -ci [str] --check-isolated Check for GWF cells with an
+                            undetermined head.
                             Without -ci, only the first assembly is
                             checked.
                             str=first First outer iteration of every
@@ -27,10 +27,10 @@ Options   GNU long option   Meaning
  -m <str>  --mode <str>     MODFLOW 6 simulation mode based on <str>.
                             <str>=validate Check model input for
                                            errors and check the
-                                           starting values of each
-                                           stress period for cells
-                                           with an undetermined
-                                           dependent variable, but
+                                           starting heads of each
+                                           stress period for GWF
+                                           cells with an
+                                           undetermined head, but
                                            do not solve matrix
                                            equations or write
                                            solution output.

@@ -182,11 +182,11 @@ contains
         end if
         if (icheck_isolated == ISOCHK_OUTER) then
           line = trim(adjustl(cexe))//': every outer iteration will be '// &
-                 'checked for cells with an undetermined dependent variable.'
+                 'checked for GWF cells with an undetermined head.'
         else
           line = trim(adjustl(cexe))//': the first outer iteration of every '// &
-                 'time step will be checked for cells with an undetermined '// &
-                 'dependent variable.'
+                 'time step will be checked for GWF cells with an '// &
+                 'undetermined head.'
         end if
         call write_message_counter(line, skipbefore=1, skipafter=1)
       case ('-LIC', '--LICENSE')
@@ -239,9 +239,9 @@ contains
         ! -- write message to stdout
         line = trim(adjustl(cexe))//': MODFLOW 6 simulation mode '// &
                trim(adjustl(cmode))//'. Model input will be checked for all '// &
-               'stress periods, and the matrix equations will be assembled '// &
-               'at the starting values of each stress period to check for '// &
-               'cells with an undetermined dependent variable, but not solved.'
+               'stress periods, and the GWF matrix equations will be '// &
+               'assembled at the starting heads of each stress period to '// &
+               'check for cells with an undetermined head, but not solved.'
         call write_message_counter(line, skipbefore=1, skipafter=1)
       case default
         lstop = .TRUE.
@@ -299,8 +299,8 @@ contains
       &' -c        --compiler       Display compiler information.',/,&
       &' -co       --compiler-opt   Display compiler options.',/,&
       &' -s        --silent         All STDOUT to mfsim.stdout.',/,"// &
-      "' -ci [str] --check-isolated Check for cells with an undetermined',/,&
-      &'                            dependent variable (for example, head).',/,&
+      "' -ci [str] --check-isolated Check for GWF cells with an',/,&
+      &'                            undetermined head.',/,&
       &'                            Without -ci, only the first assembly is',/,&
       &'                            checked.',/,&
       &'                            str=first First outer iteration of every',/,&
@@ -312,10 +312,10 @@ contains
       &' -m <str>  --mode <str>     MODFLOW 6 simulation mode based on <str>.',/,&
       &'                            <str>=validate Check model input for',/,&
       &'                                           errors and check the',/,&
-      &'                                           starting values of each',/,&
-      &'                                           stress period for cells',/,&
-      &'                                           with an undetermined',/,&
-      &'                                           dependent variable, but',/,&
+      &'                                           starting heads of each',/,&
+      &'                                           stress period for GWF',/,&
+      &'                                           cells with an',/,&
+      &'                                           undetermined head, but',/,&
       &'                                           do not solve matrix',/,&
       &'                                           equations or write',/,&
       &'                                           solution output.',/,"// &

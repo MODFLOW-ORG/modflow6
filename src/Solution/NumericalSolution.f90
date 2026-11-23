@@ -1154,7 +1154,7 @@ contains
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     !
-    ! -- report cells with an undetermined dependent variable
+    ! -- report GWF cells with an undetermined head
     call this%sln_isolated_summary()
     !
     ! -- write timer output
@@ -1321,8 +1321,8 @@ contains
         call this%sln_set_fixed_rows()
         call this%sln_check_isolated(kper, kstp)
         line = 'mode="validation" -- Assembled at the starting '// &
-               'values to check for cells with an undetermined dependent '// &
-               'variable; skipping solution.'
+               'heads to check for cells with an undetermined head; '// &
+               'skipping solution.'
       end if
       fmt = "(/,1x,a,/)"
       do im = 1, this%modellist%Count()
