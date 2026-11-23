@@ -7,8 +7,9 @@ and a NetCDF input file carrying only the legacy `mesh` global attribute.
 import mf6_export
 import pytest
 from compare import Comparison
-from framework import TestFramework, _copy_for_rerun
+from framework import TestFramework
 from netcdf_output import add_netcdf_output, check_model_netcdf_output
+from rerun import copy_for_rerun
 from test_gwf_rch01 import build_models, cases, check_output
 
 
@@ -22,7 +23,7 @@ def check_legacy_mesh_attr(idx, test):
     import netCDF4 as nc
 
     ws = test.workspace / "legacy_mesh"
-    _copy_for_rerun(test.workspace, ws, ["."])
+    copy_for_rerun(test.workspace, ws, ["."])
     mf6_export.enable_export(ws, "layered")
     success, _ = flopy.run_model(
         test.targets["mf6"], ws / "mfsim.nam", model_ws=ws, cargs=["--mode=validate"]

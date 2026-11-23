@@ -88,6 +88,7 @@ def check_output_file(idx, test, export):
     check_model_netcdf_output(model)
 
 
+@pytest.mark.slow
 @pytest.mark.netcdf
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 @pytest.mark.parametrize("export", ["ugrid", "structured"])

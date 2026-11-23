@@ -199,7 +199,9 @@ Running without the `--parallel` and `--netcdf` flags will simply skip these tes
 A test can re-run its simulation with package input read from NetCDF by adding a comparison to its `compare` parameters. The re-run is compared with the ASCII run and checked again (by `check_rerun`, or `check` if none is given). Two kinds of comparison write the NetCDF input:
 
 - `Comparison.MF6_EXPORT_STRUCTURED` and `Comparison.MF6_EXPORT_LAYERED` use the file MODFLOW 6 exports in validate mode (`EXPORT_ARRAY_NETCDF`), and need nothing beyond an extended build. They run with `--netcdf`.
-- `Comparison.FP4_STRUCTURED` and `Comparison.FP4_LAYERED` re-write the simulation with [flopy4](https://github.com/modflowpy/pyphoenix-project), and `Comparison.FP4_ASCII` re-writes it as plain text input. These run only with `--flopy4`, which needs flopy4 installed, and are marked `flopy4`. The MODFLOW 6 continuous integration does not install flopy4; the flopy4 repository runs these comparisons against MODFLOW 6.
+- `Comparison.FP4_STRUCTURED` and `Comparison.FP4_LAYERED` re-write the simulation with [flopy4](https://github.com/modflowpy/pyphoenix-project), and `Comparison.FP4_ASCII` re-writes it as plain text input. These run only with `--flopy4`, which needs flopy4 installed (pytest stops with a usage error otherwise), and are marked `flopy4`. The MODFLOW 6 continuous integration does not install flopy4; the flopy4 repository runs these comparisons against MODFLOW 6.
+
+Each comparison's steps are listed in `autotest/rerun.py` (`RERUNS`): `flopy4_input.py` holds the flopy4 re-writes, `mf6_export.py` the MODFLOW 6 export, and `mf6_input.py` the input file parsing they share.
 
 A test that can't be re-written by flopy4 is marked `flopy4_exclude`, with the reason; the marker documents the exclusion and doesn't change how the test runs.
 

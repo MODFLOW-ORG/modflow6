@@ -16,96 +16,14 @@ arrays. TIMEARRAYSERIES entries are kept.
 
 from pathlib import Path
 
-DFN_PATH = Path(__file__).parents[1] / "doc" / "mf6io" / "mf6ivar" / "dfn"
+import mf6_input
+from netcdf_output import DEPENDENT, check_netcdf_output
+
 OUTPUT_OPTION = {"structured": "NETCDF_STRUCTURED", "layered": "NETCDF_MESH2D"}
 
 
-def _lines(path: Path) -> list[str]:
-    return path.read_text().splitlines()
-
-
-def _tokens(line: str) -> list[str]:
-    tokens = line.split()
-    return [] if not tokens or tokens[0].startswith(("#", "!")) else tokens
-
-
-def _block(lines: list[str], name: str) -> tuple[int, int] | None:
-    """Line indices of the BEGIN and END lines of the first block `name`."""
-    begin = None
-    for i, line in enumerate(lines):
-        upper = [t.upper() for t in _tokens(line)[:2]]
-        if upper == ["BEGIN", name] and begin is None:
-            begin = i
-        elif upper == ["END", name] and begin is not None:
-            return begin, i
-    return None
-
-
-def _dfn_names(component: str, block: str) -> set[str]:
-    """Names of the variables in a block of a DFN component."""
-    names, name, current = set(), None, None
-    for row in (DFN_PATH / f"{component}.dfn").read_text().splitlines():
-        tokens = row.split()
-        if tokens[:1] == ["block"] and len(tokens) > 1:
-            current = tokens[1]
-        elif tokens[:1] == ["name"] and len(tokens) > 1:
-            name = tokens[1]
-            if current == block:
-                names.add(name)
-    return names
-
-
-def _models(ws: Path) -> list[tuple[str, str, str]]:
-    """(model type, name file, model name) for each model."""
-    lines = _lines(ws / "mfsim.nam")
-    begin, end = _block(lines, "MODELS")
-    rows = [_tokens(ln) for ln in lines[begin + 1 : end]]
-    return [(r[0].lower().removesuffix("6"), r[1], r[2]) for r in rows if r]
-
-
-def _packages(ws: Path, namefile: str, mtype: str) -> list[tuple[str, str, str]]:
-    """(package type, file, package name) for each package of a model. A
-    package the name file gives no name is named as MODFLOW 6 names it: by
-    its type, or for a type a model can have several of, `<type>-<n>`, n
-    counting the packages of that type."""
-    lines = _lines(ws / namefile)
-    begin, end = _block(lines, "PACKAGES")
-    packages, count = [], {}
-    for row in (_tokens(ln) for ln in lines[begin + 1 : end]):
-        if not row:
-            continue
-        ptype = row[0].lower().removesuffix("6")
-        count[ptype] = count.get(ptype, 0) + 1
-        if len(row) > 2:
-            pname = row[2].lower()
-        elif _multi_package(_component(mtype, ptype, _lines(ws / row[1]))):
-            pname = f"{ptype}-{count[ptype]}"
-        else:
-            pname = ptype
-        packages.append((ptype, row[1], pname))
-    return packages
-
-
-def _multi_package(component: str | None) -> bool:
-    """Whether a model can have several packages of a DFN component."""
-    if component is None:
-        return False
-    head = (DFN_PATH / f"{component}.dfn").read_text().splitlines()[:5]
-    return any("multi-package" in line for line in head)
-
-
-def _component(mtype: str, ptype: str, lines: list[str]) -> str | None:
-    """The DFN component of a package file, or None if there is none."""
-    words = {t.upper() for ln in lines for t in _tokens(ln)}
-    variant = (
-        "a" if "READASARRAYS" in words else "g" if "READARRAYGRID" in words else ""
-    )
-    component = f"{mtype}-{ptype}{variant}"
-    return component if (DFN_PATH / f"{component}.dfn").is_file() else None
-
-
 def _insert_option(lines: list[str], option: str) -> list[str]:
-    span = _block(lines, "OPTIONS")
+    span = mf6_input.block_span(lines, "OPTIONS")
     if span is None:
         return ["BEGIN OPTIONS", f"  {option}", "END OPTIONS", ""] + lines
     return lines[: span[1]] + [f"  {option}"] + lines[span[1] :]
@@ -120,19 +38,25 @@ def enable_export(ws: Path, netcdf_format: str):
     validate mode: the model name file names the file, and every package
     that can export its arrays gets the EXPORT_ARRAY_NETCDF option."""
     ws = Path(ws)
-    for mtype, namefile, mname in _models(ws):
-        packages = _packages(ws, namefile, mtype)
+    for mtype, namefile, mname in mf6_input.models(ws):
+        packages = mf6_input.packages(ws, namefile, mtype)
         if netcdf_format == "structured" and not any(p == "dis" for p, *_ in packages):
             raise ValueError(f"Structured NetCDF input requires a DIS grid: {mname}")
-        nam = _lines(ws / namefile)
-        if any(t.upper().startswith("NETCDF") for ln in nam for t in _tokens(ln)[:1]):
+        nam = mf6_input.read_lines(ws / namefile)
+        if any(
+            t.upper().startswith("NETCDF")
+            for ln in nam
+            for t in mf6_input.tokens(ln)[:1]
+        ):
             raise ValueError(f"{namefile} already names a NetCDF file")
         option = f"{OUTPUT_OPTION[netcdf_format]} FILEOUT {_input_file(mname)}"
         (ws / namefile).write_text("\n".join(_insert_option(nam, option)) + "\n")
         for ptype, fname, _ in packages:
-            lines = _lines(ws / fname)
-            component = _component(mtype, ptype, lines)
-            if component and "export_array_netcdf" in _dfn_names(component, "options"):
+            lines = mf6_input.read_lines(ws / fname)
+            component = mf6_input.component(mtype, ptype, lines)
+            if component and "export_array_netcdf" in mf6_input.dfn_names(
+                component, "options"
+            ):
                 lines = _insert_option(lines, "EXPORT_ARRAY_NETCDF")
                 (ws / fname).write_text("\n".join(lines) + "\n")
 
@@ -152,33 +76,26 @@ def _exported(path: Path) -> set[tuple[str, str, int]]:
         }
 
 
-def _aux_names(lines: list[str]) -> list[str]:
-    """The package's auxiliary variable names, in order."""
-    span = _block(lines, "OPTIONS")
-    for line in lines[span[0] + 1 : span[1]] if span else []:
-        tokens = _tokens(line)
-        if tokens and tokens[0].upper() in ("AUXILIARY", "AUX"):
-            return [t.lower() for t in tokens[1:]]
-    return []
-
-
 def _read_arrays(
-    lines: list[str], block: str, names: set[str], exported: set[str]
+    lines: list[str], block: str, names: set[str], exported: set[str], source: str
 ) -> list[str]:
     """`lines` with each exported array given in a `block` block (every
     one, for PERIOD) read with NETCDF in place of its control and data
     lines. An array given another way, such as a TIMEARRAYSERIES entry,
-    is kept."""
+    is kept. `source` names the file in the error raised for an exported
+    array's line it can't parse."""
     out, inside, skip = [], False, False
     for line in lines:
-        tokens = _tokens(line)
+        tokens = mf6_input.tokens(line)
         upper = [t.upper() for t in tokens]
         if upper[:2] == ["BEGIN", block]:
             inside = True
         elif upper[:2] == ["END", block]:
             inside, skip = False, False
         elif inside and tokens and tokens[0].lower() in names:
-            skip = tokens[0].lower() in exported and upper[1:] in ([], ["LAYERED"])
+            skip = tokens[0].lower() in exported
+            if skip and upper[1:] not in ([], ["LAYERED"]):
+                raise ValueError(f"{source}: can't read {line.strip()!r} from NetCDF")
             if skip:
                 out.append(f"  {tokens[0]} NETCDF")
                 continue
@@ -191,43 +108,45 @@ def use_netcdf_input(ws: Path):
     """Make each model read its exported arrays from the file
     `enable_export` had it write, instead of from its package files."""
     ws = Path(ws)
-    for mtype, namefile, mname in _models(ws):
+    for mtype, namefile, mname in mf6_input.models(ws):
         fname = _input_file(mname)
         nam = [
             ln
-            for ln in _lines(ws / namefile)
+            for ln in mf6_input.read_lines(ws / namefile)
             if not (
-                _tokens(ln)[:1] and _tokens(ln)[0].upper() in OUTPUT_OPTION.values()
+                mf6_input.tokens(ln)[:1]
+                and mf6_input.tokens(ln)[0].upper() in OUTPUT_OPTION.values()
             )
         ]
         (ws / namefile).write_text(
             "\n".join(_insert_option(nam, f"NETCDF FILEIN {fname}")) + "\n"
         )
         exported = _exported(ws / fname)
-        packages = _packages(ws, namefile, mtype)
+        packages = mf6_input.packages(ws, namefile, mtype)
         listed = {name for ptype, _, pname in packages for name in (ptype, pname)}
         unknown = {p for p, _, _ in exported} - listed
         assert not unknown, f"{fname}: packages not in {namefile}: {sorted(unknown)}"
         n_netcdf = 0
         for ptype, pfile, pname in packages:
-            original = _lines(ws / pfile)
+            original = mf6_input.read_lines(ws / pfile)
             lines = [
                 ln
                 for ln in original
-                if [t.upper() for t in _tokens(ln)] != ["EXPORT_ARRAY_NETCDF"]
+                if [t.upper() for t in mf6_input.tokens(ln)] != ["EXPORT_ARRAY_NETCDF"]
             ]
-            component = _component(mtype, ptype, lines)
+            component = mf6_input.component(mtype, ptype, lines)
             if component:
-                aux = _aux_names(lines)
+                aux = mf6_input.aux_names(lines)
                 tags = set()
                 for p, tag, iaux in exported:
                     if p in (ptype, pname):
                         tags.add(aux[iaux - 1] if tag == "aux" and iaux else tag)
                 for block in ("griddata", "period"):
-                    names = _dfn_names(component, block) | set(aux)
-                    lines = _read_arrays(lines, block.upper(), names, tags)
+                    names = mf6_input.dfn_names(component, block) | set(aux)
+                    lines = _read_arrays(lines, block.upper(), names, tags, pfile)
                 n = sum(
-                    [t.upper() for t in _tokens(ln)][1:] == ["NETCDF"] for ln in lines
+                    [t.upper() for t in mf6_input.tokens(ln)][1:] == ["NETCDF"]
+                    for ln in lines
                 )
                 assert n or not tags, f"{pfile}: no array read from {fname}"
                 n_netcdf += n
@@ -255,7 +174,7 @@ def check_exported_arrays(ws: Path, sim) -> int:
     import numpy as np
 
     n = 0
-    for _, _, mname in _models(Path(ws)):
+    for _, _, mname in mf6_input.models(Path(ws)):
         model = sim.get_model(mname)
         with netCDF4.Dataset(Path(ws) / _input_file(mname)) as ds:
             for var in ds.variables.values():
@@ -296,12 +215,12 @@ def check_exported_arrays(ws: Path, sim) -> int:
     return n
 
 
-# model type: (dependent variable, its output control record word)
-DEPENDENT = {
-    "gwf": ("head", "HEAD"),
-    "gwt": ("concentration", "CONCENTRATION"),
-    "gwe": ("temperature", "TEMPERATURE"),
-}
+def read_exported(ws: Path, sim, netcdf_format: str):
+    """After the validate run: check the exported arrays, then make each
+    model read them as input and write its NetCDF output file."""
+    assert check_exported_arrays(ws, sim), f"No exported arrays to check: {ws}"
+    use_netcdf_input(ws)
+    enable_output(ws, netcdf_format)
 
 
 def _output_file(mname: str) -> str:
@@ -312,9 +231,9 @@ def enable_output(ws: Path, netcdf_format: str):
     """Make each model also write its dependent variable to a NetCDF output
     file, in the format its input was exported in."""
     ws = Path(ws)
-    for _, namefile, mname in _models(ws):
+    for _, namefile, mname in mf6_input.models(ws):
         option = f"{OUTPUT_OPTION[netcdf_format]} FILEOUT {_output_file(mname)}"
-        nam = _insert_option(_lines(ws / namefile), option)
+        nam = _insert_option(mf6_input.read_lines(ws / namefile), option)
         (ws / namefile).write_text("\n".join(nam) + "\n")
 
 
@@ -322,18 +241,17 @@ def check_outputs(ws: Path) -> int:
     """Check each model's NetCDF output file `enable_output` had it write
     against the binary output file its output control saves, if any.
     Returns the number of models checked."""
-    from netcdf_output import check_netcdf_output
-
     ws = Path(ws)
     n = 0
-    for mtype, namefile, mname in _models(ws):
-        if mtype not in DEPENDENT:
+    for mtype, namefile, mname in mf6_input.models(ws):
+        if f"{mtype}6" not in DEPENDENT:
             continue
-        text, word = DEPENDENT[mtype]
-        oc = [f for p, f, _ in _packages(ws, namefile, mtype) if p == "oc"]
+        text = DEPENDENT[f"{mtype}6"][0]
+        word = text.upper()
+        oc = [f for p, f, _ in mf6_input.packages(ws, namefile, mtype) if p == "oc"]
         binary = None
-        for line in _lines(ws / oc[0]) if oc else []:
-            tokens = _tokens(line)
+        for line in mf6_input.read_lines(ws / oc[0]) if oc else []:
+            tokens = mf6_input.tokens(line)
             if [t.upper() for t in tokens[:2]] == [word, "FILEOUT"]:
                 binary = tokens[2].strip("'\"")
         if binary is None:

@@ -85,7 +85,8 @@ def build_input_models(idx, test, compare):
 
 
 def check_compressed_input(idx, test, complevel):
-    """The base checks, on a re-run reading compressed input."""
+    """The base checks, on a re-run reading compressed input, and the
+    re-run's NetCDF output file written with the same NCF options."""
     check_output(idx, test)
     for path in test.workspace.glob("*.export.nc"):
         with nc.Dataset(path) as ds:
@@ -93,6 +94,15 @@ def check_compressed_input(idx, test, complevel):
                 v for v in ds.variables.values() if "modflow_input" in v.ncattrs()
             ]
             assert inputs and all(v.filters()["complevel"] == complevel for v in inputs)
+    model = test.sims[0].gwf[0]
+    with nc.Dataset(test.workspace / f"{model.name}.nc") as ds:
+        head = ds.variables["head_l1"]
+        assert head.filters()["shuffle"]
+        assert head.filters()["complevel"] == complevel
+        assert head.chunking() == [1, 3]
+        proj = ds.variables["projection"]
+        assert proj.getncattr("crs_wkt") == wkt2
+        assert proj.getncattr("grid_mapping_name") == "transverse_mercator"
 
 
 @pytest.mark.netcdf

@@ -211,17 +211,28 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_configure(config):
+    if config.getoption("--flopy4"):
+        try:
+            import flopy4  # noqa: F401
+        except ImportError as e:
+            raise pytest.UsageError(f"--flopy4 needs flopy4 installed: {e}")
+
+
 def pytest_collection_modifyitems(config, items):
-    # derive "flopy4" from each case's `compare` parameter rather than a
-    # hand-written mark, so the two can't drift apart. a case that uses flopy4
-    # without a `compare` parameter needs an explicit `@pytest.mark.flopy4`.
-    from framework import FP4_COMPARISONS
+    # derive "flopy4" and "netcdf" from each case's `compare` parameter rather
+    # than a hand-written mark, so the two can't drift apart. a case that uses
+    # flopy4 without a `compare` parameter needs an explicit
+    # `@pytest.mark.flopy4`.
+    from rerun import FLOPY4_COMPARISONS, NETCDF_COMPARISONS
 
     for item in items:
         callspec = getattr(item, "callspec", None)
         compare_val = callspec.params.get("compare") if callspec else None
-        if compare_val in FP4_COMPARISONS:
+        if compare_val in FLOPY4_COMPARISONS:
             item.add_marker(pytest.mark.flopy4)
+        if compare_val in NETCDF_COMPARISONS:
+            item.add_marker(pytest.mark.netcdf)
 
     if not config.getoption("--parallel"):
         skip_parallel = pytest.mark.skip(reason="need --parallel option to run")

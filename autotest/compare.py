@@ -597,3 +597,17 @@ def setup_mf5to6(src, dst) -> Path:
         setup_model(npth, dst)
 
     return Path(npth)
+
+
+def dependent_variable_text(fpth, default="concentration") -> str:
+    """Text of the dependent variable records in a binary output file
+    (e.g. GWT concentration or GWE temperature), for flopy's readers."""
+    import flopy
+
+    for text in (default, "concentration", "temperature", "head"):
+        try:
+            flopy.utils.HeadFile(fpth, precision="double", text=text)
+            return text
+        except Exception:
+            continue
+    return default

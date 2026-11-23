@@ -9,10 +9,10 @@ from traceback import format_exc
 from warnings import warn
 
 import flopy
-import mf6_export
 from compare import (
     Comparison,
     adjust_htol,
+    dependent_variable_text,
     detect_comparison,
     get_comparison_files,
     get_mf6_files,
@@ -23,6 +23,7 @@ from flopy.mbase import BaseModel
 from flopy.mf6 import MFSimulation
 from flopy.utils.compare import compare_cell_budget, compare_heads
 from modflow_devtools.misc import get_ostag, is_in_ci
+from rerun import RERUNS, copy_for_rerun
 
 DNODATA = 3.0e30
 EXTTEXT = {
@@ -43,31 +44,6 @@ CBC_EXT = (
     "cbc",
     "bud",
 )
-# model output, not copied to a re-written simulation's workspace
-OUTPUT_EXT = {
-    ".lst",
-    ".hds",
-    ".hed",
-    ".bhd",
-    ".ahd",
-    ".ucn",
-    ".cbc",
-    ".bud",
-    ".grb",
-    ".csv",
-    ".out",
-}
-FP4_COMPARISONS = (
-    Comparison.FP4_STRUCTURED,
-    Comparison.FP4_LAYERED,
-    Comparison.FP4_ASCII,
-)
-MF6_EXPORT_COMPARISONS = (
-    Comparison.MF6_EXPORT_STRUCTURED,
-    Comparison.MF6_EXPORT_LAYERED,
-)
-# comparisons re-running a re-written copy of the test's simulations
-RERUN_COMPARISONS = FP4_COMPARISONS + MF6_EXPORT_COMPARISONS
 
 
 def api_return(success, model_ws) -> tuple[bool, list[str]]:
@@ -183,291 +159,6 @@ def write_input(*sims, overwrite: bool = True, verbose: bool = True):
             raise ValueError(f"Unsupported simulation/model type: {type(sim)}")
 
 
-def dependent_variable_text(fpth, default="concentration") -> str:
-    """Text of the dependent variable records in a binary output file
-    (e.g. GWT concentration or GWE temperature), for flopy's readers."""
-    for text in (default, "concentration", "temperature", "head"):
-        try:
-            flopy.utils.HeadFile(fpth, precision="double", text=text)
-            return text
-        except Exception:
-            continue
-    return default
-
-
-def require_flopy4():
-    """Skip a flopy4 comparison without flopy4, except in CI, where it fails.
-    Cases with a flopy4 comparison as their `compare` parameter are marked
-    `flopy4` and skipped without --flopy4 before this is reached; one passing
-    a flopy4 comparison some other way isn't, and fails here in CI."""
-    import pytest
-
-    try:
-        import flopy4  # noqa: F401
-    except ImportError:
-        if is_in_ci():
-            raise
-        pytest.skip("flopy4 not installed")
-
-
-def _fmi_input_files(workspace: Path) -> set[str]:
-    """File names referenced by any model's FMI package PACKAGEDATA block
-    in this simulation workspace -- externally-supplied input (a GWF
-    budget/head file, real or hand-fabricated), never this simulation's
-    own regenerable output, even though such files often share extensions
-    (e.g. .bud, .hds) with real output files."""
-    files: set[str] = set()
-    namefile = workspace / "mfsim.nam"
-    if not namefile.is_file():
-        return files
-    for _, mnamefile, *_ in _block(_rows(namefile), "MODELS"):
-        mfile = workspace / mnamefile
-        if not mfile.is_file():
-            continue
-        for ftype, pfile, *_ in _block(_rows(mfile), "PACKAGES"):
-            if ftype.upper() != "FMI6":
-                continue
-            pkg_path = workspace / pfile
-            if not pkg_path.is_file():
-                continue
-            try:
-                packagedata = _block(_rows(pkg_path), "PACKAGEDATA")
-            except ValueError:
-                continue
-            for row in packagedata:
-                upper = [t.upper() for t in row]
-                if "FILEIN" in upper:
-                    i = upper.index("FILEIN")
-                    if i + 1 < len(row):
-                        files.add(Path(row[i + 1].strip("\"'")).name)
-    return files
-
-
-def _copy_for_rerun(
-    src: os.PathLike, dst: os.PathLike, sim_dirs: Iterable[str | os.PathLike]
-) -> list[Path]:
-    """Copy `src` into `dst` (replaced if it exists) for a re-written re-run,
-    skipping the simulations' outputs and other comparisons -- this keeps
-    files a re-write doesn't load (e.g. OBS, TS). Returns `sim_dirs` as paths."""
-    src, dst = Path(src), Path(dst)
-    sim_dir_paths = [Path(d) for d in sim_dirs]
-    skip_dirs = {c.value for c in Comparison} - {
-        d.parts[0] for d in sim_dir_paths if d.parts
-    }
-
-    # output files each simulation names (e.g. a .bin head file)
-    named_outputs = {
-        d: {Path(f).name for f in get_mf6_files(src / d / "mfsim.nam")[1]}
-        for d in sim_dir_paths
-    }
-    # FMI-referenced input files, never to be skipped regardless of extension
-    # or which sim_dir's own package references them (an FMI reference often
-    # crosses into a sibling sim_dir, e.g. "flow/flow.bud")
-    fmi_inputs = set().union(*(_fmi_input_files(src / d) for d in sim_dir_paths))
-
-    def ignore(dirpath, names):
-        rel = Path(dirpath).relative_to(src)
-        ignored = {n for n in names if rel == Path(".") and n in skip_dirs}
-        if rel in sim_dir_paths:
-            ignored |= {
-                n
-                for n in names
-                if (Path(n).suffix.lower() in OUTPUT_EXT or n in named_outputs[rel])
-                and n not in fmi_inputs
-                and (Path(dirpath) / n).is_file()
-            }
-        return ignored
-
-    if dst.is_dir():
-        shutil.rmtree(dst)
-    shutil.copytree(src, dst, ignore=ignore)
-    return sim_dir_paths
-
-
-def write_fp4_netcdf(
-    src: os.PathLike,
-    dst: os.PathLike,
-    netcdf_format: str,
-    sim_dirs: Iterable[str | os.PathLike] = (".",),
-):
-    """
-    Re-write the simulations in `src` into `dst` with flopy4, with each
-    model's package array input in a NetCDF file.
-
-    Parameters
-    ----------
-    src : path-like
-        Workspace of the test to re-write.
-    dst : path-like
-        Workspace to write to (replaced if it exists).
-    netcdf_format : str
-        "structured" (DIS grids only) or "layered" (UGRID layered mesh).
-    sim_dirs : iterable of path-like
-        Simulation workspaces to re-write, relative to `src`.
-    """
-    from flopy4.mf6 import NetCDFFormat, Simulation
-    from flopy4.mf6.netcdf import NetCDFModel
-    from flopy4.mf6.write_context import WriteContext
-
-    dst = Path(dst)
-    sim_dirs = _copy_for_rerun(src, dst, sim_dirs)
-
-    fmt = NetCDFFormat(netcdf_format)
-    for sim_dir in sim_dirs:
-        sim = Simulation.load(dst / sim_dir / "mfsim.nam")
-        for model in sim.models:
-            name = model.name
-            if fmt == NetCDFFormat.STRUCTURED and type(model.dis).__name__ != "Dis":
-                raise ValueError(f"Structured NetCDF input requires a DIS grid: {name}")
-            # the name file refers to it relative to the workspace
-            nc_name = f"{name}.input.nc"
-            model.netcdf_input_file = Path(nc_name)
-            NetCDFModel.from_model(model, netcdf_format=fmt).to_netcdf(
-                dst / sim_dir / nc_name
-            )
-        with WriteContext(use_netcdf=True):
-            sim.write()
-
-
-def write_fp4_ascii(
-    src: os.PathLike,
-    dst: os.PathLike,
-    sim_dirs: Iterable[str | os.PathLike] = (".",),
-):
-    """
-    Re-write the simulations in `src` into `dst` with flopy4, as plain
-    ASCII input (no NetCDF) -- a baseline check that flopy4 round-trips a
-    model correctly on its own, independent of NetCDF support.
-
-    Parameters
-    ----------
-    src : path-like
-        Workspace of the test to re-write.
-    dst : path-like
-        Workspace to write to (replaced if it exists).
-    sim_dirs : iterable of path-like
-        Simulation workspaces to re-write, relative to `src`.
-    """
-    from flopy4.mf6 import Simulation
-
-    dst = Path(dst)
-    sim_dirs = _copy_for_rerun(src, dst, sim_dirs)
-
-    for sim_dir in sim_dirs:
-        sim = Simulation.load(dst / sim_dir / "mfsim.nam")
-        sim.write()
-
-
-DFN_PATH = Path(__file__).parents[1] / "doc" / "mf6io" / "mf6ivar" / "dfn"
-
-
-def _rows(path: Path) -> list[list[str]]:
-    """Non-comment rows of an input file, split into tokens."""
-    rows = [ln.split() for ln in path.read_text(errors="ignore").splitlines()]
-    return [r for r in rows if r and not r[0].startswith(("#", "!"))]
-
-
-def _block(rows: list[list[str]], name: str) -> list[list[str]]:
-    """The rows of the first block named `name`."""
-    upper = [[t.upper() for t in r] for r in rows]
-    begin = upper.index(["BEGIN", name])
-    end = upper.index(["END", name], begin)
-    return rows[begin + 1 : end]
-
-
-def netcdf_arrays(component: str) -> set[str]:
-    """Names of the arrays of a DFN component that MF6 can read from NetCDF."""
-    names, name = set(), None
-    for row in (DFN_PATH / f"{component}.dfn").read_text().splitlines():
-        tokens = row.split()
-        if tokens[:1] == ["name"] and len(tokens) > 1:
-            name = tokens[1]
-        elif tokens == ["netcdf", "true"] and name:
-            names.add(name)
-    return names
-
-
-def package_arrays(path: Path) -> list[tuple[str, bool]]:
-    """(name, read from NetCDF) for each array in a package file."""
-    rows = _rows(path)
-    arrays = []
-    for i, row in enumerate(rows):
-        upper = [t.upper() for t in row]
-        if (
-            len(upper) > 1
-            and upper[-1] == "NETCDF"
-            and upper[0] not in ("BEGIN", "END")
-        ):
-            arrays.append((row[0].lower(), True))
-        elif (
-            upper[1:] in ([], ["LAYERED"])
-            and i + 1 < len(rows)
-            and rows[i + 1][0].upper() in ("CONSTANT", "INTERNAL", "OPEN/CLOSE")
-        ):
-            arrays.append((row[0].lower(), False))
-    return arrays
-
-
-def check_fp4_netcdf_input(workspace: os.PathLike):
-    """
-    Check a simulation written by `write_fp4_netcdf` reads every array MF6
-    can read from NetCDF (per the DFNs) with NETCDF, from a variable in its
-    model's NetCDF4 input file.
-    """
-    import netCDF4
-
-    workspace = Path(workspace)
-    models = _block(_rows(workspace / "mfsim.nam"), "MODELS")
-    assert models, f"No models in {workspace / 'mfsim.nam'}"
-    for mtype, namefile, mname in (r[:3] for r in models):
-        mtype = mtype.lower().removesuffix("6")
-        rows = _rows(workspace / namefile)
-        nc = [r[2] for r in rows if [t.upper() for t in r[:2]] == ["NETCDF", "FILEIN"]]
-        assert nc, f"No NETCDF FILEIN in {namefile}"
-        with netCDF4.Dataset(workspace / nc[0]) as ds:
-            assert ds.data_model == "NETCDF4", f"{nc[0]}: {ds.data_model}"
-            assert "modflow_model" in ds.ncattrs(), f"{nc[0]}: no modflow_model"
-            inputs = {
-                ds[v].modflow_input.lower()
-                for v in ds.variables
-                if "modflow_input" in ds[v].ncattrs()
-            }
-        n_netcdf = 0
-        for ftype, fname, *pname in _block(rows, "PACKAGES"):
-            ptype = ftype.lower().removesuffix("6")
-            # variables are named by package type, or by package name for
-            # types a model can have several of
-            pnames = {ptype, pname[0].lower() if pname else ptype}
-            pkg_rows = _rows(workspace / fname)
-            options = [t.upper() for r in pkg_rows for t in r]
-            variant = (
-                "a"
-                if "READASARRAYS" in options
-                else "g"
-                if "READARRAYGRID" in options
-                else ""
-            )
-            component = f"{mtype}-{ptype}{variant}"
-            if not (DFN_PATH / f"{component}.dfn").is_file():
-                continue
-            capable = netcdf_arrays(component)
-            aux = {
-                t.lower()
-                for r in pkg_rows
-                if r[0].upper() in ("AUXILIARY", "AUX")
-                for t in r[1:]
-            }
-            for name, from_netcdf in package_arrays(workspace / fname):
-                tag = "aux" if name in aux else name
-                if from_netcdf:
-                    n_netcdf += 1
-                    keys = {f"{mname}/{p}/{tag}".lower() for p in pnames}
-                    assert keys & inputs, f"{fname}: {name} has no variable in {nc[0]}"
-                else:
-                    assert tag not in capable, f"{fname}: {name} not read from NetCDF"
-        assert n_netcdf, f"No package array of {namefile} read from NetCDF"
-
-
 class TestFramework:
     """
     Defines a MODFLOW 6 end-to-end integration test. Configurable
@@ -513,7 +204,9 @@ class TestFramework:
     check_rerun : callable, optional
         Function to re-check results after a re-run comparison (flopy4
         re-write or MF6 export), with `self.workspace` retargeted to the
-        comparison directory. Defaults to `check`, reused as-is.
+        comparison directory. Defaults to `check`. Only `self.workspace` is
+        retargeted: a check reading output through the flopy simulations
+        reads the original run's.
     plot: callable, optional
         User defined function to create plots of the results.
     compare: str or Comparison, optional
@@ -580,8 +273,9 @@ class TestFramework:
         self.ncpus = [ncpus] if isinstance(ncpus, int) else ncpus
         self.api_func = api_func
         self.compare = Comparison(compare) if compare else None
-        if self.compare in FP4_COMPARISONS:
-            require_flopy4()
+        assert check_rerun is None or self.compare in RERUNS, (
+            "check_rerun needs a re-run comparison"
+        )
         self.outp = None
         self.htol = 0.001 if htol is None else htol
         self.rclose = 0.001 if rclose is None else rclose
@@ -595,11 +289,12 @@ class TestFramework:
 
     # private
 
-    def _compare_file(self, fpth0, fpth1, outfile, htol, text, i, label=None) -> bool:
-        """Compare a single dependent-variable output file via compare_heads,
-        falling back to a byte-identical check for record layouts flopy's
-        generic HeadFile reader can't fully index (e.g. SFT's .sft.bin,
-        IST's .ist.ucn)."""
+    def _compare_file(
+        self, fpth0, fpth1, outfile, htol, text, i, label=None, rerun=False
+    ) -> bool:
+        """Compare a dependent-variable output file with compare_heads. For a
+        re-run, a file flopy's head file reader can't read (e.g. an SFT or
+        IST output file) must instead be the same, byte for byte."""
         label = label or text
         try:
             success = compare_heads(
@@ -614,6 +309,8 @@ class TestFramework:
                 verbose=self.verbose,
             )
         except EOFError:
+            if not rerun:
+                raise
             success = filecmp.cmp(fpth0, fpth1, shallow=False)
         print(
             f"{label} comparison {i + 1}" + f"{self.name} ({os.path.basename(fpth0)})"
@@ -628,6 +325,7 @@ class TestFramework:
         htol=0.001,
         cmp_dir="mf6_regression",
         workspace=None,
+        rerun=False,
     ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
@@ -716,13 +414,18 @@ class TestFramework:
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
             outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
             if not self._compare_file(
-                fpth0, fpth1, outfile, htol, EXTTEXT[extension], i
+                fpth0, fpth1, outfile, htol, EXTTEXT[extension], i, rerun=rerun
             ):
                 return False
         return True
 
     def _compare_concentrations(
-        self, extensions="ucn", htol=0.001, cmp_dir="mf6_regression", workspace=None
+        self,
+        extensions="ucn",
+        htol=0.001,
+        cmp_dir="mf6_regression",
+        workspace=None,
+        rerun=False,
     ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
@@ -733,15 +436,31 @@ class TestFramework:
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
             outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
-            text = dependent_variable_text(fpth0, EXTTEXT[extension])
+            # a re-run's file may hold another dependent variable, e.g. GWE
+            # temperature
+            text = EXTTEXT[extension]
+            if rerun:
+                text = dependent_variable_text(fpth0, text)
             if not self._compare_file(
-                fpth0, fpth1, outfile, htol, text, i, label=EXTTEXT[extension]
+                fpth0,
+                fpth1,
+                outfile,
+                htol,
+                text,
+                i,
+                label=EXTTEXT[extension],
+                rerun=rerun,
             ):
                 return False
         return True
 
     def _compare_budgets(
-        self, extensions="cbc", rclose=0.001, cmp_dir="mf6_regression", workspace=None
+        self,
+        extensions="cbc",
+        rclose=0.001,
+        cmp_dir="mf6_regression",
+        workspace=None,
+        rerun=False,
     ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
@@ -754,7 +473,7 @@ class TestFramework:
                 f"{self.name} ({os.path.basename(fpth0)})",
             )
             # a budget file with nothing saved is written empty
-            if os.path.getsize(fpth0) == 0 and os.path.getsize(fpth1) == 0:
+            if rerun and os.path.getsize(fpth0) == 0 and os.path.getsize(fpth1) == 0:
                 continue
             outname = os.path.splitext(os.path.basename(fpth0))[0]
             outfile = os.path.join(ws, f"{outname}.{extension}.cmp.out")
@@ -763,22 +482,89 @@ class TestFramework:
                 return False
         return True
 
-    def _filtered_sims(self) -> list[tuple[MFSimulation, int, bool]]:
-        """self.sims zipped with self.ncpus and self.xfail, filtered to
-        MFSimulation instances, in the same order."""
-        return [
+    def _rerun_sims(self) -> list[tuple[Path, MFSimulation | None, int, bool]]:
+        """(workspace relative to the test's, flopy simulation, ncpus, xfail)
+        of each MF6 simulation a re-run comparison re-runs, in run order."""
+        sims = [
             (s, n, x)
             for s, n, x in zip(self.sims, self.ncpus, self.xfail)
             if isinstance(s, MFSimulation)
         ]
-
-    def _sim_dirs(self) -> list[Path]:
-        """The test's MF6 simulation workspaces, relative to its own, in run order."""
-        dirs = [
-            Path(get_workspace(s)).absolute().relative_to(self.workspace)
-            for s, _, _ in self._filtered_sims()
+        if not sims:
+            return [(Path("."), None, self.ncpus[0], self.xfail[0])]
+        return [
+            (Path(get_workspace(s)).absolute().relative_to(self.workspace), s, n, x)
+            for s, n, x in sims
         ]
-        return dirs or [Path(".")]
+
+    def _run_rerun(self):
+        """Copy the test's simulations into the comparison's workspace,
+        re-write each with the comparison's `RERUNS` steps, and run it."""
+        rerun = RERUNS[self.compare]
+        name = self.compare.value
+        sims = self._rerun_sims()
+        if rerun.validate:
+            assert all(sim for _, sim, _, _ in sims), (
+                f"{name} needs a flopy simulation per workspace"
+            )
+            assert not self.cargs and all(n == 1 and not x for *_, n, x in sims), (
+                f"{name} supports serial, passing tests without command line arguments"
+            )
+        workspace = self.workspace / name
+        copy_for_rerun(self.workspace, workspace, [d for d, *_ in sims])
+        for sim_dir, sim, _, _ in sims:
+            rerun.prepare(workspace / sim_dir, sim)
+        for sim_dir, sim, ncpus, xfail in sims:
+            sim_ws = workspace / sim_dir
+            if rerun.validate:
+                success, _, error = self._run(
+                    sim_ws, self.targets["mf6"], cargs=["--mode=validate"]
+                )
+                assert success, f"{name} validate run failed: {sim_ws}" + (
+                    f"\n{error}" if error else ""
+                )
+                rerun.validate(sim_ws, sim)
+            success, _, error = self._run(
+                sim_ws, self.targets["mf6"], xfail=xfail, ncpus=ncpus
+            )
+            assert success, (
+                f"{name} simulation "
+                f"{'should have failed' if xfail else 'failed'}: {sim_ws}"
+                + (f"\n{error}" if error else "")
+            )
+            if rerun.check and not xfail:
+                rerun.check(sim_ws)
+
+    def _compare_rerun(self, comparison: Comparison):
+        """Compare each simulation's output with its re-run's."""
+        for sim_dir, _, _, xfail in self._rerun_sims():
+            if xfail:
+                # an expected failure has no output; its re-run is only
+                # checked to fail too
+                continue
+            ws = self.workspace / sim_dir
+            cmp_dir = os.path.relpath(self.workspace / comparison.value / sim_dir, ws)
+            if not RERUNS[comparison].flopy4:
+                # input read from MF6's export must affect some compared output
+                files, _ = get_comparison_files(
+                    ws, [*HDS_EXT, *CBC_EXT, "ucn"], cmp_dir
+                )
+                assert files, f"no output to compare: {sim_dir}"
+            htol = adjust_htol(ws, self.htol)
+            rclose = get_rclose(ws)
+            assert self._compare_heads(
+                extensions=HDS_EXT, htol=htol, cmp_dir=cmp_dir, workspace=ws, rerun=True
+            ), f"head comparison failed: {sim_dir}"
+            assert self._compare_budgets(
+                extensions=CBC_EXT,
+                rclose=rclose,
+                cmp_dir=cmp_dir,
+                workspace=ws,
+                rerun=True,
+            ), f"budget comparison failed: {sim_dir}"
+            assert self._compare_concentrations(
+                htol=htol, cmp_dir=cmp_dir, workspace=ws, rerun=True
+            ), f"concentration comparison failed: {sim_dir}"
 
     def _compare(self, comparison: Comparison):
         """
@@ -806,36 +592,8 @@ class TestFramework:
             assert self._compare_concentrations(htol=htol), (
                 "concentration comparison failed"
             )
-        elif comparison in RERUN_COMPARISONS:
-            sim_dirs = self._sim_dirs()
-            sim_xfail = [x for _, _, x in self._filtered_sims()] or self.xfail[:1]
-            for sim_dir, xfail in zip(sim_dirs, sim_xfail):
-                if xfail:
-                    # the simulation was expected to fail; flopy4's rewritten
-                    # rerun is only checked for failing the same way (in
-                    # run()), there is no valid output here to compare
-                    continue
-                ws = self.workspace / sim_dir
-                cmp_dir = os.path.relpath(
-                    self.workspace / comparison.value / sim_dir, ws
-                )
-                if comparison in MF6_EXPORT_COMPARISONS:
-                    # input read from NetCDF must affect some compared output
-                    files, _ = get_comparison_files(
-                        ws, [*HDS_EXT, *CBC_EXT, "ucn"], cmp_dir
-                    )
-                    assert files, f"no output to compare: {sim_dir}"
-                htol = adjust_htol(ws, self.htol)
-                rclose = get_rclose(ws)
-                assert self._compare_heads(
-                    extensions=HDS_EXT, htol=htol, cmp_dir=cmp_dir, workspace=ws
-                ), f"head comparison failed: {sim_dir}"
-                assert self._compare_budgets(
-                    extensions=CBC_EXT, rclose=rclose, cmp_dir=cmp_dir, workspace=ws
-                ), f"budget comparison failed: {sim_dir}"
-                assert self._compare_concentrations(
-                    htol=htol, cmp_dir=cmp_dir, workspace=ws
-                ), f"concentration comparison failed: {sim_dir}"
+        elif comparison in RERUNS:
+            self._compare_rerun(comparison)
         else:
             assert self._compare_heads(
                 cpth=cmp_path,
@@ -1058,76 +816,8 @@ class TestFramework:
                     shutil.copytree(self.workspace, cmp_path)
 
                 # run comparison simulation
-                if self.compare in FP4_COMPARISONS:
-                    # the simulation re-written by flopy4, with or without NetCDF
-                    workspace = self.workspace / self.compare.value
-                    sim_dirs = self._sim_dirs()
-                    sim_ncpus = [n for _, n, _ in self._filtered_sims()] or self.ncpus[
-                        :1
-                    ]
-                    sim_xfail = [x for _, _, x in self._filtered_sims()] or self.xfail[
-                        :1
-                    ]
-                    is_ascii = self.compare == Comparison.FP4_ASCII
-                    if is_ascii:
-                        write_fp4_ascii(self.workspace, workspace, sim_dirs)
-                    else:
-                        write_fp4_netcdf(
-                            self.workspace,
-                            workspace,
-                            self.compare.value.removeprefix("fp4_"),
-                            sim_dirs,
-                        )
-                    for sim_dir, ncpus, xfail in zip(sim_dirs, sim_ncpus, sim_xfail):
-                        sim_ws = workspace / sim_dir
-                        success, _, error = self._run(
-                            sim_ws, self.targets["mf6"], xfail=xfail, ncpus=ncpus
-                        )
-                        kind = "ASCII" if is_ascii else "NetCDF"
-                        assert success, (
-                            f"flopy4 {kind} simulation "
-                            f"{'should have failed' if xfail else 'failed'}: {sim_ws}"
-                            + (f"\n{error}" if error else "")
-                        )
-                        if not is_ascii and not xfail:
-                            check_fp4_netcdf_input(sim_ws)
-                elif self.compare in MF6_EXPORT_COMPARISONS:
-                    # the simulation re-run with input from MF6's own export
-                    workspace = self.workspace / self.compare.value
-                    assert not any(self.xfail) and max(self.ncpus) == 1, (
-                        f"{self.compare.value} supports serial, passing tests only"
-                    )
-                    assert not self.cargs, (
-                        f"{self.compare.value} runs without command line arguments"
-                    )
-                    sim_dirs = _copy_for_rerun(
-                        self.workspace, workspace, self._sim_dirs()
-                    )
-                    netcdf_format = self.compare.value.removeprefix("mf6_export_")
-                    sims = [s for s, _, _ in self._filtered_sims()]
-                    assert len(sims) == len(sim_dirs), (
-                        f"{self.compare.value} needs a flopy simulation per workspace"
-                    )
-                    for sim_dir, sim in zip(sim_dirs, sims):
-                        sim_ws = workspace / sim_dir
-                        mf6_export.enable_export(sim_ws, netcdf_format)
-                        success, _, error = self._run(
-                            sim_ws, self.targets["mf6"], cargs=["--mode=validate"]
-                        )
-                        assert success, f"NetCDF export failed: {sim_ws}" + (
-                            f"\n{error}" if error else ""
-                        )
-                        assert mf6_export.check_exported_arrays(sim_ws, sim), (
-                            f"No exported arrays to check: {sim_ws}"
-                        )
-                        mf6_export.use_netcdf_input(sim_ws)
-                        mf6_export.enable_output(sim_ws, netcdf_format)
-                        success, _, error = self._run(sim_ws, self.targets["mf6"])
-                        assert success, (
-                            f"Simulation with exported input failed: {sim_ws}"
-                            + (f"\n{error}" if error else "")
-                        )
-                        mf6_export.check_outputs(sim_ws)
+                if self.compare in RERUNS:
+                    self._run_rerun()
                 elif self.compare.value not in self.targets:
                     warn(
                         f"Couldn't find comparison program '{self.compare}', "
@@ -1161,7 +851,7 @@ class TestFramework:
             # re-check a re-run comparison, against its own workspace,
             # then restore self.workspace so later steps (e.g. self.plot)
             # still see the original
-            if self.compare in RERUN_COMPARISONS:
+            if self.compare in RERUNS:
                 original_workspace = self.workspace
                 self.workspace = self.workspace / self.compare.value
                 try:

@@ -6,7 +6,8 @@ own NetCDF export), tested without flopy4 or a MODFLOW 6 run.
 from pathlib import Path
 
 import pytest
-from framework import _copy_for_rerun, check_fp4_netcdf_input
+from flopy4_input import check_netcdf_input
+from rerun import copy_for_rerun
 
 nc = pytest.importorskip("netCDF4")
 
@@ -34,7 +35,7 @@ def test_copy_for_rerun(tmp_path):
         _write(src / name, "")
 
     dst = tmp_path / "dst"
-    assert _copy_for_rerun(src, dst, ["."]) == [Path(".")]
+    assert copy_for_rerun(src, dst, ["."]) == [Path(".")]
     copied = {p.relative_to(dst).as_posix() for p in dst.rglob("*") if p.is_file()}
     assert copied == {"mfsim.nam", "gwt.nam", "gwt.dis", "gwt.fmi", "flow.bud"}
 
@@ -78,14 +79,14 @@ def test_check_netcdf_input(tmp_path):
     """Every array MF6 can read from NetCDF is, from a variable in the
     model's file."""
     _workspace(tmp_path, "  k NETCDF\n", ARRAYS)
-    check_fp4_netcdf_input(tmp_path)
+    check_netcdf_input(tmp_path)
 
 
 def test_check_netcdf_input_ascii_array(tmp_path):
     """An array MF6 could read from NetCDF, given as text, is an error."""
     _workspace(tmp_path, "  k\n    CONSTANT 1.0\n", ARRAYS)
     with pytest.raises(AssertionError, match="k not read from NetCDF"):
-        check_fp4_netcdf_input(tmp_path)
+        check_netcdf_input(tmp_path)
 
 
 def test_check_netcdf_input_missing_variable(tmp_path):
@@ -93,4 +94,4 @@ def test_check_netcdf_input_missing_variable(tmp_path):
     arrays = {k: v for k, v in ARRAYS.items() if k != "npf_k"}
     _workspace(tmp_path, "  k NETCDF\n", arrays)
     with pytest.raises(AssertionError, match="k has no variable"):
-        check_fp4_netcdf_input(tmp_path)
+        check_netcdf_input(tmp_path)
