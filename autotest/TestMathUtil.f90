@@ -297,6 +297,17 @@ contains
       if (allocated(error)) return
     end do
 
+    deallocate (a)
+
+    ! step defaults to 1
+    a = arange(DZERO, 5.0_DP)
+    call check(error, size(a) == 5, "wrong size: "//to_string(size(a)))
+    if (allocated(error)) return
+    do i = 1, 5
+      call check(error, is_close(a(i), real(i - 1, DP)))
+      if (allocated(error)) return
+    end do
+
   end subroutine test_arange
 
   subroutine test_linspace(error)

@@ -395,13 +395,13 @@ contains
       lstep = DONE
     end if
 
-    if (step <= 0) then
+    if (lstep <= 0) then
       allocate (array(0))
     else
-      n = ceiling((stop - start) / step)
+      n = ceiling((stop - start) / lstep)
       allocate (array(n))
       do i = 0, n - 1
-        array(i + 1) = start + step * i
+        array(i + 1) = start + lstep * i
       end do
     end if
   end function arange
