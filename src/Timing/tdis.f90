@@ -223,14 +223,19 @@ contains
     totim = totimsav + delt
     pertim = pertimsav + delt
     !
-    ! -- Set end of period indicator
+    ! -- Set end of period indicator. Reset the end of simulation
+    !    indicator too, since the failed step may have set it.
     endofperiod = .false.
+    endofsimulation = .false.
     if (adaptivePeriod) then
       call ats%ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
     else
       if (kstp == nstp(kper)) then
         endofperiod = .true.
       end if
+    end if
+    if (endofperiod) then
+      pertim = perlen(kper)
     end if
     !
     ! -- Set end of simulation indicator

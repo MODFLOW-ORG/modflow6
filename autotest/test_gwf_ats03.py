@@ -7,6 +7,11 @@ for the new totim value.  For this problem, the constant head starts at 100 at
 time zero and drops to 50.0 at time 100.  So the constant head values, which
 are observed and written to and obs output file must fall on a line between
 (0, 100) and (100, 50), which is ensured by this test.
+
+The test also ensures that the simulation runs to the end of the period
+after the retries. The first attempted step would end the simulation, so
+the end of simulation indicator must be reset when the step is retried
+with a smaller time step.
 """
 
 import os
@@ -192,11 +197,21 @@ def check_output(idx, test):
         tc = np.genfromtxt(fpth, names=True, delimiter=",")
     except:
         assert False, f'could not load data from "{fpth}"'
-    x = np.array(tc["time"])
+    x = np.atleast_1d(tc["time"])
     answer = 100.0 - x * 0.5
-    result = np.array(tc["OBS2"])
+    result = np.atleast_1d(tc["OBS2"])
     msg = f"obs2 must drop linearly from 100 down to 50: {result}"
     assert np.allclose(answer, result), msg
+
+    # ensure the simulation continued after the retried step(s) and ran
+    # to the end of the period
+    msg = f"simulation should end at time 100.0, not {x[-1]}"
+    assert np.isclose(x[-1], 100.0), msg
+    assert x.size > 1, "simulation should take more than one time step"
+    fpth = os.path.join(test.workspace, test.name + ".hds")
+    hds = flopy.utils.HeadFile(fpth)
+    times = hds.get_times()
+    assert np.isclose(times[-1], 100.0), f"last head time is {times[-1]}"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
