@@ -202,11 +202,11 @@ Build MODFLOW 6 into `bin/` first (`pixi run build builddir`). Each run takes
 ```
 cd autotest/vsf_benchmark
 pixi run python vsf_big.py runs/d10m_ilut5 --delr 1000
-pixi run python vsf_big.py runs/d10m_1d --delr 1000 --one-d
 pixi run python vsf_big.py runs/d10m_milu0 --delr 1000 --solver milu0
 pixi run python vsf_big.py runs/d10m_milu0_nobt --delr 1000 --solver milu0_nobt
 ```
 
-Omit `--delr` for the 100 m model. Each run writes `stats.json` with step and
+Omit `--delr` for the 100 m model. `--one-d` needs the VSF_1D_ONLY option from
+the `vsf-1d-only` branch. Each run writes `stats.json` with step and
 iteration counts and profiler timings. Do not run the `ilu0rcm` variant without
 a time limit.

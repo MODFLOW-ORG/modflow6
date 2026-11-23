@@ -128,13 +128,14 @@ def build(ws, n, one_d, newton, delr=10000.0, solver="ilut5"):
         soil_model="haverkamp",
         storage_scheme=None if newton else "chord-slope",
         kr_averaging="arithmetic",
-        vsf_1d_only=one_d,
         porosity=SOIL["porosity"],
         satres=SOIL["satres"],
         alphahvk=SOIL["alpha"],
         nhvk=SOIL["n"],
         betahvk=SOIL["beta"],
         khvk=SOIL["k"],
+        # VSF_1D_ONLY exists only on the vsf-1d-only branch
+        **({"vsf_1d_only": True} if one_d else {}),
     )
     flopy.mf6.ModflowGwfrcha(gwf, recharge={0: rain, 1: dry})
 
