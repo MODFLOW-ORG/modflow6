@@ -4,7 +4,7 @@ module VsfHaverkampModule
   use SimModule, only: store_error, count_errors, ustop
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryManagerExtModule, only: mem_set_value
-  use VsfSoilModelModule, only: SoilModelType
+  use VsfSoilModelModule, only: SoilModelType, DKR_SHIFT
   use GwfVsfInputModule, only: GwfVsfParamFoundType
   implicit none
   private
@@ -22,6 +22,8 @@ module VsfHaverkampModule
     procedure :: saturation => saturation_haverkamp
     procedure :: capacity => capacity_haverkamp
     procedure :: krelative => krelative_haverkamp
+    procedure :: kr_dkrdh => kr_dkrdh_haverkamp
+    procedure :: sat_capacity => sat_capacity_haverkamp
     procedure :: destroy => destroy_haverkamp
   end type HaverkampModelType
 
@@ -123,6 +125,58 @@ contains
     end if
 
   end function krelative_haverkamp
+
+  !> @brief Fused relative permeability and its analytical derivative
+  !!
+  !! Close to saturation the central difference of the default
+  !! implementation is kept.
+  !<
+  subroutine kr_dkrdh_haverkamp(this, psi, i, kr, dkr)
+    class(HaverkampModelType), intent(inout) :: this
+    real(DP), intent(in) :: psi !< pressure head
+    integer(I4B), intent(in) :: i !< node number
+    real(DP), intent(out) :: kr !< relative permeability
+    real(DP), intent(out) :: dkr !< d(kr)/d(psi)
+    ! local
+    real(DP) :: x
+
+    if (psi > -DKR_SHIFT) then
+      kr = this%krelative(psi, i)
+      dkr = (this%krelative(psi + DKR_SHIFT, i) - &
+             this%krelative(psi - DKR_SHIFT, i)) / (2.0_DP * DKR_SHIFT)
+      return
+    end if
+
+    x = (-this%beta(i) * psi)**this%k(i)
+    kr = DONE / (DONE + x)
+    dkr = this%k(i) * x / (-psi) * kr * kr
+
+  end subroutine kr_dkrdh_haverkamp
+
+  !> @brief Fused saturation and moisture capacity
+  !<
+  subroutine sat_capacity_haverkamp(this, psi, i, s, cm)
+    class(HaverkampModelType), intent(inout) :: this
+    real(DP), intent(in) :: psi !< pressure head
+    integer(I4B), intent(in) :: i !< node number
+    real(DP), intent(out) :: s !< saturation
+    real(DP), intent(out) :: cm !< moisture capacity
+    ! local
+    real(DP) :: x, se
+
+    if (psi >= DZERO) then
+      s = DONE
+      cm = DZERO
+      return
+    end if
+
+    x = (-this%alpha(i) * psi)**this%n(i)
+    se = DONE / (DONE + x)
+    s = (DONE - this%sat_res(i)) * se + this%sat_res(i)
+    cm = this%porosity(i) * (DONE - this%sat_res(i)) * &
+         this%n(i) * x / (-psi) * se * se
+
+  end subroutine sat_capacity_haverkamp
 
   !> @brief clean up
   !<

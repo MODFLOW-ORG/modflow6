@@ -68,19 +68,15 @@ contains
     ! local
     integer(I4B) :: n, idiag
     real(DP) :: z_n, psi
-    real(DP) :: shift
 
-    shift = 1.0e-6_DP
     do n = 1, this%gwf_dis%nodes
       idiag = this%gwf_dis%con%ia(n)
       if (this%gwf_npf%iformulation(idiag) /= VSF_FLOW) cycle
-      ! calculate k_r for node n
+      ! k_r for node n and its head derivative, the latter used for the
+      ! Newton terms here and in boundary packages
       z_n = DHALF * (this%gwf_dis%bot(n) + this%gwf_dis%top(n))
       psi = this%gwf_npf%hnew(n) - z_n
-      this%krel(n) = this%soil_model%krelative(psi, n)
-      ! head derivative of k_r, exposed for Newton terms in boundary packages
-      this%dkrdh(n) = (this%soil_model%krelative(psi + shift, n) - &
-                       this%soil_model%krelative(psi - shift, n)) / (DTWO * shift)
+      call this%soil_model%kr_dkrdh(psi, n, this%krel(n), this%dkrdh(n))
     end do
 
   end subroutine uft_cf
@@ -191,11 +187,8 @@ contains
     ! local
     integer(I4B) :: iup !< the upstream node
     real(DP) :: sat_cond !< conductance at full saturation
-    real(DP) :: z_up !< the nodal elevation for n
-    real(DP) :: psi !< the pressure head
     real(DP) :: kr_up !< upstream weighted rel. permeability between nodes
-    real(DP) :: shift !< the shift for the numerical derivative
-    real(DP) :: dkrdh_n, dkrdh_m !< numerical derivative of upstream weighted kr
+    real(DP) :: dkrdh_n, dkrdh_m !< derivative of upstream weighted kr
     real(DP) :: Q_nm, dQdh_n, dQdh_m !< newton rates and derivatives
 
     coeffs(:) = DZERO
@@ -212,17 +205,12 @@ contains
     ! upstream k_relative
     kr_up = this%krel(iup)
 
-    ! dkr/dh
-    z_up = DHALF * (this%gwf_dis%bot(iup) + this%gwf_dis%top(iup))
-    psi = hnew(iup) - z_up
-    shift = 1.0e-6
+    ! dkr/dh, evaluated per node in cf
     if (iup == m) then
       dkrdh_n = DZERO
-      dkrdh_m = (this%soil_model%krelative(psi + shift, iup) - &
-                 this%soil_model%krelative(psi - shift, iup)) / (2.0 * shift)
+      dkrdh_m = this%dkrdh(iup)
     else
-      dkrdh_n = (this%soil_model%krelative(psi + shift, iup) - &
-                 this%soil_model%krelative(psi - shift, iup)) / (2.0 * shift)
+      dkrdh_n = this%dkrdh(iup)
       dkrdh_m = DZERO
     end if
 
