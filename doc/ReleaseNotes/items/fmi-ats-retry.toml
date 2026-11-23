@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "With adaptive time stepping (ATS), a GWT or GWE model reading flows and heads from file through the Flow Model Interface (FMI) package could stop with an error when a time step failed to converge and was retried. The retry read the next records from the budget and head files instead of reusing the ones already read for that time step. This happened when the first time step of the simulation was retried, and the error reported that the time discretization in the budget file did not match the model's, or that the budget file could not be read. The retried time step now reuses the flows and heads already read."
