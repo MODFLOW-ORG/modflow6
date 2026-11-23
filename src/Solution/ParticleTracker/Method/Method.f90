@@ -5,7 +5,7 @@ module MethodModule
   use ConstantsModule, only: DZERO
   use ErrorUtilModule, only: pstop
   use SubcellModule, only: SubcellType
-  use ParticleModule, only: ParticleType
+  use ParticleModule, only: ParticleType, ACTIVE
   use ParticleEventsModule, only: ParticleEventDispatcherType
   use ParticleEventModule, only: ParticleEventType
   use ReleaseEventModule, only: ReleaseEventType
@@ -212,6 +212,7 @@ contains
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
+    particle%istatus = ACTIVE
     allocate (ReleaseEventType :: event)
     call this%events%broadcast(particle, event)
     deallocate (event)

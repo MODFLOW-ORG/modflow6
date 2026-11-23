@@ -87,7 +87,7 @@ contains
 
   !> @brief Track a particle across a triangular subcell.
   subroutine track_subcell(this, subcell, particle, tmax)
-    use ParticleModule, only: ACTIVE, TERM_NO_EXITS_SUB
+    use ParticleModule, only: TERM_NO_EXITS_SUB
     use ParticleEventModule, only: FEATEXIT, TERMINATE, TIMESTEP, USERTIME
     ! dummy
     class(MethodSubcellTernaryType), intent(inout) :: this
@@ -160,7 +160,6 @@ contains
         particle%y = y
         particle%z = z
         particle%ttrack = t
-        particle%istatus = ACTIVE
         call this%usertime(particle)
       end do
     end if
@@ -174,7 +173,6 @@ contains
       t = tmax
       dt = t - t0
       exit_face = 0
-      particle%istatus = ACTIVE
       particle%advancing = .false.
       event_code = TIMESTEP
     else
