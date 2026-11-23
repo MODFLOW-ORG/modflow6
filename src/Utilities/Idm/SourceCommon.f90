@@ -259,7 +259,8 @@ contains
   !<
   subroutine set_model_shape(ftype, fname, model_mempath, dis_mempath, &
                              model_shape)
-    use ConstantsModule, only: DISUNDEF, DIS, DISV, DISU, DIS2D, DISV1D
+    use ConstantsModule, only: DISUNDEF, DIS, DISV, DISU, DIS2D, DISV1D, &
+                               DISV2D
     use MemoryManagerModule, only: mem_allocate, mem_setptr, get_isize
     character(len=*), intent(in) :: ftype
     character(len=*), intent(in) :: fname
@@ -365,6 +366,8 @@ contains
         call store_error_filename(fname)
       end if
     case ('DISV2D6')
+      ! set dis_type
+      dis_type = DISV2D
       call get_isize('NODES', dis_mempath, dim1_size)
 
       if (dim1_size <= 0) then

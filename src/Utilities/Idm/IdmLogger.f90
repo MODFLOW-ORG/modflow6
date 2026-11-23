@@ -10,7 +10,8 @@ module IdmLoggerModule
   use SimVariablesModule, only: iparamlog, errmsg, idm_context
   use SimModule, only: store_error
   use ConstantsModule, only: LINELENGTH, LENMEMPATH, LENCOMPONENTNAME, &
-                             DISUNDEF, DIS, DISV, DISU, DIS2D, DISV1D
+                             DISUNDEF, DIS, DISV, DISU, DIS2D, DISV1D, &
+                             DISV2D
 
   implicit none
   private
@@ -756,7 +757,7 @@ contains
       else
         export_dim = 1
       end if
-    case (DISU, DISV1D)
+    case (DISU, DISV1D, DISV2D)
       export_dim = 1
     case default
       export_dim = 0

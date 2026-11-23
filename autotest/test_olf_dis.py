@@ -165,6 +165,7 @@ def add_olf_model_disv2d(sim):
         xorigin=xorigin,
         yorigin=yorigin,
         angrot=angrot,
+        export_array_ascii=True,
         **disvkwargs,
     )
 
@@ -291,6 +292,12 @@ def check_output(idx, test):
     elif idx == 1:
         fpth = test.workspace / f"{modelname}.disv2d.grb"
         check_grb_disv2d(fpth)
+        # arrays exported with EXPORT_ARRAY_ASCII
+        for tag, expected in (("bottom", botm), ("idomain", idomain)):
+            fpth = test.workspace / f"{modelname}-disv2d.{tag}.txt"
+            assert np.allclose(np.loadtxt(fpth), expected.reshape((ncpl,))), (
+                f"exported {tag} not correct"
+            )
 
     # read binary stage file
     fpth = test.workspace / f"{modelname}.stage"

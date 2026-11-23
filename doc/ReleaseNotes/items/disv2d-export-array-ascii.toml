@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "The EXPORT\\_ARRAY\\_ASCII option of the two-dimensional discretization by vertices (DISV2D) Package now writes the package arrays to text files. Previously, the simulation stopped with an error."
