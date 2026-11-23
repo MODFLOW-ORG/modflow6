@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "basic"
-description = "When an adaptive time step (ATS) in the last stress period would have ended the simulation but failed to converge, the simulation ended after the retried, shorter time step instead of continuing to the end of the period. The simulation now continues to the end of the last stress period."
+description = "With adaptive time stepping (ATS), if a time step that would have ended the simulation failed to converge and was retried with a shorter time step, the simulation stopped after the shorter step, before the end of the last stress period, and still reported normal termination. During that step, PRT also terminated particles as if the simulation had ended, a transport model reading a budget file could stop with an error that the time discretization is incompatible with the budget file, and the BMI update\\_until function returned early. The simulation now continues to the end of the last stress period."
