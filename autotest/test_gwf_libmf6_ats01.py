@@ -1,8 +1,6 @@
 """
-Run the test_gwf_ats03 model through the API with update_until. The first
-time step would end the simulation, but it fails and is retried with a
-shorter time step. update_until must keep advancing past the retried step
-to the requested end time.
+Run the test_gwf_ats03 model through the API with update_until, and check
+that it reaches the requested end time after the first time step is retried.
 """
 
 import os

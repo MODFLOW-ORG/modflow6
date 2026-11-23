@@ -9,9 +9,7 @@ are observed and written to and obs output file must fall on a line between
 (0, 100) and (100, 50), which is ensured by this test.
 
 The test also ensures that the simulation runs to the end of the period
-after the retries. The first attempted step would end the simulation, so
-the end of simulation indicator must be reset when the step is retried
-with a smaller time step.
+after the retries.
 """
 
 import os
