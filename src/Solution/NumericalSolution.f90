@@ -197,6 +197,7 @@ module NumericalSolutionModule
     procedure :: sln_maxval
     procedure :: sln_set_fixed_rows
     procedure :: sln_check_isolated
+    procedure :: sln_has_gwf
     procedure :: sln_merge_isolated
     procedure :: sln_record_isolated
     procedure :: sln_isolated_label
@@ -1312,8 +1313,10 @@ contains
     select case (isim_mode)
     case (MVALIDATE)
       line = 'mode="validation" -- Skipping matrix assembly and solution.'
-      ! -- assemble at the starting heads of each stress period and check
-      if (kstp == 1) then
+      ! -- assemble at the starting heads of each stress period and check;
+      !    other models are not checked, and transport flows are not
+      !    available without a flow solution
+      if (kstp == 1 .and. this%sln_has_gwf()) then
         call this%sln_buildsystem(1, inewton=1)
         call this%sln_set_fixed_rows()
         call this%sln_check_isolated(kper, kstp)
@@ -3037,6 +3040,9 @@ contains
     integer(I4B) :: nrow, roff, nnz, n, k, ipos, ipos0, ipos1
     integer(I4B) :: im, mstart, mend, nbrow, nlink
     !
+    ! -- only GWF rows are checked
+    if (.not. this%sln_has_gwf()) return
+    !
     ! -- copy the local rows, with global column numbers
     nrow = this%neq
     roff = this%system_matrix%get_row_offset()
@@ -3083,6 +3089,27 @@ contains
     deallocate (ia, ja, a, row_control, igid, group_determined, brow, bgid, &
                 lgid, lrow)
   end subroutine sln_check_isolated
+
+  !> @brief Return true if the solution has a GWF model
+  !<
+  function sln_has_gwf(this) result(has_gwf)
+    ! -- dummy
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    ! -- return
+    logical(LGP) :: has_gwf
+    ! -- local
+    class(NumericalModelType), pointer :: mp
+    integer(I4B) :: im
+    !
+    has_gwf = .false.
+    do im = 1, this%modellist%Count()
+      mp => GetNumericalModelFromList(this%modellist, im)
+      if (mp%macronym == 'GWF') then
+        has_gwf = .true.
+        exit
+      end if
+    end do
+  end function sln_has_gwf
 
   !> @brief Merge groups that cross processes (none in a serial solution)
   !<
