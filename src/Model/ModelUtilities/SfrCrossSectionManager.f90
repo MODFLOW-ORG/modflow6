@@ -226,12 +226,13 @@ contains
     !
     ! -- release this reach's own input context memory
     call memorystore_release('NROW', mempath)
-    call memorystore_release('NCOL', mempath)
     call memorystore_release('XFRACTION', mempath)
     call memorystore_release('HEIGHT', mempath)
     if (ncol > 2) then
       call memorystore_release('MANFRACTION', mempath)
     end if
+    ! -- release NCOL after its last read
+    call memorystore_release('NCOL', mempath)
     call memorystore_release('INPUT_FNAME', mempath)
   end subroutine source_table
 
