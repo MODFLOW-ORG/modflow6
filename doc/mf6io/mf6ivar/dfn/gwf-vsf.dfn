@@ -46,6 +46,22 @@ longname relative permeability averaging method
 description is a text keyword to indicate the averaging method used to calculate the intercell relative permeability.
 
 block options
+name newton_dsat_max
+type double precision
+reader urword
+optional true
+longname maximum saturation change per Newton iteration
+description real value that limits the change of effective saturation in a cell during one outer iteration when the Newton-Raphson formulation is used. A larger head change is scaled back proportionally. The default is 0.2. A value of zero switches the limit off.
+
+block options
+name kr_smoothing
+type double precision
+reader urword
+optional true
+longname width of the relative permeability smoothing interval
+description real value that sets the width of the pressure-head interval below saturation in which the Van Genuchten relative permeability is replaced by a smooth curve that reaches one at saturation. This removes the steep slope of the relative permeability near saturation for n smaller than 2. By default no smoothing is applied.
+
+block options
 name sat_filerecord
 type record saturation fileout saturationfile
 shape
@@ -225,3 +241,14 @@ layered true
 optional true
 longname n
 description is the n exponent in the Van Genuchten soil characteristic model. There is another exponent derived from it: m = 1 - 1/n.
+
+block griddata
+name haevgn
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname air-entry pressure head
+description is the air-entry pressure head in the Van Genuchten soil characteristic model (Vogel and others, 2001). The soil is saturated for pressure heads above this negative value. The default is zero, which means no air entry.

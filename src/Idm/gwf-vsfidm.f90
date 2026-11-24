@@ -18,6 +18,8 @@ module GwfVsfInputModule
     logical :: model_kr = .false.
     logical :: storage_scheme = .false.
     logical :: kr_averaging = .false.
+    logical :: newton_dsat_max = .false.
+    logical :: kr_smoothing = .false.
     logical :: sat_filerecord = .false.
     logical :: saturation = .false.
     logical :: fileout = .false.
@@ -34,6 +36,7 @@ module GwfVsfInputModule
     logical :: khvk = .false.
     logical :: alphavgn = .false.
     logical :: nvgn = .false.
+    logical :: haevgn = .false.
   end type GwfVsfParamFoundType
 
   logical :: gwf_vsf_multi_package = .false.
@@ -132,6 +135,44 @@ module GwfVsfInputModule
     'STRING', & ! type
     '', & ! shape
     'relative permeability averaging method', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfvsf_newton_dsat_max = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'VSF', & ! subcomponent
+    'OPTIONS', & ! block
+    'NEWTON_DSAT_MAX', & ! tag name
+    'NEWTON_DSAT_MAX', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'maximum saturation change per Newton iteration', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfvsf_kr_smoothing = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'VSF', & ! subcomponent
+    'OPTIONS', & ! block
+    'KR_SMOOTHING', & ! tag name
+    'KR_SMOOTHING', & ! fortran variable
+    'DOUBLE', & ! type
+    '', & ! shape
+    'width of the relative permeability smoothing interval', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -445,6 +486,25 @@ module GwfVsfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfvsf_haevgn = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'VSF', & ! subcomponent
+    'GRIDDATA', & ! block
+    'HAEVGN', & ! tag name
+    'HAEVGN', & ! fortran variable
+    'DOUBLE1D', & ! type
+    'NODES', & ! shape
+    'air-entry pressure head', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .true., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwf_vsf_param_definitions(*) = &
     [ &
     gwfvsf_soil_model, &
@@ -452,6 +512,8 @@ module GwfVsfInputModule
     gwfvsf_model_kr, &
     gwfvsf_storage_scheme, &
     gwfvsf_kr_averaging, &
+    gwfvsf_newton_dsat_max, &
+    gwfvsf_kr_smoothing, &
     gwfvsf_sat_filerecord, &
     gwfvsf_saturation, &
     gwfvsf_fileout, &
@@ -467,7 +529,8 @@ module GwfVsfInputModule
     gwfvsf_betahvk, &
     gwfvsf_khvk, &
     gwfvsf_alphavgn, &
-    gwfvsf_nvgn &
+    gwfvsf_nvgn, &
+    gwfvsf_haevgn &
     ]
 
   type(InputParamDefinitionType), parameter :: &

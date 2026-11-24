@@ -1,6 +1,7 @@
 module GwfVsfModule
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: LENVARNAME, DHALF, DHNOFLO, LINELENGTH
+  use ConstantsModule, only: LENVARNAME, DZERO, DONE, DHALF, DHNOFLO, &
+                             LINELENGTH
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryManagerExtModule, only: mem_set_value
   use SimModule, only: store_error, count_errors, store_error_filename
@@ -24,6 +25,8 @@ module GwfVsfModule
 
   public :: GwfVsfType, vsf_cr
 
+  real(DP), parameter :: DSAT_MAX_DEFAULT = 0.2_DP !< default for NEWTON_DSAT_MAX
+
   type, extends(NumericalPackageType) :: GwfVsfType
     integer(I4B), pointer :: ioutsat => null() !< output unit for writing saturation to binary file (0 when inactive)
     integer(I4B), pointer :: ioutphead => null() !< output unit for writing pressure head to binary file (0 when inactive)
@@ -41,12 +44,14 @@ module GwfVsfModule
     type(GwfNpfType), pointer :: npf => null() !< NPF package, to publish saturation to NPF 'SAT'
     class(VsfFlowType), pointer :: vsf_flow => null() !< the NPF flow extension
     class(VsfStorageType), pointer :: vsf_sto => null() !< the STO storage extension
+    real(DP), pointer :: newton_dsat_max => null() !< max change of effective saturation per Newton iteration (0: off)
   contains
     procedure :: vsf_df
     procedure :: vsf_ar
     procedure :: vsf_cq
     procedure :: vsf_ot_dv
     procedure :: vsf_da
+    procedure :: vsf_nur
     procedure :: allocate_scalars
     ! private
     procedure, private :: source_options
@@ -183,6 +188,7 @@ contains
     call mem_allocate(this%soil_model_kr_id, "SOIL_MODEL_KR", this%memoryPath)
     call mem_allocate(this%storage_scheme, "STORAGE_SCHEME", this%memoryPath)
     call mem_allocate(this%kr_averaging, "KR_AVERAGING", this%memoryPath)
+    call mem_allocate(this%newton_dsat_max, "NEWTON_DSAT_MAX", this%memoryPath)
 
   end subroutine allocate_scalars
 
@@ -239,6 +245,22 @@ contains
     if (this%kr_averaging > 0) then
       write (this%iout, '(4x,2a)') 'Kr weighting set to ', &
         trim(kr_averaging_name(this%kr_averaging))
+    end if
+
+    this%newton_dsat_max = DSAT_MAX_DEFAULT
+    call mem_set_value(this%newton_dsat_max, 'NEWTON_DSAT_MAX', &
+                       this%input_mempath, found%newton_dsat_max)
+    if (this%inewton /= 0) then
+      if (this%newton_dsat_max < DZERO) then
+        call store_error('NEWTON_DSAT_MAX must not be negative.')
+      else if (this%newton_dsat_max > DZERO) then
+        write (this%iout, '(4x,a,1pg12.5)') &
+          'Newton saturation change per outer iteration limited to ', &
+          this%newton_dsat_max
+      else
+        write (this%iout, '(4x,a)') &
+          'Newton saturation change limit switched off'
+      end if
     end if
 
     ! set fileout for saturation
@@ -351,6 +373,57 @@ contains
 
   end subroutine vsf_ar
 
+  !> @brief Limit the Newton step per variably saturated cell
+  !!
+  !! Applied after the solver under-relaxation: when the head change of
+  !! this outer iteration changes the effective saturation of a cell by
+  !! more than newton_dsat_max, the change is scaled back proportionally.
+  !! Cells that stay saturated are not limited.
+  !<
+  subroutine vsf_nur(this, neqmod, x, xtemp, dx, inewtonur, dxmax, locmax)
+    class(GwfVsfType), intent(inout) :: this
+    integer(I4B), intent(in) :: neqmod
+    real(DP), dimension(neqmod), intent(inout) :: x
+    real(DP), dimension(neqmod), intent(in) :: xtemp
+    real(DP), dimension(neqmod), intent(inout) :: dx
+    integer(I4B), intent(inout) :: inewtonur
+    real(DP), intent(inout) :: dxmax !< the maximum change from nur, initially zero
+    integer(I4B), intent(inout) :: locmax
+    ! local
+    integer(I4B) :: n
+    real(DP) :: z, psi0, psi1, se0, se1, dse, step, steplim, sr
+
+    if (this%newton_dsat_max <= DZERO) return
+
+    do n = 1, this%dis%nodes
+      if (this%ivarsat(n) == 0) cycle
+      if (this%npf%ibound(n) < 1) cycle
+      step = x(n) - xtemp(n)
+      if (step == DZERO) cycle
+      z = DHALF * (this%dis%bot(n) + this%dis%top(n))
+      psi0 = xtemp(n) - z
+      psi1 = x(n) - z
+      ! fully saturated before and after: no limit
+      if (psi0 >= DZERO .and. psi1 >= DZERO) cycle
+      sr = this%sat_res(n)
+      if (sr >= DONE) cycle
+      se0 = (this%soil_model%saturation(psi0, n) - sr) / (DONE - sr)
+      se1 = (this%soil_model%saturation(psi1, n) - sr) / (DONE - sr)
+      dse = abs(se1 - se0)
+      if (dse > this%newton_dsat_max) then
+        steplim = step * this%newton_dsat_max / dse
+        inewtonur = 1
+        x(n) = xtemp(n) + steplim
+        dx(n) = steplim
+        if (abs(step - steplim) > abs(dxmax)) then
+          locmax = n
+          dxmax = step - steplim
+        end if
+      end if
+    end do
+
+  end subroutine vsf_nur
+
   !< @brief Calculate derived variables
   !>
   subroutine vsf_cq(this, hnew)
@@ -416,6 +489,7 @@ contains
     call mem_deallocate(this%soil_model_kr_id)
     call mem_deallocate(this%storage_scheme)
     call mem_deallocate(this%kr_averaging)
+    call mem_deallocate(this%newton_dsat_max)
 
     if (this%inunit > 0) then
       call destroy_soil_models()
