@@ -5,6 +5,20 @@
 !! equation. The contribution of elastic skelatal, inelastic and elastic
 !! interbed storage and water compressibility can be represented.
 !!
+!! This file holds the type, the interfaces, the create, allocate and read,
+!! read and prepare, advance, and fill routines, and the shared helpers. The
+!! other procedures are in submodules/gwf-csub-*.f90:
+!!
+!! - memory: allocation and deallocation
+!! - input: options, dimensions, griddata, and packagedata
+!! - stress: initial states and coarse-grained stresses
+!! - coarse: coarse-grained storage
+!! - nodelay: no-delay interbed storage
+!! - delay: delay interbeds
+!! - budget: convergence check, flows, and budget
+!! - output: final processing and dependent variable output
+!! - obs: observations
+!!
 !<
 module GwfCsubModule
   use KindModule, only: I4B, DP, LGP
