@@ -1,8 +1,6 @@
-Input to the River (RIV) Package is read from the file that has type ``RIV6'' in the Name File.  Any number of RIV Packages can be specified for a single groundwater flow model.
+Input to the River (RIVG) Package is read from the file that has type ``RIV6'' in the Name File.  Any number of RIV6 packages can be specified for a single groundwater flow model.  The package type in the GWF Model name file PACKAGES block is always ``RIV6'' regardless of whether list-based or grid array-based input is used; the READARRAYGRID option within the package input file activates grid array-based input.
 
-River input can be specified using lists or grid arrays.  Grid array-based input for the RIV package is activated by providing READARRAYGRID within the OPTIONS block.  Instructions for specifying list-based river input are provided in the previous section.
-
-When grid array-based input is used for the river package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined river (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based RIV package, especially when the input grid arrays are sparse and the model grid is large.
+When grid array-based input is used for the river package, the DIMENSIONS block is optional.  The input array size is determined from the model grid.  Cells that define no data should contain the DNODATA (3.0E+30) value.  When defined, the MAXBOUND dimension represents the maximum number of defined river (non-DNODATA) cells found in any stress period.  Defining MAXBOUND can reduce the memory footprint of the grid array-based RIVG Package, especially when the input grid arrays are sparse and the model grid is large.  Grid array-based input for rivers can be used with the DIS and DISV Packages.
 
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
