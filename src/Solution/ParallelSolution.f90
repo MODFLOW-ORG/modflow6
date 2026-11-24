@@ -29,10 +29,36 @@ module ParallelSolutionModule
     procedure :: sln_backtracking_xupdate => par_backtracking_xupdate
     procedure :: sln_maxval => par_maxval
     procedure :: sln_get_idvscale => par_get_idvscale
+    procedure :: sln_merge_isolated => par_merge_isolated
+    procedure :: sln_has_gwf => par_has_gwf
 
   end type ParallelSolutionType
 
 contains
+
+  !> @brief Return true if any process has a GWF model in the solution
+  !!
+  !! A process can hold none of the solution's models, so the result is
+  !! reduced over all processes to keep the collective calls that follow
+  !! the same on each.
+  !<
+  function par_has_gwf(this) result(has_gwf)
+    class(ParallelSolutionType) :: this !< parallel solution
+    logical(LGP) :: has_gwf !< True, when any process has a GWF model
+    ! local
+    logical :: has_gwf_local, has_gwf_global
+    integer :: ierr
+    type(MpiWorldType), pointer :: mpi_world
+
+    mpi_world => get_mpi_world()
+
+    has_gwf_local = this%NumericalSolutionType%sln_has_gwf()
+    call MPI_Allreduce(has_gwf_local, has_gwf_global, 1, MPI_LOGICAL, &
+                       MPI_LOR, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+    has_gwf = has_gwf_global
+
+  end function par_has_gwf
 
   !> @brief Check global convergence. The local maximum dependent
   !! variable change is reduced over MPI with all other processes
@@ -303,5 +329,105 @@ contains
     end if
 
   end subroutine par_maxval
+
+  !> @brief Merge groups of cells that cross processes
+  !!
+  !! Every process gathers the boundary rows, groups, and links of all
+  !! processes and merges them the same way, so no result is sent back.
+  !<
+  subroutine par_merge_isolated(this, nrow, roff, group_determined, nbrow, &
+                                brow, bgid, nlink, lgid, lrow)
+    ! -- modules
+    use IsolatedCellsModule, only: merge_groups
+    ! -- dummy
+    class(ParallelSolutionType) :: this !< parallel solution
+    integer(I4B), intent(in) :: nrow !< number of local rows
+    integer(I4B), intent(in) :: roff !< global number of the row before the first
+    integer(I4B), dimension(nrow), intent(inout) :: &
+      group_determined !< group has a controlled row (1)
+    integer(I4B), intent(in) :: nbrow !< number of boundary rows
+    integer(I4B), dimension(nbrow), intent(in) :: brow !< global boundary rows
+    integer(I4B), dimension(nbrow), intent(in) :: bgid !< their groups
+    integer(I4B), intent(in) :: nlink !< number of links to other processes
+    integer(I4B), dimension(nlink), intent(in) :: lgid !< local group
+    integer(I4B), dimension(nlink), intent(in) :: lrow !< remote row
+    ! -- local
+    integer(I4B), dimension(:), allocatable :: mark, gid, determined
+    integer(I4B), dimension(:), allocatable :: brow_all, bgid_all
+    integer(I4B), dimension(:), allocatable :: gid_all, determined_all
+    integer(I4B), dimension(:), allocatable :: lgid_all, lrow_all
+    integer(I4B) :: i, n, ng, nb_all, ng_all, nl_all, ioff, idum
+    !
+    ! -- the local groups that have boundary rows, once each
+    allocate (mark(nrow))
+    do n = 1, nrow
+      mark(n) = 0
+    end do
+    ng = 0
+    do i = 1, nbrow
+      n = bgid(i) - roff
+      if (mark(n) == 0) then
+        ng = ng + 1
+        mark(n) = ng
+      end if
+    end do
+    allocate (gid(ng), determined(ng))
+    do i = 1, nbrow
+      n = bgid(i) - roff
+      gid(mark(n)) = bgid(i)
+      determined(mark(n)) = group_determined(n)
+    end do
+    !
+    ! -- gather from every process and merge
+    call allgather_int(nbrow, brow, nb_all, brow_all, idum)
+    call allgather_int(nbrow, bgid, nb_all, bgid_all, idum)
+    call allgather_int(ng, gid, ng_all, gid_all, ioff)
+    call allgather_int(ng, determined, ng_all, determined_all, idum)
+    call allgather_int(nlink, lgid, nl_all, lgid_all, idum)
+    call allgather_int(nlink, lrow, nl_all, lrow_all, idum)
+    call merge_groups(nb_all, brow_all, bgid_all, ng_all, gid_all, &
+                      determined_all, nl_all, lgid_all, lrow_all)
+    !
+    ! -- update the local groups from their place in the gathered list
+    do i = 1, ng
+      group_determined(gid(i) - roff) = determined_all(ioff + i)
+    end do
+    !
+    deallocate (mark, gid, determined, brow_all, bgid_all, gid_all, &
+                determined_all, lgid_all, lrow_all)
+  end subroutine par_merge_isolated
+
+  !> @brief Gather integer arrays of any length from every process
+  !<
+  subroutine allgather_int(n, vals, nall, vals_all, ioff)
+    integer(I4B), intent(in) :: n !< number of local values
+    integer(I4B), dimension(n), intent(in) :: vals !< local values
+    integer(I4B), intent(out) :: nall !< number of values from all processes
+    integer(I4B), dimension(:), allocatable, intent(out) :: vals_all !< all values
+    integer(I4B), intent(out) :: ioff !< position before this process's values
+    ! -- local
+    type(MpiWorldType), pointer :: mpi_world
+    integer(I4B), dimension(:), allocatable :: cnt, dsp
+    integer(I4B) :: ip, nproc
+    integer :: ierr
+
+    mpi_world => get_mpi_world()
+    nproc = mpi_world%world_size
+    allocate (cnt(nproc), dsp(nproc))
+    call MPI_Allgather(n, 1, MPI_INTEGER, cnt, 1, MPI_INTEGER, &
+                       mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+    dsp(1) = 0
+    do ip = 2, nproc
+      dsp(ip) = dsp(ip - 1) + cnt(ip - 1)
+    end do
+    nall = dsp(nproc) + cnt(nproc)
+    ioff = dsp(mpi_world%mpi_rank + 1)
+    allocate (vals_all(max(1, nall)))
+    call MPI_Allgatherv(vals, n, MPI_INTEGER, vals_all, cnt, dsp, &
+                        MPI_INTEGER, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+    deallocate (cnt, dsp)
+  end subroutine allgather_int
 
 end module ParallelSolutionModule

@@ -578,6 +578,7 @@
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>
 					</FileConfiguration>
 				</File>
+				<File RelativePath="..\src\Solution\IsolatedCells.f90"/>
 				<File RelativePath="..\src\Solution\NumericalSolution.f90"/>
 				<File RelativePath="..\src\Solution\ParallelSolution.f90">
 					<FileConfiguration Name="Debug|Win32" ExcludedFromBuild="true">
@@ -906,6 +907,7 @@
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>
 					</FileConfiguration>
 				</File>
+				<File RelativePath="..\src\Utilities\DisjointSet.f90"/>
 				<File RelativePath="..\src\Utilities\ErrorUtil.f90"/>
 				<File RelativePath="..\src\Utilities\FeatureFlags.f90"/>
 				<File RelativePath="..\src\Utilities\GeomUtil.f90"/>

@@ -6,12 +6,14 @@ program tester
   use TestBinaryFileReader, only: collect_binaryfilereader
   use TestBmi, only: collect_bmi
   use TestBudget, only: collect_budget
+  use TestDisjointSet, only: collect_disjointset
   use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
   use TestGridFileReader, only: collect_gridfilereader
   use TestHashTable, only: collect_hashtable
   use TestImsLinear, only: collect_imslinear
   use TestInputOutput, only: collect_inputoutput
+  use TestIsolatedCells, only: collect_isolatedcells
   use TestKeyValueList, only: collect_keyvaluelist
   use TestList, only: collect_list
   use TestListIterator, only: collect_listiterator
@@ -26,6 +28,7 @@ program tester
   use TestPtrHashTable, only: collect_ptrhashtable
   use TestSim, only: collect_sim
   use TestSmoothing, only: collect_smoothing
+  use TestSort, only: collect_sort
   use TestSVD, only: collect_svd
   use TestSwfUtils, only: collect_swfutils
   use TestTimeSelect, only: collect_timeselect
@@ -46,12 +49,14 @@ program tester
                new_testsuite("BinaryFileReader", collect_binaryfilereader), &
                new_testsuite("Bmi", collect_bmi), &
                new_testsuite("Budget", collect_budget), &
+               new_testsuite("DisjointSet", collect_disjointset), &
                new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("GridFileReader", collect_gridfilereader), &
                new_testsuite("HashTable", collect_hashtable), &
                new_testsuite("ImsLinear", collect_imslinear), &
                new_testsuite("InputOutput", collect_inputoutput), &
+               new_testsuite("IsolatedCells", collect_isolatedcells), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &
                new_testsuite("List", collect_list), &
                new_testsuite("ListIterator", collect_listiterator), &
@@ -67,6 +72,7 @@ program tester
                new_testsuite("PtrHashTable", collect_ptrhashtable), &
                new_testsuite("Sim", collect_sim), &
                new_testsuite("Smoothing", collect_smoothing), &
+               new_testsuite("Sort", collect_sort), &
                new_testsuite("SVD", collect_svd), &
                new_testsuite("SwfUtils", collect_swfutils), &
                new_testsuite("TimeSelect", collect_timeselect), &
