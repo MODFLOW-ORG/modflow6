@@ -120,7 +120,6 @@ module BaseDisModule
     procedure, public :: get_area
     procedure, public :: get_area_factor
     procedure, public :: get_flow_width
-    procedure, public :: get_flow_area
     procedure, public :: is_3d
     procedure, public :: is_2d
     procedure, public :: is_1d
@@ -1235,54 +1234,6 @@ contains
     width_m = width_n
 
   end subroutine get_flow_width
-
-  !> @brief Calculate the saturated flow area between two cells
-  !!
-  !! Vertical connections use the connection area for both cells.
-  !! Horizontal connections use the connection width times each
-  !! cell's saturated thickness, limited to the overlap with the
-  !! other cell for vertically staggered connections.
-  !<
-  subroutine get_flow_area(this, n, m, idx_conn, satn, satm, area_n, area_m)
-    ! modules
-    use GwfConductanceUtilsModule, only: staggered_thkfrac
-    ! dummy
-    class(DisBaseType) :: this
-    integer(I4B), intent(in) :: n !< cell node number
-    integer(I4B), intent(in) :: m !< cell node number
-    integer(I4B), intent(in) :: idx_conn !< connection index
-    real(DP), intent(in) :: satn !< saturation of cell n
-    real(DP), intent(in) :: satm !< saturation of cell m
-    real(DP), intent(out) :: area_n !< flow area for cell n
-    real(DP), intent(out) :: area_m !< flow area for cell m
-    ! local
-    integer(I4B) :: isympos
-    integer(I4B) :: ihc
-    real(DP) :: hwva
-    real(DP) :: thksatn
-    real(DP) :: thksatm
-
-    isympos = this%con%jas(idx_conn)
-    ihc = this%con%ihc(isympos)
-    hwva = this%con%hwva(isympos)
-    if (ihc == 0) then
-      area_n = hwva
-      area_m = hwva
-    else
-      if (ihc == 2) then
-        thksatn = staggered_thkfrac(this%top(n), this%bot(n), satn, &
-                                    this%top(m), this%bot(m))
-        thksatm = staggered_thkfrac(this%top(m), this%bot(m), satm, &
-                                    this%top(n), this%bot(n))
-      else
-        thksatn = (this%top(n) - this%bot(n)) * satn
-        thksatm = (this%top(m) - this%bot(m)) * satm
-      end if
-      area_n = thksatn * hwva
-      area_m = thksatm * hwva
-    end if
-
-  end subroutine get_flow_area
 
   !> @brief return true if grid is three dimensional
   function is_3d(this) result(r)

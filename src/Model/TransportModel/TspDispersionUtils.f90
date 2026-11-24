@@ -23,6 +23,7 @@ contains
                            angle1, angle2, angle3, dispcoef)
     ! modules
     use HGeoUtilModule, only: hyeff
+    use GwfConductanceUtilsModule, only: flow_area
     ! dummy
     class(DisBaseType) :: dis !< discretization
     integer(I4B), dimension(:), intent(in) :: ibdsat !< nonzero if cell has saturation
@@ -42,7 +43,7 @@ contains
     integer(I4B) :: iavgmeth
     real(DP) :: satn, satm
     real(DP) :: cond, cn, cm, denom
-    real(DP) :: anm, amn
+    real(DP) :: hwva, anm, amn
 
     ! use arithmetic averaging for effective dispersion
     iavgmeth = 1
@@ -72,7 +73,11 @@ contains
                    angle1(m), angle2(m), angle3(m), &
                    vg1, vg2, vg3, iavgmeth)
 
-        call dis%get_flow_area(n, m, ipos, satn, satm, anm, amn)
+        hwva = dis%con%hwva(isympos)
+        anm = flow_area(ihc, hwva, dis%top(n), dis%bot(n), satn, &
+                        dis%top(m), dis%bot(m))
+        amn = flow_area(ihc, hwva, dis%top(m), dis%bot(m), satm, &
+                        dis%top(n), dis%bot(n))
         if (ihc == 0) then
           clnm = satn * (dis%top(n) - dis%bot(n)) * DHALF
           clmn = satm * (dis%top(m) - dis%bot(m)) * DHALF
