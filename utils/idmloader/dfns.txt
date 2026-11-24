@@ -80,6 +80,7 @@ chf-pcp.dfn
 chf-evp.dfn
 chf-sto.dfn
 chf-zdg.dfn
+chf-jnc.dfn
 olf-nam.dfn
 olf-dis2d.dfn
 olf-disv2d.dfn
