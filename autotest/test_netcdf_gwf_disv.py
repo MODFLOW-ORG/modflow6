@@ -1,22 +1,19 @@
 """
-NetCDF export test version of test_gwf_disv.  This test compares
-the heads and input arrays in the the NetCDF file to those
-in the FloPy binary output head file and package data objects.
+NetCDF input tests for test_gwf_disv: the simulation re-run with its package
+arrays read from NetCDF, as exported by MODFLOW 6 and as written by flopy4.
 """
 
-import os
+from pathlib import Path
 
 import flopy
-import numpy as np
 import pytest
+from compare import Comparison
 from framework import TestFramework
-from test_gwf_disv import cases
+from netcdf_output import add_netcdf_output, check_model_netcdf_output
+from test_gwf_disv import build_models, cases, check_output
 
-xa = pytest.importorskip("xarray")
-xu = pytest.importorskip("xugrid")
 nc = pytest.importorskip("netCDF4")
 
-# EPSG:26918 NAD83 / UTM zone 18N — WKT1 (OGC 01-009) for the wkt attribute
 wkt1 = (
     'PROJCS["NAD83 / UTM zone 18N",'
     'GEOGCS["NAD83",'
@@ -38,7 +35,6 @@ wkt1 = (
     'AUTHORITY["EPSG","26918"]]'
 )
 
-# EPSG:26918 NAD83 / UTM zone 18N — WKT2 (ISO 19162:2019) for the crs_wkt attribute
 wkt2 = (
     'PROJCRS["NAD83 / UTM zone 18N",'
     'BASEGEOGCRS["NAD83",'
@@ -63,259 +59,142 @@ wkt2 = (
 )
 
 
-def build_models(idx, test, gridded_input, wkt_mode):
-    from test_gwf_disv import build_models as build
-
-    sim, dummy = build(idx, test)
-    sim.tdis.start_date_time = "2041-01-01T00:00:00-05:00"
-    gwf = sim.gwf[0]
-    gwf.disv.export_array_netcdf = True
-    gwf.ic.export_array_netcdf = True
-    gwf.npf.export_array_netcdf = True
-
-    name = cases[idx]
-
-    gwf.name_file.nc_mesh2d_filerecord = (
-        f"{name}.ugrid.nc" if gridded_input == "netcdf" else f"{name}.nc"
+def build_input_models(idx, test, compare):
+    """The base simulation, saving head and budget; for MF6's own export,
+    with its arrays exported compressed and chunked."""
+    sims = build_models(idx, test)
+    model = sims[0].gwf[0]
+    # the base model saves no output for the re-run to be compared on
+    flopy.mf6.ModflowGwfoc(
+        model,
+        head_filerecord=f"{model.name}.hds",
+        budget_filerecord=f"{model.name}.cbc",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
     )
-
-    if wkt_mode == "both":
-        # distinct WKT1 and WKT2 — exercises the non-fallback crs_wkt path
-        gwf.disv.crs = wkt1
-        ncf = flopy.mf6.ModflowUtlncf(
-            gwf.disv,
-            deflate=9,
-            shuffle=True,
-            chunk_time=1,
-            chunk_face=3,
-            wkt=wkt1,
-            crs_wkt=wkt2,
-            filename=f"{name}.disv.ncf",
-        )
-    else:
-        # wkt2_only — exercises grid_mapping_name derivation from WKT2 METHOD[ syntax
-        ncf = flopy.mf6.ModflowUtlncf(
-            gwf.disv,
+    if compare == Comparison.MF6_EXPORT_LAYERED:
+        flopy.mf6.ModflowUtlncf(
+            model.disv,
             deflate=9,
             shuffle=True,
             chunk_time=1,
             chunk_face=3,
             crs_wkt=wkt2,
-            filename=f"{name}.disv.ncf",
+            filename=f"{model.name}.disv.ncf",
         )
-
-    # output control
-    oc = flopy.mf6.ModflowGwfoc(
-        gwf,
-        head_filerecord=f"{name}.hds",
-        saverecord=[
-            ("HEAD", "ALL"),
-        ],
-    )
-
-    return sim, dummy
+    return sims
 
 
-def check_output(idx, test, gridded_input, wkt_mode):
-    from test_gwf_disv import check_output as check
-
-    name = test.name
-
-    # verify crs data string in grb version 2 file (only set in "both" mode)
-    if wkt_mode == "both":
-        fname = os.path.join(test.workspace, "disv.grb")
-        grbobj = flopy.mf6.utils.MfGrdFile(fname)
-        assert grbobj.version == 2
-        assert grbobj.crs == wkt1
-
-    if gridded_input == "netcdf":
-        # re-run the simulation with model netcdf input
-        with open(test.workspace / f"{name}.nam", "w") as f:
-            f.write("BEGIN options\n")
-            f.write(f"  NETCDF_MESH2D  FILEOUT  {name}.nc\n")
-            f.write(f"  NETCDF  FILEIN {name}.ugrid.nc\n")
-            f.write("END options\n\n")
-            f.write("BEGIN packages\n")
-            f.write(f"  DISV6  {name}.disv  disv\n")
-            f.write(f"  IC6  {name}.ic  ic\n")
-            f.write(f"  NPF6  {name}.npf  npf\n")
-            f.write(f"  CHD6  {name}.chd  chd_0\n")
-            f.write(f"  OC6  {name}.oc  oc\n")
-            f.write("END packages\n")
-
-        with open(test.workspace / f"{name}.disv", "w") as f:
-            f.write("BEGIN options\n")
-            f.write(f"  NCF6  FILEIN  {name}.disv.ncf\n")
-            f.write("END options\n\n")
-            f.write("BEGIN dimensions\n")
-            f.write("  NLAY  3\n")
-            f.write("  NCPL  9\n")
-            f.write("  NVERT  16\n")
-            f.write("END dimensions\n\n")
-            f.write("BEGIN griddata\n")
-            f.write("  top NETCDF\n")
-            f.write("  botm NETCDF\n")
-            if name == "disv01b":
-                f.write("  idomain NETCDF\n")
-            f.write("END griddata\n\n")
-            f.write("BEGIN vertices\n")
-            f.write("  1  1.00000000E+08  1.00000030E+08\n")
-            f.write("  2  1.00000010E+08  1.00000030E+08\n")
-            f.write("  3  1.00000020E+08  1.00000030E+08\n")
-            f.write("  4  1.00000030E+08  1.00000030E+08\n")
-            f.write("  5  1.00000000E+08  1.00000020E+08\n")
-            f.write("  6  1.00000010E+08  1.00000020E+08\n")
-            f.write("  7  1.00000020E+08  1.00000020E+08\n")
-            f.write("  8  1.00000030E+08  1.00000020E+08\n")
-            f.write("  9  1.00000000E+08  1.00000010E+08\n")
-            f.write("  10  1.00000010E+08  1.00000010E+08\n")
-            f.write("  11  1.00000020E+08  1.00000010E+08\n")
-            f.write("  12  1.00000030E+08  1.00000010E+08\n")
-            f.write("  13  1.00000000E+08  1.00000000E+08\n")
-            f.write("  14  1.00000010E+08  1.00000000E+08\n")
-            f.write("  15  1.00000020E+08  1.00000000E+08\n")
-            f.write("  16  1.00000030E+08  1.00000000E+08\n")
-            f.write("END vertices\n\n")
-            f.write("BEGIN cell2d\n")
-            f.write("  1  1.00000005E+08  1.00000025E+08  4  1  2  6  5\n")
-            f.write("  2  1.00000015E+08  1.00000025E+08  4  2  3  7  6\n")
-            f.write("  3  1.00000025E+08  1.00000025E+08  4  3  4  8  7\n")
-            f.write("  4  1.00000005E+08  1.00000015E+08  4  5  6  10  9\n")
-            f.write("  5  1.00000015E+08  1.00000015E+08  4  6  7  11  10\n")
-            f.write("  6  1.00000025E+08  1.00000015E+08  4  7  8  12  11\n")
-            f.write("  7  1.00000005E+08  1.00000005E+08  4  9  10  14  13\n")
-            f.write("  8  1.00000015E+08  1.00000005E+08  4  10  11  15  14\n")
-            f.write("  9  1.00000025E+08  1.00000005E+08  4  11  12  16  15\n")
-            f.write("END cell2d\n\n")
-
-        with open(test.workspace / f"{name}.ic", "w") as f:
-            f.write("BEGIN options\n")
-            f.write("END options\n\n")
-            f.write("BEGIN griddata\n")
-            f.write("  strt NETCDF\n")
-            f.write("END griddata\n")
-
-        with open(test.workspace / f"{name}.npf", "w") as f:
-            f.write("BEGIN options\n")
-            f.write("END options\n\n")
-            f.write("BEGIN griddata\n")
-            f.write("  icelltype  NETCDF\n")
-            f.write("  k  NETCDF\n")
-            f.write("END griddata\n")
-
-        success, buff = flopy.run_model(
-            test.targets["mf6"],
-            test.workspace / "mfsim.nam",
-            model_ws=test.workspace,
-            report=True,
-        )
-
-        assert success
-        test.success = success
-
-    check(idx, test)
-
-    # verify format of generated netcdf file
-    with nc.Dataset(test.workspace / f"{name}.nc") as ds:
-        assert ds.data_model == "NETCDF4"
-        cmpr = ds.variables["head_l1"].filters()
-        chnk = ds.variables["head_l1"].chunking()
-        assert cmpr["shuffle"]
-        assert cmpr["complevel"] == 9
-        assert chnk == [1, 3]
+def check_compressed_input(idx, test, complevel):
+    """The base checks, on a re-run reading compressed input, and the
+    re-run's NetCDF output file written with the same NCF options."""
+    check_output(idx, test)
+    for path in test.workspace.glob("*.export.nc"):
+        with nc.Dataset(path) as ds:
+            inputs = [
+                v for v in ds.variables.values() if "modflow_input" in v.ncattrs()
+            ]
+            assert inputs and all(v.filters()["complevel"] == complevel for v in inputs)
+    model = test.sims[0].gwf[0]
+    with nc.Dataset(test.workspace / f"{model.name}.nc") as ds:
+        head = ds.variables["head_l1"]
+        assert head.filters()["shuffle"]
+        assert head.filters()["complevel"] == complevel
+        assert head.chunking() == [1, 3]
         proj = ds.variables["projection"]
-        if wkt_mode == "both":
-            assert proj.getncattr("wkt") == wkt1
-            assert proj.getncattr("crs_wkt") == wkt2
-            assert wkt1 != wkt2
-        else:
-            assert "wkt" not in proj.ncattrs()
-            assert proj.getncattr("crs_wkt") == wkt2
+        assert proj.getncattr("crs_wkt") == wkt2
         assert proj.getncattr("grid_mapping_name") == "transverse_mercator"
-        layer = ds.variables["layer"]
-        assert layer.getncattr("units") == "1"
-        assert layer.getncattr("axis") == "Z"
-        assert layer.getncattr("positive") == "down"
-        assert layer.getncattr("long_name") == "model layer"
-        assert "standard_name" not in ds.variables["head_l1"].ncattrs()
-        modflow_model = ds.getncattr("modflow_model")
-        assert modflow_model == modflow_model.lower()
-        assert "6:" not in modflow_model
-
-    # Check NetCDF output
-    nc_fpth = os.path.join(test.workspace, name + ".nc")
-    ds = xu.open_dataset(nc_fpth)
-    xds = ds.ugrid.to_dataset()
-
-    hds_fpth = os.path.join(test.workspace, name + ".hds")
-    hds = flopy.utils.HeadFile(hds_fpth, precision="double")
-
-    # Compare NetCDF head arrays with binary headfile
-    gwf = test.sims[0].gwf[0]
-    disv = getattr(gwf, "disv")
-    tdis = getattr(test.sims[0], "tdis")
-    nper = getattr(tdis, "nper").data
-    nlay = getattr(disv, "nlay").data
-    pd = getattr(tdis, "perioddata").array
-    timestep = 0
-    for i in range(nper):
-        for j in range(pd[i][1]):
-            rec = hds.get_data(kstpkper=(j, i))
-            for l in range(nlay):
-                assert np.allclose(
-                    np.array(rec[l]).flatten(),
-                    xds[f"head_l{l + 1}"][timestep, :].fillna(1.00000000e30).data,
-                ), f"NetCDF-Headfile comparison failure in timestep {timestep + 1}"
-            timestep += 1
-
-    for v in xds.data_vars.keys():
-        assert not v.startswith("disv")
-        assert not v.startswith("ic")
-        assert not v.startswith("npf")
-
-    xds.close()
-
-    if gridded_input == "ascii":
-        return
-
-    # Check NetCDF input
-    nc_fpth = os.path.join(test.workspace, f"{name}.ugrid.nc")
-    ds = xu.open_dataset(nc_fpth)
-    xds = ds.ugrid.to_dataset()
-
-    # NetCDF variables, layered variables end with "_l"
-    vlist = ["disv_top", "disv_botm_l", "npf_icelltype_l", "npf_k_l", "ic_strt_l"]
-
-    # Compare NetCDF package input arrays with FloPy arrays
-    for i, var in enumerate(vlist):
-        tokens = var.split("_", 1)
-        package_name = tokens[0]
-        array_name = tokens[1].split("_")[0]
-        package = getattr(gwf, package_name)
-        b = getattr(package, array_name).array
-        if var.endswith("_l"):
-            for l in range(nlay):
-                assert np.allclose(
-                    np.array(b[l]).flatten(), xds[f"{var}{l + 1}"].data
-                ), f"NetCDF input array comparison failure, variable={var}{l + 1}"
-        else:
-            assert np.allclose(np.array(b).flatten(), xds[var].data), (
-                f"NetCDF input array comparison failure, variable={var}"
-            )
 
 
 @pytest.mark.netcdf
 @pytest.mark.parametrize("idx, name", enumerate(cases))
-@pytest.mark.parametrize("gridded_input", ["ascii", "netcdf"])
-@pytest.mark.parametrize("wkt_mode", ["both", "wkt2_only"])
-def test_mf6model(idx, name, function_tmpdir, targets, gridded_input, wkt_mode):
+@pytest.mark.parametrize(
+    "compare",
+    [
+        Comparison.MF6_EXPORT_LAYERED,
+        Comparison.FP4_LAYERED,
+    ],
+)
+def test_netcdf_input(idx, name, compare, function_tmpdir, targets):
     test = TestFramework(
         name=name,
         workspace=function_tmpdir,
         targets=targets,
-        build=lambda t: build_models(idx, t, gridded_input, wkt_mode),
-        check=lambda t: check_output(idx, t, gridded_input, wkt_mode),
-        cargs=["--mode=validate"] if gridded_input == "netcdf" else None,
+        build=lambda t: build_input_models(idx, t, compare),
+        check=lambda t: check_output(idx, t),
+        check_rerun=(
+            (lambda t: check_compressed_input(idx, t, 9))
+            if compare.value.startswith("mf6_export")
+            else None
+        ),
+        compare=compare,
+    )
+    test.run()
+
+
+def build_output_models(idx, test, export, wkt_mode):
+    """The base simulation, writing its NetCDF output file."""
+    sims = build_models(idx, test)
+    sims[0].tdis.start_date_time = "2041-01-01T00:00:00-05:00"
+    model = sims[0].gwf[0]
+    add_netcdf_output(model, export)
+    # the base model saves no head
+    flopy.mf6.ModflowGwfoc(
+        model, head_filerecord=f"{model.name}.hds", saverecord=[("HEAD", "ALL")]
+    )
+    if wkt_mode == "both":
+        # distinct WKT1 and WKT2, so crs_wkt doesn't fall back to wkt
+        model.disv.crs = wkt1
+        crs = {"wkt": wkt1, "crs_wkt": wkt2}
+    else:
+        # grid_mapping_name derived from the WKT2 METHOD
+        crs = {"crs_wkt": wkt2}
+    flopy.mf6.ModflowUtlncf(
+        model.disv,
+        deflate=9,
+        shuffle=True,
+        chunk_time=1,
+        chunk_face=3,
+        filename=f"{model.name}.disv.ncf",
+        **crs,
+    )
+    return sims
+
+
+def check_output_file(idx, test, export, wkt_mode):
+    """The base checks, and the NetCDF output file."""
+    check_output(idx, test)
+    sims = test.sims
+    model = sims[0].gwf[0]
+    check_model_netcdf_output(model)
+    if wkt_mode == "both":
+        grb = flopy.mf6.utils.MfGrdFile(Path(model.model_ws) / "disv.grb")
+        assert grb.version == 2
+        assert grb.crs == wkt1
+    with nc.Dataset(Path(model.model_ws) / f"{model.name}.nc") as ds:
+        head = ds.variables["head_l1"]
+        assert head.filters()["shuffle"]
+        assert head.filters()["complevel"] == 9
+        assert head.chunking() == [1, 3]
+        proj = ds.variables["projection"]
+        if wkt_mode == "both":
+            assert proj.getncattr("wkt") == wkt1
+        else:
+            assert "wkt" not in proj.ncattrs()
+        assert proj.getncattr("crs_wkt") == wkt2
+        assert proj.getncattr("grid_mapping_name") == "transverse_mercator"
+
+
+@pytest.mark.netcdf
+@pytest.mark.parametrize("idx, name", enumerate(cases))
+@pytest.mark.parametrize("export", ["ugrid"])
+@pytest.mark.parametrize("wkt_mode", ["both", "wkt2_only"])
+def test_netcdf_output(idx, name, export, wkt_mode, function_tmpdir, targets):
+    test = TestFramework(
+        name=name,
+        workspace=function_tmpdir,
+        targets=targets,
+        build=lambda t: build_output_models(idx, t, export, wkt_mode),
+        check=lambda t: check_output_file(idx, t, export, wkt_mode),
         compare=None,
     )
     test.run()

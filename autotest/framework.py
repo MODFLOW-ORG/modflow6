@@ -1,3 +1,4 @@
+import filecmp
 import os
 import shutil
 from collections.abc import Callable, Iterable
@@ -11,6 +12,7 @@ import flopy
 from compare import (
     Comparison,
     adjust_htol,
+    dependent_variable_text,
     detect_comparison,
     get_comparison_files,
     get_mf6_files,
@@ -21,6 +23,7 @@ from flopy.mbase import BaseModel
 from flopy.mf6 import MFSimulation
 from flopy.utils.compare import compare_cell_budget, compare_heads
 from modflow_devtools.misc import get_ostag, is_in_ci
+from rerun import RERUNS, copy_for_rerun
 
 DNODATA = 3.0e30
 EXTTEXT = {
@@ -198,6 +201,12 @@ class TestFramework:
     check : callable, optional
         User defined function to evaluate results of the simulation.
         Takes `self` as input. This is a good place for assertions.
+    check_rerun : callable, optional
+        Function to re-check results after a re-run comparison (flopy4
+        re-write or MF6 export), with `self.workspace` retargeted to the
+        comparison directory. Defaults to `check`. Only `self.workspace` is
+        retargeted: a check reading output through the flopy simulations
+        reads the original run's.
     plot: callable, optional
         User defined function to create plots of the results.
     compare: str or Comparison, optional
@@ -235,6 +244,7 @@ class TestFramework:
         api_func: Callable | None = None,
         build: Callable | None = None,
         check: Callable | None = None,
+        check_rerun: Callable | None = None,
         plot: Callable | None = None,
         compare: str | Comparison | None = "auto",
         parallel: bool = False,
@@ -257,11 +267,15 @@ class TestFramework:
         self.targets = targets
         self.build = build
         self.check = check
+        self.check_rerun = check_rerun
         self.plot = plot
         self.parallel = parallel
         self.ncpus = [ncpus] if isinstance(ncpus, int) else ncpus
         self.api_func = api_func
         self.compare = Comparison(compare) if compare else None
+        assert check_rerun is None or self.compare in RERUNS, (
+            "check_rerun needs a re-run comparison"
+        )
         self.outp = None
         self.htol = 0.001 if htol is None else htol
         self.rclose = 0.001 if rclose is None else rclose
@@ -275,8 +289,43 @@ class TestFramework:
 
     # private
 
+    def _compare_file(
+        self, fpth0, fpth1, outfile, htol, text, i, label=None, rerun=False
+    ) -> bool:
+        """Compare a dependent-variable output file with compare_heads. For a
+        re-run, a file flopy's head file reader can't read (e.g. an SFT or
+        IST output file) must instead be the same, byte for byte."""
+        label = label or text
+        try:
+            success = compare_heads(
+                None,
+                None,
+                precision="double",
+                htol=htol,
+                text=text,
+                outfile=outfile,
+                files1=fpth0,
+                files2=fpth1,
+                verbose=self.verbose,
+            )
+        except EOFError:
+            if not rerun:
+                raise
+            success = filecmp.cmp(fpth0, fpth1, shallow=False)
+        print(
+            f"{label} comparison {i + 1}" + f"{self.name} ({os.path.basename(fpth0)})"
+        )
+        return success
+
     def _compare_heads(
-        self, cpth=None, extensions="hds", mf6=False, htol=0.001
+        self,
+        cpth=None,
+        extensions="hds",
+        mf6=False,
+        htol=0.001,
+        cmp_dir="mf6_regression",
+        workspace=None,
+        rerun=False,
     ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
@@ -358,76 +407,164 @@ class TestFramework:
             return True
 
         # otherwise it's a regression comparison
-        files0, files1 = get_comparison_files(self.workspace, extensions)
+        ws = workspace or self.workspace
+        files0, files1 = get_comparison_files(ws, extensions, cmp_dir)
         extension = "hds"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
-            outfile = os.path.join(self.workspace, outfile + f".{extension}.cmp.out")
-            success = compare_heads(
-                None,
-                None,
-                precision="double",
-                htol=htol,
-                text=EXTTEXT[extension],
-                outfile=outfile,
-                files1=fpth0,
-                files2=fpth1,
-                verbose=self.verbose,
-            )
-            print(
-                f"{EXTTEXT[extension]} comparison {i + 1}"
-                + f"{self.name} ({os.path.basename(fpth0)})"
-            )
-            if not success:
+            outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
+            if not self._compare_file(
+                fpth0, fpth1, outfile, htol, EXTTEXT[extension], i, rerun=rerun
+            ):
                 return False
         return True
 
-    def _compare_concentrations(self, extensions="ucn", htol=0.001) -> bool:
+    def _compare_concentrations(
+        self,
+        extensions="ucn",
+        htol=0.001,
+        cmp_dir="mf6_regression",
+        workspace=None,
+        rerun=False,
+    ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
 
-        files0, files1 = get_comparison_files(self.workspace, extensions)
+        ws = workspace or self.workspace
+        files0, files1 = get_comparison_files(ws, extensions, cmp_dir)
         extension = "ucn"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             outfile = os.path.splitext(os.path.basename(fpth0))[0]
-            outfile = os.path.join(self.workspace, outfile + f".{extension}.cmp.out")
-            success = compare_heads(
-                None,
-                None,
-                precision="double",
-                htol=htol,
-                text=EXTTEXT[extension],
-                outfile=outfile,
-                files1=fpth0,
-                files2=fpth1,
-                verbose=self.verbose,
-            )
-            print(
-                (
-                    f"{EXTTEXT[extension]} comparison {i + 1}"
-                    + f"{self.name} ({os.path.basename(fpth0)})",
-                )
-            )
-            if not success:
+            outfile = os.path.join(ws, outfile + f".{extension}.cmp.out")
+            # a re-run's file may hold another dependent variable, e.g. GWE
+            # temperature
+            text = EXTTEXT[extension]
+            if rerun:
+                text = dependent_variable_text(fpth0, text)
+            if not self._compare_file(
+                fpth0,
+                fpth1,
+                outfile,
+                htol,
+                text,
+                i,
+                label=EXTTEXT[extension],
+                rerun=rerun,
+            ):
                 return False
         return True
 
-    def _compare_budgets(self, extensions="cbc", rclose=0.001) -> bool:
+    def _compare_budgets(
+        self,
+        extensions="cbc",
+        rclose=0.001,
+        cmp_dir="mf6_regression",
+        workspace=None,
+        rerun=False,
+    ) -> bool:
         if isinstance(extensions, str):
             extensions = [extensions]
-        files0, files1 = get_comparison_files(self.workspace, extensions)
+        ws = workspace or self.workspace
+        files0, files1 = get_comparison_files(ws, extensions, cmp_dir)
         extension = "cbc"
         for i, (fpth0, fpth1) in enumerate(zip(files0, files1)):
             print(
                 f"{EXTTEXT[extension]} comparison {i + 1}",
                 f"{self.name} ({os.path.basename(fpth0)})",
             )
+            # a budget file with nothing saved is written empty
+            if rerun and os.path.getsize(fpth0) == 0 and os.path.getsize(fpth1) == 0:
+                continue
             outname = os.path.splitext(os.path.basename(fpth0))[0]
-            outfile = os.path.join(self.workspace, f"{outname}.{extension}.cmp.out")
+            outfile = os.path.join(ws, f"{outname}.{extension}.cmp.out")
             success = compare_cell_budget(fpth0, fpth1, outfile=outfile, rclose=rclose)
             if not success:
                 return False
         return True
+
+    def _rerun_sims(self) -> list[tuple[Path, MFSimulation | None, int, bool]]:
+        """(workspace relative to the test's, flopy simulation, ncpus, xfail)
+        of each MF6 simulation a re-run comparison re-runs, in run order."""
+        sims = [
+            (s, n, x)
+            for s, n, x in zip(self.sims, self.ncpus, self.xfail)
+            if isinstance(s, MFSimulation)
+        ]
+        if not sims:
+            return [(Path("."), None, self.ncpus[0], self.xfail[0])]
+        return [
+            (Path(get_workspace(s)).absolute().relative_to(self.workspace), s, n, x)
+            for s, n, x in sims
+        ]
+
+    def _run_rerun(self):
+        """Copy the test's simulations into the comparison's workspace,
+        re-write each with the comparison's `RERUNS` steps, and run it."""
+        rerun = RERUNS[self.compare]
+        name = self.compare.value
+        sims = self._rerun_sims()
+        if rerun.validate:
+            assert all(sim for _, sim, _, _ in sims), (
+                f"{name} needs a flopy simulation per workspace"
+            )
+            assert not self.cargs and all(n == 1 and not x for *_, n, x in sims), (
+                f"{name} supports serial, passing tests without command line arguments"
+            )
+        workspace = self.workspace / name
+        copy_for_rerun(self.workspace, workspace, [d for d, *_ in sims])
+        for sim_dir, sim, _, _ in sims:
+            rerun.prepare(workspace / sim_dir, sim)
+        for sim_dir, sim, ncpus, xfail in sims:
+            sim_ws = workspace / sim_dir
+            if rerun.validate:
+                success, _, error = self._run(
+                    sim_ws, self.targets["mf6"], cargs=["--mode=validate"]
+                )
+                assert success, f"{name} validate run failed: {sim_ws}" + (
+                    f"\n{error}" if error else ""
+                )
+                rerun.validate(sim_ws, sim)
+            success, _, error = self._run(
+                sim_ws, self.targets["mf6"], xfail=xfail, ncpus=ncpus
+            )
+            assert success, (
+                f"{name} simulation "
+                f"{'should have failed' if xfail else 'failed'}: {sim_ws}"
+                + (f"\n{error}" if error else "")
+            )
+            if rerun.check and not xfail:
+                rerun.check(sim_ws)
+
+    def _compare_rerun(self, comparison: Comparison):
+        """Compare each simulation's output with its re-run's."""
+        for sim_dir, _, _, xfail in self._rerun_sims():
+            if xfail:
+                # an expected failure has no output; its re-run is only
+                # checked to fail too
+                continue
+            ws = self.workspace / sim_dir
+            cmp_dir = os.path.relpath(self.workspace / comparison.value / sim_dir, ws)
+            if not RERUNS[comparison].flopy4:
+                # input read from MF6's export must affect some compared output
+                files, _ = get_comparison_files(
+                    ws, [*HDS_EXT, *CBC_EXT, "ucn"], cmp_dir
+                )
+                assert files, f"no output to compare: {sim_dir}"
+            htol = adjust_htol(ws, self.htol)
+            rclose = get_rclose(ws)
+            assert self._compare_heads(
+                extensions=HDS_EXT, htol=htol, cmp_dir=cmp_dir, workspace=ws, rerun=True
+            ), f"head comparison failed: {sim_dir}"
+            assert self._compare_budgets(
+                extensions=CBC_EXT,
+                rclose=rclose,
+                cmp_dir=cmp_dir,
+                workspace=ws,
+                rerun=True,
+            ), f"budget comparison failed: {sim_dir}"
+            assert self._compare_concentrations(
+                htol=htol, cmp_dir=cmp_dir, workspace=ws, rerun=True
+            ), f"concentration comparison failed: {sim_dir}"
 
     def _compare(self, comparison: Comparison):
         """
@@ -455,6 +592,8 @@ class TestFramework:
             assert self._compare_concentrations(htol=htol), (
                 "concentration comparison failed"
             )
+        elif comparison in RERUNS:
+            self._compare_rerun(comparison)
         else:
             assert self._compare_heads(
                 cpth=cmp_path,
@@ -643,8 +782,15 @@ class TestFramework:
 
         # setup and run comparison model(s), if enabled
         if self.compare:
-            # get expected output files from main simulation
-            _, self.outp = get_mf6_files(self.workspace / "mfsim.nam", self.verbose)
+            # get expected output files from main simulation -- not every
+            # test has a single top-level simulation (e.g. a standalone
+            # flow model plus an independent transport model consuming its
+            # budget via FMI, each in its own sibling workspace), so only
+            # populate this when there's a namefile to read; self.outp is
+            # only consumed by _compare_heads()'s non-regression branch
+            namefile = self.workspace / "mfsim.nam"
+            if namefile.is_file():
+                _, self.outp = get_mf6_files(namefile, self.verbose)
 
             # try to autodetect comparison type if enabled
             if self.compare == Comparison.AUTO:
@@ -670,7 +816,9 @@ class TestFramework:
                     shutil.copytree(self.workspace, cmp_path)
 
                 # run comparison simulation
-                if self.compare.value not in self.targets:
+                if self.compare in RERUNS:
+                    self._run_rerun()
+                elif self.compare.value not in self.targets:
                     warn(
                         f"Couldn't find comparison program '{self.compare}', "
                         "skipping comparison"
@@ -694,10 +842,22 @@ class TestFramework:
                 self._compare(self.compare)
 
         # check results, if enabled
-        if self.check:
+        if self.check or self.check_rerun:
             if self.verbose:
                 print("Checking results")
-            self.check(self)
+            if self.check:
+                self.check(self)
+
+            # re-check a re-run comparison, against its own workspace,
+            # then restore self.workspace so later steps (e.g. self.plot)
+            # still see the original
+            if self.compare in RERUNS:
+                original_workspace = self.workspace
+                self.workspace = self.workspace / self.compare.value
+                try:
+                    (self.check_rerun or self.check)(self)
+                finally:
+                    self.workspace = original_workspace
 
         # plot results, if enabled
         if self.plot:

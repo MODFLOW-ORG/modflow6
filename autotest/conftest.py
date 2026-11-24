@@ -173,6 +173,13 @@ def pytest_addoption(parser):
         help="include netcdf test cases",
     )
     parser.addoption(
+        "--flopy4",
+        action="store_true",
+        default=False,
+        help="run the comparisons with a flopy4 re-write of the simulation "
+        "(flopy4 marker); requires flopy4",
+    )
+    parser.addoption(
         "--plot",
         action="store_true",
         default=False,
@@ -204,7 +211,29 @@ def pytest_addoption(parser):
     )
 
 
+def pytest_configure(config):
+    if config.getoption("--flopy4"):
+        try:
+            import flopy4  # noqa: F401
+        except ImportError as e:
+            raise pytest.UsageError(f"--flopy4 needs flopy4 installed: {e}")
+
+
 def pytest_collection_modifyitems(config, items):
+    # derive "flopy4" and "netcdf" from each case's `compare` parameter rather
+    # than a hand-written mark, so the two can't drift apart. a case that uses
+    # flopy4 without a `compare` parameter needs an explicit
+    # `@pytest.mark.flopy4`.
+    from rerun import FLOPY4_COMPARISONS, NETCDF_COMPARISONS
+
+    for item in items:
+        callspec = getattr(item, "callspec", None)
+        compare_val = callspec.params.get("compare") if callspec else None
+        if compare_val in FLOPY4_COMPARISONS:
+            item.add_marker(pytest.mark.flopy4)
+        if compare_val in NETCDF_COMPARISONS:
+            item.add_marker(pytest.mark.netcdf)
+
     if not config.getoption("--parallel"):
         skip_parallel = pytest.mark.skip(reason="need --parallel option to run")
         for item in items:
@@ -216,3 +245,9 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "netcdf" in item.keywords:
                 item.add_marker(skip_netcdf)
+
+    if not config.getoption("--flopy4"):
+        skip_fp4 = pytest.mark.skip(reason="need --flopy4 option to run")
+        for item in items:
+            if "flopy4" in item.keywords:
+                item.add_marker(skip_fp4)
