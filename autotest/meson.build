@@ -28,6 +28,7 @@ if test_drive.found()
     'ImsLinear',
     'InputOutput',
     'KeyValueList',
+    'LinearAlgebraUtils',
     'List',
     'ListIterator',
     'MathUtil',

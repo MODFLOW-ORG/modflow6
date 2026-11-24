@@ -13,6 +13,7 @@ program tester
   use TestImsLinear, only: collect_imslinear
   use TestInputOutput, only: collect_inputoutput
   use TestKeyValueList, only: collect_keyvaluelist
+  use TestLinearAlgebraUtils, only: collect_linearalgebrautils
   use TestList, only: collect_list
   use TestListIterator, only: collect_listiterator
   use TestMathUtil, only: collect_mathutil
@@ -53,6 +54,8 @@ program tester
                new_testsuite("ImsLinear", collect_imslinear), &
                new_testsuite("InputOutput", collect_inputoutput), &
                new_testsuite("KeyValueList", collect_keyvaluelist), &
+               new_testsuite("LinearAlgebraUtils", &
+                             collect_linearalgebrautils), &
                new_testsuite("List", collect_list), &
                new_testsuite("ListIterator", collect_listiterator), &
                new_testsuite("MathUtil", collect_mathutil), &

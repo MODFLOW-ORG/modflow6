@@ -1,6 +1,8 @@
 !> @brief CSUB package delay interbeds
 !<
 submodule(GwfCsubModule) GwfCsubModuleDelay
+  use LinearAlgebraUtilsModule, only: solve_tridiagonal
+
 contains
 
   !> @brief Check delay interbed head
@@ -96,9 +98,9 @@ contains
       call this%csub_delay_assemble(ib, hcell)
       !
       ! -- solve for head change in delay interbed cells
-      call ims_misc_thomas(this%ndelaycells, &
-                           this%dbal, this%dbad, this%dbau, &
-                           this%dbrhs, this%dbdh, this%dbaw)
+      call solve_tridiagonal(this%ndelaycells, &
+                             this%dbal, this%dbad, this%dbau, &
+                             this%dbrhs, this%dbdh, this%dbaw)
       !
       ! -- calculate maximum head change and update delay bed heads
       dhmax = DZERO

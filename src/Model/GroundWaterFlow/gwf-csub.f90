@@ -37,7 +37,6 @@ module GwfCsubModule
   use TableModule, only: TableType, table_cr
   use BudgetModule, only: BudgetType
   !
-  use IMSLinearMisc, only: ims_misc_thomas
   use MatrixBaseModule
   !
   implicit none
