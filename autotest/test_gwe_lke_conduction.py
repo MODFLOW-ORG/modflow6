@@ -610,6 +610,8 @@ def build_models(idx, test):
         f"{gwename}.lakobs": [
             ("resTemp", "temperature", 1),
             ("resGwEnerExchng", "lke", "lake1"),
+            ("lkbdcondtot", "lakebed-cond", "lake1"),
+            ("lkbdcondcn1", "lakebed-cond", 1),
         ]
     }
 
@@ -647,13 +649,14 @@ def check_output(idx, test):
 
     # read flow results from model
     name = cases[idx]
+    gwfname = "gwf-" + name
     gwename = "gwe-" + name
 
     # Retrieve simulated temperature for the lake
     fname = gwename + ".lakobs"
     lktemp_file = os.path.join(test.workspace, fname)
-    lktemp = np.genfromtxt(lktemp_file, names=True, delimiter=",")
-    lktemp = lktemp["RESTEMP"].astype(float).reshape((lktemp.size, 1))
+    lkeobs = np.genfromtxt(lktemp_file, names=True, delimiter=",")
+    lktemp = lkeobs["RESTEMP"].astype(float).reshape((lkeobs.size, 1))
 
     # Retrieve groundwater temperatures
     fname = gwename + ".ucn"
@@ -674,6 +677,52 @@ def check_output(idx, test):
     assert np.isclose(T_in, T_out, atol=0.1), (
         "There is a heat budget discrepancy where there shouldn't be"
     )
+
+    # Check the lakebed-cond observations against the LAKEBED-COND budget
+    # term.  The observation requested with the lake boundname sums the
+    # conductive exchange over all of the lakebed connections of that lake, so
+    # it is compared with the package budget rate in the listing file.  The
+    # observation requested with the lake number returns the conductive
+    # exchange of a single lakebed connection, so it is compared with a value
+    # calculated here from the wetted lakebed area written by the LAK Package,
+    # the thermal conductivity and thickness of the lakebed material, and the
+    # simulated lake and groundwater temperatures.
+    lkbd_tot = lkeobs["LKBDCONDTOT"].astype(float)
+    lkbd_cn1 = lkeobs["LKBDCONDCN1"].astype(float)
+
+    msg7 = (
+        "The lakebed-cond observation summed over all of the lakebed "
+        "connections of the lake does not match the LAKEBED-COND budget term"
+    )
+    assert lkbd_tot[0] != 0.0, msg7
+    if lkbd_tot[0] < 0.0:
+        # heat leaves the lake through its bed
+        assert np.isclose(-lkbd_tot[0], out_bud_lst["LAKEBED-COND"], rtol=1e-4), msg7
+        assert in_bud_lst["LAKEBED-COND"] == 0.0, msg7
+    else:
+        assert np.isclose(lkbd_tot[0], in_bud_lst["LAKEBED-COND"], rtol=1e-4), msg7
+        assert out_bud_lst["LAKEBED-COND"] == 0.0, msg7
+
+    fname = os.path.join(test.workspace, gwfname + ".lak.bud")
+    assert os.path.isfile(fname)
+    lakobj = flopy.utils.binaryfile.CellBudgetFile(fname, precision="double")
+    # the first record of the LAK "gwf" budget term is the first lakebed
+    # connection; its auxiliary variable is the wetted lakebed area
+    lak_gwf = lakobj.get_data(text="gwf")[0]
+    wa = float(lak_gwf[0][-1])
+    kk, ii, jj = np.unravel_index(int(lak_gwf[0][1]) - 1, (nlay, nrow, ncol))
+    qcalc = (
+        wa
+        * K_therm_lakebed
+        / lkbdthkcnd[idx]
+        * (gwe_temps[0, kk, ii, jj] - lktemp[0, 0])
+    )
+    msg8 = (
+        "The lakebed-cond observation for a single lakebed connection does "
+        "not match an externally calculated conductive exchange: "
+        f"calculated {qcalc}, observed {lkbd_cn1[0]}"
+    )
+    assert np.isclose(qcalc, lkbd_cn1[0], rtol=1e-6), msg8
 
     msg1 = "Budget item 'GWF' should be 0.0 for this scenario"
     msg2 = (
