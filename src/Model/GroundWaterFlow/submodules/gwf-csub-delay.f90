@@ -973,7 +973,7 @@ contains
     if (ABS(comp) > DZERO) then
       thick = this%dbdzini(n, idelay)
       theta = this%dbthetaini(n, idelay)
-      call this%csub_adj_matprop(comp, thick, theta)
+      call compact_layer(comp, thick, theta)
       if (thick <= DZERO) then
         write (errmsg, '(2(a,i0),a,g0,a)') &
           'Adjusted thickness for delay interbed (', ib, &

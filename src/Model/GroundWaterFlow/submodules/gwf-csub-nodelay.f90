@@ -20,7 +20,7 @@ contains
   if (ABS(comp) > DZERO) then
     thick = this%thickini(i)
     theta = this%thetaini(i)
-    call this%csub_adj_matprop(comp, thick, theta)
+    call compact_layer(comp, thick, theta)
     if (thick <= DZERO) then
       write (errmsg, '(a,1x,i0,1x,a,g0,a)') &
         'Adjusted thickness for no-delay interbed', i, &

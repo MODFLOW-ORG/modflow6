@@ -36,6 +36,8 @@ module GwfCsubModule
   !
   use TableModule, only: TableType, table_cr
   use BudgetModule, only: BudgetType
+  use CompactionUtilModule, only: porosity_to_void_ratio, compact_layer, &
+                                  adjust_eff_stress, storage_factor
   !
   use MatrixBaseModule
   !
@@ -232,14 +234,10 @@ module GwfCsubModule
     procedure, private :: csub_print_packagedata
     !
     ! -- helper methods
-    procedure, private :: csub_calc_void_ratio
-    procedure, private :: csub_calc_theta
     procedure, private :: csub_calc_znode
-    procedure, private :: csub_calc_adjes
     procedure, private :: csub_calc_sat
     procedure, private :: csub_calc_sat_derivative
     procedure, private :: csub_calc_sfacts
-    procedure, private :: csub_adj_matprop
     procedure, private :: csub_calc_interbed_thickness
     procedure, private :: csub_calc_delay_flow
     !
@@ -1400,39 +1398,6 @@ contains
     end if
   end subroutine csub_fn
 
-  !> @brief Calculate the void ratio
-  !!
-  !! Function to calculate the void ratio from the porosity.
-  !!
-  !! @return      void                void ratio
-  !<
-  function csub_calc_void_ratio(this, theta) result(void_ratio)
-    ! -- dummy variables
-    class(GwfCsubType), intent(inout) :: this
-    real(DP), intent(in) :: theta !< porosity
-    ! -- local variables
-    real(DP) :: void_ratio
-    ! -- calculate void ratio
-    void_ratio = theta / (DONE - theta)
-  end function csub_calc_void_ratio
-
-  !> @brief Calculate the porosity
-  !!
-  !! Function to calculate the porosity from the void ratio.
-  !!
-  !! @return      theta               porosity
-  !<
-  function csub_calc_theta(this, void_ratio) result(theta)
-    ! -- dummy variables
-    class(GwfCsubType), intent(inout) :: this
-    real(DP), intent(in) :: void_ratio
-    ! -- local variables
-    real(DP) :: theta
-    !
-    ! -- calculate theta
-    theta = void_ratio / (DONE + void_ratio)
-  end function csub_calc_theta
-
   !> @brief Calculate the interbed thickness
   !!
   !! Function to calculate the interbed thickness.
@@ -1483,28 +1448,6 @@ contains
     end if
     znode = DHALF * (v + bottom)
   end function csub_calc_znode
-
-  !> @brief Calculate the effective stress at elevation z
-  !!
-  !! Function to calculate the effective stress at specified elevation z
-  !! using the provided effective stress (es0) calculated at elevation
-  !! z0 (which is <= z)
-  !!
-  !! @return      es              node elevation
-  !<
-  function csub_calc_adjes(this, node, es0, z0, z) result(es)
-    ! -- dummy variables
-    class(GwfCsubType), intent(inout) :: this
-    integer(I4B), intent(in) :: node !< cell node number
-    real(DP), intent(in) :: es0 !< effective stress at elevation z0
-    real(DP), intent(in) :: z0 !< elevation effective stress is calculate at
-    real(DP), intent(in) :: z !< elevation to calculate effective stress at
-    ! -- local variables
-    real(DP) :: es
-    !
-    ! -- adjust effective stress to vertical node position
-    es = es0 - (z - z0) * (this%sgs(node) - DONE)
-  end function csub_calc_adjes
 
   !> @brief Calculate cell saturation
   !!
@@ -1583,10 +1526,8 @@ contains
     real(DP), intent(inout) :: fact !< skeletal storage coefficient factor (1/((1+void_ratio)*bar(es)))
     ! -- local variables
     real(DP) :: esv
-    real(DP) :: void_ratio
     real(DP) :: adjes
     real(DP) :: esfloor
-    real(DP) :: denom
     !
     ! -- initialize variables
     fact = DZERO
@@ -1597,7 +1538,7 @@ contains
     end if
     !
     ! -- effective stress adjusted to the vertical node position
-    adjes = this%csub_calc_adjes(node, esv, bot, znode)
+    adjes = adjust_eff_stress(esv, bot, znode, this%sgs(node))
     !
     ! -- smoothly floor the adjusted effective stress at stressfloor * geo so the
     !    storage factor (1/es) stays bounded and positive as es approaches zero;
@@ -1608,38 +1549,7 @@ contains
     end if
     !
     ! -- calculate storage factors for the effective stress case
-    void_ratio = this%csub_calc_void_ratio(theta)
-    denom = adjes * (DONE + void_ratio)
-    if (denom /= DZERO) then
-      fact = DONE / denom
-    end if
+    fact = storage_factor(adjes, theta)
   end subroutine csub_calc_sfacts
-
-  !> @brief Calculate new material properties
-  !!
-  !! Method to calculate the current thickness and porosity.
-  !<
-  subroutine csub_adj_matprop(this, comp, thick, theta)
-    ! -- dummy variables
-    class(GwfCsubType), intent(inout) :: this
-    real(DP), intent(in) :: comp !< compaction
-    real(DP), intent(inout) :: thick !< initial and current thickness
-    real(DP), intent(inout) :: theta !< initial and current porosity
-    ! -- local variables
-    real(DP) :: strain
-    real(DP) :: void_ratio
-    !
-    ! -- initialize variables
-    strain = DZERO
-    void_ratio = this%csub_calc_void_ratio(theta)
-    !
-    ! -- calculate strain
-    if (thick > DZERO) strain = -comp / thick
-    !
-    ! -- update void ratio, theta, and thickness
-    void_ratio = void_ratio + strain * (DONE + void_ratio)
-    theta = this%csub_calc_theta(void_ratio)
-    thick = thick - comp
-  end subroutine csub_adj_matprop
 
 end module GwfCsubModule

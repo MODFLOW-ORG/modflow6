@@ -222,7 +222,7 @@ contains
       do n = 1, this%ndelaycells
         zbot = this%dbz(n, idelay) - dzhalf
         ! -- adjust pcs to bottom of each delay bed cell
-        !    not using csub_calc_adjes() since smoothing not required
+        !    not using adjust_eff_stress() since smoothing not required
         dbpcs = pcs - (zbot - bot) * (this%sgs(node) - DONE)
         this%dbpcs(n, idelay) = dbpcs
         !
@@ -247,7 +247,7 @@ contains
         ! -- convert specific storage values since they are simulated to
         !    be a function of the average effective stress
       else
-        void_ratio = this%csub_calc_void_ratio(this%cg_theta(node))
+        void_ratio = porosity_to_void_ratio(this%cg_theta(node))
         es = this%cg_es(node)
         hcell = hnew(node)
         !
@@ -256,7 +256,7 @@ contains
         !
         ! -- calculate znode and factor
         znode = this%csub_calc_znode(top, bot, hbar)
-        fact = this%csub_calc_adjes(node, es, bot, znode)
+        fact = adjust_eff_stress(es, bot, znode, this%sgs(node))
         fact = fact * (DONE + void_ratio)
       end if
       !
@@ -293,7 +293,7 @@ contains
         ! -- convert specific storage values since they are simulated to
         !    be a function of the average effective stress
       else
-        void_ratio = this%csub_calc_void_ratio(this%theta(ib))
+        void_ratio = porosity_to_void_ratio(this%theta(ib))
         es = this%cg_es(node)
         hcell = hnew(node)
         !
@@ -302,7 +302,7 @@ contains
         !
         ! -- calculate zone and factor
         znode = this%csub_calc_znode(top, bot, hbar)
-        fact = this%csub_calc_adjes(node, es, bot, znode)
+        fact = adjust_eff_stress(es, bot, znode, this%sgs(node))
         fact = fact * (DONE + void_ratio)
       end if
       !

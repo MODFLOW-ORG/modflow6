@@ -205,7 +205,7 @@ contains
   if (ABS(comp) > DZERO) then
     thick = this%cg_thickini(node)
     theta = this%cg_thetaini(node)
-    call this%csub_adj_matprop(comp, thick, theta)
+    call compact_layer(comp, thick, theta)
     if (thick <= DZERO) then
       write (errmsg, '(a,1x,a,1x,a,g0,a)') &
         'Adjusted thickness for cell', trim(adjustl(cellid)), &

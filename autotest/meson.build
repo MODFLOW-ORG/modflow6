@@ -21,6 +21,7 @@ if test_drive.found()
     'ArrayHandlers',
     'BinaryFileReader',
     'Budget',
+    'CompactionUtil',
     'FeatureFlags',
     'GeomUtil',
     'GridFileReader',

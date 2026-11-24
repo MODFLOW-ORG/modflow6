@@ -6,6 +6,7 @@ program tester
   use TestBinaryFileReader, only: collect_binaryfilereader
   use TestBmi, only: collect_bmi
   use TestBudget, only: collect_budget
+  use TestCompactionUtil, only: collect_compactionutil
   use TestFeatureFlags, only: collect_feature_flags
   use TestGeomUtil, only: collect_geomutil
   use TestGridFileReader, only: collect_gridfilereader
@@ -47,6 +48,7 @@ program tester
                new_testsuite("BinaryFileReader", collect_binaryfilereader), &
                new_testsuite("Bmi", collect_bmi), &
                new_testsuite("Budget", collect_budget), &
+               new_testsuite("CompactionUtil", collect_compactionutil), &
                new_testsuite("FeatureFlags", collect_feature_flags), &
                new_testsuite("GeomUtil", collect_geomutil), &
                new_testsuite("GridFileReader", collect_gridfilereader), &
