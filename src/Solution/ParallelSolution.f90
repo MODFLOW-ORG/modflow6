@@ -30,10 +30,35 @@ module ParallelSolutionModule
     procedure :: sln_maxval => par_maxval
     procedure :: sln_get_idvscale => par_get_idvscale
     procedure :: sln_merge_isolated => par_merge_isolated
+    procedure :: sln_has_gwf => par_has_gwf
 
   end type ParallelSolutionType
 
 contains
+
+  !> @brief Return true if any process has a GWF model in the solution
+  !!
+  !! A process can hold none of the solution's models, so the result is
+  !! reduced over all processes to keep the collective calls that follow
+  !! the same on each.
+  !<
+  function par_has_gwf(this) result(has_gwf)
+    class(ParallelSolutionType) :: this !< parallel solution
+    logical(LGP) :: has_gwf !< True, when any process has a GWF model
+    ! local
+    logical :: has_gwf_local, has_gwf_global
+    integer :: ierr
+    type(MpiWorldType), pointer :: mpi_world
+
+    mpi_world => get_mpi_world()
+
+    has_gwf_local = this%NumericalSolutionType%sln_has_gwf()
+    call MPI_Allreduce(has_gwf_local, has_gwf_global, 1, MPI_LOGICAL, &
+                       MPI_LOR, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+    has_gwf = has_gwf_global
+
+  end function par_has_gwf
 
   !> @brief Check global convergence. The local maximum dependent
   !! variable change is reduced over MPI with all other processes
