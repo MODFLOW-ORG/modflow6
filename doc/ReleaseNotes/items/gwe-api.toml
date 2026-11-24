@@ -1,0 +1,3 @@
+section = "features"
+subsection = "model"
+description = "GWE models can now include an API Package. As in GWF and GWT models, a program using the MODFLOW 6 shared library sets the HCOF and RHS terms for each boundary, and these are added to the GWE equation. Units are energy per time."

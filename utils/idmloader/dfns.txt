@@ -52,6 +52,7 @@ gwt-ssm.dfn
 gwt-uzt.dfn
 gwe-nam.dfn
 gwe-adv.dfn
+gwe-api.dfn
 gwe-ctp.dfn
 gwe-cnd.dfn
 gwe-disv.dfn
