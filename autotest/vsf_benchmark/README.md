@@ -3,6 +3,9 @@
 Benchmark report, 2026-11-23. The benchmark model is built by
 [`vsf_big.py`](vsf_big.py) in this directory.
 
+The follow-up study on solver settings, step limiting and near-saturation
+smoothing is in [SOLVER_STUDY.md](SOLVER_STUDY.md).
+
 ## Summary
 
 Restricting Richards flow to vertical connections (VSF_1D_ONLY) gives at most
