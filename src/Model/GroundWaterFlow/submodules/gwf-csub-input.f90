@@ -3,11 +3,7 @@
 submodule(GwfCsubModule) GwfCsubModuleInput
 contains
 
-  !> @brief Source options for package
-  !!
-  !!  Source options for CSUB package.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure source_options
   ! -- modules
   use ConstantsModule, only: MAXCHARLEN, DZERO, MNORMAL, DEM3
@@ -185,11 +181,7 @@ contains
   deallocate (ibs)
   end procedure source_options
 
-  !> @brief log options for package
-  !!
-  !!  log options block for CSUB package.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure log_options
   ! -- modules
   ! -- local variables
@@ -313,12 +305,7 @@ contains
   write (this%iout, '((1X,A))') 'END PACKAGE SETTINGS'
   end procedure log_options
 
-  !> @brief Source dimensions for package
-  !!
-  !!  Read the number of interbeds and maximum number of cells with a specified
-  !!  overlying geostatic stress.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_source_dimensions
   ! -- modules
   use MemoryManagerExtModule, only: mem_set_value
@@ -356,8 +343,7 @@ contains
   call this%define_listlabel()
   end procedure csub_source_dimensions
 
-  !> @brief Source griddata for package
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_source_griddata
   ! -- modules
   use MemoryManagerExtModule, only: mem_set_value
@@ -402,12 +388,7 @@ contains
   end if
   end procedure csub_source_griddata
 
-  !> @brief source packagedata for package
-  !!
-  !!  Read delay and no-delay interbed input data for the CSUB package. Method
-  !!  also validates interbed input data.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_source_packagedata
   ! -- modules
   use MemoryManagerModule, only: mem_setptr, mem_allocate
@@ -774,8 +755,7 @@ contains
   call memorystore_release('BOUNDNAME', this%input_mempath)
   end procedure csub_source_packagedata
 
-  !> @brief Print packagedata
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_print_packagedata
   ! local
   character(len=LINELENGTH) :: title
@@ -873,12 +853,7 @@ contains
 
   end procedure csub_print_packagedata
 
-  !> @brief Initialize optional tables
-  !!
-  !! Subroutine to initialize optional tables. Tables include:
-  !!   o delay interbeds convergence tables
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_initialize_tables
 
   character(len=LINELENGTH) :: tag
@@ -926,12 +901,7 @@ contains
 
   end procedure csub_initialize_tables
 
-  !> @brief Define the list label for the package
-  !!
-  !!  Method defined the list label for the CSUB package. The list label is
-  !!  the heading that is written to iout when PRINT_INPUT option is used.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure define_listlabel
   !
   ! -- create the header list label

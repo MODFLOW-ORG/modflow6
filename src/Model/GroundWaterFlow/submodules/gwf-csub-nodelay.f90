@@ -3,12 +3,7 @@
 submodule(GwfCsubModule) GwfCsubModuleNodelay
 contains
 
-  !> @brief Update no-delay material properties
-  !!
-  !!  Method updates no-delay material properties based on the current
-  !!  compaction value.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_nodelay_update
   ! -- local variables
   real(DP) :: comp
@@ -38,13 +33,7 @@ contains
   end if
   end procedure csub_nodelay_update
 
-  !> @brief Calculate no-delay interbed storage coefficients
-  !!
-  !!  Method calculates the skeletal storage coefficients for a no-delay
-  !!  interbed. The method also calculates the contribution of the
-  !!  no-delay interbed to the right-hand side of the groundwater flow
-  !!  equation for the cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_nodelay_fc
   ! -- modules
   use TdisModule, only: delt
@@ -134,11 +123,7 @@ contains
   this%sk(ib) = rho2
   end procedure csub_nodelay_fc
 
-  !> @brief Calculate no-delay interbed compaction
-  !!
-  !!  Method calculates the compaction for a no-delay interbed. The method
-  !!  also calculates the storage coefficients for the no-delay interbed.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_nodelay_calc_comp
   ! -- local variables
   integer(I4B) :: node
@@ -166,11 +151,7 @@ contains
   end if
   end procedure csub_nodelay_calc_comp
 
-  !> @brief Formulate the coefficients for a interbed
-  !!
-  !!  Method formulates the coefficient matrix and right-hand side terms
-  !!  for a interbed in a cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_interbed_fc
   ! -- local variables
   real(DP) :: snnew
@@ -239,11 +220,7 @@ contains
   end if
   end procedure csub_interbed_fc
 
-  !> @brief Formulate the coefficients for a interbed
-  !!
-  !!  Method formulates the Newton-Raphson formulation coefficient matrix and
-  !!  right-hand side terms for a interbed in a cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_interbed_fn
   ! -- modules
   use TdisModule, only: delt
@@ -319,12 +296,7 @@ contains
   end if
   end procedure csub_interbed_fn
 
-  !> @brief Formulate no-delay interbed water compressibility coefficients
-  !!
-  !!  Method formulates the standard formulation coefficient matrix and
-  !!  right-hand side terms for water compressibility in no-delay
-  !!  interbeds.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_nodelay_wcomp_fc
   ! -- local variables
   real(DP) :: top
@@ -354,12 +326,7 @@ contains
   rhs = -wc0 * snold * hcellold
   end procedure csub_nodelay_wcomp_fc
 
-  !> @brief Formulate no-delay interbed water compressibility coefficients
-  !!
-  !!  Method formulates the Newton-Raphson formulation coefficient matrix and
-  !!  right-hand side terms for water compressibility in no-delay
-  !!  interbeds.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_nodelay_wcomp_fn
   ! -- local variables
   real(DP) :: top

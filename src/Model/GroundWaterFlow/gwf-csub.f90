@@ -211,26 +211,113 @@ module GwfCsubModule
     type(TableType), pointer :: pakcsvtab => null() !< table for csv output
 
   contains
+    !> @brief Define the list label for the package
+    !!
+    !!  Method defined the list label for the CSUB package. The list label is
+    !!  the heading that is written to iout when PRINT_INPUT option is used.
+    !!
+    !<
     procedure :: define_listlabel
+    !> @brief Source options for package
+    !!
+    !!  Source options for CSUB package.
+    !!
+    !<
     procedure :: source_options
+    !> @brief log options for package
+    !!
+    !!  log options block for CSUB package.
+    !!
+    !<
     procedure :: log_options
     procedure :: csub_ar
+    !> @brief Deallocate package memory
+    !!
+    !!  Deallocate CSUB package scalars and arrays.
+    !!
+    !<
     procedure :: csub_da
     procedure :: csub_rp
     procedure :: csub_ad
     procedure :: csub_fc
     procedure :: csub_fn
+    !> @brief Final convergence check
+    !!
+    !! Final convergence check for the CSUB package. The final convergence
+    !! check is only required when the simulation includes delay interbeds.
+    !! The final convergence check compares the sum of water contributed
+    !! by storage and water compressibility in the delay bed to the fluid
+    !! exchange between the delay interbed and the gwf cell.
+    !<
     procedure :: csub_cc
+    !> @brief Calculate flows for package
+    !!
+    !!  Flow calculation for the CSUB package components. Components include
+    !!  coarse-grained storage, delay and no-delay interbeds, and water
+    !!  compressibility.
+    !!
+    !<
     procedure :: csub_cq
+    !> @brief Model budget calculation for package
+    !!
+    !!  Budget calculation for the CSUB package components. Components include
+    !!  coarse-grained storage, delay and no-delay interbeds, and water
+    !!  compressibility.
+    !<
     procedure :: csub_bd
+    !> @brief Save model flows for package
+  !!
+  !!  Save cell-by-cell budget terms for the CSUB package.
+  !!
+    !<
     procedure :: csub_save_model_flows
+    !> @brief Save and print dependent values for package
+  !!
+  !!  Method saves cell-by-cell compaction and z-displacement terms. The method
+  !!  also calls the method to process observation output.
+  !!
+    !<
     procedure :: csub_ot_dv
+    !> @brief Final processing for package
+    !!
+    !!  Final processing for the  CSUB package. This method generates the final
+    !!  strain tables that are output so that the user can evaluate if calculated
+    !!  strain rates in coarse-grained sediments and interbeds exceed 1 percent.
+    !!
+    !<
     procedure :: csub_fp
+    !> @brief Source dimensions for package
+    !!
+    !!  Read the number of interbeds and maximum number of cells with a specified
+    !!  overlying geostatic stress.
+    !!
+    !<
     procedure :: source_dimensions => csub_source_dimensions
+    !> @brief Allocate scalars
+    !!
+    !! Allocate and initialize scalars for the CSUB package. The base model
+    !! allocate scalars method is also called.
+    !!
+    !<
     procedure, private :: csub_allocate_scalars
+    !> @brief Allocate package arrays
+    !!
+    !!  Allocate and initialize CSUB package arrays.
+    !!
+    !<
     procedure, private :: csub_allocate_arrays
+    !> @brief Source griddata for package
+    !<
     procedure, private :: csub_source_griddata
+    !> @brief source packagedata for package
+    !!
+    !!  Read delay and no-delay interbed input data for the CSUB package. Method
+    !!  also validates interbed input data.
+    !!
+    !<
     procedure, private :: csub_source_packagedata
+    !> @brief Print packagedata
+    !<
     procedure, private :: csub_print_packagedata
     !
     ! -- helper methods
@@ -239,59 +326,276 @@ module GwfCsubModule
     procedure, private :: csub_calc_sat_derivative
     procedure, private :: csub_calc_sfacts
     procedure, private :: csub_calc_interbed_thickness
+    !> @brief Calculate the flow from delay interbed top or bottom
+    !!
+    !! Function to calculate the flow from across the top or bottom of
+    !! a delay interbed.
+    !!
+    !! @return  q  flow across the top or bottom of a delay interbed
+    !<
     procedure, private :: csub_calc_delay_flow
     !
     ! -- stress methods
+    !> @brief Calculate the stress for model cells
+    !!
+    !!  Method calculates the geostatic stress, pressure head, and effective
+    !!  stress at the bottom of each cell. The method also applies the overlying
+    !!  geostatic stress (sig0) not represented in the model.
+    !!
+    !<
     procedure, private :: csub_cg_calc_stress
+    !> @brief Check effective stress values
+    !!
+    !!  Method checks calculated effective stress values to ensure that
+    !!  effective stress values are positive. An error condition and message
+    !!  are issued if calculated effective stress values are less than a small
+    !!  positive value (DEM6).
+    !!
+    !<
     procedure, private :: csub_cg_chk_stress
     !
     ! -- initial states
+    !> @brief Set initial states for the package
+    !!
+    !!  Method sets the initial states for coarse-grained materials and fine-
+    !!  grained sediments in the interbeds.
+    !!
+    !<
     procedure, private :: csub_set_initial_state
     !
     ! -- coarse-grained coarse-grained methods
+    !> @brief Update coarse-grained material properties
+    !!
+    !!  Method updates coarse-grained material properties in a cell.
+    !!
+    !<
     procedure, private :: csub_cg_update
+    !> @brief Calculate coarse-grained compaction in a cell
+    !!
+    !!  Method calculates coarse-grained compaction in a cell.
+    !<
     procedure, private :: csub_cg_calc_comp
+    !> @brief Calculate Sske for a cell
+    !!
+    !!  Method calculates Sske for coarse-grained materials in a cell.
+    !<
     procedure, private :: csub_cg_calc_sske
+    !> @brief Formulate the coefficients for coarse-grained materials
+    !!
+    !!  Method formulates the coefficient matrix and right-hand side terms
+    !!  for coarse grained materials in a cell.
+    !<
     procedure, private :: csub_cg_fc
+    !> @brief Formulate coarse-grained Newton-Raphson terms
+    !!
+    !!  Method formulates the coefficient matrix and right-hand side terms
+    !!  for coarse grained materials in a cell when using the Newton-Raphson
+    !!  formulation.
+    !<
     procedure, private :: csub_cg_fn
+    !> @brief Formulate coarse-grained water compressibility coefficients
+    !!
+    !!  Method formulates the standard formulation coefficient matrix and
+    !!  right-hand side terms for water compressibility in coarse-grained
+    !!  sediments.
+    !<
     procedure, private :: csub_cg_wcomp_fc
+    !> @brief Formulate coarse-grained water compressibility coefficients
+    !!
+    !!  Method formulates the Newton-Raphson formulation coefficient matrix and
+    !!  right-hand side terms for water compressibility in coarse-grained
+    !!  sediments.
+    !<
     procedure, private :: csub_cg_wcomp_fn
     !
     ! -- interbed methods
+    !> @brief Formulate the coefficients for a interbed
+    !!
+    !!  Method formulates the coefficient matrix and right-hand side terms
+    !!  for a interbed in a cell.
+    !<
     procedure, private :: csub_interbed_fc
+    !> @brief Formulate the coefficients for a interbed
+    !!
+    !!  Method formulates the Newton-Raphson formulation coefficient matrix and
+    !!  right-hand side terms for a interbed in a cell.
+    !<
     procedure, private :: csub_interbed_fn
     !
     ! -- no-delay interbed methods
+    !> @brief Update no-delay material properties
+    !!
+    !!  Method updates no-delay material properties based on the current
+    !!  compaction value.
+    !!
+    !<
     procedure, private :: csub_nodelay_update
+    !> @brief Calculate no-delay interbed storage coefficients
+    !!
+    !!  Method calculates the skeletal storage coefficients for a no-delay
+    !!  interbed. The method also calculates the contribution of the
+    !!  no-delay interbed to the right-hand side of the groundwater flow
+    !!  equation for the cell.
+    !<
     procedure, private :: csub_nodelay_fc
+    !> @brief Formulate no-delay interbed water compressibility coefficients
+    !!
+    !!  Method formulates the standard formulation coefficient matrix and
+    !!  right-hand side terms for water compressibility in no-delay
+    !!  interbeds.
+    !<
     procedure, private :: csub_nodelay_wcomp_fc
+    !> @brief Formulate no-delay interbed water compressibility coefficients
+    !!
+    !!  Method formulates the Newton-Raphson formulation coefficient matrix and
+    !!  right-hand side terms for water compressibility in no-delay
+    !!  interbeds.
+    !<
     procedure, private :: csub_nodelay_wcomp_fn
+    !> @brief Calculate no-delay interbed compaction
+    !!
+    !!  Method calculates the compaction for a no-delay interbed. The method
+    !!  also calculates the storage coefficients for the no-delay interbed.
+    !<
     procedure, private :: csub_nodelay_calc_comp
     !
     ! -- delay interbed methods
+    !> @brief Calculate delay interbed saturation
+    !!
+    !! Method to calculate the saturation in a delay interbed cell.
+    !<
     procedure, private :: csub_delay_calc_sat
+    !> @brief Calculate the delay interbed cell saturation derivative
+    !!
+    !! Function to calculate the derivative of the saturation with
+    !! respect to the current head in delay interbed cell n.
+    !!
+    !! @return      satderv              derivative of saturation
+    !<
     procedure, private :: csub_delay_calc_sat_derivative
+    !> @brief Calculate delay interbed znode and z relative to interbed center
+    !!
+    !! Method to calculate the initial center of each delay interbed cell,
+    !! assuming the delay bed head is equal to the top of the delay interbed.
+    !! The method also calculates the distance of the center of each delay
+    !! bed cell from the center of the delay interbed (z_offset) that is used
+    !! to calculate average skeletal specific storage values for a delay interbed
+    !! centered on the center of the saturated thickness for a cell.
+    !!
+    !<
     procedure, private :: csub_delay_init_zcell
+    !> @brief Calculate delay interbed stress values
+    !!
+    !! Method to calculate the geostatic and effective stress in delay interbed
+    !! cells using the passed the current head value in a cell.
+    !!
+    !<
     procedure, private :: csub_delay_calc_stress
+    !> @brief Calculate delay interbed cell storage coefficients
+    !<
     procedure, private :: csub_delay_calc_ssksske
+    !> @brief Calculate delay interbed compaction
+    !!
+    !! Method to calculate the compaction in a delay interbed.
+    !<
     procedure, private :: csub_delay_calc_comp
+    !> @brief Update delay interbed material properties
+    !!
+    !! Method to update the thickness and porosity of each delay interbed cell.
+    !!
+    !<
     procedure, private :: csub_delay_update
+    !> @brief Calculate delay interbed storage change
+    !!
+    !! Method to calculate the storage change in a delay interbed.
+    !<
     procedure, private :: csub_delay_calc_dstor
+    !> @brief Calculate delay interbed water compressibility
+    !!
+    !! Method to calculate the change in water compressibility in a delay
+    !! interbed.
+    !<
     procedure, private :: csub_delay_calc_wcomp
+    !> @brief Calculate delay interbed contribution to the cell
+    !!
+    !! Method to calculate the coefficients to calculate the delay interbed
+    !! contribution to a cell. The product of hcof* h - rhs equals the
+    !! delay contribution to the cell
+    !<
     procedure, private :: csub_delay_fc
+    !> @brief Solve delay interbed continuity equation
+    !!
+    !! Method to calculate solve the delay interbed continuity equation for a
+    !! delay interbed. The method encapsulates the non-linear loop and calls the
+    !! linear solution.
+    !!
+    !<
     procedure, private :: csub_delay_sln
+    !> @brief Assemble delay interbed coefficients
+    !!
+    !! Method to assemble matrix and right-hand side coefficients for a delay
+    !! interbed. The method calls the appropriate standard or Newton-Raphson
+    !! assembly routines and fills all of the entries for a delay interbed.
+    !!
+    !<
     procedure, private :: csub_delay_assemble
+    !> @brief Assemble delay interbed standard formulation coefficients
+    !!
+    !! Method to assemble standard formulation matrix and right-hand side
+    !! coefficients for a delay interbed.
+    !!
+    !<
     procedure, private :: csub_delay_assemble_fc
+    !> @brief Assemble delay interbed Newton-Raphson formulation coefficients
+    !!
+    !! Method to assemble Newton-Raphson formulation matrix and right-hand side
+    !! coefficients for a delay interbed.
+    !!
+    !<
     procedure, private :: csub_delay_assemble_fn
+    !> @brief Check delay interbed head
+    !!
+    !! Method to determine if the delay interbed head in any delay cell
+    !! in a non-convertible gwf cell is less than the top of each delay
+    !! interbed cell.
+    !!
+    !<
     procedure, private :: csub_delay_head_check
 
     ! methods for tables
+    !> @brief Initialize optional tables
+    !!
+    !! Subroutine to initialize optional tables. Tables include:
+    !!   o delay interbeds convergence tables
+    !!
+    !<
     procedure, private :: csub_initialize_tables
     !
     ! -- methods for observations
+    !> @brief Determine if observations are supported.
+    !!
+    !! Function to determine if observations are supported by the CSUB package.
+    !! Observations are supported by the CSUB package.
+    !!
+    !<
     procedure, public :: csub_obs_supported
+    !> @brief Define the observation types available in the package
+    !!
+    !! Method to define the observation types available in the CSUB package.
+    !!
+    !<
     procedure, public :: csub_df_obs
+    !> @brief Read and prepare the observations
+    !!
+    !! Method to read and prepare the observations for the CSUB package.
+    !!
+    !<
     procedure, private :: csub_rp_obs
+    !> @brief Set the observations for this time step
+    !!
+    !! Method to set the CSUB package observations for this time step.
+    !!
+    !<
     procedure, public :: csub_bd_obs
   end type GwfCsubType
 

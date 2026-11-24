@@ -5,13 +5,7 @@ submodule(GwfCsubModule) GwfCsubModuleDelay
 
 contains
 
-  !> @brief Check delay interbed head
-  !!
-  !! Method to determine if the delay interbed head in any delay cell
-  !! in a non-convertible gwf cell is less than the top of each delay
-  !! interbed cell.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_head_check
   ! -- local variables
   integer(I4B) :: iviolate
@@ -50,13 +44,7 @@ contains
   end do idelaycells
   end procedure csub_delay_head_check
 
-  !> @brief Solve delay interbed continuity equation
-  !!
-  !! Method to calculate solve the delay interbed continuity equation for a
-  !! delay interbed. The method encapsulates the non-linear loop and calls the
-  !! linear solution.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_sln
                                                  !! if the maximum head change variable
                                                  !! in a delay bed should be updated
@@ -135,16 +123,7 @@ contains
   end if
   end procedure csub_delay_sln
 
-  !> @brief Calculate delay interbed znode and z relative to interbed center
-  !!
-  !! Method to calculate the initial center of each delay interbed cell,
-  !! assuming the delay bed head is equal to the top of the delay interbed.
-  !! The method also calculates the distance of the center of each delay
-  !! bed cell from the center of the delay interbed (z_offset) that is used
-  !! to calculate average skeletal specific storage values for a delay interbed
-  !! centered on the center of the saturated thickness for a cell.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_init_zcell
   ! -- local variables
   integer(I4B) :: n
@@ -193,12 +172,7 @@ contains
   end do
   end procedure csub_delay_init_zcell
 
-  !> @brief Calculate delay interbed stress values
-  !!
-  !! Method to calculate the geostatic and effective stress in delay interbed
-  !! cells using the passed the current head value in a cell.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_stress
   ! -- local variables
   integer(I4B) :: n
@@ -265,8 +239,7 @@ contains
   end do
   end procedure csub_delay_calc_stress
 
-  !> @brief Calculate delay interbed cell storage coefficients
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_ssksske
   ! -- local variables
   integer(I4B) :: idelay
@@ -385,13 +358,7 @@ contains
   end if
   end procedure csub_delay_calc_ssksske
 
-  !> @brief Assemble delay interbed coefficients
-  !!
-  !! Method to assemble matrix and right-hand side coefficients for a delay
-  !! interbed. The method calls the appropriate standard or Newton-Raphson
-  !! assembly routines and fills all of the entries for a delay interbed.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_assemble
   ! -- local variables
   integer(I4B) :: n
@@ -418,12 +385,7 @@ contains
   end do
   end procedure csub_delay_assemble
 
-  !> @brief Assemble delay interbed standard formulation coefficients
-  !!
-  !! Method to assemble standard formulation matrix and right-hand side
-  !! coefficients for a delay interbed.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_assemble_fc
   ! -- modules
   use TdisModule, only: delt
@@ -540,12 +502,7 @@ contains
   r = r - dsn0 * wc0 * h0
   end procedure csub_delay_assemble_fc
 
-  !> @brief Assemble delay interbed Newton-Raphson formulation coefficients
-  !!
-  !! Method to assemble Newton-Raphson formulation matrix and right-hand side
-  !! coefficients for a delay interbed.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_assemble_fn
   ! -- modules
   use TdisModule, only: delt
@@ -700,10 +657,7 @@ contains
   r = r - qwc + wcderv * h
   end procedure csub_delay_assemble_fn
 
-  !> @brief Calculate delay interbed saturation
-  !!
-  !! Method to calculate the saturation in a delay interbed cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_sat
   ! -- local variables
   real(DP) :: dzhalf
@@ -726,13 +680,7 @@ contains
   end if
   end procedure csub_delay_calc_sat
 
-  !> @brief Calculate the delay interbed cell saturation derivative
-  !!
-  !! Function to calculate the derivative of the saturation with
-  !! respect to the current head in delay interbed cell n.
-  !!
-  !! @return      satderv              derivative of saturation
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_sat_derivative
   ! -- local variables
   real(DP) :: dzhalf
@@ -749,10 +697,7 @@ contains
   end if
   end procedure csub_delay_calc_sat_derivative
 
-  !> @brief Calculate delay interbed storage change
-  !!
-  !! Method to calculate the storage change in a delay interbed.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_dstor
   ! -- local variables
   integer(I4B) :: idelay
@@ -824,10 +769,7 @@ contains
   this%sk(ib) = sk
   end procedure csub_delay_calc_dstor
 
-  !> @brief Calculate delay interbed water compressibility
-  !!
-  !! Method to calculate the change in water compressibility in a delay interbed.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_wcomp
   ! -- modules
   use TdisModule, only: delt
@@ -868,10 +810,7 @@ contains
   end if
   end procedure csub_delay_calc_wcomp
 
-  !> @brief Calculate delay interbed compaction
-  !!
-  !! Method to calculate the compaction in a delay interbed.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_calc_comp
   ! -- local variables
   integer(I4B) :: idelay
@@ -938,11 +877,7 @@ contains
   compe = compe * this%rnb(ib)
   end procedure csub_delay_calc_comp
 
-  !> @brief Update delay interbed material properties
-  !!
-  !! Method to update the thickness and porosity of each delay interbed cell.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_update
   ! -- local variables
   integer(I4B) :: idelay
@@ -1010,12 +945,7 @@ contains
   this%theta(ib) = wtheta
   end procedure csub_delay_update
 
-  !> @brief Calculate delay interbed contribution to the cell
-  !!
-  !! Method to calculate the coefficients to calculate the delay interbed
-  !! contribution to a cell. The product of hcof* h - rhs equals the
-  !! delay contribution to the cell
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_delay_fc
   ! -- local variables
   integer(I4B) :: idelay
@@ -1037,13 +967,7 @@ contains
   end if
   end procedure csub_delay_fc
 
-  !> @brief Calculate the flow from delay interbed top or bottom
-  !!
-  !! Function to calculate the flow from across the top or bottom of
-  !! a delay interbed.
-  !!
-  !! @return  q  flow across the top or bottom of a delay interbed
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_calc_delay_flow
   ! -- local variables
   integer(I4B) :: idelay

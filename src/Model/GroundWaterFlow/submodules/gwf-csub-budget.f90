@@ -10,14 +10,7 @@ submodule(GwfCsubModule) GwfCsubModuleBudget
 
 contains
 
-  !> @brief Final convergence check
-  !!
-  !! Final convergence check for the CSUB package. The final convergence
-  !! check is only required when the simulation includes delay interbeds.
-  !! The final convergence check compares the sum of water contributed
-  !! by storage and water compressibility in the delay bed to the fluid
-  !! exchange between the delay interbed and the gwf cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cc
   ! -- modules
   use TdisModule, only: totim, kstp, kper, delt
@@ -182,13 +175,7 @@ contains
   end if
   end procedure csub_cc
 
-  !> @brief Calculate flows for package
-  !!
-  !!  Flow calculation for the CSUB package components. Components include
-  !!  coarse-grained storage, delay and no-delay interbeds, and water
-  !!  compressibility.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cq
   ! -- modules
   use TdisModule, only: delt
@@ -472,12 +459,7 @@ contains
   end if
   end procedure csub_cq
 
-  !> @brief Model budget calculation for package
-  !!
-  !!  Budget calculation for the CSUB package components. Components include
-  !!  coarse-grained storage, delay and no-delay interbeds, and water
-  !!  compressibility.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_bd
   ! -- modules
   use TdisModule, only: delt
@@ -509,11 +491,7 @@ contains
   return
   end procedure csub_bd
 
-!> @brief Save model flows for package
-!!
-!!  Save cell-by-cell budget terms for the CSUB package.
-!!
-!<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_save_model_flows
   ! -- local variables
   character(len=1) :: cdatafmp = ' '

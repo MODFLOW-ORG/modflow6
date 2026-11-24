@@ -3,12 +3,7 @@
 submodule(GwfCsubModule) GwfCsubModuleMemory
 contains
 
-  !> @brief Allocate scalars
-  !!
-  !! Allocate and initialize scalars for the CSUB package. The base model
-  !! allocate scalars method is also called.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_allocate_scalars
   ! -- modules
   use MemoryManagerModule, only: mem_allocate
@@ -119,11 +114,7 @@ contains
   this%gwfiss0 = 0
   end procedure csub_allocate_scalars
 
-  !> @brief Allocate package arrays
-  !!
-  !!  Allocate and initialize CSUB package arrays.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_allocate_arrays
   ! -- modules
   use MemoryManagerModule, only: mem_allocate, mem_setptr, mem_checkin
@@ -290,11 +281,7 @@ contains
   end do
   end procedure csub_allocate_arrays
 
-  !> @brief Deallocate package memory
-  !!
-  !!  Deallocate CSUB package scalars and arrays.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_da
   ! -- modules
   use MemoryManagerModule, only: mem_deallocate

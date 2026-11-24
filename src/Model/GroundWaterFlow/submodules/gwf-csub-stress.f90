@@ -3,13 +3,7 @@
 submodule(GwfCsubModule) GwfCsubModuleStress
 contains
 
-  !> @brief Calculate the stress for model cells
-  !!
-  !!  Method calculates the geostatic stress, pressure head, and effective
-  !!  stress at the bottom of each cell. The method also applies the overlying
-  !!  geostatic stress (sig0) not represented in the model.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_calc_stress
   ! -- local variables
   integer(I4B) :: node
@@ -131,12 +125,7 @@ contains
   end do
   end procedure csub_cg_calc_stress
 
-  !> @brief Set initial states for the package
-  !!
-  !!  Method sets the initial states for coarse-grained materials and fine-
-  !!  grained sediments in the interbeds.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_set_initial_state
   ! -- local variables
   character(len=LINELENGTH) :: title

@@ -3,11 +3,7 @@
 submodule(GwfCsubModule) GwfCsubModuleCoarse
 contains
 
-  !> @brief Formulate the coefficients for coarse-grained materials
-  !!
-  !!  Method formulates the coefficient matrix and right-hand side terms
-  !!  for coarse grained materials in a cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_fc
   ! -- local variables
   real(DP) :: top
@@ -55,12 +51,7 @@ contains
   end if
   end procedure csub_cg_fc
 
-  !> @brief Formulate coarse-grained Newton-Raphson terms
-  !!
-  !!  Method formulates the coefficient matrix and right-hand side terms
-  !!  for coarse grained materials in a cell when using the Newton-Raphson
-  !!  formulation.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_fn
   ! -- local variables
   real(DP) :: top
@@ -116,10 +107,7 @@ contains
   end if
   end procedure csub_cg_fn
 
-  !> @brief Calculate Sske for a cell
-  !!
-  !!  Method calculates Sske for coarse-grained materials in a cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_calc_sske
   ! -- local variables
   real(DP) :: top
@@ -165,10 +153,7 @@ contains
   sske = f * this%cg_ske_cr(n)
   end procedure csub_cg_calc_sske
 
-  !> @brief Calculate coarse-grained compaction in a cell
-  !!
-  !!  Method calculates coarse-grained compaction in a cell.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_calc_comp
   ! -- local variables
   real(DP) :: area
@@ -187,11 +172,7 @@ contains
   comp = hcof * hcell - rhs
   end procedure csub_cg_calc_comp
 
-  !> @brief Update coarse-grained material properties
-  !!
-  !!  Method updates coarse-grained material properties in a cell.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_update
   ! -- local variables
   character(len=20) :: cellid
@@ -223,12 +204,7 @@ contains
   end if
   end procedure csub_cg_update
 
-  !> @brief Formulate coarse-grained water compressibility coefficients
-  !!
-  !!  Method formulates the standard formulation coefficient matrix and
-  !!  right-hand side terms for water compressibility in coarse-grained
-  !!  sediments.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_wcomp_fc
   ! -- local variables
   real(DP) :: top
@@ -264,12 +240,7 @@ contains
   rhs = -wc0 * snold * hcellold
   end procedure csub_cg_wcomp_fc
 
-  !> @brief Formulate coarse-grained water compressibility coefficients
-  !!
-  !!  Method formulates the Newton-Raphson formulation coefficient matrix and
-  !!  right-hand side terms for water compressibility in coarse-grained
-  !!  sediments.
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_wcomp_fn
   ! -- local variables
   real(DP) :: top

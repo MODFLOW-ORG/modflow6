@@ -4,23 +4,14 @@ submodule(GwfCsubModule) GwfCsubModuleObs
 contains
 
   ! -- Procedures related to observations (type-bound)
-  !> @brief Determine if observations are supported.
-  !!
-  !! Function to determine if observations are supported by the CSUB package.
-  !! Observations are supported by the CSUB package.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_obs_supported
   !
   ! -- initialize variables
   csub_obs_supported = .true.
   end procedure csub_obs_supported
 
-  !> @brief Define the observation types available in the package
-  !!
-  !! Method to define the observation types available in the CSUB package.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_df_obs
   ! -- local variables
   integer(I4B) :: indx
@@ -206,11 +197,7 @@ contains
   this%obs%obsData(indx)%ProcessIdPtr => csub_process_obsID
   end procedure csub_df_obs
 
-  !> @brief Set the observations for this time step
-  !!
-  !! Method to set the CSUB package observations for this time step.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_bd_obs
   ! -- local variables
   type(ObserveType), pointer :: obsrv => null()
@@ -429,11 +416,7 @@ contains
   end if
   end procedure csub_bd_obs
 
-  !> @brief Read and prepare the observations
-  !!
-  !! Method to read and prepare the observations for the CSUB package.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_rp_obs
   ! -- modules
   use TdisModule, only: kper

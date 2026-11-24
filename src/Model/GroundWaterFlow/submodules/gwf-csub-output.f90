@@ -12,13 +12,7 @@ submodule(GwfCsubModule) GwfCsubModuleOutput
 
 contains
 
-  !> @brief Final processing for package
-  !!
-  !!  Final processing for the  CSUB package. This method generates the final
-  !!  strain tables that are output so that the user can evaluate if calculated
-  !!  strain rates in coarse-grained sediments and interbeds exceed 1 percent.
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_fp
   ! -- local variables
   character(len=LINELENGTH) :: title
@@ -421,12 +415,7 @@ contains
   deallocate (pctcomp_arr)
   end procedure csub_fp
 
-!> @brief Save and print dependent values for package
-!!
-!!  Method saves cell-by-cell compaction and z-displacement terms. The method
-!!  also calls the method to process observation output.
-!!
-!<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_ot_dv
   ! -- local variables
   character(len=1) :: cdatafmp = ' '
@@ -681,14 +670,7 @@ contains
   end if
   end procedure csub_ot_dv
 
-  !> @brief Check effective stress values
-  !!
-  !!  Method checks calculated effective stress values to ensure that
-  !!  effective stress values are positive. An error condition and message are
-  !!  issued if calculated effective stress values are less than a small positive
-  !!  value (DEM6).
-  !!
-  !<
+  ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
   module procedure csub_cg_chk_stress
   ! -- modules
   use TdisModule, only: kper, kstp
