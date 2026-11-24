@@ -1,10 +1,11 @@
 module GwtDspModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: DONE, DZERO, DHALF, DPI
+  use ConstantsModule, only: DONE, DZERO, DPI
   use NumericalPackageModule, only: NumericalPackageType
   use BaseDisModule, only: DisBaseType
   use TspFmiModule, only: TspFmiType
+  use TspDispersionUtilsModule, only: calc_dispcoef
   use Xt3dModule, only: Xt3dType, xt3d_cr
   use GwtDspOptionsModule, only: GwtDspOptionsType
   use MatrixBaseModule
@@ -66,7 +67,6 @@ module GwtDspModule
     procedure, private :: log_options
     procedure, private :: log_griddata
     procedure, private :: calcdispellipse
-    procedure, private :: calcdispcoef
 
   end type GwtDspType
 
@@ -240,7 +240,10 @@ contains
     ! -- Recalculate dispersion coefficients if the flows were updated
     if (this%fmi%iflowsupdated == 1) then
       if (this%ixt3d == 0) then
-        call this%calcdispcoef()
+        call calc_dispcoef(this%dis, this%fmi%ibdgwfsat0, &
+                           this%fmi%gwfsat, this%d11, this%d22, &
+                           this%d33, this%angle1, this%angle2, &
+                           this%angle3, this%dispcoef)
       else if (this%ixt3d > 0) then
         call this%xt3d%xt3d_fcpc(this%dis%nodes, .false.)
       end if
@@ -733,135 +736,5 @@ contains
       end if
     end do
   end subroutine calcdispellipse
-
-  !> @brief Calculate dispersion coefficients
-  !<
-  subroutine calcdispcoef(this)
-    ! -- modules
-    use HGeoUtilModule, only: hyeff
-    use GwfConductanceUtilsModule, only: staggered_thkfrac
-    ! -- dummy
-    class(GwtDspType) :: this
-    ! -- local
-    integer(I4B) :: nodes, n, m, idiag, ipos
-    real(DP) :: clnm, clmn, dn, dm
-    real(DP) :: vg1, vg2, vg3
-    integer(I4B) :: ihc, isympos
-    integer(I4B) :: iavgmeth
-    real(DP) :: satn, satm, topn, topm, botn, botm
-    real(DP) :: hwva, cond, cn, cm, denom
-    real(DP) :: anm, amn, thksatn, thksatm
-    !
-    ! -- set iavgmeth = 1 to use arithmetic averaging for effective dispersion
-    iavgmeth = 1
-    !
-    ! -- Process connections
-    nodes = size(this%d11)
-    do n = 1, nodes
-      if (this%fmi%ibdgwfsat0(n) == 0) cycle
-      idiag = this%dis%con%ia(n)
-      do ipos = this%dis%con%ia(n) + 1, this%dis%con%ia(n + 1) - 1
-        !
-        ! -- Set m to connected cell
-        m = this%dis%con%ja(ipos)
-        !
-        ! -- skip for lower triangle
-        if (m < n) cycle
-        isympos = this%dis%con%jas(ipos)
-        this%dispcoef(isympos) = DZERO
-        if (this%fmi%ibdgwfsat0(m) == 0) cycle
-        !
-        ! -- cell dimensions
-        hwva = this%dis%con%hwva(isympos)
-        clnm = this%dis%con%cl1(isympos)
-        clmn = this%dis%con%cl2(isympos)
-        ihc = this%dis%con%ihc(isympos)
-        topn = this%dis%top(n)
-        topm = this%dis%top(m)
-        botn = this%dis%bot(n)
-        botm = this%dis%bot(m)
-        !
-        ! -- flow model information
-        satn = this%fmi%gwfsat(n)
-        satm = this%fmi%gwfsat(m)
-        !
-        ! -- Calculate dispersion coefficient for cell n in the direction
-        !    normal to the shared n-m face and for cell m in the direction
-        !    normal to the shared n-m face.
-        call this%dis%connection_normal(n, m, ihc, vg1, vg2, vg3, ipos)
-        dn = hyeff(this%d11(n), this%d22(n), this%d33(n), &
-                   this%angle1(n), this%angle2(n), this%angle3(n), &
-                   vg1, vg2, vg3, iavgmeth)
-        dm = hyeff(this%d11(m), this%d22(m), this%d33(m), &
-                   this%angle1(m), this%angle2(m), this%angle3(m), &
-                   vg1, vg2, vg3, iavgmeth)
-        !
-        ! -- Calculate dispersion conductance based on NPF subroutines and the
-        !    effective dispersion coefficients dn and dm.
-        if (ihc == 0) then
-          clnm = satn * (topn - botn) * DHALF
-          clmn = satm * (topm - botm) * DHALF
-          anm = hwva
-          !
-          ! -- n is convertible and unsaturated
-          if (satn == DZERO) then
-            anm = DZERO
-          else if (n > m .and. satn < DONE) then
-            anm = DZERO
-          end if
-          !
-          ! -- m is convertible and unsaturated
-          if (satm == DZERO) then
-            anm = DZERO
-          else if (m > n .and. satm < DONE) then
-            anm = DZERO
-          end if
-          !
-          ! -- amn is the same as anm for vertical flow
-          amn = anm
-          !
-        else
-          !
-          ! -- horizontal conductance
-          !
-          ! -- handle vertically staggered case
-          if (ihc == 2) then
-            thksatn = staggered_thkfrac(topn, botn, satn, topm, botm)
-            thksatm = staggered_thkfrac(topm, botm, satm, topn, botn)
-          else
-            thksatn = (topn - botn) * satn
-            thksatm = (topm - botm) * satm
-          end if
-          !
-          ! -- calculate the saturated area term
-          anm = thksatn * hwva
-          amn = thksatm * hwva
-          !
-          ! -- n or m is unsaturated, so no dispersion
-          if (satn == DZERO .or. satm == DZERO) then
-            anm = DZERO
-            amn = DZERO
-          end if
-          !
-        end if
-        !
-        ! -- calculate conductance using the two half cell conductances
-        cn = DZERO
-        if (clnm > DZERO) cn = dn * anm / clnm
-        cm = DZERO
-        if (clmn > DZERO) cm = dm * amn / clmn
-        denom = cn + cm
-        if (denom > DZERO) then
-          cond = cn * cm / denom
-        else
-          cond = DZERO
-        end if
-        !
-        ! -- Assign the calculated dispersion conductance
-        this%dispcoef(isympos) = cond
-        !
-      end do
-    end do
-  end subroutine calcdispcoef
 
 end module GwtDspModule

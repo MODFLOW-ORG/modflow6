@@ -327,6 +327,7 @@ modflow_sources = files(
     'Model' / 'TransportModel' / 'tsp-oc.f90',
     'Model' / 'TransportModel' / 'tsp-mvt.f90',
     'Model' / 'TransportModel' / 'tsp-ssm.f90',
+    'Model' / 'TransportModel' / 'TspDispersionUtils.f90',
     'Model' / 'BaseModel.f90',
     'Model' / 'ExplicitModel.f90',
     'Model' / 'NumericalModel.f90',
