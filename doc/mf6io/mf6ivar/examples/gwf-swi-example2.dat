@@ -1,0 +1,7 @@
+# Single-fluid mode with a sea level that changes by stress period.  The
+# TVG file island.swi.tvg must provide a SALTWATER_HEAD auxiliary variable.
+
+BEGIN OPTIONS
+  ZETA FILEOUT island.zta
+  TVG6 FILEIN island.swi.tvg
+END OPTIONS
