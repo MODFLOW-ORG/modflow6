@@ -3326,13 +3326,18 @@ contains
     call store_warning(trim(cnum(1))//' cell(s) in solution '// &
                        trim(this%name)//' (model(s) '//models//') had no '// &
                        'storage, dependent-variable boundary, or constant '// &
-                       'value, so their dependent '// &
-                       'variable was not determined: '//trim(cnum(2))// &
-                       ' cut off by the input (not dry), '//trim(cnum(3))// &
+                       'value when checked, so their dependent variable '// &
+                       'was not determined at that check: '//trim(cnum(2))// &
+                       ' not dry, '//trim(cnum(3))// &
                        ' dry and later reconnected, and '//trim(cnum(4))// &
-                       ' dry and still isolated at the last check. See the '// &
-                       'table of cells with an undetermined dependent '// &
-                       'variable in the simulation listing file.')
+                       ' dry and still isolated at the last check. A cell '// &
+                       'that is not dry is cut off by the input, or is '// &
+                       'controlled only by a head-dependent boundary with '// &
+                       'no flow at the checked values (for example, a '// &
+                       'drain with the head below its elevation) and may '// &
+                       'be determined later. See the table of cells with '// &
+                       'an undetermined dependent variable in the '// &
+                       'simulation listing file.')
     if (ncell > MAXROWS) then
       write (cnum(1), '(i0)') MAXROWS
       call store_warning('Only the first '//trim(cnum(1))//' cells with an '// &

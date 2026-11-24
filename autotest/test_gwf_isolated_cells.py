@@ -176,11 +176,11 @@ def check_output(idx, test):
     model = name.upper()
     if name == "iso_island":
         assert f"15 cell(s) in solution SLN_1 (model(s) {model})" in text
-        assert "15 cut off by the input (not dry)" in text
+        assert "15 not dry," in text
         assert f"{model} (1,1,6) INPUT NOT RECHECKED 1 1 1 1 1 1" in text
     elif name.startswith("iso_later"):
         # -- found in stress period 2, after the GHB is removed
-        assert "15 cut off by the input (not dry)" in text
+        assert "15 not dry," in text
         assert f"{model} (1,1,6) INPUT NOT RECHECKED 2 1 2 1 1 1" in text
     if name == "iso_later_gwt":
         # -- the GWF solution is assembled and the GWT solution is not
