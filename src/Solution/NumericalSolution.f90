@@ -3190,6 +3190,8 @@ contains
       end do
       if (nnew > MAXCELLS) msg = msg//' ...'
       write (iout, '(/,1x,a)') msg
+      ! -- keep the note if the solve that follows fails
+      flush (iout)
     end if
     deallocate (ifound, idry)
   end subroutine sln_record_isolated
