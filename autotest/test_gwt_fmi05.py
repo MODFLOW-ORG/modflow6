@@ -1,12 +1,6 @@
 """
 Tests that a GWT model reading flows and heads from file with FMI can
-retry a failed time step with ATS. The first time step is too long for
-the transport solution to converge, so ATS retries it with a shorter
-step. The retry must reuse the flows and heads already read for that
-step, not read the next records from the files.
-
-The results are compared with a simulation where the same GWF and GWT
-models are coupled with an exchange.
+retry a failed time step with ATS.
 """
 
 import flopy
