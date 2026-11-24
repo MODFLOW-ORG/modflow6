@@ -187,6 +187,9 @@ contains
     !
     ! -- Set end of period and simulation indicators
     call tdis_set_end_flags(adaptivePeriod)
+    if (endofperiod) then
+      pertim = perlen(kper)
+    end if
   end subroutine tdis_set_timestep
 
   !> @brief Reset delt and update timing variables and indicators
@@ -218,10 +221,9 @@ contains
 
   !> @brief Set end of period and end of simulation indicators
   !!
-  !! Evaluate the indicators for the current time step, and snap pertim
-  !! to the period length at the end of a period. Called when a time step
-  !! is set and when a failed time step is retried, so both evaluate the
-  !! indicators the same way.
+  !! Evaluate the indicators for the current time step. Called when a time
+  !! step is set and when a failed time step is retried, so both evaluate
+  !! the indicators the same way.
   !<
   subroutine tdis_set_end_flags(adaptivePeriod)
     ! -- dummy
@@ -235,9 +237,6 @@ contains
       if (kstp == nstp(kper)) then
         endofperiod = .true.
       end if
-    end if
-    if (endofperiod) then
-      pertim = perlen(kper)
     end if
     !
     ! -- Set end of simulation indicator

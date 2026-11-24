@@ -201,6 +201,11 @@ def check_output(idx, test):
     msg = f"obs2 must drop linearly from 100 down to 50: {result}"
     assert np.allclose(answer, result), msg
 
+    # the first time step must have failed and been retried
+    fpth = os.path.join(test.workspace, "mfsim.lst")
+    with open(fpth) as f:
+        assert "will be retried" in f.read(), "first time step was not retried"
+
     # ensure the simulation continued after the retried step(s) and ran
     # to the end of the period
     msg = f"simulation should end at time 100.0, not {x[-1]}"
