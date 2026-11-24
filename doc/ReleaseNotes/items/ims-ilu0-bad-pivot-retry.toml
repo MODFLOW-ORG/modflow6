@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "solution"
+description = "When the ILU0 or MILU0 preconditioner found a pivot that changed sign or was zero, the factorization stopped and the solver used a partial factorization, with the rest of the rows from the previous outer iteration, without a message. The factorization is now retried with a larger diagonal shift, bad pivots are replaced on the last attempt, and the number of attempts is written to the simulation listing file. This can change results for simulations that encounter bad pivots."

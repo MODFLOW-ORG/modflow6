@@ -145,7 +145,7 @@ module MemoryManagerModule
 
 contains
 
-  !> @ brief Get the variable memory type
+  !> @brief Get the variable memory type
   !!
   !! Returns any of 'LOGICAL', 'INTEGER', 'DOUBLE', 'STRING'.
   !! returns 'UNKNOWN' when the variable is not found.
@@ -166,7 +166,7 @@ contains
     end if
   end subroutine get_mem_type
 
-  !> @ brief Get the variable rank
+  !> @brief Get the variable rank
   !!
   !! Returns rank = -1 when not found.
   !<
@@ -204,7 +204,7 @@ contains
     end if
   end subroutine get_mem_rank
 
-  !> @ brief Get the memory size of a single element of the stored variable
+  !> @brief Get the memory size of a single element of the stored variable
   !!
   !! Memory size in bytes, returns size = -1 when not found. This is
   !< also string length.
@@ -229,7 +229,7 @@ contains
     end if
   end subroutine get_mem_elem_size
 
-  !> @ brief Get the variable memory shape
+  !> @brief Get the variable memory shape
   !!
   !! Returns an integer array with the shape (Fortran ordering),
   !! and set shape(1) = -1 when not found.
@@ -267,10 +267,11 @@ contains
     end if
   end subroutine get_mem_shape
 
-  !> @ brief Get the number of elements for this variable
+  !> @brief Get the number of elements for this variable
   !!
   !! Returns with isize = -1 when not found.
   !! Return 1 for scalars.
+  !! @hidecallergraph
   !<
   subroutine get_isize(name, mem_path, isize)
     character(len=*), intent(in) :: name !< variable name
@@ -297,10 +298,11 @@ contains
     end if
   end subroutine get_isize
 
-  !> @ brief Get a memory type entry from the memory list
+  !> @brief Get a memory type entry from the memory list
   !!
   !! Default value for @par check is .true. which means that this
   !! routine will kill the program when the memory entry cannot be found.
+  !! @hidecallergraph
   !<
   subroutine get_from_memorystore(name, mem_path, mt, found, check)
     character(len=*), intent(in) :: name !< variable name

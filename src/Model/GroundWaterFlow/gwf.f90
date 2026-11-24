@@ -516,6 +516,10 @@ contains
     if (this%innpf > 0) then
       if (inwt /= 0) then
         call this%npf%npf_fn(kiter, matrix_sln, this%idxglo, this%rhs, this%x)
+        if (this%inbuy > 0) then
+          call this%buy%buy_fn(kiter, matrix_sln, this%idxglo, this%rhs, &
+                               this%x)
+        end if
       end if
     end if
     !

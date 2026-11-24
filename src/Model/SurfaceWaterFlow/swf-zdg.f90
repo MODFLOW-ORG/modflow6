@@ -64,7 +64,7 @@ module SwfZdgModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new ZDG Package object
   !!
@@ -121,7 +121,7 @@ contains
     zdgobj%unitconv = unitconv
   end subroutine zdg_create
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the ZDG package. The base model
   !! allocate scalars method is also called.
@@ -143,7 +143,7 @@ contains
     this%unitconv = DZERO
   end subroutine zdg_allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
     !!
     !! Allocate and initialize arrays for the SWF package
     !!
@@ -177,7 +177,7 @@ contains
                      'ROUGH', this%input_mempath)
   end subroutine zdg_allocate_arrays
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate SWF package scalars and arrays.
   !!
@@ -201,7 +201,7 @@ contains
     call mem_deallocate(this%unitconv)
   end subroutine zdg_da
 
-  !> @ brief Source additional options for package
+  !> @brief Source additional options for package
   !!
   !!  Source additional options for SWF package.
   !!
@@ -224,7 +224,7 @@ contains
     call this%log_zdg_options()
   end subroutine zdg_options
 
-  !> @ brief Log SWF specific package options
+  !> @brief Log SWF specific package options
   !<
   subroutine log_zdg_options(this)
     ! -- dummy variables
@@ -241,7 +241,7 @@ contains
       'END OF '//trim(adjustl(this%text))//' OPTIONS'
   end subroutine log_zdg_options
 
-  !> @ brief Formulate the package hcof and rhs terms.
+  !> @brief Formulate the package hcof and rhs terms.
   !!
   !!  Formulate the hcof and rhs terms for the ZDG package that will be
   !!  added to the coefficient matrix and right-hand side vector.
@@ -332,7 +332,7 @@ contains
 
   end function qcalc
 
-  !> @ brief Copy hcof and rhs terms into solution.
+  !> @brief Copy hcof and rhs terms into solution.
   !!
   !!  Add the hcof and rhs terms for the ZDG package to the
   !!  coefficient matrix and right-hand side vector.
@@ -370,7 +370,7 @@ contains
     end do
   end subroutine zdg_fc
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the ZDG package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.
@@ -511,7 +511,7 @@ contains
     end do
   end subroutine zdg_rp_ts
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
   !!
   !!  Return a bound value associated with an ncolbnd index
   !!  and row.

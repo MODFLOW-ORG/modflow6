@@ -14,7 +14,7 @@ module CompilerVersion
   public :: get_compiler, get_compile_date, get_compile_options
 contains
 
-  !> @ brief Get compiler information
+  !> @brief Get compiler information
   !!
   !!  Subroutine returns a string with compilation date and compiler.
   !!
@@ -50,7 +50,7 @@ contains
       'with', trim(adjustl(compiler_version()))
   end subroutine get_compiler
 
-  !> @ brief Get compilation date
+  !> @brief Get compilation date
   !!
   !!  Subroutine returns a string with compilation date
   !!
@@ -73,7 +73,7 @@ contains
     write (txt, '(a)') trim(adjustl(c_date))
   end subroutine get_compile_date
 
-  !> @ brief Get compilation options
+  !> @brief Get compilation options
   !!
   !!  Subroutine returns a string with compilation options
   !!

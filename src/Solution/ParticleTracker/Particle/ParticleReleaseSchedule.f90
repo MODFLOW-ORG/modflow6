@@ -2,7 +2,7 @@
 module ParticleReleaseScheduleModule
 
   use ArrayHandlersModule, only: ExpandArray
-  use ConstantsModule, only: DZERO, DONE, LINELENGTH
+  use ConstantsModule, only: DZERO, DONE, DSAME, LINELENGTH
   use KindModule, only: I4B, DP
   use MathUtilModule, only: is_close
   use TimeSelectModule, only: TimeSelectType
@@ -13,14 +13,25 @@ module ParticleReleaseScheduleModule
   public :: ParticleReleaseScheduleType
   public :: create_release_schedule
 
+  !> @brief Relative tolerance for release time coincidence.
+  !!
+  !! This is a floating-point representation floor, not a physical
+  !! tolerance: release times within ~100 ulps of each other can't be
+  !! reliably distinguished, so they are always merged, even if the
+  !! (absolute) release time tolerance is set below the ulp spacing.
+  !<
+  real(DP), parameter :: RELEASE_TIME_RTOL = DSAME
+
   !> @brief Particle release scheduling utility.
   !!
   !! The release schedule composes a time selection object for any
   !! explicitly specified release times, and a time step selection
   !! object for release times specified in period/time step terms.
   !!
-  !! Release time coincidence is computed within a given tolerance;
-  !! times closer than the tolerance are merged into a single time.
+  !! Release time coincidence is computed within a given (absolute)
+  !! tolerance, with a relative floor of RELEASE_TIME_RTOL; times
+  !! closer than max(tolerance, RELEASE_TIME_RTOL * |t|) are merged
+  !! into a single time.
   !!
   !! The release schedule must be refreshed each time step. This is
   !! achieved by calling `advance()`. After this, the `times` array
@@ -135,7 +146,10 @@ contains
     ! explicitly configured release time (see above).
     if (this%step_select%is_selected(kstp, endofperiod=endofperiod)) then
       trelease = totimc
-      if (.not. this%time_select%contains_close(trelease, this%tolerance)) then
+      if (.not. this%time_select%contains_close( &
+          trelease, &
+          this%tolerance, &
+          rtol=RELEASE_TIME_RTOL)) then
         call this%schedule(trelease)
         tprevious = trelease
       end if
@@ -149,6 +163,7 @@ contains
         if (tprevious >= DZERO .and. is_close( &
             tprevious, &
             trelease, &
+            rtol=RELEASE_TIME_RTOL, &
             atol=this%tolerance)) cycle
 
         call this%schedule(trelease)

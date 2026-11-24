@@ -1,16 +1,7 @@
 submodule(LakModule) LakModuleImplicit
 contains
 
-  !> @brief Sum the non-seepage lake budget terms at a given stage
-  !!
-  !! Returns B(stage), the sum of every lake-budget term except the groundwater
-  !! seepage: rainfall + runoff + specified and external inflow + outlet inflow
-  !! and outflow - evaporation - withdrawal + transient storage. The stage-driven
-  !! losses are ramped to zero as the stage approaches the lake bottom (over the
-  !! surfdep interval) so a drying lake cannot remove more water than it holds.
-  !! lak_fc_implicit calls this routine at two stages to finite-difference the
-  !! lake-row diagonal and right-hand side.
-  !<
+  ! -- documented on the LakType type-bound procedure in gwf-lak.f90
   module procedure lak_budget_nogwf
   ! -- modules
   use TdisModule, only: delt
@@ -51,35 +42,7 @@ contains
   end if
   end procedure lak_budget_nogwf
 
-  !> @brief Assemble the lake equations into the groundwater flow matrix
-  !!
-  !! Implicit formulation. For each active lake the water-balance equation is
-  !! assembled directly into the matrix:
-  !!   - the lakebed seepage to each connected cell is a conductance coupling
-  !!     between the lake-stage row and the cell row. In the seepage, the lake
-  !!     stage and the connected-cell head are each kept at or above the lake
-  !!     bottom (the same wet/dry cutoff as the default formulation), so a wet
-  !!     connection couples both stage and head, while a perched connection keeps
-  !!     the stage coupling (a non-zero lake-stage diagonal) but drops the head
-  !!     coupling, and
-  !!   - the remaining (non-seepage) budget terms -- rainfall, evaporation,
-  !!     withdrawal, runoff, specified and external inflow, outlet inflow and
-  !!     outflow, and transient storage -- are linearized in stage with a finite
-  !!     difference (lak_budget_nogwf) and added to the diagonal and right-hand
-  !!     side. This captures the stage-dependent surface area and the storage
-  !!     term.
-  !! The implicit lake-aquifer coupling is asymmetric (a perched connection
-  !! couples the lake to the cell but not the reverse), so the coefficient matrix
-  !! is asymmetric and the BICGSTAB linear acceleration is required.
-  !! Lake-to-lake outlet routing is lagged one outer iteration through simoutrate.
-  !! A constant-stage lake holds its row at the specified stage; an inactive lake
-  !! is disconnected from the aquifer. A lake row whose diagonal is still (near)
-  !! zero (no connections and no storage) is kept solvable with a small diagonal
-  !! term that holds the stage at its current value and becomes zero at
-  !! convergence. A lake flagged for the legacy solver (lak_set_legacy)
-  !! is instead solved by the default substitution solver and assembled like a
-  !! constant-stage lake at that solved stage.
-  !<
+  ! -- documented on the LakType type-bound procedure in gwf-lak.f90
   module procedure lak_fc_implicit
   ! -- local
   integer(I4B) :: n, j, ipos, iloc, igwfnode
@@ -153,7 +116,8 @@ contains
         ipos = ipos + 1
         igwfnode = this%gwfconn(j)
         if (this%ibound(igwfnode) < 1) cycle
-        call matrix_sln%add_value_pos(this%idxsymdglo(ipos), this%hcof(j))
+        call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), &
+                                      this%hcof(j))
         rhs(igwfnode) = rhs(igwfnode) + this%rhs(j)
       end do
     else if (this%iboundpak(n) > 0) then
@@ -183,6 +147,21 @@ contains
         !    perched leakage still responds to stage.
         call this%lak_calculate_conn_exchange_deriv(n, j, hlak, head, flow, &
                                                     dqds, dqdh)
+        !
+        ! -- a vertical connection moved to a lower cell when its cell went dry
+        !    (lak_cf) has no matrix entries with the lake. Couple it as the
+        !    default formulation does: the stage derivative on the lake row with
+        !    the head lagged one outer iteration, and the head derivative on the
+        !    cell's diagonal with the stage lagged. Both rows use the same flow
+        !    that lak_cq reports.
+        if (igwfnode /= this%idxcellid(ipos)) then
+          call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
+          rhs(iloc) = rhs(iloc) + dqds * hlak - flow
+          adiag = adiag + dqds
+          call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), -dqdh)
+          rhs(igwfnode) = rhs(igwfnode) - dqdh * head + flow
+          cycle
+        end if
         call matrix_sln%add_value_pos(this%idxdiag(n), dqds)
         call matrix_sln%add_value_pos(this%idxoffdglo(ipos), dqdh)
         call matrix_sln%add_value_pos(this%idxsymdglo(ipos), -dqdh)
@@ -219,7 +198,7 @@ contains
         head = this%xnew(igwfnode)
         call this%lak_calculate_conn_exchange(n, j, hlak, head, flow, &
                                               gwfhcof, gwfrhs)
-        call matrix_sln%add_value_pos(this%idxsymdglo(ipos), gwfhcof)
+        call matrix_sln%add_value_pos(cell_diag_pos(ipos, igwfnode), gwfhcof)
         rhs(igwfnode) = rhs(igwfnode) + gwfrhs
       end do
     else
@@ -238,25 +217,30 @@ contains
       end do
     end if
   end do
+
+contains
+
+  !> @brief Matrix position of the diagonal of a connected cell
+  !!
+  !! A connection moved to a lower cell (lak_cf) has no stored position, so
+  !! the diagonal of the cell is looked up.
+  !<
+  function cell_diag_pos(ipos, igwfnode) result(idiag)
+    ! -- dummy
+    integer(I4B), intent(in) :: ipos !< connection index in the idx* arrays
+    integer(I4B), intent(in) :: igwfnode !< cell the connection is on
+    ! -- return
+    integer(I4B) :: idiag
+    !
+    if (igwfnode == this%idxcellid(ipos)) then
+      idiag = this%idxsymdglo(ipos)
+    else
+      idiag = matrix_sln%get_position_diag(igwfnode + this%moffset)
+    end if
+  end function cell_diag_pos
   end procedure lak_fc_implicit
 
-  !> @brief Switch a stalled IMPLICIT lake back to the legacy solver
-  !!
-  !! Under the IMPLICIT option a weakly connected or disconnected lake (one with
-  !! a small lakebed conductance) gives a poorly conditioned lake-stage equation
-  !! that the coupled solver may be unable to advance. Such a lake is the
-  !! convergence bottleneck: its stage keeps changing by much more than its
-  !! connected aquifer heads, which have settled. A well-connected lake, by
-  !! contrast, changes its stage in step with its aquifer. When the stage change
-  !! exceeds the connected-head change by a large factor for several outer
-  !! iterations (see the inline criterion), the lake is flagged (ilegacy), and
-  !! lak_fc_implicit then solves and assembles it with the robust substitution
-  !! solver instead. A lake that changes in step with its aquifer is never
-  !! switched. The flag and the per-lake tracking are cleared at the start of
-  !! each time step, so a lake switched in one time step is reconsidered for the
-  !! implicit formulation in the next, where transient storage or different
-  !! stresses may make its stage equation better conditioned.
-  !<
+  ! -- documented on the LakType type-bound procedure in gwf-lak.f90
   module procedure lak_set_legacy
   ! -- local
   integer(I4B) :: n, j, igwfnode
@@ -323,17 +307,7 @@ contains
   end do
   end procedure lak_set_legacy
 
-  !> @brief Warn when a legacy-solved lake still prevents IMPLICIT convergence
-  !!
-  !! Called on the last outer iteration of a solution that did not converge. By
-  !! this point any stalled lake has already been switched to the legacy
-  !! substitution solver (lak_set_legacy). If at least one lake is on it and the
-  !! solution still did not converge, the implicit formulation needed more outer
-  !! iterations than were allowed; a one-time warning reports this and points the
-  !! user to the remedies, including the default formulation, which converges
-  !! this kind of lake in far fewer outer iterations. No warning is issued when
-  !! no lake was switched, because then the lake is not the cause of the failure.
-  !<
+  ! -- documented on the LakType type-bound procedure in gwf-lak.f90
   module procedure lak_check_disconnected
   ! -- local
   character(len=LINELENGTH) :: warnmsg

@@ -50,7 +50,7 @@ module TspAdvModule
 
 contains
 
-  !> @ brief Create a new ADV object
+  !> @brief Create a new ADV object
   !!
   !!  Create a new ADV package
   !<

@@ -87,7 +87,7 @@ module ObserveModule
 
   abstract interface
 
-    !> @ brief Process user-provided IDstring
+    !> @brief Process user-provided IDstring
   !!
   !!  Subroutine that processes the user-provided IDstring, which identifies
   !!  the grid location or model feature to be observed.
@@ -109,7 +109,7 @@ contains
 
   ! Procedures bound to ObserveType
 
-  !> @ brief Reset current observation value
+  !> @brief Reset current observation value
   !!
   !!  Subroutine to reset the current observation value.
   !!
@@ -122,7 +122,7 @@ contains
     this%CurrentTimeStepEndValue = DZERO
   end subroutine ResetCurrentValue
 
-  !> @ brief Write observation input data
+  !> @brief Write observation input data
   !!
   !!  Subroutine to write observation input data to a table in the model
   !!  list file.
@@ -160,7 +160,7 @@ contains
     call obstab%add_term(fnameout)
   end subroutine WriteTo
 
-  !> @ brief Reset a observation index
+  !> @brief Reset a observation index
   !!
   !!  Subroutine to reset the observation index count and array.
   !!
@@ -181,7 +181,7 @@ contains
     allocate (this%indxbnds(0))
   end subroutine ResetObsIndex
 
-  !> @ brief Add a observation index
+  !> @brief Add a observation index
   !!
   !!  Subroutine to add the observation index to the observation index
   !!  array (indxbnds). The observation index count (indxbnds_count) is
@@ -204,7 +204,7 @@ contains
     this%indxbnds(this%indxbnds_count) = indx
   end subroutine AddObsIndex
 
-  !> @ brief Deallocate a observation
+  !> @brief Deallocate a observation
   !!
   !!  Subroutine to deallocated a observation (ObserveType).
   !!
@@ -219,7 +219,7 @@ contains
 
   ! Non-type-bound procedures
 
-  !> @ brief Construct a new ObserveType
+  !> @brief Construct a new ObserveType
   !!
   !!  Subroutine to construct and return an ObserveType object based
   !!  on the contents of defLine.
@@ -290,7 +290,7 @@ contains
     newObservation%IndxObsOutput = indx
   end subroutine ConstructObservation
 
-  !> @ brief Cast a object as a ObserveType
+  !> @brief Cast a object as a ObserveType
   !!
   !!  Function to cast an object as a ObserveType object.
   !!
@@ -310,7 +310,7 @@ contains
     end select
   end function CastAsObserveType
 
-  !> @ brief Add a ObserveType to a list
+  !> @brief Add a ObserveType to a list
   !!
   !!  Subroutine to add a ObserveType to a list.
   !!
@@ -326,7 +326,7 @@ contains
     call list%Add(obj)
   end subroutine AddObsToList
 
-  !> @ brief Get an ObserveType from a list
+  !> @brief Get an ObserveType from a list
   !!
   !!  Function to get an ObserveType from a list.
   !!

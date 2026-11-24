@@ -1,4 +1,4 @@
-!>  @ brief Energy Storage and Transfer (EST) Module
+!>  @brief Energy Storage and Transfer (EST) Module
 !!
 !!  The GweEstModule contains the GweEstType, which is related
 !!  to GwtEstModule; however, there are some important differences
@@ -41,7 +41,7 @@ module GweEstModule
     ENUMERATOR :: DECAY_BOTH = 3 !< Zeroth-order decay in water and solid
   END ENUM
 
-  !> @ brief Energy storage and transfer
+  !> @brief Energy storage and transfer
   !!
   !!  Data and methods for handling changes in temperature
   !<
@@ -96,7 +96,7 @@ module GweEstModule
 
 contains
 
-  !> @ brief Create a new EST package object
+  !> @brief Create a new EST package object
   !!
   !!  Create a new EST package
   !<
@@ -129,7 +129,7 @@ contains
     estobj%gwecommon => gwecommon
   end subroutine est_cr
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the package.
   !<
@@ -166,7 +166,7 @@ contains
                                          this%rhos, this%cps)
   end subroutine est_ar
 
-  !> @ brief Fill coefficient method for package
+  !> @brief Fill coefficient method for package
   !!
   !!  Method to calculate and fill coefficients for the package.
   !<
@@ -195,7 +195,7 @@ contains
     end if
   end subroutine est_fc
 
-  !> @ brief Fill storage coefficient method for package
+  !> @brief Fill storage coefficient method for package
   !!
   !!  Method to calculate and fill storage coefficients for the package.
   !<
@@ -243,7 +243,7 @@ contains
     end do
   end subroutine est_fc_sto
 
-  !> @ brief Fill decay coefficient method for package
+  !> @brief Fill decay coefficient method for package
   !!
   !!  Method to calculate and fill decay coefficients for the package.
   !<
@@ -291,7 +291,7 @@ contains
     end do
   end subroutine est_fc_dcy_water
 
-  !> @ brief Fill solid decay coefficient method for package
+  !> @brief Fill solid decay coefficient method for package
   !!
   !!  Method to calculate and fill energy decay coefficients for the solid phase.
   !<
@@ -340,7 +340,7 @@ contains
     end do
   end subroutine est_fc_dcy_solid
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Method to calculate flows for the package.
   !<
@@ -367,7 +367,7 @@ contains
     end if
   end subroutine est_cq
 
-  !> @ brief Calculate storage terms for package
+  !> @brief Calculate storage terms for package
   !!
   !!  Method to calculate storage terms for the package.
   !<
@@ -419,7 +419,7 @@ contains
     end do
   end subroutine est_cq_sto
 
-  !> @ brief Calculate decay terms for aqueous phase
+  !> @brief Calculate decay terms for aqueous phase
   !!
   !!  Method to calculate decay terms for the aqueous phase.
   !<
@@ -470,7 +470,7 @@ contains
     end do
   end subroutine est_cq_dcy
 
-  !> @ brief Calculate decay terms for solid phase
+  !> @brief Calculate decay terms for solid phase
   !!
   !!  Method to calculate decay terms for the solid phase.
   !<
@@ -518,7 +518,7 @@ contains
     end do
   end subroutine est_cq_dcy_solid
 
-  !> @ brief Calculate budget terms for package
+  !> @brief Calculate budget terms for package
   !!
   !!  Method to calculate budget terms for the package.
   !<
@@ -556,7 +556,7 @@ contains
     end if
   end subroutine est_bd
 
-  !> @ brief Output flow terms for package
+  !> @brief Output flow terms for package
   !!
   !!  Method to output terms for the package.
   !<
@@ -644,7 +644,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine est_da
 
-  !> @ brief Allocate scalar variables for package
+  !> @brief Allocate scalar variables for package
   !!
   !!  Method to allocate scalar variables for the package.
   !<
@@ -672,7 +672,7 @@ contains
     this%idcysrc = IZERO
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays for package
+  !> @brief Allocate arrays for package
   !!
   !!  Method to allocate arrays for the package.
   !<

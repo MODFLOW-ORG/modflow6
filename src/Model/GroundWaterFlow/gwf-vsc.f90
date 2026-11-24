@@ -58,9 +58,9 @@ module GwfVscModule
     real(DP), dimension(:), pointer, contiguous :: k11 => null() !< NPF hydraulic conductivity; if anisotropic, then this is Kx prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< NPF hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< NPF hydraulic conductivity; if specified then this is Kz prior to rotation
-    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< NPF hydraulic conductivity as originally specified by the user
-    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< NPF hydraulic conductivity as originally specified by the user
-    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< NPF hydraulic conductivity as originally specified by the user
+    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< NPF hydraulic conductivity before VSC adjustment, including TVK changes
     integer(I4B), pointer :: kchangeper => null() ! last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() ! last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() ! grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
@@ -135,7 +135,7 @@ contains
     end do
   end function calc_visc
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new VSC Package object.
   !<
@@ -161,7 +161,7 @@ contains
     vscobj%iout = iout
   end subroutine vsc_cr
 
-  !> @ brief Define viscosity package options and dimensions
+  !> @brief Define viscosity package options and dimensions
   !!
   !!  Define viscosity package options and dimensions
   !<
@@ -207,7 +207,7 @@ contains
     end if
   end subroutine vsc_df
 
-  !> @ brief Allocate and read method for viscosity package
+  !> @brief Allocate and read method for viscosity package
   !!
   !!  Generic method to allocate and read static data for the viscosity
   !!  package available within the GWF model type.
@@ -318,7 +318,7 @@ contains
     call mem_setptr(this%nodekchange, 'NODEKCHANGE', npfMemoryPath)
   end subroutine set_npf_pointers
 
-  !> @ brief Read new period data in viscosity package
+  !> @brief Read new period data in viscosity package
   !!
   !!  Method to read and prepare period data for the VSC package.
   !<
@@ -350,7 +350,7 @@ contains
     end if
   end subroutine vsc_rp
 
-  !> @ brief Advance the viscosity package
+  !> @brief Advance the viscosity package
   !!
   !!  Advance data in the VSC package. The method sets or advances time series,
   !!  time array series, and observation data.
@@ -454,19 +454,16 @@ contains
     deallocate (locconc)
   end subroutine vsc_ad_bnd
 
-  !> @brief advance ghb while accounting for viscosity
+  !> @brief advance ghb, drn and riv while accounting for viscosity
   !!
-  !! When flow enters from ghb boundary type, take into account the effects
-  !! of viscosity on the user-specified conductance terms
+  !! Set the viscosity ratio that the package applies to each boundary
+  !! conductance
   !<
   subroutine vsc_ad_standard_bnd(packobj, hnew, visc, viscref, locelev, &
                                  locvisc, locconc, dviscdc, cviscref, &
                                  ivisc, a2, a3, a4, ctemp)
     ! -- modules
     use BndModule, only: BndType
-    use DrnModule, only: DrnType
-    use RivModule, only: RivType
-    use GhbModule, only: GhbType
     class(BndType), pointer :: packobj
     ! -- dummy
     real(DP), intent(in), dimension(:) :: hnew
@@ -482,46 +479,18 @@ contains
     real(DP), dimension(:), intent(inout) :: ctemp
     ! -- local
     integer(I4B) :: n
-    integer(I4B) :: node
     real(DP) :: viscbnd
     !
-    ! -- Process density terms for each GHB
+    ! -- Set the viscosity ratio for each boundary
     do n = 1, packobj%nbound
-      node = packobj%nodelist(n)
-      !
-      ! -- Check if boundary cell is active, cycle if not
-      if (packobj%ibound(node) <= 0) cycle
       !
       ! -- calculate the viscosity associated with the boundary
       viscbnd = calc_bnd_viscosity(n, locvisc, locconc, viscref, dviscdc, &
                                    cviscref, ctemp, ivisc, a2, a3, a4, &
                                    packobj%auxvar)
       !
-      ! -- update boundary conductance based on viscosity effects
-      select case (packobj%filtyp)
-      case ('DRN')
-        select type (packobj)
-        type is (DrnType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case ('GHB')
-        select type (packobj)
-        type is (GhbType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case ('RIV')
-        select type (packobj)
-        type is (RivType)
-          packobj%cond(n) = update_bnd_cond(viscbnd, viscref, &
-                                            packobj%condinput(n))
-        end select
-      case default
-        packobj%bound(2, n) = update_bnd_cond(viscbnd, viscref, &
-                                              packobj%condinput(n))
-      end select
-      !
+      ! -- viscosity ratio applied to the boundary conductance
+      packobj%viscratio(n) = calc_vsc_ratio(viscref, viscbnd)
     end do
   end subroutine vsc_ad_standard_bnd
 
@@ -687,26 +656,6 @@ contains
     end select
   end subroutine vsc_ad_maw
 
-  !> @brief Apply viscosity to the conductance term
-  !!
-  !! When the viscosity package is active apply the viscosity ratio to the
-  !! active boundary package's conductance term.
-  !<
-  function update_bnd_cond(bndvisc, viscref, spcfdcond) result(updatedcond)
-    ! -- dummy
-    real(DP), intent(in) :: viscref
-    real(DP), intent(in) :: bndvisc
-    real(DP), intent(in) :: spcfdcond
-    ! -- local
-    real(DP) :: vscratio
-    real(DP) :: updatedcond
-    !
-    vscratio = calc_vsc_ratio(viscref, bndvisc)
-    !
-    ! -- calculate new conductance here
-    updatedcond = vscratio * spcfdcond
-  end function update_bnd_cond
-
   !> @brief calculate and return the viscosity ratio
   !<
   function calc_vsc_ratio(viscref, bndvisc) result(viscratio)
@@ -719,7 +668,7 @@ contains
     viscratio = viscref / bndvisc
   end function calc_vsc_ratio
 
-  !> @ brief Calculate the boundary viscosity
+  !> @brief Calculate the boundary viscosity
   !!
   !! Return the viscosity of the boundary package using one of
   !! the options in the following order of priority:
@@ -829,8 +778,8 @@ contains
     real(DP) :: viscratio
     !
     ! -- For viscosity-based K's, apply change of K to K11 by starting with
-    !    user-specified K values and not the K's leftover from the last viscosity
-    !    update.
+    !    K before VSC adjustment (including TVK changes) and not the K's
+    !    leftover from the last viscosity update.
     do n = 1, this%dis%nodes
       call this%calc_q_visc(n, viscratio)
       this%k11(n) = this%k11input(n) * viscratio
@@ -858,7 +807,7 @@ contains
     this%kchangestp = kstp
   end subroutine vsc_set_changed_at
 
-  !> @ brief Output viscosity package dependent-variable terms.
+  !> @brief Output viscosity package dependent-variable terms.
   !!
   !!  Save calculated viscosity array to binary file
   !<
@@ -897,7 +846,7 @@ contains
     end if
   end subroutine vsc_ot_dv
 
-  !> @ brief Deallocate viscosity package memory
+  !> @brief Deallocate viscosity package memory
   !!
   !!  Deallocate viscosity package scalars and arrays.
   !<
@@ -944,7 +893,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine vsc_da
 
-  !> @ brief Source dimensions for package
+  !> @brief Source dimensions for package
   !<
   subroutine source_dimensions(this)
     ! -- modules
@@ -971,7 +920,7 @@ contains
     end if
   end subroutine source_dimensions
 
-  !> @ brief source packagedata for package
+  !> @brief source packagedata for package
   !<
   subroutine source_packagedata(this)
     ! -- modules
@@ -1126,7 +1075,7 @@ contains
     end do
   end subroutine vsc_calcvisc
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the VSC package. The base model
   !! allocate scalars method is also called.
@@ -1167,7 +1116,7 @@ contains
     this%nviscspecies = 0
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate and initialize arrays for the VSC package.
   !<
@@ -1206,7 +1155,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Source VSC options
+  !> @brief Source VSC options
   !<
   subroutine source_options(this)
     ! -- modules
@@ -1292,7 +1241,7 @@ contains
     call this%log_options(found, viscosityfile)
   end subroutine source_options
 
-  !> @ brief log VSC options
+  !> @brief log VSC options
   !<
   subroutine log_options(this, found, viscosityfile)
     ! -- modules
@@ -1382,7 +1331,7 @@ contains
     this%viscref = input_data%viscref
   end subroutine set_options
 
-  !> @ brief Set pointers to concentration(s)
+  !> @brief Set pointers to concentration(s)
   !!
   !! Pass in a gwt model name, concentration array, and ibound,
   !! and store a pointer to these in the VSC package so that

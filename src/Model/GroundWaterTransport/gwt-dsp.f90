@@ -294,7 +294,7 @@ contains
     end if
   end subroutine dsp_fc
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Method to calculate dispersion contribution to flowja
   !<
@@ -325,7 +325,7 @@ contains
     end if
   end subroutine dsp_cq
 
-  !> @ brief Allocate scalar variables for package
+  !> @brief Allocate scalar variables for package
   !!
   !!  Method to allocate scalar variables for the package.
   !<
@@ -375,7 +375,7 @@ contains
     this%iangle3 = 1
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays for package
+  !> @brief Allocate arrays for package
   !!
   !!  Method to allocate arrays for the package.
   !<
@@ -411,7 +411,7 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
   !!
   !!  Method to deallocate memory for the package.
   !<

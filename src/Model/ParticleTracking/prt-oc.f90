@@ -17,7 +17,7 @@ module PrtOcModule
   private
   public PrtOcType, oc_cr
 
-  !> @ brief Output control for particle tracking models
+  !> @brief Output control for particle tracking models
   type, extends(OutputControlType) :: PrtOcType
     integer(I4B), pointer :: itrkout => null() !< binary output file
     integer(I4B), pointer :: itrkhdr => null() !< output header file
@@ -48,7 +48,7 @@ module PrtOcModule
 
 contains
 
-  !> @ brief Create an output control object
+  !> @brief Create an output control object
   subroutine oc_cr(ocobj, name_model, input_mempath, inunit, iout)
     type(PrtOcType), pointer :: ocobj !< PrtOcType object
     character(len=*), intent(in) :: name_model !< name of the model
@@ -129,7 +129,7 @@ contains
     end if
   end subroutine prt_oc_allocate_scalars
 
-  !> @ brief Setup output control variables.
+  !> @brief Setup output control variables.
   subroutine oc_ar(this, dis, dnodata)
     ! dummy
     class(PrtOcType) :: this !< PrtOcType object

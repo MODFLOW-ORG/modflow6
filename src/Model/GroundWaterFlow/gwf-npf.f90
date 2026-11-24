@@ -72,9 +72,9 @@ module GwfNpfModule
     real(DP), dimension(:), pointer, contiguous :: k22 => null() !< hydraulic conductivity; if specified then this is Ky prior to rotation
     real(DP), dimension(:), pointer, contiguous :: k33 => null() !< hydraulic conductivity; if specified then this is Kz prior to rotation
     real(DP), dimension(:), pointer, contiguous :: krel => null() !< relative permeability; unless UZR flow is active in a cell, this is 1
-    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
-    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity originally specified by user prior to TVK or VSC modification
+    real(DP), dimension(:), pointer, contiguous :: k11input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k22input => null() !< hydraulic conductivity before VSC modification, including TVK changes
+    real(DP), dimension(:), pointer, contiguous :: k33input => null() !< hydraulic conductivity before VSC modification, including TVK changes
     integer(I4B), pointer :: iavgkeff => null() !< effective conductivity averaging (0: harmonic, 1: arithmetic)
     integer(I4B), pointer :: ik22 => null() !< flag that k22 is specified
     integer(I4B), pointer :: ik33 => null() !< flag that k33 is specified
@@ -122,6 +122,7 @@ module GwfNpfModule
     procedure :: npf_rp
     procedure :: npf_ad
     procedure :: npf_cf
+    procedure :: npf_initial_saturation
     procedure :: npf_fc
     procedure :: npf_fn
     procedure :: npf_cq
@@ -162,7 +163,7 @@ module GwfNpfModule
     procedure, private :: calc_initial_sat
     procedure, private :: calc_max_conns
     procedure, private :: prepare_edge_lookup
-    procedure, private :: highest_cell_saturation
+    procedure :: highest_cell_saturation
   end type
 
   !> @brief Default conductance flow formulation
@@ -356,18 +357,19 @@ contains
       this%vsc => vsc
     end if
     !
-    ! -- allocate arrays to store original user input in case TVK/VSC modify them
+    ! -- allocate arrays to store K before VSC adjustment
     if (this%invsc > 0) then
       !
-      ! -- Reallocate arrays that store user-input values.
+      ! -- Reallocate arrays that store K before VSC adjustment.
       call mem_reallocate(this%k11input, this%dis%nodes, 'K11INPUT', &
                           this%memoryPath)
       call mem_reallocate(this%k22input, this%dis%nodes, 'K22INPUT', &
                           this%memoryPath)
       call mem_reallocate(this%k33input, this%dis%nodes, 'K33INPUT', &
                           this%memoryPath)
-      ! Allocate arrays that will store the original K values.  When VSC active,
-      ! the current Kxx arrays carry the viscosity-adjusted K values.
+      ! Store K before VSC adjustment; TVK changes are made to these arrays.
+      ! When VSC active, the current Kxx arrays carry the viscosity-adjusted
+      ! K values.
       ! This approach leverages existing functionality that makes use of K.
       call this%store_original_k_arrays(this%dis%nodes, this%dis%njas)
     end if
@@ -555,6 +557,39 @@ contains
     end if
 
   end subroutine cf_default_flow
+
+  !> @brief Saturation implied by the heads the simulation starts from
+  !!
+  !! Saturation is not evaluated from the initial heads until the first solve.
+  !<
+  subroutine npf_initial_saturation(this, sat)
+    ! -- dummy
+    class(GwfNpfType) :: this !< GwfNpfType object
+    real(DP), dimension(:), intent(inout) :: sat !< saturation from the initial heads
+    ! -- local
+    integer(I4B) :: n
+    real(DP) :: satn
+    !
+    do n = 1, this%dis%nodes
+      if (this%icelltype(n) /= 0) then
+        !
+        ! -- a convertible cell that is inactive at the start, such as one
+        !    whose starting head is below its bottom, has no saturated
+        !    thickness
+        if (this%ibound(n) == 0) then
+          satn = DZERO
+        else
+          call this%thksat(n, this%ic%strt(n), satn)
+        end if
+      else
+        !
+        ! -- a confined cell is saturated, unless THICKSTRT sets its
+        !    saturated thickness from the starting head
+        satn = this%calc_initial_sat(n)
+      end if
+      sat(n) = satn
+    end do
+  end subroutine npf_initial_saturation
 
   !> @brief Formulate coefficients
   !<
@@ -1310,7 +1345,7 @@ contains
 
   end subroutine npf_da
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the VSC package. The base model
   !! allocate scalars method is also called.
@@ -1404,13 +1439,13 @@ contains
     this%iasym = this%inewton
   end subroutine allocate_scalars
 
-  !> @ brief Store backup copy of hydraulic conductivity when the VSC
+  !> @brief Store backup copy of hydraulic conductivity when the VSC
   !!         package is activate
   !!
   !! The K arrays (K11, etc.) get multiplied by the viscosity ratio so that
   !! subsequent uses of K already take into account the effect of viscosity.
-  !! Thus the original user-specified K array values are lost unless they are
-  !! backed up in k11input, for example.  In a new stress period/time step,
+  !! Thus K before VSC adjustment, including TVK changes, is kept in
+  !! k11input, for example.  In a new stress period/time step,
   !! the values in k11input are multiplied by the viscosity ratio, not k11
   !! since it contains viscosity-adjusted hydraulic conductivity values.
   !<

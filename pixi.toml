@@ -12,6 +12,7 @@ filelock = "*"
 flaky = "*"
 fortran-language-server = "*"
 fprettify = "*"
+gfortran = "15.*"
 geopandas = "*"
 gitpython = "*"
 jinja2 = ">=3.1.5,<4"
@@ -40,7 +41,6 @@ ruff = "*"
 scipy = "*"
 shapely = "*"
 syrupy = "<5"
-test-drive = "*"
 xarray = "*"
 xugrid = ">=0.14"
 xmipy = ">=1.4.0"
@@ -50,9 +50,6 @@ modflow-devtools = { version = "==1.8.0", extras = ["test", "dfn", "models"] }
 
 # os-specific dependencies
 [target.win-64.dependencies]
-# conda-forge publishes gfortran, flang and ifx builds; the
-# unit tests are built with gfortran so require that variant
-test-drive = { version = "!=0.6.0", build = "gfortran*" }
 # meson >=1.11 skips mpiifort on windows and finds Intel MPI
 # via I_MPI_ROOT without the include path for the mpi module
 meson = ">=1.7.0,<1.11"
@@ -185,20 +182,11 @@ platforms = ["linux-64", "osx-arm64"]
 git = "*"
 meson = "*"
 ninja = "*"
-gfortran = "*"
 pkg-config = "*"
 libnetcdf = "*"
 netcdf-fortran = "*"
 openmpi = "*"
 petsc = "<3.23.0"
-
-[feature.gcc-extended-build.target.linux-64.dependencies]
-gfortran = "13.*"
-
-[feature.gcc-extended-build.target.osx-arm64.dependencies]
-# conda-forge builds test-drive with gfortran 14, so its gfortran 15 finalization
-# guard is not compiled in and the unit tests crash with gfortran 15
-gfortran = "13.*"
 
 [feature.gcc-extended-build.tasks]
 gcc-extended-build-update-pc-files = { cmd = "echo updating netcdf pc files && python gcc-extended-build-update-pc-files.py", cwd = "distribution" }

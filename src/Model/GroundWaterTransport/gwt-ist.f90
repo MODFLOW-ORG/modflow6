@@ -1,4 +1,4 @@
-!> -- @ brief Immobile Storage and Transfer (IST) Module
+!> -- @brief Immobile Storage and Transfer (IST) Module
 !!
 !!    The GwtIstModule is contains the GwtIstType, which is the
 !!    derived type responsible for adding the effects of an
@@ -40,7 +40,7 @@ module GwtIstModule
     '   DECAY-AQUEOUS', '    DECAY-SORBED', &
     '   MOBILE-DOMAIN'/
 
-  !> @ brief Immobile storage and transfer
+  !> @brief Immobile storage and transfer
   !!
   !!  Data and methods for handling the effects of an
   !!  immobile domain.  Note that there can be as many of these
@@ -111,7 +111,7 @@ module GwtIstModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new IST object
   !!
@@ -159,7 +159,7 @@ contains
     istobj%mst => mst
   end subroutine ist_create
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the package.
   !!
@@ -225,7 +225,7 @@ contains
     end if
   end subroutine ist_ar
 
-  !> @ brief Read and prepare method for package
+  !> @brief Read and prepare method for package
   !!
   !!  Method to read and prepare package data
   !!
@@ -237,7 +237,7 @@ contains
     ! -- format
   end subroutine ist_rp
 
-  !> @ brief Advance the ist package
+  !> @brief Advance the ist package
   !!
   !!  Advance the IST Package and handle the adaptive time stepping
   !!  feature by copying from new to old or old to new accordingly
@@ -270,7 +270,7 @@ contains
     end if
   end subroutine ist_ad
 
-  !> @ brief Fill coefficient method for package
+  !> @brief Fill coefficient method for package
   !<
   subroutine ist_fc(this, rhs, ia, idxglo, matrix_sln)
     ! modules
@@ -285,7 +285,7 @@ contains
     integer(I4B) :: n, idiag
     real(DP) :: tled
     real(DP) :: hhcof, rrhs
-    real(DP) :: swt, swtpdt
+    real(DP) :: swtpdt
     real(DP) :: vcell
     real(DP) :: thetaim
     real(DP) :: zetaim
@@ -317,7 +317,6 @@ contains
       ! calculate new and old water volumes
       vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
       swtpdt = this%fmi%gwfsat(n)
-      swt = this%fmi%gwfsatold(n, delt)
       thetaim = this%get_thetaim(n)
       idiag = ia(n)
 
@@ -397,7 +396,7 @@ contains
 
   end subroutine ist_fc
 
-  !> @ brief Calculate package flows.
+  !> @brief Calculate package flows.
   !<
   subroutine ist_cq(this, x, flowja, iadv)
     ! modules
@@ -412,7 +411,7 @@ contains
     integer(I4B) :: idiag
     integer(I4B) :: n
     real(DP) :: rate
-    real(DP) :: swt, swtpdt
+    real(DP) :: swtpdt
     real(DP) :: hhcof, rrhs
     real(DP) :: vcell
     real(DP) :: thetaim
@@ -447,7 +446,6 @@ contains
         ! calculate new and old water volumes
         vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
         swtpdt = this%fmi%gwfsat(n)
-        swt = this%fmi%gwfsatold(n, delt)
         thetaim = this%get_thetaim(n)
 
         ! set exchange coefficient
@@ -543,7 +541,7 @@ contains
 
   end subroutine ist_cq
 
-  !> @ brief Calculate immobile sorbed concentration
+  !> @brief Calculate immobile sorbed concentration
   !<
   subroutine ist_calc_csrb(this, cim)
     ! -- dummy
@@ -564,7 +562,7 @@ contains
 
   end subroutine ist_calc_csrb
 
-  !> @ brief Add package flows to model budget.
+  !> @brief Add package flows to model budget.
   !!
   !!  Add the flow between IST package and the model (ratin and ratout) to the
   !!  model budget.
@@ -587,7 +585,7 @@ contains
                                isuppress_output, this%packName)
   end subroutine ist_bd
 
-  !> @ brief Output model flow terms.
+  !> @brief Output model flow terms.
   !!
   !!  Output flow terms between the IST package and model to a binary file and/or
   !!  print flows to the model listing file.
@@ -654,7 +652,7 @@ contains
     end do
   end subroutine ist_ot_model_flows
 
-  !> @ brief Output dependent variables.
+  !> @brief Output dependent variables.
   !<
   subroutine ist_ot_dv(this, idvsave, idvprint)
     ! dummy variables
@@ -667,7 +665,7 @@ contains
 
   end subroutine ist_ot_dv
 
-  !> @ brief Output immobile domain aqueous concentration.
+  !> @brief Output immobile domain aqueous concentration.
   !<
   subroutine output_immobile_concentration(this, idvsave, idvprint)
     ! modules
@@ -698,7 +696,7 @@ contains
 
   end subroutine output_immobile_concentration
 
-  !> @ brief Output immobile domain sorbate concentration.
+  !> @brief Output immobile domain sorbate concentration.
   !<
   subroutine output_immobile_sorbate_concentration(this, idvsave, idvprint)
     ! modules
@@ -736,7 +734,7 @@ contains
 
   end subroutine output_immobile_sorbate_concentration
 
-  !> @ brief Output IST package budget summary.
+  !> @brief Output IST package budget summary.
   !!
   !!  Output advanced boundary package budget summary. This method only needs
   !!  to be overridden for advanced packages that save budget summaries
@@ -769,7 +767,7 @@ contains
     call this%budget%writecsv(totim)
   end subroutine ist_ot_bdsummary
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate package scalars and arrays.
   !!
@@ -824,7 +822,7 @@ contains
     call this%BndType%bnd_da()
   end subroutine ist_da
 
-  !> @ brief Allocate package scalars
+  !> @brief Allocate package scalars
   !!
   !!  Allocate and initialize package scalars.
   !!
@@ -864,7 +862,7 @@ contains
     call ocd_cr(this%ocd)
   end subroutine allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
   !!
   !!  Allocate and initialize package arrays.
   !!
@@ -953,7 +951,7 @@ contains
     this%ocd%dis => this%dis
   end subroutine ist_allocate_arrays
 
-  !> @ brief Source options for package
+  !> @brief Source options for package
   !!
   !!  Method to source options for the package.
   !<
@@ -1125,7 +1123,7 @@ contains
                                 &OPTIONS'
   end subroutine log_options
 
-  !> @ brief Read options for package
+  !> @brief Read options for package
   !!
   !!  Read options for boundary packages.
   !!
@@ -1139,7 +1137,7 @@ contains
     call this%source_options()
   end subroutine read_options
 
-  !> @ brief Source data for package
+  !> @brief Source data for package
   !!
   !!  Method to source data for the package.
   !<
@@ -1367,7 +1365,7 @@ contains
     write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
   end subroutine log_data
 
-  !> @ brief Read dimensions for package
+  !> @brief Read dimensions for package
   !!
   !!  Read dimensions for package.
   !!
@@ -1379,7 +1377,7 @@ contains
     ! -- format
   end subroutine ist_read_dimensions
 
-  !> @ brief Return thetaim
+  !> @brief Return thetaim
   !!
   !!  Calculate and return thetaim, volume of immobile voids per aquifer volume
   !!
@@ -1395,7 +1393,7 @@ contains
     thetaim = this%volfrac(node) * this%porosity(node)
   end function get_thetaim
 
-  !> @ brief Calculate immobile domain equation terms
+  !> @brief Calculate immobile domain equation terms
   !!
   !!  This subroutine calculates the immobile domain (or dual domain) terms.
   !!  The resulting ddterm and f terms are described in the GWT model report.
@@ -1447,7 +1445,7 @@ contains
     f = ddterm(1) + ddterm(3) + ddterm(5) + ddterm(6) + ddterm(9)
   end subroutine get_ddterm
 
-  !> @ brief Calculate the hcof and rhs terms for immobile domain
+  !> @brief Calculate the hcof and rhs terms for immobile domain
   !!
   !!  This subroutine calculates the hcof and rhs terms that must
   !!  be added to the solution system of equations
@@ -1471,7 +1469,7 @@ contains
     rhs = -rhs
   end subroutine get_hcofrhs
 
-  !> @ brief Calculate the immobile domain concentration
+  !> @brief Calculate the immobile domain concentration
   !!
   !!  This function calculates the concentration of the immobile domain.
   !!
@@ -1492,7 +1490,7 @@ contains
     cimnew = cimnew / f
   end function get_ddconc
 
-  !> @ brief Calculate the immobile domain budget terms
+  !> @brief Calculate the immobile domain budget terms
   !!
   !!  This subroutine calculates and accumulates the immobile domain
   !!  budget terms into the budterm accumulator
@@ -1571,7 +1569,7 @@ contains
     !
   end subroutine accumulate_budterm
 
-  !> @ brief Get effective Freundlich distribution coefficient
+  !> @brief Get effective Freundlich distribution coefficient
   !<
   function get_freundlich_kd(conc, kf, a) result(kd)
     ! -- dummy
@@ -1591,7 +1589,7 @@ contains
     end if
   end function get_freundlich_kd
 
-  !> @ brief Get effective Langmuir distribution coefficient
+  !> @brief Get effective Langmuir distribution coefficient
   !<
   function get_langmuir_kd(conc, kl, sbar) result(kd)
     ! -- dummy

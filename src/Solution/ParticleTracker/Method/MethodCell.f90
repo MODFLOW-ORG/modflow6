@@ -207,9 +207,7 @@ contains
     end if
 
     if (no_exit_face) then
-      particle%advancing = .false.
-      particle%istatus = TERM_NO_EXITS
-      call this%terminate(particle)
+      call this%terminate(particle, status=TERM_NO_EXITS)
       return
     end if
 

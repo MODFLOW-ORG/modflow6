@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "In the Particle Release Point (PRP) Package, a release time after the end of the simulation, which is skipped unless EXTEND\\_TRACKING is set, left unused entries in the package's particle storage. They were never tracked and did not affect output files, but could be seen through the API as extra particles with undefined values after the last time step. Release times that won't be used are now dropped when the package is loaded, so particle storage holds only released particles. The warning about a skipped release time is now written once per release time rather than once per release point, and negative release times, which were previously dropped without notice, now also produce a warning."

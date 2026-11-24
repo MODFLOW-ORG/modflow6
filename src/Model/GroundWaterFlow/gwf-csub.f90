@@ -313,7 +313,7 @@ module GwfCsubModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new CSUB object
   !!
@@ -348,7 +348,7 @@ contains
     csubobj%iout = iout
   end subroutine csub_cr
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the CSUB package.
   !!
@@ -561,7 +561,7 @@ contains
     end if
   end subroutine csub_ar
 
-  !> @ brief Source options for package
+  !> @brief Source options for package
   !!
   !!  Source options for CSUB package.
   !!
@@ -745,7 +745,7 @@ contains
     deallocate (ibs)
   end subroutine source_options
 
-  !> @ brief log options for package
+  !> @brief log options for package
   !!
   !!  log options block for CSUB package.
   !!
@@ -876,7 +876,7 @@ contains
     write (this%iout, '((1X,A))') 'END PACKAGE SETTINGS'
   end subroutine log_options
 
-  !> @ brief Source dimensions for package
+  !> @brief Source dimensions for package
   !!
   !!  Read the number of interbeds and maximum number of cells with a specified
   !!  overlying geostatic stress.
@@ -921,7 +921,7 @@ contains
     call this%define_listlabel()
   end subroutine csub_source_dimensions
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate and initialize scalars for the CSUB package. The base model
   !! allocate scalars method is also called.
@@ -1039,7 +1039,7 @@ contains
     this%gwfiss0 = 0
   end subroutine csub_allocate_scalars
 
-  !> @ brief Allocate package arrays
+  !> @brief Allocate package arrays
   !!
   !!  Allocate and initialize CSUB package arrays.
   !!
@@ -1212,7 +1212,7 @@ contains
     end do
   end subroutine csub_allocate_arrays
 
-  !> @ brief Source griddata for package
+  !> @brief Source griddata for package
   !<
   subroutine csub_source_griddata(this)
     ! -- modules
@@ -1260,7 +1260,7 @@ contains
     end if
   end subroutine csub_source_griddata
 
-  !> @ brief source packagedata for package
+  !> @brief source packagedata for package
   !!
   !!  Read delay and no-delay interbed input data for the CSUB package. Method
   !!  also validates interbed input data.
@@ -1634,7 +1634,7 @@ contains
     call memorystore_release('BOUNDNAME', this%input_mempath)
   end subroutine csub_source_packagedata
 
-  !> @ brief Print packagedata
+  !> @brief Print packagedata
   !<
   subroutine csub_print_packagedata(this)
     class(GwfCsubType) :: this
@@ -1734,7 +1734,7 @@ contains
 
   end subroutine csub_print_packagedata
 
-  !> @ brief Final processing for package
+  !> @brief Final processing for package
   !!
   !!  Final processing for the  CSUB package. This method generates the final
   !!  strain tables that are output so that the user can evaluate if calculated
@@ -2145,7 +2145,7 @@ contains
     deallocate (pctcomp_arr)
   end subroutine csub_fp
 
-  !> @ brief Deallocate package memory
+  !> @brief Deallocate package memory
   !!
   !!  Deallocate CSUB package scalars and arrays.
   !!
@@ -2373,7 +2373,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine csub_da
 
-  !> @ brief Read and prepare stress period data for package
+  !> @brief Read and prepare stress period data for package
   !!
   !!  Method reads and prepares stress period data for the CSUB package.
   !!  The overlying geostatic stress (sig0) is the only stress period data
@@ -2475,7 +2475,7 @@ contains
     call this%csub_rp_obs()
   end subroutine csub_rp
 
-  !> @ brief Advance the package
+  !> @brief Advance the package
   !!
   !!  Advance data in the CSUB package. The method sets data for the previous
   !!  time step to the current value for the data (e.g., HOLD = HNEW). The
@@ -2592,7 +2592,7 @@ contains
     call this%obs%obs_ad()
   end subroutine csub_ad
 
-  !> @ brief Fill A and r for the package
+  !> @brief Fill A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with the CSUB package terms.
   !!
@@ -2705,7 +2705,7 @@ contains
     end if
   end subroutine csub_fc
 
-  !> @ brief Fill Newton-Raphson terms in A and r for the package
+  !> @brief Fill Newton-Raphson terms in A and r for the package
   !!
   !!  Fill the coefficient matrix and right-hand side with CSUB package
   !!  with Newton-Raphson terms.
@@ -2802,7 +2802,7 @@ contains
     end if
   end subroutine csub_fn
 
-  !> @ brief Initialize optional tables
+  !> @brief Initialize optional tables
   !!
   !! Subroutine to initialize optional tables. Tables include:
   !!   o delay interbeds convergence tables
@@ -2856,7 +2856,7 @@ contains
 
   end subroutine csub_initialize_tables
 
-  !> @ brief Final convergence check
+  !> @brief Final convergence check
   !!
   !! Final convergence check for the CSUB package. The final convergence
   !! check is only required when the simulation includes delay interbeds.
@@ -3041,7 +3041,7 @@ contains
     end if
   end subroutine csub_cc
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Flow calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
@@ -3338,7 +3338,7 @@ contains
     end if
   end subroutine csub_cq
 
-  !> @ brief Model budget calculation for package
+  !> @brief Model budget calculation for package
   !!
   !!  Budget calculation for the CSUB package components. Components include
   !!  coarse-grained storage, delay and no-delay interbeds, and water
@@ -3379,7 +3379,7 @@ contains
     return
   end subroutine csub_bd
 
-!> @ brief Save model flows for package
+!> @brief Save model flows for package
 !!
 !!  Save cell-by-cell budget terms for the CSUB package.
 !!
@@ -3469,7 +3469,7 @@ contains
     end if
   end subroutine csub_save_model_flows
 
-!> @ brief Save and print dependent values for package
+!> @brief Save and print dependent values for package
 !!
 !!  Method saves cell-by-cell compaction and z-displacement terms. The method
 !!  also calls the method to process observation output.
@@ -3733,7 +3733,7 @@ contains
     end if
   end subroutine csub_ot_dv
 
-  !> @ brief Calculate the stress for model cells
+  !> @brief Calculate the stress for model cells
   !!
   !!  Method calculates the geostatic stress, pressure head, and effective
   !!  stress at the bottom of each cell. The method also applies the overlying
@@ -3865,7 +3865,7 @@ contains
     end do
   end subroutine csub_cg_calc_stress
 
-  !> @ brief Check effective stress values
+  !> @brief Check effective stress values
   !!
   !!  Method checks calculated effective stress values to ensure that
   !!  effective stress values are positive. An error condition and message are
@@ -3941,7 +3941,7 @@ contains
     end if
   end subroutine csub_cg_chk_stress
 
-  !> @ brief Update no-delay material properties
+  !> @brief Update no-delay material properties
   !!
   !!  Method updates no-delay material properties based on the current
   !!  compaction value.
@@ -3979,7 +3979,7 @@ contains
     end if
   end subroutine csub_nodelay_update
 
-  !> @ brief Calculate no-delay interbed storage coefficients
+  !> @brief Calculate no-delay interbed storage coefficients
   !!
   !!  Method calculates the skeletal storage coefficients for a no-delay
   !!  interbed. The method also calculates the contribution of the
@@ -4085,7 +4085,7 @@ contains
     this%sk(ib) = rho2
   end subroutine csub_nodelay_fc
 
-  !> @ brief Calculate no-delay interbed compaction
+  !> @brief Calculate no-delay interbed compaction
   !!
   !!  Method calculates the compaction for a no-delay interbed. The method
   !!  also calculates the storage coefficients for the no-delay interbed.
@@ -4125,7 +4125,7 @@ contains
     end if
   end subroutine csub_nodelay_calc_comp
 
-  !> @ brief Set initial states for the package
+  !> @brief Set initial states for the package
   !!
   !!  Method sets the initial states for coarse-grained materials and fine-
   !!  grained sediments in the interbeds.
@@ -4511,7 +4511,7 @@ contains
     end if
   end subroutine csub_set_initial_state
 
-  !> @ brief Formulate the coefficients for coarse-grained materials
+  !> @brief Formulate the coefficients for coarse-grained materials
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell.
@@ -4572,7 +4572,7 @@ contains
     end if
   end subroutine csub_cg_fc
 
-  !> @ brief Formulate coarse-grained Newton-Raphson terms
+  !> @brief Formulate coarse-grained Newton-Raphson terms
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for coarse grained materials in a cell when using the Newton-Raphson
@@ -4641,7 +4641,7 @@ contains
     end if
   end subroutine csub_cg_fn
 
-  !> @ brief Formulate the coefficients for a interbed
+  !> @brief Formulate the coefficients for a interbed
   !!
   !!  Method formulates the coefficient matrix and right-hand side terms
   !!  for a interbed in a cell.
@@ -4723,7 +4723,7 @@ contains
     end if
   end subroutine csub_interbed_fc
 
-  !> @ brief Formulate the coefficients for a interbed
+  !> @brief Formulate the coefficients for a interbed
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for a interbed in a cell.
@@ -4811,7 +4811,7 @@ contains
     end if
   end subroutine csub_interbed_fn
 
-  !> @ brief Calculate Sske for a cell
+  !> @brief Calculate Sske for a cell
   !!
   !!  Method calculates Sske for coarse-grained materials in a cell.
   !<
@@ -4865,7 +4865,7 @@ contains
     sske = f * this%cg_ske_cr(n)
   end subroutine csub_cg_calc_sske
 
-  !> @ brief Calculate coarse-grained compaction in a cell
+  !> @brief Calculate coarse-grained compaction in a cell
   !!
   !!  Method calculates coarse-grained compaction in a cell.
   !<
@@ -4893,7 +4893,7 @@ contains
     comp = hcof * hcell - rhs
   end subroutine csub_cg_calc_comp
 
-  !> @ brief Update coarse-grained material properties
+  !> @brief Update coarse-grained material properties
   !!
   !!  Method updates coarse-grained material properties in a cell.
   !!
@@ -4932,7 +4932,7 @@ contains
     end if
   end subroutine csub_cg_update
 
-  !> @ brief Formulate coarse-grained water compressibility coefficients
+  !> @brief Formulate coarse-grained water compressibility coefficients
   !!
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
@@ -4983,7 +4983,7 @@ contains
     rhs = -wc0 * snold * hcellold
   end subroutine csub_cg_wcomp_fc
 
-  !> @ brief Formulate coarse-grained water compressibility coefficients
+  !> @brief Formulate coarse-grained water compressibility coefficients
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in coarse-grained
@@ -5041,7 +5041,7 @@ contains
     rhs = hcof * hcell
   end subroutine csub_cg_wcomp_fn
 
-  !> @ brief Formulate no-delay interbed water compressibility coefficients
+  !> @brief Formulate no-delay interbed water compressibility coefficients
   !!
   !!  Method formulates the standard formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
@@ -5087,7 +5087,7 @@ contains
     rhs = -wc0 * snold * hcellold
   end subroutine csub_nodelay_wcomp_fc
 
-  !> @ brief Formulate no-delay interbed water compressibility coefficients
+  !> @brief Formulate no-delay interbed water compressibility coefficients
   !!
   !!  Method formulates the Newton-Raphson formulation coefficient matrix and
   !!  right-hand side terms for water compressibility in no-delay
@@ -7265,7 +7265,7 @@ contains
     obsrv%NodeNumber = nn1
   end subroutine csub_process_obsID
 
-  !> @ brief Define the list label for the package
+  !> @brief Define the list label for the package
   !!
   !!  Method defined the list label for the CSUB package. The list label is
   !!  the heading that is written to iout when PRINT_INPUT option is used.

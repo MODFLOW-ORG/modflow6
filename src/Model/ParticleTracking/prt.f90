@@ -111,7 +111,7 @@ module PrtModule
                   &'ADV6 ', 'DSP6 ', 'SSM6 ', 'MIP6 ', 'CNC6 ', & ! 10
                   &'OC6  ', '     ', 'FMI6 ', '     ', 'IST6 ', & ! 15
                   &'LKT6 ', 'SFT6 ', 'MWT6 ', 'UZT6 ', 'MVT6 ', & ! 20
-                  &'API6 ', '     ', '     ', '     ', '     ', & ! 25
+                  &'     ', '     ', '     ', '     ', '     ', & ! 25
                   25*'     '/ ! 50
 
   !> @brief PRT multi package array descriptors
@@ -248,6 +248,7 @@ contains
     use ConstantsModule, only: DHNOFLO
     use PrtPrpModule, only: PrtPrpType
     use PrtMipModule, only: PrtMipType
+    use SimVariablesModule, only: warnmsg
     ! dummy
     class(PrtModelType) :: this
     ! locals
@@ -286,7 +287,6 @@ contains
         nprp = nprp + 1
         call packobj%prp_set_pointers(this%ibound, this%mip%izone)
         call packobj%bnd_ar()
-        call packobj%bnd_ar()
         if (packobj%itrkout > 0) then
           call this%tracks%init_file( &
             packobj%itrkout, &
@@ -308,6 +308,14 @@ contains
       call this%tracks%init_file(this%oc%itrkout)
     if (this%oc%itrkcsv > 0) &
       call this%tracks%init_file(this%oc%itrkcsv, csv=.true.)
+
+    ! Warn if no track files are configured
+    if (this%tracks%ntrackfiles == 0) then
+      write (warnmsg, '(a)') &
+        'No particle track output configured (TRACK or TRACKCSV FILEOUT &
+        &in OC or any PRP). Particle events will not be saved.'
+      call store_warning(warnmsg)
+    end if
 
     ! Initialize and select the tracking method based on discretization
     select type (dis => this%dis)
@@ -972,7 +980,6 @@ contains
                             inunit, iout)
     ! modules
     use ConstantsModule, only: LINELENGTH
-    use ApiModule, only: api_create
     ! dummy
     class(PrtModelType) :: this
     character(len=*), intent(in) :: filtyp
@@ -993,9 +1000,6 @@ contains
     case ('PRP6')
       call prp_create(packobj, ipakid, ipaknum, inunit, iout, &
                       this%name, pakname, this%fmi, mempath)
-    case ('API6')
-      call api_create(packobj, ipakid, ipaknum, inunit, iout, &
-                      this%name, pakname, mempath)
     case default
       write (errmsg, *) 'Invalid package type: ', filtyp
       call store_error(errmsg, terminate=.TRUE.)
@@ -1091,7 +1095,6 @@ contains
           end if
           if (particle%istatus > ACTIVE) cycle ! Skip terminated particles
           if (particle%istatus == 0) then
-            particle%istatus = ACTIVE ! Set active status in case of release
             if (particle%trelease >= totimc) then
               if (particle%trelease > particle%tstop) then
                 ! The package's stop time is earlier than the release time.

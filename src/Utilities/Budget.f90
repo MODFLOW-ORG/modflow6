@@ -76,7 +76,7 @@ module BudgetModule
 
 contains
 
-  !> @ brief Create a new budget object
+  !> @brief Create a new budget object
   !!
   !!  Create a new budget object.
   !!
@@ -94,7 +94,7 @@ contains
     call this%allocate_scalars(name_model)
   end subroutine budget_cr
 
-  !> @ brief Define information for this object
+  !> @brief Define information for this object
   !!
   !!  Allocate arrays and set member variables
   !!
@@ -142,7 +142,7 @@ contains
     end if
   end subroutine budget_df
 
-  !> @ brief Convert a number to a string
+  !> @brief Convert a number to a string
   !!
   !!  This is sometimes needed to avoid numbers that do not fit
   !!  correctly into a text string
@@ -171,7 +171,7 @@ contains
     end if
   end subroutine value_to_string
 
-  !> @ brief Output the budget table
+  !> @brief Output the budget table
   !!
   !!  Write the budget table for the current set of budget
   !!  information.
@@ -312,7 +312,7 @@ contains
            , 5X, 'PERCENT DISCREPANCY =', F15.2/)
   end subroutine budget_ot
 
-  !> @ brief Deallocate memory
+  !> @brief Deallocate memory
   !!
   !!  Deallocate budget memory
   !!
@@ -339,7 +339,7 @@ contains
     deallocate (this%rowlabel)
   end subroutine budget_da
 
-  !> @ brief Reset the budget object
+  !> @brief Reset the budget object
   !!
   !!  Reset the budget object in preparation for next set of entries
   !!
@@ -358,7 +358,7 @@ contains
     end do
   end subroutine reset
 
-  !> @ brief Add a single row of information
+  !> @brief Add a single row of information
   !!
   !!  Add information corresponding to one row in the budget table
   !!    rin the inflow rate
@@ -420,7 +420,7 @@ contains
     this%msum = this%msum + 1
   end subroutine add_single_entry
 
-  !> @ brief Add multiple rows of information
+  !> @brief Add multiple rows of information
   !!
   !!  Add information corresponding to one multiple rows in the budget table
   !!    budterm is an array with inflow in column 1 and outflow in column 2
@@ -493,7 +493,7 @@ contains
     end if
   end subroutine add_multi_entry
 
-  !> @ brief Update accumulators
+  !> @brief Update accumulators
   !!
   !! This must be called before any output is written
   !! in order to update the accumulators in vbvl(1,:)
@@ -513,7 +513,7 @@ contains
     end do
   end subroutine finalize_step
 
-  !> @ brief allocate scalar variables
+  !> @brief allocate scalar variables
   !!
   !!  Allocate scalar variables of this budget object
   !!
@@ -549,7 +549,7 @@ contains
     this%icsvheader = 0
   end subroutine allocate_scalars
 
-  !> @ brief allocate array variables
+  !> @brief allocate array variables
   !!
   !!  Allocate array variables of this budget object
   !!
@@ -584,7 +584,7 @@ contains
     this%rowlabel(:) = ''
   end subroutine allocate_arrays
 
-  !> @ brief Resize the budget object
+  !> @brief Resize the budget object
   !!
   !!  If the size wasn't allocated to be large enough, then the budget object
   !!  we reallocate itself to a larger size.
@@ -625,7 +625,7 @@ contains
     deallocate (rowlabel)
   end subroutine resize
 
-  !> @ brief Rate accumulator subroutine
+  !> @brief Rate accumulator subroutine
   !!
   !!  Routing for tallying inflows and outflows of an array
   !!
@@ -649,7 +649,7 @@ contains
     end do
   end subroutine rate_accumulator
 
-  !> @ brief Set unit number for csv output file
+  !> @brief Set unit number for csv output file
   !!
   !!  This routine can be used to activate csv output
   !!  by passing in a valid unit number opened for output
@@ -663,7 +663,7 @@ contains
     this%ibudcsv = ibudcsv
   end subroutine set_ibudcsv
 
-  !> @ brief Write csv output
+  !> @brief Write csv output
   !!
   !!  This routine will write a row of output to the
   !!  csv file, if it is available for output.  Upon first
@@ -719,7 +719,7 @@ contains
     end if
   end subroutine writecsv
 
-  !> @ brief Write csv header
+  !> @brief Write csv header
   !!
   !!  This routine will write the csv header based on the
   !!  names in vbnm

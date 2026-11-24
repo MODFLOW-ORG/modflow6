@@ -106,7 +106,7 @@ module GweGweExchangeModule
 
 contains
 
-  !> @ brief Create GWT GWT exchange
+  !> @brief Create GWT GWT exchange
   !!
   !! Create a new GWT to GWT exchange object.
   !<
@@ -191,7 +191,7 @@ contains
     call obs_cr(exchange%obs, exchange%inobs)
   end subroutine gweexchange_create
 
-  !> @ brief Define GWE GWE exchange
+  !> @brief Define GWE GWE exchange
   !!
   !! Define GWE to GWE exchange object.
   !<
@@ -308,7 +308,7 @@ contains
     end if
   end subroutine validate_exchange
 
-  !> @ brief Allocate and read
+  !> @brief Allocate and read
   !!
   !! Allocated and read and calculate saturated conductance
   !<
@@ -323,7 +323,7 @@ contains
     call this%obs%obs_ar()
   end subroutine gwe_gwe_ar
 
-  !> @ brief Read and prepare
+  !> @brief Read and prepare
   !!
   !! Read new data for mover and obs
   !<
@@ -343,7 +343,7 @@ contains
     call this%gwe_gwe_rp_obs()
   end subroutine gwe_gwe_rp
 
-  !> @ brief Advance
+  !> @brief Advance
   !!
   !! Advance mover and obs
   !<
@@ -375,7 +375,7 @@ contains
 
   end subroutine gwe_gwe_cf
 
-  !> @ brief Fill coefficients
+  !> @brief Fill coefficients
   !!
   !! Calculate conductance and fill coefficient matrix
   !<
@@ -399,7 +399,7 @@ contains
     end if
   end subroutine gwe_gwe_fc
 
-  !> @ brief Budget
+  !> @brief Budget
   !!
   !! Accumulate budget terms
   !<
@@ -441,7 +441,7 @@ contains
     if (this%inmvt > 0) call this%mvt%mvt_bd()
   end subroutine gwe_gwe_bd
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -475,7 +475,7 @@ contains
     end if
   end subroutine gwe_gwe_bdsav
 
-  !> @ brief Budget save
+  !> @brief Budget save
   !!
   !! Output individual flows to listing file and binary budget files
   !<
@@ -643,7 +643,7 @@ contains
     end do
   end subroutine gwe_gwe_bdsav_model
 
-  !> @ brief Output
+  !> @brief Output
   !!
   !! Write output
   !<
@@ -697,7 +697,7 @@ contains
     call this%obs%obs_ot()
   end subroutine gwe_gwe_ot
 
-  !> @ brief Source options
+  !> @brief Source options
   !!
   !! Source the options block
   !<
@@ -790,7 +790,7 @@ contains
     write (iout, '(1x,a)') 'END OF GWE-GWE EXCHANGE OPTIONS'
   end subroutine source_options
 
-  !> @ brief Read mover
+  !> @brief Read mover
   !!
   !! Read and process movers
   !<
@@ -811,7 +811,7 @@ contains
                  this%gwfmodelname1, this%gwfmodelname2, this%inmvt, iout)
   end subroutine read_mvt
 
-  !> @ brief Allocate scalars
+  !> @brief Allocate scalars
   !!
   !! Allocate scalar variables
   !<
@@ -835,7 +835,7 @@ contains
     this%inmvt = 0
   end subroutine allocate_scalars
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !! Deallocate memory associated with this object
   !<
@@ -881,7 +881,7 @@ contains
     call this%DisConnExchangeType%disconnex_da()
   end subroutine gwe_gwe_da
 
-  !> @ brief Allocate arrays
+  !> @brief Allocate arrays
   !!
   !! Allocate arrays
   !<
@@ -949,7 +949,7 @@ contains
     end if
   end subroutine allocate_arrays
 
-  !> @ brief Define observations
+  !> @brief Define observations
   !!
   !! Define the observations associated with this object
   !<
@@ -965,7 +965,7 @@ contains
     this%obs%obsData(indx)%ProcessIdPtr => gwe_gwe_process_obsID
   end subroutine gwe_gwe_df_obs
 
-  !> @ brief Read and prepare observations
+  !> @brief Read and prepare observations
   !!
   !! Handle observation exchanges exchange-boundary names.
   !<
@@ -1038,7 +1038,7 @@ contains
     end if
   end subroutine gwe_gwe_rp_obs
 
-  !> @ brief Final processing
+  !> @brief Final processing
   !!
   !! Conduct any final processing
   !<
@@ -1089,7 +1089,7 @@ contains
     use_im = .true.
   end function
 
-  !> @ brief Save simulated flow observations
+  !> @brief Save simulated flow observations
   !!
   !! Save the simulated flows for each exchange
   !<
@@ -1133,7 +1133,7 @@ contains
     end if
   end subroutine gwe_gwe_save_simvals
 
-  !> @ brief Obs ID processor
+  !> @brief Obs ID processor
   !!
   !! Process observations for this exchange
   !<
@@ -1172,7 +1172,7 @@ contains
     end if
   end subroutine gwe_gwe_process_obsID
 
-  !> @ brief Cast polymorphic object as exchange
+  !> @brief Cast polymorphic object as exchange
   !!
   !! Cast polymorphic object as exchange
   !<
@@ -1192,7 +1192,7 @@ contains
     end select
   end function CastAsGweExchange
 
-  !> @ brief Get exchange from list
+  !> @brief Get exchange from list
   !!
   !! Return an exchange from the list for specified index
   !<

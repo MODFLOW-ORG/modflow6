@@ -17,6 +17,7 @@ contains
   !! the variables for this (sub)component are stored, the 'memoryPath'
   !!
   !! NB: no need to trim the input parameters
+  !! @hidecallergraph
   !<
   function create_mem_path(component, subcomponent, context) result(memory_path)
     character(len=*), intent(in) :: component !< name of the solution, model, or exchange

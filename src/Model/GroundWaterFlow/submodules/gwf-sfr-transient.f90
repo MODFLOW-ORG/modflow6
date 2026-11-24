@@ -1,12 +1,7 @@
 submodule(SfrModule) SfrModuleTransient
 contains
 
-  !> @brief Method for solving for transient reaches
-    !!
-    !! Method to solve the continuity equation for a SFR package
-    !! reach using the kinematic wave approximation.
-    !!
-  !<
+  ! -- documented on the SfrType type-bound procedure in gwf-sfr.f90
   module procedure sfr_calc_transient
   use TdisModule, only: delt
 

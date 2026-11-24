@@ -460,7 +460,7 @@ contains
     end if
   end function conc_mult
 
-  !> @ brief Return a bound value
+  !> @brief Return a bound value
   !!
   !!  Return a bound value associated with an ncolbnd index and row.
   !<

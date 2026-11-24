@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A GWT model with an API Package stopped during setup with a memory manager error because the package looked for the ICELLTYPE array of an NPF Package, which a GWT model does not have. The API Package no longer looks for ICELLTYPE, which it did not use. Results for GWF models with an API Package are not affected."

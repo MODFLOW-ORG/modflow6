@@ -1,4 +1,6 @@
 import os
+import subprocess
+from functools import cache
 from pathlib import Path
 from shutil import copytree
 
@@ -11,6 +13,7 @@ from compare import (
 )
 from framework import TestFramework
 from modflow_devtools.models import DEFAULT_REGISTRY, LocalRegistry
+from packaging.version import Version
 
 # prefixes into the model registry. only relevant for the "official" registry.
 # https://modflow-devtools.readthedocs.io/en/latest/md/models.html#model-names
@@ -19,18 +22,34 @@ PREFIXES = ["mf6/test", "mf6/large", "mf2005"]
 EXCLUDE = [
     "alt_model",
     "test205_gwtbuy-henrytidal",
-    # todo reinstate after 6.7.0 release
-    "test028_sfr_rewet",
-    # todo reinstate after 6.5.0 release
-    "test001d_Tnewton",
+    # todo reinstate after 6.9.0 release (embedded lake bottom fix)
+    "test045_lake4ss_nr_embedded",
     # todo reinstate after resolving convergence failure
     "test014_NWTP3Low_dev",
+    # todo reinstate after updating models, they use the
+    # DEV_MODFLOWUSG_UPSTREAM_WEIGHTED_SATURATION option
+    # which was removed from NPF in #1655
     "test1002_biscqtg_disv_gnc_nr_dev",
     "test1002_biscqtg_disv_nr_MD_dev",
     "test1002_biscqtg_disv_nr_RCM_dev",
     "test1002_biscqtg_disv_nr_dev",
+    # todo remove after deleting this subfolder from the
+    # testmodels repo, it duplicates mf2005/testWetDry with
+    # a name file pointing to inputs in the parent folder
     "testWetDry/mf2005",
 ]
+# models to exclude, by the end of the name, while the regression binary
+# (rebuilt from the last release) is the given version or older; they run
+# again once a release includes the change the comparison is sensitive to
+EXCLUDE_REGRESSION = {
+    # singular once the EVT cells fall below the extinction depth, so the
+    # result depends on roundoff in the ILU0 solve changed in #3160; matched
+    # without the mf2005/ prefix, which models from a local checkout do not have
+    "testevt": "6.8.2",
+    # rewetting cells make the result depend on roundoff in the ILU0 solve
+    # changed in #3160
+    "test028_sfr_rewet": "6.8.2",
+}
 # models to force original regression comparison
 # (otherwise enabled with --original-regression)
 OG_REG = [
@@ -43,6 +62,19 @@ OG_REG = [
     "test053_npf-a_mfusg",
     "test053_npf-b_mfusg",
 ]
+
+
+@cache
+def _binary_version(exe: Path) -> Version:
+    # "mf6: 6.8.2 10/28/2026"
+    out = subprocess.run([exe, "-v"], capture_output=True, text=True).stdout
+    return Version(out.split()[1])
+
+
+def regression_version(targets) -> Version:
+    """Version of the regression binary, or 0 when there is none."""
+    exe = targets.get("mf6_regression")
+    return _binary_version(exe) if exe else Version("0")
 
 
 def pytest_generate_tests(metafunc):
@@ -91,7 +123,10 @@ def test_model(
     function_tmpdir,
     original_regression,
 ):
-    exclude = any(s in model_name for s in EXCLUDE)
+    exclude = any(s in model_name for s in EXCLUDE) or any(
+        model_name.endswith(s) and regression_version(targets) <= Version(v)
+        for s, v in EXCLUDE_REGRESSION.items()
+    )
     devonly = "dev" in model_name and "not developmode" in markers
     large = "large" in model_name and "not large" in markers
     if exclude or devonly or large:

@@ -182,7 +182,7 @@ contains
   !> @brief netcdf export package dynamic input
   !<
   subroutine package_step(this, export_pkg)
-    use TdisModule, only: totim, kper
+    use TdisModule, only: totim, kper, perlen
     use DefinitionSelectModule, only: get_param_definition_type
     use NCModelExportModule, only: ExportPackageType
     class(Mesh2dDisvExportType), intent(inout) :: this
@@ -194,15 +194,17 @@ contains
     character(len=LINELENGTH) :: nc_tag
     integer(I4B) :: iaux, iparam, nvals
     integer(I4B) :: k, n
-    integer(I4B), pointer :: nbound
 
     ! initialize
     iaux = 0
 
-    ! export defined period input
+    ! update input in effect for this period
+    call export_pkg%update_state()
+
+    ! export period input in effect
     do iparam = 1, export_pkg%nparam
-      ! check if variable was read this period
-      if (export_pkg%param_reads(iparam)%invar < 1) cycle
+      ! check if variable has input in effect
+      if (.not. export_pkg%param_state(iparam)) cycle
 
       ! set input definition
       idt => &
@@ -243,11 +245,7 @@ contains
             this%var_ids%export(k) = export_pkg%varids_param(iparam, k)
           end do
           call mem_setptr(dbl1d, idt%mf6varname, export_pkg%mf6_input%mempath)
-          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
-          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
-          do n = 1, nbound
-            nodes(int1d(n)) = dbl1d(n)
-          end do
+          call export_pkg%user_nodes(dbl1d, nodes)
           call nc_export_dbl1d(nodes, this%ncid, this%dim_ids, this%var_ids, &
                                this%disv, idt, export_pkg%mf6_input%mempath, &
                                nc_tag, export_pkg%mf6_input%subcomponent_name, &
@@ -263,11 +261,12 @@ contains
           nvals = this%disv%ncpl
           allocate (nodes(nvals))
           do iaux = 1, size(dbl2d, dim=1) !naux
+            if (.not. export_pkg%aux_state(iaux)) cycle
             this%var_ids%export(1) = export_pkg%varids_aux(iaux, 1)
             do n = 1, nvals
               nodes(n) = dbl2d(iaux, n)
             end do
-            call nc_export_dbl1d(dbl1d, this%ncid, this%dim_ids, this%var_ids, &
+            call nc_export_dbl1d(nodes, this%ncid, this%dim_ids, this%var_ids, &
                                  this%disv, idt, export_pkg%mf6_input%mempath, &
                                  nc_tag, export_pkg%mf6_input%subcomponent_name, &
                                  this%gridmap_name, this%deflate, this%shuffle, &
@@ -277,16 +276,13 @@ contains
         case ('NAUX NODES')
           nvals = this%disv%nodesuser
           allocate (nodes(nvals))
-          call mem_setptr(int1d, 'NODEULIST', export_pkg%mf6_input%mempath)
-          call mem_setptr(nbound, 'NBOUND', export_pkg%mf6_input%mempath)
           do iaux = 1, size(dbl2d, dim=1) ! naux
+            if (.not. export_pkg%aux_state(iaux)) cycle
             nodes = DNODATA
             do k = 1, this%disv%nlay
               this%var_ids%export(k) = export_pkg%varids_aux(iaux, k)
             end do
-            do n = 1, nbound
-              nodes(int1d(n)) = dbl2d(iaux, n)
-            end do
+            call export_pkg%user_nodes(dbl2d(iaux, :), nodes)
             call nc_export_dbl1d(nodes, this%ncid, this%dim_ids, this%var_ids, &
                                  this%disv, idt, export_pkg%mf6_input%mempath, &
                                  nc_tag, export_pkg%mf6_input%subcomponent_name, &
@@ -305,6 +301,18 @@ contains
     call nf_verify(nf90_put_var(this%ncid, this%var_ids%time, &
                                 totim, start=(/kper/)), &
                    this%nc_fname)
+
+    ! write stress period time bounds; the period start is also the end
+    ! of the previous period
+    call nf_verify(nf90_put_var(this%ncid, this%var_ids%time_bnds, &
+                                (/totim, totim + perlen(kper)/), &
+                                start=(/1, kper/), count=(/2, 1/)), &
+                   this%nc_fname)
+    if (kper > 1) then
+      call nf_verify(nf90_put_var(this%ncid, this%var_ids%time_bnds, &
+                                  totim, start=(/2, kper - 1/)), &
+                     this%nc_fname)
+    end if
 
     ! synchronize file
     call nf_verify(nf90_sync(this%ncid), this%nc_fname)
@@ -392,6 +400,16 @@ contains
                                   'time'), this%nc_fname)
       call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'long_name', &
                                   'time'), this%nc_fname)
+      ! stress period bounds of the time coordinate (CF-1.13 7.1)
+      if (isim_mode == MVALIDATE) then
+        call nf_verify(nf90_def_dim(this%ncid, 'bnd', 2, this%dim_ids%bnd), &
+                       this%nc_fname)
+        call nf_verify(nf90_put_att(this%ncid, this%var_ids%time, 'bounds', &
+                                    'time_bnds'), this%nc_fname)
+        call nf_verify(nf90_def_var(this%ncid, 'time_bnds', NF90_DOUBLE, &
+                                    (/this%dim_ids%bnd, this%dim_ids%time/), &
+                                    this%var_ids%time_bnds), this%nc_fname)
+      end if
     end if
 
     ! mesh

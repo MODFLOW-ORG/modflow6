@@ -1,4 +1,4 @@
-!> -- @ brief Mobile Storage and Transfer (MST) Module
+!> -- @brief Mobile Storage and Transfer (MST) Module
 !!
 !!    The GwtMstModule contains the GwtMstType, which is the
 !!    derived type responsible for adding the effects of
@@ -40,7 +40,7 @@ module GwtMstModule
     ENUMERATOR :: DECAY_ZERO_ORDER = 2 !< Zeroth-order decay
   END ENUM
 
-  !> @ brief Mobile storage and transfer
+  !> @brief Mobile storage and transfer
   !!
   !!  Data and methods for handling changes in solute storage,
   !!  decay of dissolved solute mass, sorption, and decay of
@@ -107,7 +107,7 @@ module GwtMstModule
 
 contains
 
-  !> @ brief Create a new package object
+  !> @brief Create a new package object
   !!
   !!  Create a new MST object
   !<
@@ -135,7 +135,7 @@ contains
     mstobj%fmi => fmi
   end subroutine mst_cr
 
-  !> @ brief Allocate and read method for package
+  !> @brief Allocate and read method for package
   !!
   !!  Method to allocate and read static data for the package.
   !<
@@ -171,7 +171,7 @@ contains
     this%isotherm => create_isotherm(this%isrb, this%distcoef, this%sp2)
   end subroutine mst_ar
 
-  !> @ brief Fill coefficient method for package
+  !> @brief Fill coefficient method for package
   !!
   !!  Method to calculate and fill coefficients for the package.
   !<
@@ -210,7 +210,7 @@ contains
     end if
   end subroutine mst_fc
 
-  !> @ brief Fill storage coefficient method for package
+  !> @brief Fill storage coefficient method for package
   !!
   !!  Method to calculate and fill storage coefficients for the package.
   !<
@@ -256,7 +256,7 @@ contains
     end do
   end subroutine mst_fc_sto
 
-  !> @ brief Fill decay coefficient method for package
+  !> @brief Fill decay coefficient method for package
   !!
   !!  Method to calculate and fill decay coefficients for the package.
   !<
@@ -316,7 +316,7 @@ contains
     end do
   end subroutine mst_fc_dcy
 
-  !> @ brief Fill sorption coefficient method for package
+  !> @brief Fill sorption coefficient method for package
   !!
   !!  Method to calculate and fill sorption coefficients for the package.
   !<
@@ -356,7 +356,7 @@ contains
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
@@ -381,7 +381,7 @@ contains
     end do
   end subroutine mst_fc_srb
 
-  !> @ brief Fill sorption-decay coefficient method for package
+  !> @brief Fill sorption-decay coefficient method for package
   !!
   !!  Method to calculate and fill sorption-decay coefficients for the package.
   !<
@@ -475,7 +475,7 @@ contains
     end do
   end subroutine mst_fc_dcy_srb
 
-  !> @ brief Calculate flows for package
+  !> @brief Calculate flows for package
   !!
   !!  Method to calculate flows for the package.
   !<
@@ -511,7 +511,7 @@ contains
     end if
   end subroutine mst_cq
 
-  !> @ brief Calculate storage terms for package
+  !> @brief Calculate storage terms for package
   !!
   !!  Method to calculate storage terms for the package.
   !<
@@ -559,7 +559,7 @@ contains
     end do
   end subroutine mst_cq_sto
 
-  !> @ brief Calculate decay terms for package
+  !> @brief Calculate decay terms for package
   !!
   !!  Method to calculate decay terms for the package.
   !<
@@ -615,7 +615,7 @@ contains
     end do
   end subroutine mst_cq_dcy
 
-  !> @ brief Calculate sorption terms for package
+  !> @brief Calculate sorption terms for package
   !!
   !!  Method to calculate sorption terms for the package.
   !<
@@ -658,7 +658,7 @@ contains
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       contribution = -volfracm * rhobm * sat_new &
@@ -687,7 +687,7 @@ contains
     end do
   end subroutine mst_cq_srb
 
-  !> @ brief Calculate decay-sorption terms for package
+  !> @brief Calculate decay-sorption terms for package
   !!
   !!  Method to calculate decay-sorption terms for the package.
   !<
@@ -784,7 +784,7 @@ contains
     end do
   end subroutine mst_cq_dcy_srb
 
-  !> @ brief Calculate sorbed concentration
+  !> @brief Calculate sorbed concentration
   !<
   subroutine mst_calc_csrb(this, cnew)
     ! -- dummy
@@ -805,7 +805,7 @@ contains
 
   end subroutine mst_calc_csrb
 
-  !> @ brief Calculate budget terms for package
+  !> @brief Calculate budget terms for package
   !<
   subroutine mst_bd(this, isuppress_output, model_budget)
     ! -- modules
@@ -846,7 +846,7 @@ contains
     end if
   end subroutine mst_bd
 
-  !> @ brief Output flow terms for package
+  !> @brief Output flow terms for package
   !!
   !!  Method to output terms for the package.
   !<
@@ -937,7 +937,7 @@ contains
 
   end subroutine mst_ot_dv
 
-  !> @ brief Deallocate
+  !> @brief Deallocate
   !!
   !!  Method to deallocate memory for the package.
   !<
@@ -983,7 +983,7 @@ contains
     call this%NumericalPackageType%da()
   end subroutine mst_da
 
-  !> @ brief Allocate scalar variables for package
+  !> @brief Allocate scalar variables for package
   !!
   !!  Method to allocate scalar variables for the package.
   !<
@@ -1007,7 +1007,7 @@ contains
     this%idcy = IZERO
   end subroutine allocate_scalars
 
-  !> @ brief Allocate arrays for package
+  !> @brief Allocate arrays for package
   !!
   !!  Method to allocate arrays for the package.
   !<
@@ -1096,7 +1096,7 @@ contains
     end do
   end subroutine allocate_arrays
 
-  !> @ brief Source options for package
+  !> @brief Source options for package
   !!
   !!  Method to source options for the package.
   !<
@@ -1203,7 +1203,7 @@ contains
     write (this%iout, '(1x,a)') 'END OF MOBILE STORAGE AND TRANSFER OPTIONS'
   end subroutine log_options
 
-  !> @ brief Source data for package
+  !> @brief Source data for package
   !!
   !!  Method to source data for the package.
   !<
@@ -1399,7 +1399,7 @@ contains
     write (this%iout, '(1x,a)') 'END PROCESSING GRIDDATA'
   end subroutine log_data
 
-  !> @ brief Add volfrac values to volfracim
+  !> @brief Add volfrac values to volfracim
   !!
   !!  Method to add immobile domain volume fracions, which are stored as a
   !!  cumulative value in volfracim.
@@ -1423,7 +1423,7 @@ contains
     end do
   end subroutine addto_volfracim
 
-  !> @ brief Return mobile domain volume fraction
+  !> @brief Return mobile domain volume fraction
   !!
   !!  Calculate and return the volume fraction of the aquifer that is mobile
   !<
@@ -1437,7 +1437,7 @@ contains
     volfracm = DONE - this%volfracim(node)
   end function get_volfracm
 
-  !> @ brief Calculate zero-order decay rate and constrain if necessary
+  !> @brief Calculate zero-order decay rate and constrain if necessary
   !!
   !!  Function to calculate the zero-order decay rate from the user specified
   !!  decay rate.  If the decay rate is positive, then the decay rate must

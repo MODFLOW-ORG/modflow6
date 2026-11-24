@@ -10,7 +10,7 @@ module TspOcModule
   private
   public TspOcType, oc_cr
 
-  !> @ brief Output control
+  !> @brief Output control
   !!
   !!  Concrete implementation of OutputControlType for a
   !!  Transport Model
@@ -22,7 +22,7 @@ module TspOcModule
 
 contains
 
-  !> @ brief Create TspOcType
+  !> @brief Create TspOcType
   !!
   !!  Create by allocating a new TspOcType object and initializing
   !!  member variables.
@@ -46,7 +46,7 @@ contains
     ocobj%iout = iout
   end subroutine oc_cr
 
-  !> @ brief Allocate and read TspOcType
+  !> @brief Allocate and read TspOcType
   !!
   !!  Setup dependent variable (e.g., concentration or temperature)
   !!  and budget as output control variables.

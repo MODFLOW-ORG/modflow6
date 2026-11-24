@@ -171,3 +171,8 @@ doc/ReleaseNotes/develop.tex
 agent
 # test-drive repo for pixi gcc-extended-build environment
 .test-drive/
+
+# meson subprojects downloaded from wrap files
+subprojects/*/
+subprojects/packagecache/
+subprojects/.wraplock

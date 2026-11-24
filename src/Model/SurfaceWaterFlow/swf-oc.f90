@@ -9,7 +9,7 @@ module SwfOcModule
   private
   public SwfOcType, oc_cr
 
-  !> @ brief Output control
+  !> @brief Output control
   !!
   !!  Concrete implementation of OutputControlType
   !<
@@ -20,7 +20,7 @@ module SwfOcModule
 
 contains
 
-  !> @ brief Create SwfOcType
+  !> @brief Create SwfOcType
   !!
   !!  Create by allocating a new SwfOcType object and initializing
   !!  member variables.
@@ -45,7 +45,7 @@ contains
     ocobj%iout = iout
   end subroutine oc_cr
 
-  !> @ brief Allocate and read SwfOcType
+  !> @brief Allocate and read SwfOcType
   !!
   !!  Setup head and budget as output control variables.
   !!

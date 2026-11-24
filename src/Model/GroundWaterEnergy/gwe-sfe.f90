@@ -414,7 +414,7 @@ contains
     end do
   end subroutine sfe_fc_expanded
 
-  !> @ brief Add terms specific to sfr to the explicit sfe solve
+  !> @brief Add terms specific to sfr to the explicit sfe solve
   !<
   subroutine sfe_solve(this)
     ! -- dummy

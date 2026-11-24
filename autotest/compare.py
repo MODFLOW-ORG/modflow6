@@ -60,7 +60,7 @@ def get_dvclose(workspace: str | os.PathLike) -> float | None:
     for file_name in files:
         pth = os.path.join(workspace, file_name)
         if os.path.isfile(pth):
-            if file_name.lower().endswith(".ims"):
+            if file_name.lower().endswith((".ims", ".ims6")):
                 with open(pth) as f:
                     lines = f.read().splitlines()
                 for line in lines:
@@ -80,7 +80,8 @@ def get_rclose(workspace: str | os.PathLike) -> float | None:
     """Get inner_rclose value from MODFLOW 6 ims file"""
 
     rclose = None
-    for pth in workspace.glob("*.ims"):
+    # IMS files are named with either extension, .ims6 in older models
+    for pth in [*workspace.glob("*.ims"), *workspace.glob("*.ims6")]:
         with open(pth, "r") as f:
             for line in f:
                 if "inner_rclose" in line.lower():

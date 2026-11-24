@@ -470,9 +470,12 @@ class TestFramework:
         xfail: bool = False,
         cargs: str | None = None,
         ncpus: int = 1,
-    ) -> tuple[bool, list[str]]:
+    ) -> tuple[bool, list[str], str | None]:
         """
         Run a simulation or model with FloPy.
+
+        Returns whether the run succeeded (or, if `xfail`, failed), the
+        model output, and the traceback if running raised an exception.
 
         workspace : str or path-like
             The simulation or model workspace
@@ -512,67 +515,71 @@ class TestFramework:
             else None
         )
 
+        def attempt(run, desc):
+            """
+            Run a callable returning (success, buff). If it raises, return
+            (False, [], traceback) instead, and warn with the traceback.
+            """
+            try:
+                success, buff = run()
+                return success, buff, None
+            except Exception:
+                error = format_exc()
+                warn(f"{desc} failed with error:\n{error}")
+                return False, [], error
+
         # run the model
-        try:
-            # via MODFLOW API
-            if "libmf6" in target.name and self.api_func:
+        if "libmf6" in target.name and self.api_func:
+            # via MODFLOW API. assertions in api_func are test failures,
+            # not model failures, so let them propagate unless the run is
+            # expected to fail
+            try:
                 success, buff = self.api_func(target, workspace)
-            # via MF6 executable
-            elif "mf6" in target.name:
-                # parallel test if configured
-                if self.parallel and ncpus > 1:
-                    print(f"Parallel test {self.name} on {self.ncpus} processes")
-                    try:
-                        success, buff = run_parallel(workspace, target, ncpus)
-                    except Exception:
-                        warn(
-                            "MODFLOW 6 parallel test",
-                            self.name,
-                            f"failed with error:\n{format_exc()}",
-                        )
-                        success = False
-                else:
-                    # otherwise serial run
-                    try:
-                        success, buff = flopy.run_model(
-                            target,
-                            workspace / "mfsim.nam",
-                            model_ws=workspace,
-                            report=True,
-                            cargs=cargs,
-                        )
-                    except Exception:
-                        warn(
-                            "MODFLOW 6 serial test",
-                            self.name,
-                            f"failed with error:\n{format_exc()}",
-                        )
-                        success = False
+                error = None
+            except AssertionError:
+                if not xfail:
+                    raise
+                success, buff, error = False, [], format_exc()
+            except Exception:
+                error = format_exc()
+                warn(f"MODFLOW API test {self.name} failed with error:\n{error}")
+                success, buff = False, []
+        elif "mf6" in target.name:
+            if self.parallel and ncpus > 1:
+                print(f"Parallel test {self.name} on {self.ncpus} processes")
+                success, buff, error = attempt(
+                    lambda: run_parallel(workspace, target, ncpus),
+                    f"MODFLOW 6 parallel test {self.name}",
+                )
             else:
-                # non-MF6 model
-                try:
-                    nf_ext = ".mpsim" if "mp7" in target.name else ".nam"
-                    namefile = next(iter(workspace.glob(f"*{nf_ext}")), None)
-                    assert namefile, f"Control file with extension {nf_ext} not found"
-                    success, buff = flopy.run_model(
-                        target, namefile, workspace, report=True
-                    )
-                except Exception:
-                    warn(f"{target} model failed:\n{format_exc()}")
-                    success = False
+                success, buff, error = attempt(
+                    lambda: flopy.run_model(
+                        target,
+                        workspace / "mfsim.nam",
+                        model_ws=workspace,
+                        report=True,
+                        cargs=cargs,
+                    ),
+                    f"MODFLOW 6 serial test {self.name}",
+                )
+        else:
+            # non-MF6 model
+            def run_other():
+                nf_ext = ".mpsim" if "mp7" in target.name else ".nam"
+                namefile = next(iter(workspace.glob(f"*{nf_ext}")), None)
+                assert namefile, f"Control file with extension {nf_ext} not found"
+                return flopy.run_model(target, namefile, workspace, report=True)
 
-            if xfail:
-                if success:
-                    warn("MODFLOW 6 model should have failed!")
-                    success = False
-                else:
-                    success = True
+            success, buff, error = attempt(run_other, f"{target} model")
 
-        except Exception:
-            success = False
-            warn(f"Unhandled error in comparison model {self.name}:\n{format_exc()}")
+        if xfail:
+            if success:
+                warn("MODFLOW 6 model should have failed!")
+                success = False
+            else:
+                success = True
 
-        return success, buff
+        return success, buff, error
 
     # public
 
@@ -626,11 +633,12 @@ class TestFramework:
             xfail = self.xfail[i]
             cargs = self.cargs[i] if self.cargs is not None else None
             ncpus = self.ncpus[i]
-            success, buff = self._run(workspace, target, xfail, cargs, ncpus)
+            success, buff, error = self._run(workspace, target, xfail, cargs, ncpus)
             self.buffs[i] = buff  # store model output for assertions later
             assert success, (
                 f"{'Simulation' if 'mf6' in str(target) else 'Model'} "
                 f"{'should have failed' if xfail else 'failed'}: {workspace}"
+                + (f"\n{error}" if error else "")
             )
 
         # setup and run comparison model(s), if enabled
@@ -672,11 +680,13 @@ class TestFramework:
                     # test case simulation workspace, set & access simulation
                     # workspaces directly
                     workspace = self.workspace / self.compare.value
-                    success, _ = self._run(
+                    success, _, error = self._run(
                         workspace,
                         self.targets.get(self.compare.value, self.targets["mf6"]),
                     )
-                    assert success, f"Comparison model failed: {workspace}"
+                    assert success, f"Comparison model failed: {workspace}" + (
+                        f"\n{error}" if error else ""
+                    )
 
                 # compare model results, if enabled
                 if self.verbose and self.compare.value in self.targets:

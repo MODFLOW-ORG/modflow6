@@ -45,7 +45,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {compiler: gcc, version: 13}
+          - {compiler: gcc, version: 15}
           - {compiler: intel-classic, version: 2021.6}
     defaults:
       run:
@@ -76,7 +76,9 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
+      # gfortran comes from the pixi environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
+        if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1
         with:
           compiler: ${{ matrix.compiler }}

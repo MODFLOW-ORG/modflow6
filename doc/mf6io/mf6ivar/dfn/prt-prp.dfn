@@ -53,7 +53,7 @@ type keyword
 reader urword
 optional true
 longname whether to extend tracking beyond the end of the simulation
-description indicates that particles should be tracked beyond the end of the simulation's final time step (using that time step's flows) until particles terminate or reach a specified stop time.  By default, particles are terminated at the end of the simulation's final time step.
+description indicates that particles should be tracked beyond the end of the simulation's final time step (using that time step's flows) until particles terminate or reach a specified stop time.  By default, particles are terminated at the end of the simulation's final time step. Release times after the end of the simulation are also honored.
 mf6internal extend
 
 block options
@@ -140,7 +140,7 @@ type double precision
 reader urword
 optional true
 longname stop time
-description real value defining the maximum simulation time to which particles in the package can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when simulation time STOPTIME is reached.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTIME.  If the EXTEND\_TRACKING option is enabled and the last stress period in the simulation is steady-state, the simulation ending time will not limit the time to which particles can be tracked, but STOPTIME and STOPTRAVELTIME will continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
+description real value defining the maximum simulation time to which particles in the package can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when simulation time STOPTIME is reached.  Particles are not tracked past the end of the simulation unless the EXTEND\_TRACKING option is enabled, in which case the simulation ending time does not limit tracking, but STOPTIME and STOPTRAVELTIME continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
 
 block options
 name stoptraveltime
@@ -148,7 +148,7 @@ type double precision
 reader urword
 optional true
 longname stop travel time
-description real value defining the maximum travel time over which particles in the model can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when their travel time reaches STOPTRAVELTIME.  If the last stress period in the simulation consists of more than one time step, particles will not be tracked past the ending time of the last stress period, regardless of STOPTRAVELTIME.  If the EXTEND\_TRACKING option is enabled and the last stress period in the simulation is steady-state, the simulation ending time will not limit the time to which particles can be tracked, but STOPTIME and STOPTRAVELTIME will continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
+description real value defining the maximum travel time over which particles in the model can be tracked.  Particles that have not terminated earlier due to another termination condition will terminate when their travel time reaches STOPTRAVELTIME.  Particles are not tracked past the end of the simulation unless the EXTEND\_TRACKING option is enabled, in which case the simulation ending time does not limit tracking, but STOPTIME and STOPTRAVELTIME continue to apply.  If STOPTIME and STOPTRAVELTIME are both provided, particles will be stopped if either is reached.
 
 block options
 name stop_at_weak_sink
@@ -273,7 +273,7 @@ reader urword
 optional true
 mf6internal rttol
 longname release time coincidence tolerance
-description real number indicating the tolerance within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{11}$, where $\epsilon$ is machine precision.
+description real number indicating the tolerance, in model time units, within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{7}$ times the simulation length (about $2 \times 10^{-9}$ times the sum of all stress period lengths), where $\epsilon$ is machine precision. Release times indistinguishable at floating-point precision are always merged.
 
 block options
 name release_time_frequency
@@ -413,7 +413,7 @@ tagged false
 in_record true
 reader urword
 longname release time
-description real value that defines the release time with respect to the simulation start time.
+description real value that defines the release time with respect to the simulation start time. Negative times, and times after the end of the simulation unless EXTEND\_TRACKING is set, are skipped with a warning.
 
 # --------------------- prt prp period ---------------------
 
