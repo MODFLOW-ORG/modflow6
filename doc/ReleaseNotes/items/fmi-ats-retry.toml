@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A GWT, GWE or PRT model using adaptive time stepping and coupled to a flow model through a Flow Model Interface (FMI) package would stop with an error if the first time step of the simulation was retried. Instead of reusing the flows and heads already read for that time step, the retry attempted to read the next records from the budget and head files. The retried time step now reuses the flows and heads already read. Retries of later time steps were not affected."

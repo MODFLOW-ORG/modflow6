@@ -4,7 +4,7 @@ module TspFmiModule
   use ConstantsModule, only: DONE, DZERO, DHALF, DNODATA, LINELENGTH, &
                              LENBUDTXT, LENPACKAGENAME, LENVARNAME
   use SimModule, only: store_error, count_errors, store_error_filename
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, iFailedStepRetry
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use ListModule, only: ListType
@@ -154,31 +154,36 @@ contains
      &"(/1X,'DRY CELL REACTIVATED AT ', a,&
      &' WITH STARTING CONCENTRATION =',G13.5)"
     !
-    ! -- Set flag to indicated that flows are being updated.  For the case where
-    !    flows may be reused (only when flows are read from a file) then set
-    !    the flag to zero to indicate that flows were not updated
-    this%iflowsupdated = 1
-    !
-    ! -- If reading flows from a budget file, read the next set of records
-    if (this%iubud /= 0) then
-      call this%advance_bfr()
-    end if
-    !
-    ! -- If reading heads from a head file, read the next set of records
-    if (this%iuhds /= 0) then
-      call this%advance_hfr()
-    end if
-    !
-    ! -- If mover flows are being read from file, read the next set of records
-    if (this%iumvr /= 0) then
-      call this%mvrbudobj%bfr_advance(this%dis, this%iout)
-    end if
-    !
-    ! -- If advanced package flows are being read from file, read the next set of records
-    if (this%flows_from_file .and. this%inunit /= 0) then
-      do n = 1, size(this%aptbudobj)
-        call this%aptbudobj(n)%ptr%bfr_advance(this%dis, this%iout)
-      end do
+    ! -- Read flows and heads for this time step, unless this is a retry of
+    !    a failed time step. A retry is for the same time step and stress
+    !    period, so the records read on the first attempt still apply.
+    if (iFailedStepRetry == 0) then
+      ! -- Set flag to indicated that flows are being updated.  For the case where
+      !    flows may be reused (only when flows are read from a file) then set
+      !    the flag to zero to indicate that flows were not updated
+      this%iflowsupdated = 1
+      !
+      ! -- If reading flows from a budget file, read the next set of records
+      if (this%iubud /= 0) then
+        call this%advance_bfr()
+      end if
+      !
+      ! -- If reading heads from a head file, read the next set of records
+      if (this%iuhds /= 0) then
+        call this%advance_hfr()
+      end if
+      !
+      ! -- If mover flows are being read from file, read the next set of records
+      if (this%iumvr /= 0) then
+        call this%mvrbudobj%bfr_advance(this%dis, this%iout)
+      end if
+      !
+      ! -- If advanced package flows are being read from file, read the next set of records
+      if (this%flows_from_file .and. this%inunit /= 0) then
+        do n = 1, size(this%aptbudobj)
+          call this%aptbudobj(n)%ptr%bfr_advance(this%dis, this%iout)
+        end do
+      end if
     end if
     !
     ! -- advance the saturation, unless this time step is repeated
