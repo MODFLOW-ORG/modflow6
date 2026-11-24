@@ -23,6 +23,8 @@ Cases:
                       period 2.
   - iso_later_val   : as iso_later with -m validate; the cells are found in
                       stress period 2 without solving.
+  - iso_later_gwt   : as iso_later_val with a GWT model coupled in memory and a
+                      GHB source in SSM; the GWT solution is not assembled.
   - iso_x_island    : two 5-column models joined by an exchange; IDOMAIN cuts
                       off the last two columns of the first model, which with
                       the second model have no boundary, so the warning
@@ -46,16 +48,20 @@ cases = [
     "iso_later_ci",
     "iso_later_all",
     "iso_later_val",
+    "iso_later_gwt",
     "iso_x_island",
     "iso_x_connected",
 ]
 nrow = 3
 strt = 1.0
 WARNING = "had no storage, dependent-variable boundary, or constant value"
-CARGS = {"ci": [["-ci"]], "all": [["-ci", "ALL"]], "val": [["-m", "validate"]]}
+VALIDATE = [["-m", "validate"]]
+CARGS = {"ci": [["-ci"]], "all": [["-ci", "ALL"]], "val": VALIDATE, "gwt": VALIDATE}
+SKIPPED = 'mode="validation" -- Skipping matrix assembly and solution.'
+ASSEMBLED = 'mode="validation" -- Assembled at the starting heads'
 
 
-def add_gwf(sim, name, ncol, idomain, chd=False, ghb=None):
+def add_gwf(sim, name, ncol, idomain, chd=False, ghb=None, aux=False):
     gwf = flopy.mf6.ModflowGwf(sim, modelname=name)
     flopy.mf6.ModflowGwfdis(
         gwf,
@@ -75,9 +81,14 @@ def add_gwf(sim, name, ncol, idomain, chd=False, ghb=None):
             gwf, stress_period_data=[((0, i, 0), strt) for i in range(nrow)]
         )
     if ghb is not None:
-        cells = [((0, i, ncol - 1), strt, 1.0) for i in range(nrow)]
+        cells = [
+            ((0, i, ncol - 1), strt, 1.0) + ((1.0,) if aux else ()) for i in range(nrow)
+        ]
         flopy.mf6.ModflowGwfghb(
-            gwf, stress_period_data={kper: cells if on else [] for kper, on in ghb}
+            gwf,
+            pname="ghb",
+            auxiliary=["concentration"] if aux else None,
+            stress_period_data={kper: cells if on else [] for kper, on in ghb},
         )
     return gwf
 
@@ -116,8 +127,34 @@ def build_models(idx, test):
             ghb = [(0, True)]
         elif name.startswith("iso_later"):
             ghb = [(0, True), (1, False)]
-        add_gwf(sim, name, ncol, [idomain], chd=True, ghb=ghb)
+        gwt = name.endswith("_gwt")
+        add_gwf(sim, name, ncol, [idomain], chd=True, ghb=ghb, aux=gwt)
+        if gwt:
+            add_gwt(sim, name, ncol, [idomain])
     return sim, None
+
+
+def add_gwt(sim, gwfname, ncol, idomain):
+    name = f"t_{gwfname}"
+    ims = flopy.mf6.ModflowIms(sim, linear_acceleration="bicgstab", filename="gwt.ims")
+    gwt = flopy.mf6.ModflowGwt(sim, modelname=name)
+    flopy.mf6.ModflowGwtdis(
+        gwt,
+        nlay=1,
+        nrow=nrow,
+        ncol=ncol,
+        delr=1.0,
+        delc=1.0,
+        top=1.0,
+        botm=0.0,
+        idomain=idomain,
+    )
+    flopy.mf6.ModflowGwtic(gwt, strt=0.0)
+    flopy.mf6.ModflowGwtmst(gwt, porosity=0.3)
+    flopy.mf6.ModflowGwtadv(gwt)
+    flopy.mf6.ModflowGwtssm(gwt, sources=[["ghb", "AUX", "CONCENTRATION"]])
+    flopy.mf6.ModflowGwfgwt(sim, exgtype="GWF6-GWT6", exgmnamea=gwfname, exgmnameb=name)
+    sim.register_ims_package(ims, [name])
 
 
 def warning_text(workspace):
@@ -145,6 +182,14 @@ def check_output(idx, test):
         # -- found in stress period 2, after the GHB is removed
         assert "15 cut off by the input (not dry)" in text
         assert f"{model} (1,1,6) INPUT NOT RECHECKED 2 1 2 1 1 1" in text
+    if name == "iso_later_gwt":
+        # -- the GWF solution is assembled and the GWT solution is not
+        ws = Path(test.workspace)
+        gwf_text = (ws / f"{name}.lst").read_text()
+        gwt_text = (ws / f"t_{name}.lst").read_text()
+        assert gwf_text.count(ASSEMBLED) == 2, "GWF not assembled in each period"
+        assert ASSEMBLED not in gwt_text, "GWT solution was assembled"
+        assert gwt_text.count(SKIPPED) == 2, "GWT not skipped in each period"
     elif name == "iso_x_island":
         assert "21 cell(s) in solution SLN_1 (model(s) LEFT, RIGHT)" in text
         assert "LEFT (1,1,4) INPUT NOT RECHECKED" in text
