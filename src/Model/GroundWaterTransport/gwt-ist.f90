@@ -315,7 +315,7 @@ contains
       if (this%ibound(n) <= 0) cycle
 
       ! calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swtpdt = this%fmi%gwfsat(n)
       thetaim = this%get_thetaim(n)
       idiag = ia(n)
@@ -444,7 +444,7 @@ contains
       if (this%ibound(n) > 0) then
 
         ! calculate new and old water volumes
-        vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+        vcell = this%dis%get_cell_volume(n)
         swtpdt = this%fmi%gwfsat(n)
         thetaim = this%get_thetaim(n)
 

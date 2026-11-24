@@ -226,7 +226,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes and solid volume
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       vnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
       vold = vnew
       if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
@@ -273,7 +273,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swtpdt = this%fmi%gwfsat(n)
       !
       ! -- add zero-order decay rate terms to accumulators
@@ -321,7 +321,7 @@ contains
       !
       ! -- set variables
       rrhs = DZERO
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       !
       ! -- account for zero-order decay rate terms in rhs
       if (this%idcy == DECAY_ZERO_ORDER .and. (this%idcysrc == DECAY_SOLID .or. &
@@ -399,7 +399,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes and solid volume
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       vwatnew = vcell * this%fmi%gwfsat(n) * this%porosity(n)
       vwatold = vwatnew
       if (this%fmi%igwfstrgss /= 0) vwatold = vwatold + this%fmi%gwfstrgss(n) &
@@ -447,7 +447,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swtpdt = this%fmi%gwfsat(n)
       !
       ! -- calculate decay gains and losses
@@ -497,7 +497,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       !
       ! -- calculate decay gains and losses
       rate = DZERO
