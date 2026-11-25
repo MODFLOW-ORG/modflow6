@@ -29,6 +29,7 @@ module ParallelSolutionModule
     procedure :: sln_backtracking_xupdate => par_backtracking_xupdate
     procedure :: sln_maxval => par_maxval
     procedure :: sln_get_idvscale => par_get_idvscale
+    procedure :: sln_get_inewton => par_get_inewton
 
   end type ParallelSolutionType
 
@@ -269,6 +270,25 @@ contains
     call CHECK_MPI(ierr)
 
   end function par_get_idvscale
+
+  !> @brief Return 1 if a model on any process uses Newton-Raphson
+  !<
+  function par_get_inewton(this) result(inewton_global)
+    class(ParallelSolutionType) :: this !< ParallelSolutionType instance
+    integer(I4B) :: inewton_global !< global Newton-Raphson flag
+    ! local
+    integer(I4B) :: inewton_local
+    type(MpiWorldType), pointer :: mpi_world
+    integer :: ierr
+
+    mpi_world => get_mpi_world()
+
+    inewton_local = this%NumericalSolutionType%sln_get_inewton()
+    call MPI_Allreduce(inewton_local, inewton_global, 1, MPI_INTEGER, &
+                       MPI_MAX, mpi_world%comm, ierr)
+    call CHECK_MPI(ierr)
+
+  end function par_get_inewton
 
   !> @brief synchronize maxval over processes
   !<

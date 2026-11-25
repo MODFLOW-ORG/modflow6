@@ -188,13 +188,13 @@ contains
     if (ilinmeth == 1) then
       call ims_base_cg(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, 0, 0, &
                        iscl, rscale, hscale, 1.0d-30, 1.0d-30, l2norm0, &
-                       DONE, iao, jao, ao, iapc, japc, apc, x, b, d, p, q, z, &
-                       1, iw, jlu, 1, 1, convmodstart, caccel, summary)
+                       DONE, DZERO, iao, jao, ao, iapc, japc, apc, x, b, d, p, &
+                       q, z, 1, iw, jlu, 1, 1, convmodstart, caccel, summary)
     else
       call ims_base_bcgs(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, 0, &
                          0, iscl, rscale, hscale, 1.0d-30, 1.0d-30, l2norm0, &
-                         DONE, iao, jao, ao, iapc, japc, apc, x, b, d, p, q, &
-                         t, v, dhat, phat, qhat, 1, iw, jlu, 1, 1, &
+                         DONE, DZERO, iao, jao, ao, iapc, japc, apc, x, b, d, &
+                         p, q, t, v, dhat, phat, qhat, 1, iw, jlu, 1, 1, &
                          convmodstart, caccel, summary)
     end if
 

@@ -29,6 +29,7 @@ module PetscConvergenceModule
     real(DP) :: rclose !< residual closure criterion
     integer(I4B) :: max_its !< maximum number of inner iterations
     real(DP) :: rnorm_L2_init !< the initial L2 norm for (b - Ax)
+    real(DP), pointer :: eta => null() !< forcing term (0 if not used)
     type(ConvergenceSummaryType), pointer :: cnvg_summary => null() !< detailed convergence information
     real(DP) :: t_convergence_check !< the time spent convergence checking
   contains
@@ -81,6 +82,7 @@ contains
     this%dvclose = settings%dvclose
     this%rclose = settings%rclose
     this%max_its = settings%iter1
+    this%eta => settings%eta
     this%cnvg_summary => summary
     call MatCreateVecs(mat, this%x_old, PETSC_NULL_VEC, ierr)
     CHKERRQ(ierr)
@@ -119,9 +121,11 @@ contains
     CHKERRQ(ierr)
 
     rnorm0 = huge(rnorm0)
+    rnorm_L2_ims = huge(rnorm_L2_ims)
     if (context%icnvgopt == 2 .or. &
         context%icnvgopt == 3 .or. &
-        context%icnvgopt == 4) then
+        context%icnvgopt == 4 .or. &
+        context%eta > DZERO) then
       call VecNorm(res, NORM_2, rnorm_L2_ims, ierr)
       rnorm0 = rnorm_L2_ims
       CHKERRQ(ierr)
@@ -217,7 +221,8 @@ contains
     end if
     call ims_base_testcnvg(ctx%icnvgopt, ctx%icnvg_ims, nit, &
                            dvmax, rcnvg, ctx%rnorm_L2_init, &
-                           epfact, ctx%dvclose, ctx%rclose)
+                           epfact, ctx%dvclose, ctx%rclose, &
+                           rnorm_L2, ctx%eta)
 
     if (ctx%icnvg_ims /= 0) then
       ! Set to 'converged'
@@ -292,6 +297,12 @@ contains
         context%icnvg_ims = 1
         ! apply 'strict'
         if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
+      else if (context%eta > DZERO .and. &
+               rnorm_L2 <= context%eta * context%rnorm_L2_init) then
+        ! forcing term, relative to the KSP norm, ends the linear solve
+        ! but not the outer iteration
+        flag = KSP_CONVERGED_RTOL
+        context%icnvg_ims = -1
       end if
     end if
 
