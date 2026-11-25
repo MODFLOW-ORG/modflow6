@@ -20,7 +20,7 @@ module VsfVanGenuchtenModule
     real(DP), dimension(:), pointer, contiguous :: sc => null() !< unscaled effective saturation at the air-entry head
     real(DP), dimension(:), pointer, contiguous :: krscale => null() !< unscaled kr at the air-entry head
     real(DP), dimension(:), pointer, contiguous :: krd => null() !< unscaled kr at -delta
-    real(DP), dimension(:), pointer, contiguous :: dkrd => null() !< unscaled dkr/dpsi at -delta
+    real(DP), dimension(:), pointer, contiguous :: dkrd => null() !< unscaled dkr/dpsi at -delta, capped for monotonicity
   contains
     procedure :: load => load_vangenuchten
     procedure :: saturation => saturation_vangenuchten
@@ -109,10 +109,14 @@ contains
         this%krscale(i) = DONE
       end if
     end do
+    ! the smoothing cubic is monotone, and so stays below one, when its
+    ! slope at -delta is at most 3 (1 - kr(-delta)) / delta (Fritsch and
+    ! Carlson, 1980); steeper slopes, for large n or wide intervals, are
+    ! capped, which leaves a kink in kr at -delta
     do i = 1, nsm
       call this%kr_dkr_raw(-this%delta, i, kr, dkr)
       this%krd(i) = kr
-      this%dkrd(i) = dkr
+      this%dkrd(i) = min(dkr, 3.0_DP * (DONE - kr) / this%delta)
     end do
 
   end subroutine load_vangenuchten
@@ -247,8 +251,8 @@ contains
   !! With an air-entry head hae < 0 (Vogel et al., 2001) the soil is
   !! saturated for psi >= hae and kr is the Mualem integral rescaled to 1
   !! at hae. Otherwise, with a smoothing width delta > 0, kr on (-delta, 0)
-  !! is a cubic matching kr and its slope at -delta and reaching 1 with
-  !! zero slope at saturation.
+  !! is a cubic matching kr and its slope at -delta (capped to keep the
+  !! cubic monotone) and reaching 1 with zero slope at saturation.
   !<
   subroutine kr_dkrdh_vangenuchten(this, psi, i, kr, dkr)
     class(VanGenuchtenModelType), intent(inout) :: this

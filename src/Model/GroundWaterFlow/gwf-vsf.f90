@@ -378,7 +378,14 @@ contains
   !! Applied after the solver under-relaxation: when the head change of
   !! this outer iteration changes the effective saturation of a cell by
   !! more than newton_dsat_max, the change is scaled back proportionally.
-  !! Cells that stay saturated are not limited.
+  !! On a curved retention curve this limits the saturation change
+  !! approximately, not exactly. Cells that stay saturated are not limited.
+  !!
+  !! The limited cells are deliberately not reported to the solution
+  !! (inewtonur, dxmax, locmax are left unchanged): the Newton
+  !! under-relaxation convergence shortcut in the solution would otherwise
+  !! accept an outer iteration in which a package has not converged. The
+  !! limit only shortens steps, so the regular convergence check applies.
   !<
   subroutine vsf_nur(this, neqmod, x, xtemp, dx, inewtonur, dxmax, locmax)
     class(GwfVsfType), intent(inout) :: this
@@ -386,9 +393,9 @@ contains
     real(DP), dimension(neqmod), intent(inout) :: x
     real(DP), dimension(neqmod), intent(in) :: xtemp
     real(DP), dimension(neqmod), intent(inout) :: dx
-    integer(I4B), intent(inout) :: inewtonur
-    real(DP), intent(inout) :: dxmax !< the maximum change from nur, initially zero
-    integer(I4B), intent(inout) :: locmax
+    integer(I4B), intent(inout) :: inewtonur !< not set, see above
+    real(DP), intent(inout) :: dxmax !< not set, see above
+    integer(I4B), intent(inout) :: locmax !< not set, see above
     ! local
     integer(I4B) :: n
     real(DP) :: z, psi0, psi1, se0, se1, dse, step, steplim, sr
@@ -412,13 +419,8 @@ contains
       dse = abs(se1 - se0)
       if (dse > this%newton_dsat_max) then
         steplim = step * this%newton_dsat_max / dse
-        inewtonur = 1
         x(n) = xtemp(n) + steplim
         dx(n) = steplim
-        if (abs(step - steplim) > abs(dxmax)) then
-          locmax = n
-          dxmax = step - steplim
-        end if
       end if
     end do
 

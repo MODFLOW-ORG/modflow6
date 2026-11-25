@@ -419,11 +419,17 @@ converges. VSF option `NEWTON_DSAT_MAX`, on by default at 0.2.**
 
 After each linear solve, VSF checks the proposed head change of every
 unsaturated cell. When the change in effective saturation would exceed
-`NEWTON_DSAT_MAX`, the step of that cell is scaled down proportionally. Cells
-that stay saturated, and cells whose saturation hardly changes, are never
-touched, so normal cases keep full Newton steps. The limiter uses the existing
-Newton under-relaxation hook in IMS (the one NPF uses to keep heads above the
-cell bottom), so convergence checking and reporting work unchanged. It costs two
+`NEWTON_DSAT_MAX`, the step of that cell is scaled down proportionally. Because
+the retention curve is curved, the resulting saturation change is close to, but
+not exactly, the limit (for example 0.299 instead of 0.2 for a Haverkamp step
+from ψ = −30 to 0 cm); the option is a damping, not a hard bound. Cells that
+stay saturated, and cells whose saturation hardly changes, are never touched,
+so normal cases keep full Newton steps. The limiter uses the Newton
+under-relaxation hook in IMS (the one NPF uses to keep heads above the cell
+bottom), but does not raise the under-relaxation flag: that flag lets IMS accept
+an outer iteration in which a package has not converged (see the upstream
+issue on the Newton under-relaxation convergence shortcut). The regular
+convergence check therefore applies unchanged. It costs two
 saturation evaluations per cell per outer iteration, about 3% of the run. A
 separate limit on drying steps made no measurable difference and was dropped.
 
@@ -476,7 +482,11 @@ is the Mualem–Van Genuchten kr curve for n < 2:
 - **`KR_SMOOTHING <width>`** (VSF options, model length units). Between
   ψ = −width and 0, kr is replaced by a cubic that joins the original curve with
   the same value and slope at −width, and reaches kr = 1 with zero slope at
-  saturation. The retention curve and kr below −width are unchanged.
+  saturation. For steep curves (large n or a wide interval) the slope at −width
+  is capped at 3·(1 − kr(−width))/width, so the cubic stays monotone and never
+  exceeds 1 (Fritsch and Carlson, 1980); the curve then has a small kink at
+  −width. This cap is not active for the soils in this study. The retention
+  curve and kr below −width are unchanged.
 - **`HAEVGN`** (per-cell array): an air-entry pressure head h_s < 0 after Vogel
   et al. (2001). The soil is saturated for ψ ≥ h_s, and Se and kr are rescaled
   to reach 1 at h_s. This removes the cusp entirely, but it is a different soil

@@ -9,6 +9,11 @@ so kr(psi) = q / Ks there. The simulated pressure head is compared with
 the head that solves this equation for each variant of the kr curve, and,
 for the air-entry variant, the saturation with the rescaled retention
 curve.
+
+A fourth case uses a steep soil (n = 8) with a wide smoothing interval, for
+which the slope of the Van Genuchten kr at the start of the interval is too
+steep for a monotone cubic. The slope is then capped, so the smoothed kr
+stays monotone and below one.
 """
 
 import flopy
@@ -16,50 +21,61 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["vgns-plain", "vgns-smooth", "vgns-airentry"]
-kr_smoothing = [None, 2.0, None]
-haevgn = [None, None, -2.0]
+cases = ["vgns-plain", "vgns-smooth", "vgns-airentry", "vgns-steep"]
+kr_smoothing = [None, 2.0, None, 8.0]
+haevgn = [None, None, -2.0, None]
 
-# silt loam (Carsel and Parrish, 1988), cm and s
-ks, alpha, nvg = 1.25e-4, 0.020, 1.41
+# silt loam (Carsel and Parrish, 1988), cm and s; the steep case uses an
+# artificial soil with n = 8, alpha = 0.1 / cm
+ks = 1.25e-4
+alphas = [0.020, 0.020, 0.020, 0.1]
+nvgs = [1.41, 1.41, 1.41, 8.0]
 porosity, satres = 0.45, 0.067 / 0.45
-kr_target = 0.7
-q = kr_target * ks
+kr_targets = [0.7, 0.7, 0.7, 0.9]
 
 nlay = 100
 delz = 2.0
 top = nlay * delz
 
 
-def se_vg(psi):
+def se_vg(psi, idx):
+    alpha, nvg = alphas[idx], nvgs[idx]
     m = 1.0 - 1.0 / nvg
     return np.where(psi >= 0.0, 1.0, (1.0 + (alpha * np.abs(psi)) ** nvg) ** -m)
 
 
-def kr_vg(psi):
-    m = 1.0 - 1.0 / nvg
-    se = se_vg(psi)
+def kr_vg(psi, idx):
+    m = 1.0 - 1.0 / nvgs[idx]
+    se = se_vg(psi, idx)
     return np.sqrt(se) * (1.0 - (1.0 - se ** (1.0 / m)) ** m) ** 2
 
 
-def kr_curve(psi, idx):
+def smoothing_slope(idx, cap=True):
+    """Scaled slope m0 of the cubic at -delta, capped for monotonicity"""
+    d = kr_smoothing[idx]
+    eps = 1.0e-7
+    k0 = kr_vg(-d, idx)
+    m0 = (kr_vg(-d + eps, idx) - kr_vg(-d - eps, idx)) / (2.0 * eps) * d
+    return min(m0, 3.0 * (1.0 - k0)) if cap else m0
+
+
+def kr_curve(psi, idx, cap=True):
     if haevgn[idx] is not None:
         hae = haevgn[idx]
-        return 1.0 if psi >= hae else kr_vg(psi) / kr_vg(hae)
+        return 1.0 if psi >= hae else kr_vg(psi, idx) / kr_vg(hae, idx)
     if kr_smoothing[idx] is not None and psi > -kr_smoothing[idx]:
         d = kr_smoothing[idx]
         if psi >= 0.0:
             return 1.0
-        eps = 1.0e-7
-        k0 = kr_vg(-d)
-        m0 = (kr_vg(-d + eps) - kr_vg(-d - eps)) / (2.0 * eps) * d
+        k0 = kr_vg(-d, idx)
+        m0 = smoothing_slope(idx, cap)
         t = (psi + d) / d
         return (
             (2 * t**3 - 3 * t**2 + 1) * k0
             + (t**3 - 2 * t**2 + t) * m0
             + (-2 * t**3 + 3 * t**2)
         )
-    return kr_vg(psi)
+    return kr_vg(psi, idx)
 
 
 def psi_unit_gradient(idx):
@@ -67,7 +83,7 @@ def psi_unit_gradient(idx):
     lo, hi = -1000.0, 0.0
     for _ in range(200):
         mid = 0.5 * (lo + hi)
-        if kr_curve(mid, idx) < kr_target:
+        if kr_curve(mid, idx) < kr_targets[idx]:
             lo = mid
         else:
             hi = mid
@@ -111,12 +127,13 @@ def build_models(idx, test):
         soil_model="vangenuchten",
         porosity=porosity,
         satres=satres,
-        alphavgn=alpha,
-        nvgn=nvg,
+        alphavgn=alphas[idx],
+        nvgn=nvgs[idx],
         sat_filerecord=f"{name}.sat",
         phead_filerecord=f"{name}.phd",
         **opts,
     )
+    q = kr_targets[idx] * ks
     flopy.mf6.ModflowGwfrch(gwf, stress_period_data={0: [[(0, 0, 0), q]]})
     flopy.mf6.ModflowGwfchd(gwf, stress_period_data={0: [[(nlay - 1, 0, 0), zc[-1]]]})
     flopy.mf6.ModflowGwfoc(
@@ -137,10 +154,14 @@ def check_output(idx, test):
     upper = slice(0, nlay // 4)
     expected = psi_unit_gradient(idx)
     err = np.abs(psi[upper] - expected).max()
-    assert err < 1.0e-4, f"pressure head {psi[upper].mean()} != {expected} ({err})"
+    # the steep soil approaches unit gradient slowly (kr close to one), so
+    # its tolerance is looser; the capped and uncapped curves give heads
+    # 1.4 cm apart (-5.14 and -6.53 cm)
+    tol = 5.0e-3 if cases[idx] == "vgns-steep" else 1.0e-4
+    assert err < tol, f"pressure head {psi[upper].mean()} != {expected} ({err})"
 
     if haevgn[idx] is not None:
-        se = se_vg(psi[upper]) / se_vg(haevgn[idx])
+        se = se_vg(psi[upper], idx) / se_vg(haevgn[idx], idx)
         s_expected = satres + (1.0 - satres) * se
         assert np.allclose(s[upper], s_expected, atol=1.0e-10)
         # saturated between the water table and the air-entry head
@@ -148,8 +169,17 @@ def check_output(idx, test):
         assert np.all(s[near_wt] == 1.0)
 
     # the variants must actually differ from the plain curve
-    if idx > 0:
+    if 0 < idx < 3:
         assert abs(expected - psi_unit_gradient(0)) > 0.1
+
+    if cases[idx] == "vgns-steep":
+        # the slope cap is active here: without it the cubic overshoots one
+        psi_s = np.linspace(-kr_smoothing[idx], 0.0, 2001)
+        uncapped = [kr_curve(p, idx, cap=False) for p in psi_s]
+        capped = [kr_curve(p, idx) for p in psi_s]
+        assert max(uncapped) > 1.01
+        assert max(capped) <= 1.0 and np.all(np.diff(capped) >= 0.0)
+        assert expected > -kr_smoothing[idx]
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))
