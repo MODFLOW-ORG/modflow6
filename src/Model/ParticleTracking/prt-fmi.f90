@@ -6,7 +6,6 @@ module PrtFmiModule
   use SimModule, only: store_error
   use SimVariablesModule, only: errmsg, iFailedStepRetry
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
-  use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
 
@@ -37,14 +36,17 @@ module PrtFmiModule
       BoundaryFlows => null() !< cell boundary flows array
     integer(I4B), dimension(:), pointer, contiguous, public :: &
       BoundaryFaces => null() !< bitmask of assigned boundary faces
+    logical(LGP), pointer, public :: backward => null() !< whether fmi should run backward in time
 
   contains
 
     procedure :: fmi_ad
-    procedure :: fmi_df => prtfmi_df
     procedure :: fmi_da => prtfmi_da
     procedure :: allocate_scalars => prtfmi_allocate_scalars
     procedure :: allocate_arrays => prtfmi_allocate_arrays
+    procedure :: source_options => prtfmi_source_options
+    procedure :: initialize_hfr => prtfmi_initialize_hfr
+    procedure :: initialize_bfr => prtfmi_initialize_bfr
     procedure, private :: accumulate_flows
     procedure :: mark_boundary_face
     procedure :: is_boundary_face
@@ -153,13 +155,28 @@ contains
 
   end subroutine fmi_ad
 
-  !> @brief Define the flow model interface
-  subroutine prtfmi_df(this, dis, idryinactive)
+  !> @brief Allocate scalars
+  subroutine prtfmi_allocate_scalars(this)
     class(PrtFmiType) :: this
-    class(DisBaseType), pointer, intent(in) :: dis
-    integer(I4B), intent(in) :: idryinactive
 
-    call this%FlowModelInterfaceType%fmi_df(dis, idryinactive)
+    call this%FlowModelInterfaceType%allocate_scalars()
+
+    call mem_allocate(this%max_faces, 'MAX_FACES', this%memoryPath)
+    this%max_faces = 0
+    call mem_allocate(this%backward, 'BACKWARD', this%memoryPath)
+    this%backward = .false.
+
+  end subroutine prtfmi_allocate_scalars
+
+  !> @brief Allocate arrays
+  !!
+  !! Sets max_faces here rather than in an fmi_df override. Calling the
+  !! parent fmi_df through the parent component would bind the procedures
+  !! it calls (source_options, initialize_bfr/hfr) to the parent versions.
+  !<
+  subroutine prtfmi_allocate_arrays(this, nodes)
+    class(PrtFmiType) :: this
+    integer(I4B), intent(in) :: nodes
 
     this%max_faces = this%dis%get_max_npolyverts() + 2
     if (this%max_faces > 32) then
@@ -170,24 +187,6 @@ contains
       call this%parser%StoreErrorUnit()
       return
     end if
-
-  end subroutine prtfmi_df
-
-  !> @brief Allocate scalars
-  subroutine prtfmi_allocate_scalars(this)
-    class(PrtFmiType) :: this
-
-    call this%FlowModelInterfaceType%allocate_scalars()
-
-    call mem_allocate(this%max_faces, 'MAX_FACES', this%memoryPath)
-    this%max_faces = 0
-
-  end subroutine prtfmi_allocate_scalars
-
-  !> @brief Allocate arrays
-  subroutine prtfmi_allocate_arrays(this, nodes)
-    class(PrtFmiType) :: this
-    integer(I4B), intent(in) :: nodes
 
     ! allocate parent arrays
     call this%FlowModelInterfaceType%allocate_arrays(nodes)
@@ -210,6 +209,7 @@ contains
     class(PrtFmiType) :: this
 
     call mem_deallocate(this%max_faces)
+    call mem_deallocate(this%backward)
     call mem_deallocate(this%StorageFlows)
     call mem_deallocate(this%SourceFlows)
     call mem_deallocate(this%SinkFlows)
@@ -219,6 +219,49 @@ contains
     call this%FlowModelInterfaceType%fmi_da()
 
   end subroutine prtfmi_da
+
+  !> @brief Source input options for package
+  subroutine prtfmi_source_options(this)
+    use MemoryManagerExtModule, only: mem_set_value
+    class(PrtFmiType) :: this
+    ! local
+    logical(LGP) :: found_ipakcb, found_backward
+    character(len=*), parameter :: fmtisvflow = &
+      "(4x,'CELL-BY-CELL FLOW INFORMATION WILL BE SAVED TO BINARY FILE &
+      &WHENEVER ICBCFL IS NOT ZERO AND FLOW IMBALANCE CORRECTION ACTIVE.')"
+
+    call mem_set_value(this%ipakcb, 'SAVE_FLOWS', this%input_mempath, &
+                       found_ipakcb)
+    call mem_set_value(this%backward, 'BACKWARD', this%input_mempath, &
+                       found_backward)
+
+    write (this%iout, '(1x,a)') 'PROCESSING FMI OPTIONS'
+
+    if (found_ipakcb) then
+      this%ipakcb = -1
+      write (this%iout, fmtisvflow)
+    end if
+
+    if (found_backward) then
+      this%backward = .true.
+      write (this%iout, '(4x,a)') 'FMI WILL RUN BACKWARD IN TIME.'
+    end if
+
+    write (this%iout, '(1x,a)') 'END OF FMI OPTIONS'
+  end subroutine prtfmi_source_options
+
+  !> @brief Initialize the budget file reader
+  subroutine prtfmi_initialize_bfr(this)
+    class(PrtFmiType) :: this
+    integer(I4B) :: ncrbud
+    call this%bfr%initialize(this%iubud, this%iout, ncrbud, this%backward)
+  end subroutine prtfmi_initialize_bfr
+
+  !> @brief Initialize the head file reader
+  subroutine prtfmi_initialize_hfr(this)
+    class(PrtFmiType) :: this
+    call this%hfr%initialize(this%iuhds, this%iout, this%backward)
+  end subroutine prtfmi_initialize_hfr
 
   !> @brief Accumulate flows
   subroutine accumulate_flows(this)
@@ -257,7 +300,8 @@ contains
         i = this%gwfpackages(ip)%nodelist(ib)
         if (i <= 0) cycle
         if (this%ibound(i) <= 0) cycle
-        qbnd = this%gwfpackages(ip)%get_flow(ib)
+
+        ! get iflowface and convert to cell face numbering
         ! todo, after initial release: default iflowface values for different packages
         iflowface = 0
         icellface = 0
@@ -265,6 +309,9 @@ contains
           iflowface = NINT(this%gwfpackages(ip)%auxvar(iauxiflowface, ib))
           icellface = this%iflowface_to_icellface(iflowface)
         end if
+
+        qbnd = this%gwfpackages(ip)%get_flow(ib)
+        if (this%backward) qbnd = -qbnd
         if (icellface > 0) then
           call this%mark_boundary_face(i, icellface)
           this%BoundaryFlows(i, icellface) = &
@@ -276,6 +323,21 @@ contains
         end if
       end do
     end do
+
+    if (this%backward) then
+      ! Only negate gwfflowja and gwfspdis when new data was read from the
+      ! budget file. When flow data is reused (iflowsupdated=0) these arrays
+      ! already carry their negated values from the previous time step, so
+      ! negating again would flip them back to the forward direction.
+      if (this%iflowsupdated /= 0) then
+        this%gwfflowja = -this%gwfflowja
+        this%gwfspdis = -this%gwfspdis
+      end if
+      ! StorageFlows is always recomputed from gwfstrgss/gwfstrgsy which
+      ! retain their original (non-negated) file values, so it is safe to
+      ! negate every call.
+      this%StorageFlows = -this%StorageFlows
+    end if
 
   end subroutine accumulate_flows
 
