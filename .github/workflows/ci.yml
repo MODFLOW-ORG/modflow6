@@ -203,17 +203,17 @@ jobs:
           pixi-version: v0.82.1
 
       - name: Setup static MF6
-        run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
+        run: pixi run -e gcc setup -Dwerror=true -Ddefault_library=static builddir
 
       - name: Build MF6
-        run: pixi run build builddir
+        run: pixi run -e gcc build builddir
 
       - name: Show build log
         if: failure()
         run: cat builddir/meson-logs/meson-log.txt
 
       - name: Unit test MF6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Confirm modflow6 has no dependencies (Linux)
         if: runner.os == 'Linux'
@@ -278,15 +278,15 @@ jobs:
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e gcc install
 
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup -Dwerror=true -Dunit_tests=enabled builddir
-          pixi run build builddir
-          pixi run setup-mf5to6 -Dwerror=true builddir
-          pixi run build-mf5to6 builddir
+          pixi run -e gcc setup -Dwerror=true -Dunit_tests=enabled builddir
+          pixi run -e gcc build builddir
+          pixi run -e gcc setup-mf5to6 -Dwerror=true builddir
+          pixi run -e gcc build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -295,25 +295,25 @@ jobs:
 
       - name: Unit test MF6
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Update flopy
         working-directory: modflow6
-        run: pixi run update-flopy
+        run: pixi run -e gcc update-flopy
 
       - name: Get executables
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes
+        run: pixi run -e gcc get-exes
 
       - name: Test MF6
         working-directory: modflow6
         run: |
           if [[ "${{ github.ref_name }}" == "master" || "${{ github.base_ref }}" == "master" ]]; then
-            pixi run autotest -n logical -m "not slow and not regression and not developmode"
+            pixi run -e gcc autotest -n logical -m "not slow and not regression and not developmode"
           else
-            pixi run autotest -n logical --smoke
+            pixi run -e gcc autotest -n logical --smoke
           fi
 
       - name: Upload failed test output
@@ -394,7 +394,7 @@ jobs:
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e gcc install
 
       - name: Set xcode version (macOS)
         if: runner.os == 'macOS'
@@ -408,7 +408,7 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          pixi run --manifest-path modflow6/pixi.toml ${{ env.FC }} --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml -e gcc ${{ env.FC }} --version | head -1
 
       # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
@@ -419,7 +419,7 @@ jobs:
 
       - name: Update version files
         working-directory: modflow6
-        run: pixi run update-version
+        run: pixi run -e gcc update-version
 
       - name: Set setupargs
         run: |
@@ -432,14 +432,14 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir $MESON_SETUP_ARGS -Dunit_tests=enabled
-          pixi run build builddir
+          pixi run -e gcc setup builddir $MESON_SETUP_ARGS -Dunit_tests=enabled
+          pixi run -e gcc build builddir
 
       - name: Build mf5to6 converter
         working-directory: modflow6
         run: |
-          pixi run setup-mf5to6 builddir $MESON_SETUP_ARGS
-          pixi run build-mf5to6 builddir
+          pixi run -e gcc setup-mf5to6 builddir $MESON_SETUP_ARGS
+          pixi run -e gcc build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -472,17 +472,17 @@ jobs:
 
       - name: Unit test MF6
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Update flopy
         working-directory: modflow6
-        run: pixi run update-flopy
+        run: pixi run -e gcc update-flopy
 
       - name: Get executables
         working-directory: modflow6/autotest
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes
+        run: pixi run -e gcc get-exes
 
       - name: Set markers
         id: set_markers
@@ -509,19 +509,19 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+        run: pixi run -e gcc autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run -e gcc autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run -e gcc autotest -n logical -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Install executables
         uses: modflowpy/install-modflow-action@v1
@@ -529,7 +529,7 @@ jobs:
       - name: Test examples
         working-directory: modflow6
         if: runner.os != 'Windows'
-        shell: pixi run bash -e {0}
+        shell: pixi run -e gcc bash -e {0}
         run: |
           cp -R bin/* ~/.local/bin/modflow/
           cd ../modflow6-examples/autotest
@@ -541,7 +541,7 @@ jobs:
         run: |
           cp -R bin/* /c/Users/runneradmin/.local/bin/modflow/
           cd ../modflow6-examples/autotest
-          pixi run --manifest-path ../../modflow6/pixi.toml pytest -v -n logical --dist worksteal --durations 0 test_scripts.py
+          pixi run --manifest-path ../../modflow6/pixi.toml -e gcc pytest -v -n logical --dist worksteal --durations 0 test_scripts.py
 
       - name: Upload failed test output
         if: failure()
@@ -577,7 +577,7 @@ jobs:
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run test-dist-scripts
+        run: pixi run -e gcc test-dist-scripts
 
   test_intel_fortran:
     name: Test Intel fortran

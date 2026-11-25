@@ -12,7 +12,6 @@ filelock = "*"
 flaky = "*"
 fortran-language-server = "*"
 fprettify = "*"
-gfortran = "15.*"
 geopandas = "*"
 gitpython = "*"
 jinja2 = ">=3.1.5,<4"
@@ -136,13 +135,17 @@ builddir = "echo _builddir_osx-arm64"
 [target.win-64.tasks]
 builddir = "echo _builddir_win-64"
 
-# environments for documentation and extended build testing
+# environments for gfortran builds, documentation and extended build testing
 [environments]
+gcc = { features = ["gcc"], solve-group = "default" }
 rtd = { features = ["rtd"], solve-group = "default" }
 doxygen = { features = ["doxygen"], no-default-feature = true }
-gcc-extended-build = { features = ["gcc-extended-build"] }
+gcc-extended-build = { features = ["gcc", "gcc-extended-build"] }
 
 # Features
+[feature.gcc.dependencies]
+gfortran = "15.*"
+
 [feature.rtd.dependencies]
 numpy = ">=2.2.6,<3"
 bmipy = "*"
