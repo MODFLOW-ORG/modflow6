@@ -50,6 +50,8 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    env:
+      PIXI_ENV: ${{ matrix.compiler == 'gcc' && 'gcc' || 'default' }}
     steps:
       - name: Free disk space (Ubuntu)
         if: runner.os == 'Linux'
@@ -76,7 +78,7 @@ jobs:
         working-directory: modflow6
         run: pixi run install
 
-      # gfortran comes from the pixi environment
+      # gfortran comes from the pixi gcc environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1
@@ -87,10 +89,10 @@ jobs:
       - name: Build modflow6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
-          pixi run build builddir
-          pixi run setup-mf5to6 builddir
-          pixi run build-mf5to6 builddir
+          pixi run -e $PIXI_ENV setup builddir
+          pixi run -e $PIXI_ENV build builddir
+          pixi run -e $PIXI_ENV setup-mf5to6 builddir
+          pixi run -e $PIXI_ENV build-mf5to6 builddir
 
       - name: Get executables
         working-directory: modflow6

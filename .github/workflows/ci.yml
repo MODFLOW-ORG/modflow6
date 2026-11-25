@@ -203,17 +203,17 @@ jobs:
           pixi-version: v0.82.1
 
       - name: Setup static MF6
-        run: pixi run setup -Dwerror=true -Ddefault_library=static builddir
+        run: pixi run -e gcc setup -Dwerror=true -Ddefault_library=static builddir
 
       - name: Build MF6
-        run: pixi run build builddir
+        run: pixi run -e gcc build builddir
 
       - name: Show build log
         if: failure()
         run: cat builddir/meson-logs/meson-log.txt
 
       - name: Unit test MF6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Confirm modflow6 has no dependencies (Linux)
         if: runner.os == 'Linux'
@@ -283,10 +283,10 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup -Dwerror=true -Dunit_tests=enabled builddir
-          pixi run build builddir
-          pixi run setup-mf5to6 -Dwerror=true builddir
-          pixi run build-mf5to6 builddir
+          pixi run -e gcc setup -Dwerror=true -Dunit_tests=enabled builddir
+          pixi run -e gcc build builddir
+          pixi run -e gcc setup-mf5to6 -Dwerror=true builddir
+          pixi run -e gcc build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -295,7 +295,7 @@ jobs:
 
       - name: Unit test MF6
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Update flopy
         working-directory: modflow6
@@ -408,7 +408,7 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          pixi run --manifest-path modflow6/pixi.toml ${{ env.FC }} --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml -e gcc ${{ env.FC }} --version | head -1
 
       # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
@@ -432,14 +432,14 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir $MESON_SETUP_ARGS -Dunit_tests=enabled
-          pixi run build builddir
+          pixi run -e gcc setup builddir $MESON_SETUP_ARGS -Dunit_tests=enabled
+          pixi run -e gcc build builddir
 
       - name: Build mf5to6 converter
         working-directory: modflow6
         run: |
-          pixi run setup-mf5to6 builddir $MESON_SETUP_ARGS
-          pixi run build-mf5to6 builddir
+          pixi run -e gcc setup-mf5to6 builddir $MESON_SETUP_ARGS
+          pixi run -e gcc build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -472,7 +472,7 @@ jobs:
 
       - name: Unit test MF6
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e gcc test builddir
 
       - name: Update flopy
         working-directory: modflow6

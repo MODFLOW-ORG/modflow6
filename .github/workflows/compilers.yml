@@ -63,6 +63,8 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      PIXI_ENV: ${{ matrix.compiler == 'gcc' && 'gcc' || 'default' }}
     steps:
       - name: Checkout modflow6
         uses: actions/checkout@v7
@@ -98,8 +100,8 @@ jobs:
         if: matrix.compiler == 'gcc'
         working-directory: modflow6
         run: |
-          pixi add "gfortran ${{ matrix.version }}.*"
-          pixi run gfortran --version | head -1
+          pixi add --feature gcc "gfortran ${{ matrix.version }}.*"
+          pixi run -e $PIXI_ENV gfortran --version | head -1
 
       - name: Custom pixi install
         working-directory: modflow6
@@ -117,7 +119,7 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          pixi run --manifest-path modflow6/pixi.toml gfortran --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml -e $PIXI_ENV gfortran --version | head -1
 
       # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
@@ -129,14 +131,14 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir ${{ matrix.compiler == 'gcc' && '-Dunit_tests=enabled' || '' }}
-          pixi run build builddir
+          pixi run -e $PIXI_ENV setup builddir ${{ matrix.compiler == 'gcc' && '-Dunit_tests=enabled' || '' }}
+          pixi run -e $PIXI_ENV build builddir
 
       - name: Build mf5to6 converter
         working-directory: modflow6
         run: |
-          pixi run setup-mf5to6 builddir
-          pixi run build-mf5to6 builddir
+          pixi run -e $PIXI_ENV setup-mf5to6 builddir
+          pixi run -e $PIXI_ENV build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -170,7 +172,7 @@ jobs:
       - name: Unit test programs
         if: success()
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e $PIXI_ENV test builddir
 
       - name: Create compile report
         if: success() || failure()

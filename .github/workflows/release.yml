@@ -223,6 +223,8 @@ jobs:
     defaults:
       run:
         shell: bash
+    env:
+      PIXI_ENV: ${{ matrix.compiler == 'gcc' && 'gcc' || 'default' }}
     outputs:
       version: ${{ steps.set_version.outputs.version }}
       distname: ${{ steps.set_version.outputs.distname }}
@@ -259,7 +261,7 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
-      # gfortran comes from the pixi environment
+      # gfortran comes from the pixi gcc environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: matrix.compiler != 'gcc' && !(runner.os == 'Windows' && matrix.extended)
         id: setup-fortran
@@ -351,7 +353,7 @@ jobs:
           xcode-select -p
           xcrun --show-sdk-version
           ld -v 2>&1 | head -2
-          pixi run --manifest-path modflow6/pixi.toml gfortran --version | head -1
+          pixi run --manifest-path modflow6/pixi.toml -e $PIXI_ENV gfortran --version | head -1
 
       # static link gcc/gfortran runtime libs
       - name: Set LDFLAGS (macOS)
@@ -364,15 +366,15 @@ jobs:
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
-          pixi run setup builddir ${{ matrix.compiler == 'gcc' && '-Dunit_tests=enabled' || '' }}
-          pixi run build builddir
+          pixi run -e $PIXI_ENV setup builddir ${{ matrix.compiler == 'gcc' && '-Dunit_tests=enabled' || '' }}
+          pixi run -e $PIXI_ENV build builddir
 
       - name: Build mf5to6 converter
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
         run: |
-          pixi run setup-mf5to6 builddir
-          pixi run build-mf5to6 builddir
+          pixi run -e $PIXI_ENV setup-mf5to6 builddir
+          pixi run -e $PIXI_ENV build-mf5to6 builddir
 
       - name: Show build log
         if: failure()
@@ -406,7 +408,7 @@ jobs:
       - name: Unit test MF6
         if: (!(runner.os == 'Windows' && matrix.extended))
         working-directory: modflow6
-        run: pixi run test builddir
+        run: pixi run -e $PIXI_ENV test builddir
 
       - name: Get executables
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
@@ -602,7 +604,6 @@ jobs:
         working-directory: modflow6
         run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
 
-      # gfortran comes from the pixi environment
       - name: Setup ${{ inputs.compiler_toolchain }} ${{ inputs.compiler_version }}
         if: inputs.compiler_toolchain != 'gcc'
         uses: fortran-lang/setup-fortran@v1
@@ -741,7 +742,6 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
-      # gfortran comes from the pixi environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1

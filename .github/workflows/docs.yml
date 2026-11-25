@@ -98,8 +98,8 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
-          pixi run build builddir
+          pixi run -e gcc setup builddir
+          pixi run -e gcc build builddir
 
       - name: Cache modflow6 examples
         if: env.BENCHMARK == 'true'
