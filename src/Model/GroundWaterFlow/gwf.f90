@@ -753,6 +753,14 @@ contains
     class(BndType), pointer :: packobj
     integer(I4B) :: ip
     !
+    ! -- limit the saturation change of variably saturated cells,
+    !    independent of the NPF bottom under-relaxation option
+    if (this%inewton /= 0 .and. this%invsf > 0) then
+      call this%vsf%vsf_nur(this%dis%nodes, x(1:this%dis%nodes), &
+                            xtemp(1:this%dis%nodes), dx(1:this%dis%nodes), &
+                            inewtonur, dxmax, locmax)
+    end if
+    !
     ! -- apply Newton-Raphson under-relaxation if model is using
     !    the Newton-Raphson formulation and this Newton-Raphson
     !    under-relaxation is turned on.

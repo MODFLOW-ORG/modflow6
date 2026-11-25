@@ -23,6 +23,8 @@ module VsfStorageModule
     type(GwfStoType), pointer :: gwf_sto => null() !< points to external data
 
     real(DP), dimension(:), pointer, contiguous :: strguz => null() !< internal array of unsaturated storage rates
+    real(DP), dimension(:), pointer, contiguous :: sat_old => null() !< saturation at the old head, cached per time step
+    real(DP) :: totim_sat_old = -huge(DONE) !< start time of the step for which sat_old is valid
   contains
     procedure :: initialize
     procedure :: is_active => uft_is_active
@@ -35,6 +37,7 @@ module VsfStorageModule
     ! private
     procedure, private :: calculate_coeffs
     procedure, private :: calculate_coeffs_nwt
+    procedure, private :: update_sat_old
   end type VsfStorageType
 
 contains
@@ -58,11 +61,37 @@ contains
     this%gwf_sto => sto
 
     call mem_allocate(this%strguz, dis%nodes, 'STRGUZ', sto%memoryPath)
+    call mem_allocate(this%sat_old, dis%nodes, 'SATOLD', sto%memoryPath)
     do n = 1, dis%nodes
       this%strguz(n) = DZERO
+      this%sat_old(n) = DZERO
     end do
 
   end subroutine initialize
+
+  !> @brief Evaluate the saturation at the old head once per time step
+  !!
+  !! The old head does not change within a time step, also not when the
+  !! step is retried with a smaller length, so the start time of the step
+  !! identifies the cached values.
+  !<
+  subroutine update_sat_old(this, h_old)
+    use TdisModule, only: totimc
+    class(VsfStorageType), intent(inout) :: this
+    real(DP), dimension(:), intent(in) :: h_old
+    ! local
+    integer(I4B) :: n
+    real(DP) :: z
+
+    if (totimc == this%totim_sat_old) return
+    do n = 1, this%gwf_dis%nodes
+      if (this%gwf_sto%iformulation(n) /= VSF_STORAGE) cycle
+      z = DHALF * (this%gwf_dis%top(n) + this%gwf_dis%bot(n))
+      this%sat_old(n) = this%soil_model%saturation(h_old(n) - z, n)
+    end do
+    this%totim_sat_old = totimc
+
+  end subroutine update_sat_old
 
   function uft_is_active(this, n) result(is_active)
     class(VsfStorageType), intent(inout) :: this
@@ -90,6 +119,7 @@ contains
     real(DP), dimension(4) :: coeffs !< the coefficients to add to the linear system
     integer(I4B) :: idiag !< the position of the diagonal element
 
+    call this%update_sat_old(h_old)
     do n = 1, this%gwf_dis%nodes
       if (this%gwf_sto%ibound(n) < 1) cycle
       ! only cells claimed by this formulation
@@ -133,7 +163,6 @@ contains
     real(DP) :: h1 !< the current hydraulic head
     real(DP) :: h0 !< the hydraulic head at the previous time level
     real(DP) :: psi1 !< the current saturation
-    real(DP) :: psi0 !< the saturation at the previous time level
     real(DP) :: phi !< the cell porosity
 
     coeffs(:) = DZERO
@@ -147,12 +176,10 @@ contains
     h0 = h_old(n)
     z = DHALF * (top + bot)
     psi1 = h1 - z
-    psi0 = h0 - z
 
     phi = this%soil_model%porosity(n)
-    s1 = this%soil_model%saturation(psi1, n)
-    s0 = this%soil_model%saturation(psi0, n)
-    Cm = this%soil_model%capacity(psi1, n)
+    call this%soil_model%sat_capacity(psi1, n, s1, Cm)
+    s0 = this%sat_old(n)
     dsdh_lim = Cm / phi
 
     sc1 = SsCapacity(this%gwf_sto%istor_coef, top, bot, area, this%gwf_sto%ss(n))
@@ -199,7 +226,6 @@ contains
     real(DP) :: h1 !< the current head
     real(DP) :: h0 !< the head at the previous time level
     real(DP) :: psi1 !< the current saturation
-    real(DP) :: psi0 !< the saturation at the previous time level
     real(DP) :: phi !< the cell porosity
     real(DP) :: Qss, Qus, dQss_dh, dQus_dh !< the storage rate and derivative
 
@@ -214,12 +240,10 @@ contains
     h0 = h_old(n)
     z = DHALF * (top + bot)
     psi1 = h1 - z
-    psi0 = h0 - z
 
     phi = this%soil_model%porosity(n)
-    s1 = this%soil_model%saturation(psi1, n)
-    s0 = this%soil_model%saturation(psi0, n)
-    Cm = this%soil_model%capacity(psi1, n)
+    call this%soil_model%sat_capacity(psi1, n, s1, Cm)
+    s0 = this%sat_old(n)
     dsdh_lim = Cm / phi
 
     sc1 = SsCapacity(this%gwf_sto%istor_coef, top, bot, area, this%gwf_sto%ss(n))
@@ -264,6 +288,7 @@ contains
     real(DP) :: flow_sy !< the (unsaturated) specific yield rate for node n
 
     ! reset VSF storage rates
+    call this%update_sat_old(h_old)
     do n = 1, this%gwf_dis%nodes
       this%strguz(n) = DZERO
     end do
@@ -330,6 +355,7 @@ contains
     class(VsfStorageType) :: this
 
     call mem_deallocate(this%strguz)
+    call mem_deallocate(this%sat_old)
 
   end subroutine destroy
 

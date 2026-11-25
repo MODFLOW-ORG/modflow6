@@ -29,7 +29,12 @@ module VsfSoilModelModule
     procedure(saturation_if), deferred :: saturation
     procedure(capacity_if), deferred :: capacity
     procedure(krelative_if), deferred :: krelative
+    procedure :: kr_dkrdh
+    procedure :: sat_capacity
   end type SoilModelType
+
+  !> shift in pressure head for the numerical derivative of k_r
+  real(DP), parameter, public :: DKR_SHIFT = 1.0e-6_DP
 
   abstract interface
     subroutine load_if(this, porosity, sat_res)
@@ -83,6 +88,41 @@ contains
     call this%destroy_base()
 
   end subroutine destroy
+
+  !> @brief Relative permeability and its derivative to pressure head
+  !!
+  !! Default: central difference of krelative. Soil models override this
+  !! with a fused analytical evaluation.
+  !<
+  subroutine kr_dkrdh(this, psi, i, kr, dkr)
+    class(SoilModelType), intent(inout) :: this
+    real(DP), intent(in) :: psi !< pressure head
+    integer(I4B), intent(in) :: i !< node number
+    real(DP), intent(out) :: kr !< relative permeability
+    real(DP), intent(out) :: dkr !< d(kr)/d(psi)
+
+    kr = this%krelative(psi, i)
+    dkr = (this%krelative(psi + DKR_SHIFT, i) - &
+           this%krelative(psi - DKR_SHIFT, i)) / (2.0_DP * DKR_SHIFT)
+
+  end subroutine kr_dkrdh
+
+  !> @brief Saturation and moisture capacity
+  !!
+  !! Default: separate calls. Soil models override this with a fused
+  !! evaluation.
+  !<
+  subroutine sat_capacity(this, psi, i, s, cm)
+    class(SoilModelType), intent(inout) :: this
+    real(DP), intent(in) :: psi !< pressure head
+    integer(I4B), intent(in) :: i !< node number
+    real(DP), intent(out) :: s !< saturation
+    real(DP), intent(out) :: cm !< moisture capacity
+
+    s = this%saturation(psi, i)
+    cm = this%capacity(psi, i)
+
+  end subroutine sat_capacity
 
   subroutine destroy_base(this)
     class(SoilModelType), intent(inout) :: this
