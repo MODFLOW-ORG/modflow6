@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "exchanges"
-description = "A GWF-GWF exchange treated ANGLDEGX as radians when recomputing horizontal conductance for convertible cells. Heads near the exchange could be wrong when a model specified K22, Newton was off, and the interface model was not used. ANGLDEGX is now converted to radians, as in the saturated conductance and specific discharge calculations."
+description = "A GWF-GWF exchange did not convert ANGLDEGX from degrees to radians when recomputing horizontal conductance for convertible cells. Heads near the exchange could be wrong when a model specified K22."
