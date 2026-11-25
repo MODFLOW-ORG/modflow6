@@ -345,7 +345,7 @@ contains
     end select
 
     this%iteration_number = 0
-    this%is_converged = 0
+    this%is_converged = INNER_NOT_CONVERGED
     if (kiter == 1) then
       this%petsc_ctx%cnvg_summary%iter_cnt = 0
     end if
@@ -364,10 +364,10 @@ contains
     if (cnvg_reason > 0) then
       if (this%petsc_ctx%icnvg_ims == INNER_FORCE_OUTER) then
         ! move to next Picard iteration (e.g. with 'STRICT' option)
-        this%is_converged = 0
+        this%is_converged = INNER_NOT_CONVERGED
       else
         ! linear convergence reached
-        this%is_converged = 1
+        this%is_converged = INNER_CONVERGED
       end if
     end if
 
@@ -376,7 +376,7 @@ contains
           cnvg_reason == KSP_DIVERGED_ITS) then
         ! out of iterations, or rho/eta became zero,
         ! move to next Picard iteration and try again
-        this%is_converged = 0
+        this%is_converged = INNER_NOT_CONVERGED
       else
         ! this is an solver error, terminate
         write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &

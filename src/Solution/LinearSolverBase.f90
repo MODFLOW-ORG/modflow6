@@ -18,7 +18,7 @@ module LinearSolverBaseModule
     character(len=LENSOLUTIONNAME) :: name
     integer(I4B) :: nitermax
     integer(I4B) :: iteration_number
-    integer(I4B) :: is_converged
+    integer(I4B) :: is_converged !< linear convergence status (INNER_*)
   contains
     procedure(initialize_if), deferred :: initialize
     procedure(print_summary_if), deferred :: print_summary

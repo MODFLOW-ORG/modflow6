@@ -1625,7 +1625,7 @@ contains
     !
     ! -- check convergence of solution
     call this%sln_get_dxmax(this%hncg(kiter), this%lrch(1, kiter))
-    if (this%icnvg /= 0) then
+    if (this%icnvg /= INNER_NOT_CONVERGED) then
       this%icnvg = 0
       if (this%sln_has_converged(this%hncg(kiter))) then
         this%icnvg = 1
