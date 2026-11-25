@@ -1,7 +1,11 @@
 """
-Test the dependent_variable_scale option to make sure modflow fails if the option
-is not specified for all gwt/gwe models in the same IMS solution. Tested for a
-one-dimensional model grid of square cells.
+Test that the dependent_variable_scaling option must be specified for all GWT
+models in the same IMS solution. Tested for a one-dimensional model grid of
+square cells.
+
+Cases:
+  - dvscalefail : the first GWT model scales and the second does not (xfail).
+  - dvsfailr    : the first GWT model does not scale and the second does (xfail).
 """
 
 import flopy
@@ -9,7 +13,9 @@ import numpy as np
 import pytest
 from framework import TestFramework
 
-cases = ["dvscalefail"]
+cases = ["dvscalefail", "dvsfailr"]
+dvscale = [(True, False), (False, True)]
+errmsg = "dependent_variable_scaling must be specified for all models"
 
 
 def build_models(idx, test):
@@ -134,7 +140,7 @@ def build_models(idx, test):
     gwt1name = "gwt1_" + name
     gwt1 = flopy.mf6.ModflowGwt(
         sim,
-        dependent_variable_scaling=True,
+        dependent_variable_scaling=dvscale[idx][0],
         modelname=gwt1name,
         model_nam_file=f"{gwt1name}.nam",
         save_flows=True,
@@ -143,7 +149,7 @@ def build_models(idx, test):
     gwt2name = "gwt2_" + name
     gwt2 = flopy.mf6.ModflowGwt(
         sim,
-        dependent_variable_scaling=False,
+        dependent_variable_scaling=dvscale[idx][1],
         modelname=gwt2name,
         model_nam_file=f"{gwt2name}.nam",
         save_flows=True,
@@ -221,6 +227,11 @@ def build_models(idx, test):
     return sim, None
 
 
+def check_output(test):
+    lst = (test.workspace / "mfsim.lst").read_text()
+    assert errmsg in lst, f"expected '{errmsg}' in mfsim.lst"
+
+
 @pytest.mark.developmode  # TODO remove for 6.7.0
 @pytest.mark.parametrize("idx, name", enumerate(cases))
 def test_mf6model(idx, name, function_tmpdir, targets):
@@ -229,6 +240,7 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         targets=targets,
         build=lambda t: build_models(idx, t),
+        check=check_output,
         xfail=True,
     )
     test.run()

@@ -51,6 +51,7 @@ module NumericalSolutionModule
   public :: GetNumericalSolutionFromList
   public :: CastAsNumericalSolutionClass
   public :: create_numerical_solution
+  public :: idvscale_flag
 
   integer(I4B), parameter :: IMS_SOLVER = 1
   integer(I4B), parameter :: PETSC_SOLVER = 2
@@ -187,6 +188,7 @@ module NumericalSolutionModule
     procedure :: get_backtracking_flag
     procedure :: apply_backtracking
     procedure :: sln_get_idvscale
+    procedure :: sln_count_idvscale
     procedure :: sln_maxval
 
     ! private
@@ -2820,28 +2822,60 @@ contains
 
   end function get_backtracking_flag
 
-  !> @brief Check if dependent variable scalining should be applied for this solution,
-  !< returns 1: yes, 0: no, -1: error
+  !> @brief Check if dependent variable scaling should be applied for this solution
+  !!
+  !! Returns 1 if all models scale the dependent variable, 0 if none do, and
+  !! -1 (an error) if only some do.
+  !<
   function sln_get_idvscale(this) result(idv_scale)
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
-    integer(I4B) :: idv_scale !< backtracking flag (1) backtracking performed (0) backtracking not performed
+    integer(I4B) :: idv_scale !< dependent variable scaling flag
+    ! local
+    integer(I4B) :: nscaled
+    integer(I4B) :: nmodels
+
+    call this%sln_count_idvscale(nscaled, nmodels)
+    idv_scale = idvscale_flag(nscaled, nmodels)
+
+  end function sln_get_idvscale
+
+  !> @brief Count the models in this solution that scale the dependent variable
+  !<
+  subroutine sln_count_idvscale(this, nscaled, nmodels)
+    class(NumericalSolutionType) :: this !< NumericalSolutionType instance
+    integer(I4B), intent(out) :: nscaled !< number of models that scale
+    integer(I4B), intent(out) :: nmodels !< number of models
     ! local
     class(NumericalModelType), pointer :: mp => null()
     integer(I4B) :: i
 
-    idv_scale = 0
-    do i = 1, this%modellist%Count()
+    nscaled = 0
+    nmodels = this%modellist%Count()
+    do i = 1, nmodels
       mp => GetNumericalModelFromList(this%modellist, i)
       if (mp%get_idv_scale() /= 0) then
-        idv_scale = 1
-      else
-        if (idv_scale == 1) then
-          idv_scale = -1
-        end if
+        nscaled = nscaled + 1
       end if
     end do
 
-  end function sln_get_idvscale
+  end subroutine sln_count_idvscale
+
+  !> @brief Dependent variable scaling flag from the number of models that scale
+  !<
+  pure function idvscale_flag(nscaled, nmodels) result(idv_scale)
+    integer(I4B), intent(in) :: nscaled !< number of models that scale
+    integer(I4B), intent(in) :: nmodels !< number of models
+    integer(I4B) :: idv_scale !< 1 all scale, 0 none scale, -1 only some scale
+
+    if (nscaled == 0) then
+      idv_scale = 0
+    else if (nscaled == nmodels) then
+      idv_scale = 1
+    else
+      idv_scale = -1
+    end if
+
+  end function idvscale_flag
 
   !> @brief Update x with backtracking
   !<

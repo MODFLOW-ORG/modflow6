@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "solution"
+description = "The DEPENDENT_VARIABLE_SCALING option must be specified for all models in a solution, but the check only caught a model without the option that followed one with it, and in parallel runs the check was only made within each process. A model listed before the scaled models, or on another process, could therefore be scaled without the option or left unscaled without an error. Specifying the option for only some models in a solution is now always an error."
