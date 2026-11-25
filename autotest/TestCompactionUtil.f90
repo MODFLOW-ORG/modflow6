@@ -19,7 +19,7 @@ module TestCompactionUtil
   real(DP), parameter :: TOP = 10.0_DP
   real(DP), parameter :: BOT = DZERO
   real(DP), parameter :: OMEGA = 0.1_DP
-  real(DP), parameter :: DH = 1.0e-6_DP
+  real(DP), parameter :: DH = 1.0e-4_DP
   ! -- heads that are dry, in the smoothed intervals, partially saturated,
   !    and above the top
   real(DP), dimension(6), parameter :: HEADS = &
