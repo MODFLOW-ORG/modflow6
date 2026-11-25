@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "In the Buoyancy (BUY) Package, the density weight for a vertical connection was based on the full thickness of the cells, while the elevation of a partially saturated convertible cell is the center of its saturated thickness. A fluid at rest could therefore flow across vertical connections between a partially saturated cell and a cell of different density. The weight now uses the saturated thickness of a partially saturated cell. Results are unchanged where cells are full; heads can change where a convertible cell is partially saturated next to a cell of different density."
