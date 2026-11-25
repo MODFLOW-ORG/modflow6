@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "exchanges"
+description = "A GWF-GWF exchange did not convert ANGLDEGX from degrees to radians when recomputing horizontal conductance for convertible cells. Heads near the exchange could be incorrect when a model specified K22."

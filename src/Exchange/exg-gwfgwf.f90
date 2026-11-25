@@ -98,6 +98,7 @@ module GwfGwfExchangeModule
     procedure :: read_mvr
     procedure, private :: calc_cond_sat
     procedure, private :: condcalc
+    procedure, private :: calc_hy_horizontal
     procedure, private :: rewet
     procedure, private :: qcalc
     procedure, private :: gwf_gwf_chd_bd
@@ -1466,7 +1467,7 @@ contains
 
   subroutine calc_cond_sat(this)
     ! -- modules
-    use ConstantsModule, only: LINELENGTH, DZERO, DHALF, DONE, DPIO180
+    use ConstantsModule, only: LINELENGTH, DZERO, DHALF, DONE
     use GwfConductanceUtilsModule, only: condmean, vcond, hcond
     ! -- dummy
     class(GwfExchangeType) :: this !<  GwfExchangeType
@@ -1477,7 +1478,7 @@ contains
     real(DP) :: botn, botm
     real(DP) :: satn, satm
     real(DP) :: thickn, thickm
-    real(DP) :: angle, hyn, hym
+    real(DP) :: hyn, hym
     real(DP) :: csat
     real(DP) :: fawidth
     real(DP), dimension(3) :: vg
@@ -1515,26 +1516,7 @@ contains
       else
         !
         ! -- Calculate horizontal conductance
-        hyn = this%gwfmodel1%npf%k11(n)
-        hym = this%gwfmodel2%npf%k11(m)
-        !
-        ! -- Check for anisotropy in models, and recalculate hyn and hym
-        if (this%ianglex > 0) then
-          angle = this%auxvar(this%ianglex, iexg) * DPIO180
-          vg(1) = abs(cos(angle))
-          vg(2) = abs(sin(angle))
-          vg(3) = DZERO
-          !
-          ! -- anisotropy in model 1
-          if (this%gwfmodel1%npf%ik22 /= 0) then
-            hyn = this%gwfmodel1%npf%hy_eff(n, 0, ihc, vg=vg)
-          end if
-          !
-          ! -- anisotropy in model 2
-          if (this%gwfmodel2%npf%ik22 /= 0) then
-            hym = this%gwfmodel2%npf%hy_eff(m, 0, ihc, vg=vg)
-          end if
-        end if
+        call this%calc_hy_horizontal(iexg, hyn, hym)
         !
         fawidth = this%hwva(iexg)
         csat = hcond(1, 1, 1, 1, 0, ihc, &
@@ -1570,7 +1552,6 @@ contains
     real(DP) :: botn, botm
     real(DP) :: satn, satm
     real(DP) :: hyn, hym
-    real(DP) :: angle
     real(DP) :: hn, hm
     real(DP) :: cond
     real(DP) :: fawidth
@@ -1609,26 +1590,7 @@ contains
       else
         !
         ! -- Horizontal Connection
-        hyn = this%gwfmodel1%npf%k11(n)
-        hym = this%gwfmodel2%npf%k11(m)
-        !
-        ! -- Check for anisotropy in models, and recalculate hyn and hym
-        if (this%ianglex > 0) then
-          angle = this%auxvar(this%ianglex, iexg)
-          vg(1) = abs(cos(angle))
-          vg(2) = abs(sin(angle))
-          vg(3) = DZERO
-          !
-          ! -- anisotropy in model 1
-          if (this%gwfmodel1%npf%ik22 /= 0) then
-            hyn = this%gwfmodel1%npf%hy_eff(n, 0, ihc, vg=vg)
-          end if
-          !
-          ! -- anisotropy in model 2
-          if (this%gwfmodel2%npf%ik22 /= 0) then
-            hym = this%gwfmodel2%npf%hy_eff(m, 0, ihc, vg=vg)
-          end if
-        end if
+        call this%calc_hy_horizontal(iexg, hyn, hym)
         !
         fawidth = this%hwva(iexg)
         cond = hcond(ibdn, ibdm, ictn, ictm, this%inewton, &
@@ -1641,6 +1603,40 @@ contains
       !
     end do
   end subroutine condcalc
+
+  !> @brief Calculate horizontal hydraulic conductivity for an exchange
+  !!
+  !! Use K11, or the effective K in the direction of ANGLDEGX
+  !! for a model with K22.
+  !<
+  subroutine calc_hy_horizontal(this, iexg, hyn, hym)
+    use ConstantsModule, only: DZERO, DPIO180
+    ! -- dummy
+    class(GwfExchangeType) :: this !<  GwfExchangeType
+    integer(I4B), intent(in) :: iexg !< exchange index
+    real(DP), intent(out) :: hyn !< K for the model 1 cell
+    real(DP), intent(out) :: hym !< K for the model 2 cell
+    ! -- local
+    integer(I4B) :: n, m
+    real(DP) :: angle
+    real(DP), dimension(3) :: vg
+    !
+    n = this%nodem1(iexg)
+    m = this%nodem2(iexg)
+    hyn = this%gwfmodel1%npf%k11(n)
+    hym = this%gwfmodel2%npf%k11(m)
+    if (this%ianglex == 0) return
+    angle = this%auxvar(this%ianglex, iexg) * DPIO180
+    vg(1) = abs(cos(angle))
+    vg(2) = abs(sin(angle))
+    vg(3) = DZERO
+    if (this%gwfmodel1%npf%ik22 /= 0) then
+      hyn = this%gwfmodel1%npf%hy_eff(n, 0, 1, vg=vg)
+    end if
+    if (this%gwfmodel2%npf%ik22 /= 0) then
+      hym = this%gwfmodel2%npf%hy_eff(m, 0, 1, vg=vg)
+    end if
+  end subroutine calc_hy_horizontal
 
   !> @brief Allocate scalars
   !!
