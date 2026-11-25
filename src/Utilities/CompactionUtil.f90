@@ -107,7 +107,8 @@ contains
   !!
   !! The storage flow is rho sn (es - pcs) + rho0 sn0 (pcs - es0), where
   !! es = gs + bot - hbar; pcs is zero for elastic storage. Returns the
-  !! derivative with respect to head less the Picard term (-rho sn).
+  !! derivative with respect to head, with gs and rho held fixed, less the
+  !! Picard term (-rho sn).
   !<
   pure function storage_newton_term(rho, rho0, sn, satderv, hbarderv, es, &
                                     es0, pcs, lagged) result(hcof)

@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "model"
-description = "In the Skeletal Storage, Compaction, and Subsidence (CSUB) Package, the Newton-Raphson formulation did not include the change in no-delay interbed storage with the saturated thickness of a convertible cell, and the coarse-grained water compressibility term used the current instead of the previous coefficient when the effective stress was lagged. Both terms are now included, which reduces the number of outer iterations for convertible cells with no-delay interbeds. Heads and budgets can change within the solver tolerance."
+description = "In the Skeletal Storage, Compaction, and Subsidence (CSUB) Package, the Newton-Raphson formulation did not include the no-delay interbed storage terms. The terms are now included, which reduces the number of outer iterations for convertible cells with no-delay interbeds. Heads and budgets can change within the solver tolerance."
