@@ -133,7 +133,7 @@ jobs:
       - name: Run benchmarks
         if: env.BENCHMARK == 'true'
         working-directory: modflow6
-        run: pixi run benchmark
+        run: pixi run -e gcc benchmark
         env:
           GITHUB_TOKEN: ${{ github.token }}
       

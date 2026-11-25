@@ -278,7 +278,7 @@ jobs:
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e $PIXI_ENV install
 
       - name: Set version number
         id: set_version
@@ -296,7 +296,7 @@ jobs:
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         run: |
-          cmd="pixi run update-flopy"
+          cmd="pixi run -e $PIXI_ENV update-flopy"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -306,7 +306,7 @@ jobs:
         id: ostag
         working-directory: modflow6
         run: |
-          ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
+          ostag=$(pixi run -e $PIXI_ENV python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           if [[ "${{ matrix.extended }}" == "true" ]]; then
             ostag="${ostag}ext"
           fi
@@ -415,7 +415,7 @@ jobs:
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run get-exes -s
+        run: pixi run -e $PIXI_ENV get-exes -s
 
       - name: Build binaries (Windows)
         if: runner.os == 'Windows' && matrix.extended && !inputs.run_tests
@@ -471,21 +471,21 @@ jobs:
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
+        run: pixi run -e $PIXI_ENV autotest -m "${{ steps.set_markers.outputs.markers }} and not external" -k "${{ steps.set_filters.outputs.filters }}"
 
       - name: Test MF6 models
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
+        run: pixi run -e $PIXI_ENV autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf6
 
       - name: Test converter models
         if: inputs.run_tests == true && !(runner.os == 'Windows' && matrix.extended)
         working-directory: modflow6
         env:
           REPOS_PATH: ${{ github.workspace }}
-        run: pixi run autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
+        run: pixi run -e $PIXI_ENV autotest -m "${{ steps.set_markers.outputs.markers }} and external" -k "${{ steps.set_filters.outputs.filters }}" --models-path ../../modflow6-testmodels/mf5to6 --namefile-pattern "*.nam"
 
       - name: Upload failed test output
         if: failure()
@@ -534,7 +534,7 @@ jobs:
         working-directory: modflow6
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: pixi run test-dist-scripts
+        run: pixi run -e $PIXI_ENV test-dist-scripts
 
   docs:
     name: Build docs
@@ -729,6 +729,8 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    env:
+      PIXI_ENV: ${{ matrix.compiler == 'gcc' && 'gcc' || 'default' }}
     steps:
       # from develop, since release branches may predate the action
       - name: Checkout modflow6
@@ -742,6 +744,7 @@ jobs:
           repository: MODFLOW-ORG/modflow6-examples
           path: modflow6-examples
 
+      # gfortran comes from the pixi gcc environment
       - name: Setup ${{ matrix.compiler }} ${{ matrix.version }}
         if: matrix.compiler != 'gcc'
         uses: fortran-lang/setup-fortran@v1
@@ -757,19 +760,19 @@ jobs:
 
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
+        run: pixi run -e $PIXI_ENV install
 
       # develop mode builds ref as is, but dates the docs and metadata by the build
       - name: Update version
         if: inputs.releasemode == false
         working-directory: modflow6
-        run: pixi run update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
+        run: pixi run -e $PIXI_ENV update-version -v "${{ needs.prepare.outputs.version }}" --date "${{ needs.prepare.outputs.date }}"
       
       - name: Get OS tag
         working-directory: modflow6
         id: ostag
         run: |
-          ostag=$(pixi run python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
+          ostag=$(pixi run -e $PIXI_ENV python -c "from modflow_devtools.ostags import get_ostag; print(get_ostag())")
           if [[ "${{ matrix.extended }}" == "true" ]]; then
             ostag="${ostag}ext"
           fi
@@ -802,7 +805,7 @@ jobs:
         run: |
           # build distribution
           distname="${{ needs.build.outputs.distname }}_${{ steps.ostag.outputs.ostag }}"
-          cmd="pixi run --manifest-path modflow6/pixi.toml build-dist -o ../../$distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml -e $PIXI_ENV build-dist -o ../../$distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
@@ -927,7 +930,7 @@ jobs:
             unzip $distfile -d $checkdir
           fi
 
-          cmd="pixi run --manifest-path modflow6/pixi.toml check-dist --path $(pwd)/$checkdir/$distname"
+          cmd="pixi run --manifest-path modflow6/pixi.toml -e $PIXI_ENV check-dist --path $(pwd)/$checkdir/$distname"
           if [[ "${{ inputs.releasemode }}" == "true" ]]; then
             cmd="$cmd --releasemode"
           fi
