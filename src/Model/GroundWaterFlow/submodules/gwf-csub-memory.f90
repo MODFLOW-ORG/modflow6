@@ -85,7 +85,7 @@ contains
     this%inamedbound = 0
     this%iconvchk = 1
     this%naux = 0
-    this%istoragec = 1
+    this%istoragec = STORAGE_INPUT_SPECIFIC_STORAGE
     this%istrainib = 0
     this%istrainsk = 0
     this%ioutcomp = 0
@@ -218,7 +218,7 @@ contains
     call mem_allocate(this%iconvert_nr, iblen, 'ICONVERT_NR', &
                       trim(this%memoryPath))
     do n = 1, iblen
-      this%iconvert_nr(n) = -1
+      this%iconvert_nr(n) = STORAGE_UNSET
     end do
     call mem_allocate(this%comp, iblen, 'COMP', trim(this%memoryPath))
     call mem_allocate(this%tcomp, iblen, 'TCOMP', trim(this%memoryPath))

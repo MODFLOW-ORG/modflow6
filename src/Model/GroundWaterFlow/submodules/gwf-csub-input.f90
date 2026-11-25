@@ -115,7 +115,7 @@ contains
         warn_estress_lag = .true.
       end if
     end if
-    if (found%icompress) this%istoragec = 0
+    if (found%icompress) this%istoragec = STORAGE_INPUT_COMPRESSION_INDEX
     if (found%interbed_state) then
       this%ispecified_pcs = 1
       this%ispecified_dbh = 1
@@ -223,7 +223,7 @@ contains
       write (this%iout, '(4x,a)') &
         'EFFECTIVE-STRESS FORMULATION'
     end if
-    if (this%istoragec == 0) then
+    if (this%istoragec == STORAGE_INPUT_COMPRESSION_INDEX) then
       write (this%iout, '(4x,a,1(/,6x,a))') &
         'COMPRESSION INDICES WILL BE SPECIFIED INSTEAD OF ELASTIC AND', &
         'INELASTIC SPECIFIC STORAGE COEFFICIENTS'
@@ -567,9 +567,9 @@ contains
 
       ! -- set ielastic
       if (this%ci(csubno) == this%rci(csubno)) then
-        this%ielastic(csubno) = 1
+        this%ielastic(csubno) = INTERBED_ELASTIC
       else
-        this%ielastic(csubno) = 0
+        this%ielastic(csubno) = INTERBED_ELASTIC_INELASTIC
       end if
 
       ! -- set porosity

@@ -347,7 +347,7 @@ contains
       call this%csub_calc_sfacts(node, zbot, znode, theta, es, es0, &
                                  this%dbgeo(n, idelay), f)
     end if
-    this%idbconvert(n, idelay) = 0
+    this%idbconvert(n, idelay) = STORAGE_ELASTIC
     sske = f * this%rci(ib)
     ssk = f * this%rci(ib)
     if (present(dsskde)) dsskde = DZERO
@@ -355,7 +355,7 @@ contains
     !    reported elastic/inelastic budget; 0 while elastic, 1 once inelastic,
     !    and equal to the smoothing weight w across the transition window
     if (present(wfac)) wfac = DZERO
-    if (ielastic == 0) then
+    if (ielastic == INTERBED_ELASTIC_INELASTIC) then
       es = this%dbes(n, idelay)
       pcs = this%dbpcs(n, idelay)
       ! -- require pcs > DZERO so the smoothing window (pcsomega * pcs) is
@@ -366,7 +366,7 @@ contains
         estop = pcs + this%pcsomega * pcs
         w = sQuadraticSaturation(estop, pcs, es)
         ssk = f * (this%rci(ib) + w * (this%ci(ib) - this%rci(ib)))
-        if (w > DHALF) this%idbconvert(n, idelay) = 1
+        if (w > DHALF) this%idbconvert(n, idelay) = STORAGE_INELASTIC
         if (present(wfac)) wfac = w
         if (present(dsskde)) then
           dwde = sQuadraticSaturationDerivative(estop, pcs, es)
@@ -375,7 +375,7 @@ contains
       else
         ! -- original hard elastic<->inelastic switch
         if (es > pcs) then
-          this%idbconvert(n, idelay) = 1
+          this%idbconvert(n, idelay) = STORAGE_INELASTIC
           ssk = f * this%ci(ib)
           if (present(wfac)) wfac = DONE
         end if
@@ -521,7 +521,7 @@ contains
     es0 = this%dbes0(n, idelay)
     pcs = this%dbpcs(n, idelay)
     aii = aii - smult * dsn * ssk
-    if (ielastic /= 0) then
+    if (ielastic == INTERBED_ELASTIC) then
       r = r - smult * &
           (dsn * ssk * (gs + zbot) - dsn0 * sske * es0)
     else
@@ -659,7 +659,7 @@ contains
     gs = this%dbgeo(n, idelay)
     es0 = this%dbes0(n, idelay)
     pcs = this%dbpcs(n, idelay)
-    if (ielastic /= 0) then
+    if (ielastic == INTERBED_ELASTIC) then
       qsto = smult * (dsn * ssk * (gs - hbar + zbot) - dsn0 * sske * es0)
       stoderv = -smult * dsn * ssk * hbarderv + &
                 smult * ssk * (gs - hbar + zbot) * dsnderv
@@ -676,7 +676,7 @@ contains
     !
     ! -- Add additional term if using lagged effective stress
     if (this%ieslag /= 0) then
-      if (ielastic /= 0) then
+      if (ielastic == INTERBED_ELASTIC) then
         stoderv = stoderv - smult * sske * es0 * dsnderv
       else
         stoderv = stoderv + smult * sske * (pcs - es0) * dsnderv
@@ -813,7 +813,7 @@ contains
         h0 = this%dbh0(n, idelay)
         call this%csub_delay_calc_sat(node, idelay, n, h, h0, dsn, dsn0)
         hbar = sQuadratic0sp(h, zbot, this%satomega)
-        if (ielastic /= 0) then
+        if (ielastic == INTERBED_ELASTIC) then
           v1 = dsn * ssk * (this%dbgeo(n, idelay) - hbar + zbot) - &
                dsn0 * sske * this%dbes0(n, idelay)
           v2 = DZERO
@@ -934,7 +934,7 @@ contains
         h0 = this%dbh0(n, idelay)
         call this%csub_delay_calc_sat(node, idelay, n, h, h0, dsn, dsn0)
         call this%csub_delay_calc_ssksske(ib, n, hcell, ssk, sske, wfac=wfac)
-        if (ielastic /= 0) then
+        if (ielastic == INTERBED_ELASTIC) then
           v1 = dsn * ssk * this%dbes(n, idelay) - sske * this%dbes0(n, idelay)
           v2 = DZERO
         else

@@ -235,7 +235,7 @@ contains
       bot = this%dis%bot(node)
       !
       ! -- user-specified specific storage
-      if (this%istoragec == 1) then
+      if (this%istoragec == STORAGE_INPUT_SPECIFIC_STORAGE) then
         !
         ! -- retain specific storage values since they are constant
         if (this%lhead_based .EQV. .TRUE.) then
@@ -281,7 +281,7 @@ contains
       bot = this%dis%bot(node)
       !
       ! -- user-specified specific storage
-      if (this%istoragec == 1) then
+      if (this%istoragec == STORAGE_INPUT_SPECIFIC_STORAGE) then
         !
         ! -- retain specific storage values since they are constant
         if (this%lhead_based .EQV. .TRUE.) then
@@ -444,7 +444,7 @@ contains
       end do
       !
       ! -- write calculated compression indices
-      if (this%istoragec == 1) then
+      if (this%istoragec == STORAGE_INPUT_SPECIFIC_STORAGE) then
         if (this%lhead_based .EQV. .FALSE.) then
           ! -- set title
           title = trim(adjustl(this%packName))// &

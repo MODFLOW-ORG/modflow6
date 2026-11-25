@@ -361,7 +361,7 @@ contains
           es0 = this%cg_es0(node)
           !
           ! -- calculate inelastic and elastic compaction
-          if (ielastic > 0 .or. iconvert == 0) then
+          if (ielastic == INTERBED_ELASTIC .or. iconvert == STORAGE_ELASTIC) then
             stoe = comp
           else
             stoi = -pcs * rho2 + (rho2 * es)
