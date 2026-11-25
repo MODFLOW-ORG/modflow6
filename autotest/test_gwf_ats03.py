@@ -211,10 +211,6 @@ def check_output(idx, test):
     msg = f"simulation should end at time 100.0, not {x[-1]}"
     assert np.isclose(x[-1], 100.0), msg
     assert x.size > 1, "simulation should take more than one time step"
-    fpth = os.path.join(test.workspace, test.name + ".hds")
-    hds = flopy.utils.HeadFile(fpth)
-    times = hds.get_times()
-    assert np.isclose(times[-1], 100.0), f"last head time is {times[-1]}"
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

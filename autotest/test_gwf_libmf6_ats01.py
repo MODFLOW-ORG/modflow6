@@ -22,11 +22,9 @@ def build(test):
     return sim, sim_api
 
 
-def api_func(exe, idx, model_ws=None):
+def api_func(exe, model_ws):
     from modflowapi import ModflowApi
 
-    if model_ws is None:
-        model_ws = "."
     output_file_path = os.path.join(model_ws, "mfsim.stdout")
 
     try:
@@ -64,6 +62,6 @@ def test_mf6model(idx, name, function_tmpdir, targets):
         workspace=function_tmpdir,
         build=build,
         targets=targets,
-        api_func=lambda exe, ws: api_func(exe, idx, ws),
+        api_func=api_func,
     )
     test.run()
