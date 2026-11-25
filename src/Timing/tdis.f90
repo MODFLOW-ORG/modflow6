@@ -185,22 +185,10 @@ contains
     totim = totimsav + delt
     pertim = pertimsav + delt
     !
-    ! -- Set end of period indicator
-    endofperiod = .false.
-    if (adaptivePeriod) then
-      call ats%ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
-    else
-      if (kstp == nstp(kper)) then
-        endofperiod = .true.
-      end if
-    end if
+    ! -- Set end of period and simulation indicators
+    call tdis_set_end_flags(adaptivePeriod)
     if (endofperiod) then
       pertim = perlen(kper)
-    end if
-    !
-    ! -- Set end of simulation indicator
-    if (endofperiod .and. kper == nper) then
-      endofsimulation = .true.
     end if
   end subroutine tdis_set_timestep
 
@@ -223,6 +211,24 @@ contains
     totim = totimsav + delt
     pertim = pertimsav + delt
     !
+    ! -- Reevaluate end of period and simulation indicators, since
+    !    the failed step may have set them
+    call tdis_set_end_flags(adaptivePeriod)
+    if (endofsimulation) then
+      totim = totalsimtime
+    end if
+  end subroutine tdis_delt_reset
+
+  !> @brief Set end of period and end of simulation indicators
+  !!
+  !! Evaluate the indicators for the current time step. Called when a time
+  !! step is set and when a failed time step is retried, so both evaluate
+  !! the indicators the same way.
+  !<
+  subroutine tdis_set_end_flags(adaptivePeriod)
+    ! -- dummy
+    logical(LGP), intent(in) :: adaptivePeriod
+    !
     ! -- Set end of period indicator
     endofperiod = .false.
     if (adaptivePeriod) then
@@ -234,11 +240,8 @@ contains
     end if
     !
     ! -- Set end of simulation indicator
-    if (endofperiod .and. kper == nper) then
-      endofsimulation = .true.
-      totim = totalsimtime
-    end if
-  end subroutine tdis_delt_reset
+    endofsimulation = endofperiod .and. kper == nper
+  end subroutine tdis_set_end_flags
 
   !> @brief Set time step length
   !<
