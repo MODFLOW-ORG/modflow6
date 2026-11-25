@@ -112,13 +112,10 @@ contains
       rho1 = sske * area * tthk * tled
       !
       ! -- calculate hcof term
-      hcof = rho1 * snnew * (DONE - hbarderv) + &
-             rho1 * (this%cg_gs(node) - hbar + bot) * satderv
-      !
-      ! -- Add additional term if using lagged effective stress
-      if (this%ieslag /= 0) then
-        hcof = hcof - rho1 * this%cg_es0(node) * satderv
-      end if
+      hcof = storage_newton_term(rho1, rho1, snnew, satderv, hbarderv, &
+                                 this%cg_gs(node) + bot - hbar, &
+                                 this%cg_es0(node), DZERO, &
+                                 this%ieslag /= 0)
       !
       ! -- calculate rhs term
       rhs = hcof * hcell
@@ -298,7 +295,6 @@ contains
     real(DP) :: top
     real(DP) :: bot
     real(DP) :: tthk
-    real(DP) :: tthk0
     real(DP) :: satderv
     real(DP) :: f
     real(DP) :: wc
@@ -319,18 +315,13 @@ contains
     ! -- calculate water compressibility factor
     f = this%brg * area * tled
     !
-    ! -- water compressibility coefficient
+    ! -- water compressibility coefficients
     wc = f * tthk * this%cg_theta(node)
+    wc0 = f * this%cg_thick0(node) * this%cg_theta0(node)
     !
     ! -- calculate hcof term
-    hcof = -wc * hcell * satderv
-    !
-    ! -- Add additional term if using lagged effective stress
-    if (this%ieslag /= 0) then
-      tthk0 = this%cg_thick0(node)
-      wc0 = f * tthk0 * this%cg_theta0(node)
-      hcof = hcof + wc * hcellold * satderv
-    end if
+    hcof = wcomp_newton_term(wc, wc0, hcell, hcellold, satderv, &
+                             this%ieslag /= 0)
     !
     ! -- calculate rhs term
     rhs = hcof * hcell

@@ -253,86 +253,87 @@ contains
   end subroutine csub_interbed_fc
 
   ! -- documented on the GwfCsubType type-bound procedure in gwf-csub.f90
-  module subroutine csub_interbed_fn(this, ib, node, hcell, hcellold, hcof, rhs)
-    ! -- modules
-    use TdisModule, only: delt
+  module subroutine csub_interbed_fn(this, ib, node, area, hcell, hcellold, &
+                                     hcof, rhs)
     ! -- dummy variables
     class(GwfCsubType) :: this
     integer(I4B), intent(in) :: ib !< interbed number
     integer(I4B), intent(in) :: node !< cell node number
+    real(DP), intent(in) :: area !< horizontal cell area
     real(DP), intent(in) :: hcell !< current head in a cell
     real(DP), intent(in) :: hcellold !< previous head in a cell
     real(DP), intent(inout) :: hcof !< interbed A matrix entry
     real(DP), intent(inout) :: rhs !< interbed right-hand side entry
     ! -- local variables
-    integer(I4B) :: idelay
-    real(DP) :: hcofn
-    real(DP) :: rhsn
-    real(DP) :: top
     real(DP) :: bot
-    real(DP) :: tled
-    real(DP) :: tthk
     real(DP) :: snnew
     real(DP) :: snold
-    real(DP) :: f
     real(DP) :: satderv
     real(DP) :: hbar
     real(DP) :: hbarderv
+    real(DP) :: es
+    real(DP) :: pcs
     real(DP) :: rho1
     real(DP) :: rho2
+    real(DP) :: rho1s
+    real(DP) :: rho2s
+    real(DP) :: rhsn
     !
     ! -- initialize variables
     rhs = DZERO
     hcof = DZERO
-    rhsn = DZERO
-    hcofn = DZERO
-    satderv = DZERO
-    idelay = this%idelay(ib)
-    top = this%dis%top(node)
-    bot = this%dis%bot(node)
     !
-    ! -- skip inactive and constant head cells
-    if (this%ibound(node) > 0) then
-      tled = DONE / delt
-      tthk = this%thickini(ib)
+    ! -- no-delay interbeds in active cells
+    if (this%ibound(node) > 0 .and. this%idelay(ib) == 0) then
+      bot = this%dis%bot(node)
       !
-      ! -- calculate cell saturation
+      ! -- calculate cell saturation and its derivative
       call this%csub_calc_sat(node, hcell, hcellold, snnew, snold)
+      satderv = this%csub_calc_sat_derivative(node, hcell)
       !
-      ! -- no-delay interbeds
-      if (idelay == 0) then
-        !
-        ! -- initialize factor
-        f = DONE
-        !
-        ! -- calculate the saturation derivative
-        satderv = this%csub_calc_sat_derivative(node, hcell)
-        !
-        ! -- calculate corrected head (hbar)
-        hbar = sQuadratic0sp(hcell, bot, this%satomega)
-        !
-        ! -- calculate the derivative of the hbar functions
-        hbarderv = sQuadratic0spDerivative(hcell, bot, this%satomega)
-        !
-        ! -- calculate storage coefficient
-        call this%csub_nodelay_fc(ib, hcell, hcellold, rho1, rho2, rhsn)
-        !
-        ! -- calculate hcofn term
-        hcofn = rho2 * (DONE - hbarderv) * snnew + &
-                rho2 * (this%cg_gs(node) - hbar + bot) * satderv
-        if (this%ielastic(ib) == 0) then
-          hcofn = hcofn - rho2 * this%pcs(ib) * satderv
-        end if
-        !
-        ! -- Add additional term if using lagged effective stress
-        if (this%ieslag /= 0) then
-          if (this%ielastic(ib) /= 0) then
-            hcofn = hcofn - rho1 * this%cg_es0(node) * satderv
-          else
-            hcofn = hcofn - rho1 * (this%pcs(ib) - this%cg_es0(node)) * satderv
-          end if
-        end if
+      ! -- calculate corrected head (hbar) and its derivative
+      hbar = sQuadratic0sp(hcell, bot, this%satomega)
+      hbarderv = sQuadratic0spDerivative(hcell, bot, this%satomega)
+      !
+      ! -- effective stress
+      es = this%cg_gs(node) + bot - hbar
+      !
+      ! -- storage coefficients, which include the saturation
+      call this%csub_nodelay_fc(ib, hcell, hcellold, rho1, rho2, rhsn)
+      !
+      ! -- storage coefficients without the saturation; satderv is zero
+      !    where the saturation is zero
+      rho1s = DZERO
+      rho2s = DZERO
+      if (snnew > DZERO) then
+        rho2s = rho2 / snnew
       end if
+      if (snold > DZERO) then
+        rho1s = rho1 / snold
+      end if
+      !
+      ! -- preconsolidation stress, which is zero for elastic interbeds
+      pcs = DZERO
+      if (this%ielastic(ib) == 0) then
+        pcs = this%pcs(ib)
+      end if
+      !
+      ! -- calculate hcof term
+      hcof = storage_newton_term(rho2s, rho1s, snnew, satderv, hbarderv, es, &
+                                 this%cg_es0(node), pcs, this%ieslag /= 0)
+      !
+      ! -- use the Picard term when the interbed switched between elastic and
+      !    inelastic storage since the last Newton-Raphson term; the storage
+      !    coefficient jumps at the switch and the full term can cycle
+      !    across it
+      if (this%iconvert(ib) /= this%iconvert_nr(ib)) then
+        hcof = DZERO
+      end if
+      this%iconvert_nr(ib) = this%iconvert(ib)
+      !
+      ! -- scale by the cell area and calculate rhs term
+      hcof = hcof * area
+      rhs = hcof * hcell
     end if
   end subroutine csub_interbed_fn
 
@@ -412,17 +413,13 @@ contains
     ! -- calculate saturation derivative
     satderv = this%csub_calc_sat_derivative(node, hcell)
     !
-    ! -- calculate the current water compressibility factor
+    ! -- calculate the water compressibility coefficients
     wc = f * this%theta(ib) * this%thick(ib)
+    wc0 = f * this%theta0(ib) * this%thick0(ib)
     !
     ! -- calculate derivative term
-    hcof = -wc * hcell * satderv
-    !
-    ! -- Add additional term if using lagged effective stress
-    if (this%ieslag /= 0) then
-      wc0 = f * this%theta0(ib) * this%thick0(ib)
-      hcof = hcof + wc0 * hcellold * satderv
-    end if
+    hcof = wcomp_newton_term(wc, wc0, hcell, hcellold, satderv, &
+                             this%ieslag /= 0)
     !
     ! -- set rhs
     rhs = hcof * hcell

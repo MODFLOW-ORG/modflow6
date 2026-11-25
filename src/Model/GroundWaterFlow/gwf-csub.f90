@@ -51,7 +51,8 @@ module GwfCsubModule
   use TableModule, only: TableType, table_cr
   use BudgetModule, only: BudgetType
   use CompactionUtilModule, only: porosity_to_void_ratio, compact_layer, &
-                                  adjust_eff_stress, storage_factor
+                                  adjust_eff_stress, storage_factor, &
+                                  storage_newton_term, wcomp_newton_term
   !
   use MatrixBaseModule
   !
@@ -158,6 +159,7 @@ module GwfCsubModule
     integer(I4B), dimension(:), pointer, contiguous :: idelay => null() !< delay interbed flag - 0 = nodelay, > 0 = delay
     integer(I4B), dimension(:), pointer, contiguous :: ielastic => null() !< elastic interbed equation - 0 = inelastic and elastic, > 0 = elastic
     integer(I4B), dimension(:), pointer, contiguous :: iconvert => null() !< convertible cell flag - 0 = elastic, > 0 = inelastic
+    integer(I4B), dimension(:), pointer, contiguous :: iconvert_nr => null() !< iconvert at the last Newton-Raphson term (-1 = not yet set)
     real(DP), dimension(:), pointer, contiguous :: ci => null() !< compression index
     real(DP), dimension(:), pointer, contiguous :: rci => null() !< recompression index
     real(DP), dimension(:), pointer, contiguous :: pcs => null() !< preconsolidation stress
@@ -788,10 +790,12 @@ module GwfCsubModule
       real(DP), intent(inout) :: rhs !< interbed right-hand side
     end subroutine csub_interbed_fc
 
-    module subroutine csub_interbed_fn(this, ib, node, hcell, hcellold, hcof, rhs)
+    module subroutine csub_interbed_fn(this, ib, node, area, hcell, hcellold, &
+                                       hcof, rhs)
       class(GwfCsubType) :: this
       integer(I4B), intent(in) :: ib !< interbed number
       integer(I4B), intent(in) :: node !< cell node number
+      real(DP), intent(in) :: area !< horizontal cell area
       real(DP), intent(in) :: hcell !< current head in a cell
       real(DP), intent(in) :: hcellold !< previous head in a cell
       real(DP), intent(inout) :: hcof !< interbed A matrix entry
@@ -1694,7 +1698,7 @@ contains
           ! -- calculate interbed newton terms
           idiag = this%dis%con%ia(node)
           area = this%dis%get_area(node)
-          call this%csub_interbed_fn(ib, node, hnew(node), hold(node), &
+          call this%csub_interbed_fn(ib, node, area, hnew(node), hold(node), &
                                      hcof, rhsterm)
           !
           ! -- add interbed newton terms to amat and rhs
