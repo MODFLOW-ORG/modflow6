@@ -3,8 +3,6 @@ module PetscConvergenceModule
   use petscksp
   use KindModule, only: I4B, DP
   use ConstantsModule, only: DPREC, DZERO
-  use SimModule, only: store_error
-  use SimVariablesModule, only: errmsg
   use ListModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule

@@ -3,7 +3,7 @@ module ImsLinearSettingsModule
   use ConstantsModule
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use BlockParserModule, only: BlockParserType
-  use SimModule, only: store_error, store_warning, deprecation_warning
+  use SimModule, only: store_error, store_warning
   implicit none
   private
 
@@ -309,11 +309,6 @@ contains
         end select
       end do
       write (iout, '(1x,a)') 'END OF LINEAR DATA'
-    else
-      if (this%ifdparam == COMPLEXITY_UNSET) THEN
-        write (errmsg, '(a)') 'NO LINEAR block detected.'
-        call store_error(errmsg)
-      end if
     end if
 
   end subroutine read_from_file

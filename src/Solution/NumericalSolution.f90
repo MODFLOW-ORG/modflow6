@@ -5,13 +5,10 @@ module NumericalSolutionModule
   use ErrorUtilModule, only: pstop
   use TimerModule, only: code_timer
   use ProfilerModule
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENPAKLOC, &
-                             DPREC, DZERO, DEM20, DEM15, DEM6, &
-                             DEM4, DEM3, DEM2, DEM1, DHALF, DONETHIRD, &
-                             DONE, DTHREE, DEP3, DEP6, DEP20, DNODATA, &
-                             TABLEFT, TABRIGHT, &
-                             MNORMAL, MVALIDATE, &
-                             LENMEMPATH
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENPAKLOC, DPREC, &
+                             DZERO, DEM20, DEM15, DEM3, DEM2, DEM1, DHALF, &
+                             DONETHIRD, DONE, DTHREE, TABLEFT, TABRIGHT, &
+                             MNORMAL, MVALIDATE, LENMEMPATH
   use MemoryHelperModule, only: create_mem_path
   use TableModule, only: TableType, table_cr
   Use MessageModule, only: write_message
@@ -557,7 +554,7 @@ contains
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
     use SimVariablesModule, only: iout
-    use SimModule, only: store_error, count_errors, deprecation_warning
+    use SimModule, only: store_error, count_errors
     use InputOutputModule, only: getunit, openfile
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
@@ -844,11 +841,6 @@ contains
         end select
       end do
       write (iout, '(1x,a)') 'END OF IMS NONLINEAR DATA'
-    else
-      if (ifdparam == COMPLEXITY_UNSET) then
-        write (errmsg, '(a)') 'NO IMS NONLINEAR block detected.'
-        call store_error(errmsg)
-      end if
     end if
     !
     if (THIS%theta < DEM3) then
@@ -867,16 +859,12 @@ contains
     END IF
     !
     ! -- write under-relaxation option
-    if (this%nonmeth > UR_NONE) then
+    if (this%nonmeth /= UR_NONE) then
       WRITE (IOUT, *) '**UNDER-RELAXATION WILL BE USED***'
       WRITE (IOUT, *)
-    elseif (this%nonmeth == UR_NONE) then
+    else
       WRITE (IOUT, *) '***UNDER-RELAXATION WILL NOT BE USED***'
       WRITE (IOUT, *)
-    else
-      WRITE (errmsg, '(a)') &
-        'Incorrect value for variable NONMETH was specified.'
-      call store_error(errmsg)
     end if
     !
     ! -- ensure gamma is > 0 for simple
@@ -1075,7 +1063,7 @@ contains
   subroutine sln_dt(this)
     ! -- modules
     use TdisModule, only: kstp, kper, delt, ats
-    use ConstantsModule, only: DTWO, DTHREE
+    use ConstantsModule, only: DTHREE
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     ! -- local variables

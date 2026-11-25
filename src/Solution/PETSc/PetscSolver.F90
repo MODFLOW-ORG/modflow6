@@ -1,8 +1,8 @@
 module PetscSolverModule
 #include <petsc/finclude/petscksp.h>
   use petscksp
-  use KindModule, only: I4B, DP, LGP
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, DZERO
+  use KindModule, only: I4B, LGP
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME
   use ListsModule, only: basesolutionlist
   use LinearSolverBaseModule
   use MatrixBaseModule
@@ -13,7 +13,7 @@ module PetscSolverModule
   use PetscImsPreconditionerModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
-  use SimVariablesModule, only: iout, simulation_mode, nr_procs, proc_id
+  use SimVariablesModule, only: iout, simulation_mode
   use SimModule, only: store_error, store_warning
   use FeatureFlagsModule, only: developmode
 
@@ -89,6 +89,8 @@ contains
     class(MatrixBaseType), pointer :: matrix !< The solution matrix as KSP operator
     type(ImsLinearSettingsType), pointer :: linear_settings !< the settings for the linear solver from the .ims file
     type(ConvergenceSummaryType), pointer :: convergence_summary !< a convergence record for diagnostics
+    ! local
+    character(len=LINELENGTH) :: errmsg
 
     this%linear_settings => linear_settings
 
@@ -110,8 +112,13 @@ contains
 
     if (linear_settings%ilinmeth == LINACC_CG) then
       this%ksp_type = KSPCG
-    else
+    else if (linear_settings%ilinmeth == LINACC_BICGSTAB) then
       this%ksp_type = KSPBCGS
+    else
+      write (errmsg, '(a,1x,i0,a)') &
+        'PETSc: unknown linear acceleration method (', &
+        linear_settings%ilinmeth, ').'
+      call store_error(errmsg, terminate=.true.)
     end if
 
     ! get MODFLOW options from PETSc database file
@@ -289,7 +296,6 @@ contains
   !> @brief Create and assign a custom convergence
   !< check for this solver
   subroutine create_convergence_check(this, convergence_summary)
-    use IMSLinearBaseModule, only: ims_base_epfact
     class(PetscSolverType) :: this !< This solver instance
     type(ConvergenceSummaryType), pointer :: convergence_summary
     ! local

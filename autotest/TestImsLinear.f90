@@ -1,8 +1,7 @@
 module TestImsLinear
   use KindModule, only: I4B, DP
   use ConstantsModule, only: DZERO, DONE
-  use testdrive, only: check, error_type, new_unittest, test_failed, &
-                       to_string, unittest_type
+  use testdrive, only: check, error_type, new_unittest, to_string, unittest_type
   use ConvergenceSummaryModule, only: ConvergenceSummaryType
   use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, LINACC_CG, &
                                      LINACC_BICGSTAB, SCALING_DIAGONAL, &

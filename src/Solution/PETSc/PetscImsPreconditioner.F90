@@ -4,7 +4,6 @@ module PetscImsPreconditionerModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: LENMEMPATH, DZERO, IZERO
   use PetscMatrixModule, only: PetscMatrixType
-  use SparseMatrixModule, only: SparseMatrixType
   use ImsLinearSettingsModule, only: ImsLinearSettingsType, IPC_ILU0, &
                                      IPC_MILU0, IPC_ILUT, IPC_MILUT, resolve_ipc
   use SimVariablesModule, only: iout

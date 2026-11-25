@@ -1,15 +1,13 @@
 MODULE IMSLinearModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENMEMPATH, &
-                             IZERO, DZERO, DPREC, DSAME, DEM8, DEM6, DEM5, &
-                             DHALF, DONE, DTWO, VDEBUG
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENMEMPATH, IZERO, &
+                             DZERO, DONE
   use IMSLinearBaseModule, only: ims_base_cg, ims_base_bcgs, &
                                  ims_base_pccrs, ims_base_calc_order, &
                                  ims_base_scale, ims_base_pcu, &
                                  ims_base_residual, ims_base_epfact, &
                                  ims_calc_pcdims, ims_base_cnvg_scale
-  use BlockParserModule, only: BlockParserType
   use MatrixBaseModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
@@ -112,8 +110,7 @@ CONTAINS
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
     use MemoryHelperModule, only: create_mem_path
-    use SimModule, only: store_error, count_errors, &
-                         deprecation_warning
+    use SimModule, only: store_error
     ! -- dummy variables
     CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
     CHARACTER(LEN=LENSOLUTIONNAME), INTENT(IN) :: NAME !< solution name
@@ -177,16 +174,6 @@ CONTAINS
     this%IPC = resolve_ipc(this%LEVEL, this%RELAX)
     !
     ! -- ERROR CHECKING FOR OPTIONS
-    IF (this%ISCL < SCALING_NONE) this%ISCL = SCALING_NONE
-    IF (this%ISCL > SCALING_L2NORM) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR ISCL MUST BE <= 2'
-      call store_error(errmsg)
-    END IF
-    IF (this%IORD < ORDER_NONE) this%IORD = ORDER_NONE
-    IF (this%IORD > ORDER_MD) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR IORD MUST BE <= 2'
-      call store_error(errmsg)
-    END IF
     IF (this%NORTH < 0) THEN
       WRITE (errmsg, '(A)') 'IMSLINEAR7AR NORTH MUST >= 0'
       call store_error(errmsg)
@@ -625,6 +612,7 @@ CONTAINS
     character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !<
     type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Convergence summary report
     ! -- local variables
+    character(len=LINELENGTH) :: errmsg
     integer(I4B) :: n
     integer(I4B) :: innerit
     integer(I4B) :: irc
@@ -734,6 +722,10 @@ CONTAINS
                          this%NJLU, this%IW, this%JLU, &
                          NCONV, CONVNMOD, CONVMODSTART, &
                          CACCEL, summary)
+    ELSE
+      WRITE (errmsg, '(a,1x,i0,a)') &
+        'IMSLINEAR unknown linear acceleration method (', this%ILINMETH, ').'
+      call store_error(errmsg, terminate=.TRUE.)
     END IF
     !
     ! -- BACK PERMUTE AMAT, SOLUTION, AND RHS
