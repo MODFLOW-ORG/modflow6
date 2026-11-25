@@ -150,6 +150,15 @@ def check_output(idx, test):
     psi = phd.get_data().ravel()
     s = sat.get_data().ravel()
 
+    # the smoothing width is echoed in the listing
+    lst = (ws / f"{name}.lst").read_text()
+    echo = [ln for ln in lst.splitlines() if "smoothed below saturation" in ln]
+    if kr_smoothing[idx] is None:
+        assert not echo
+    else:
+        assert len(echo) == 1
+        assert np.isclose(float(echo[0].split()[-1]), kr_smoothing[idx])
+
     # upper quarter of the column: unit gradient
     upper = slice(0, nlay // 4)
     expected = psi_unit_gradient(idx)

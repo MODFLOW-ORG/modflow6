@@ -4,6 +4,10 @@ The cells in which the Richards formulation is applied are flagged by the IVARSA
 
 The functions that relate pressure head, water saturation, moisture capacity, and relative permeability are selected with the SOIL\_MODEL option (Brooks-Corey, Haverkamp, or Van Genuchten).  The soil-property arrays that must be supplied in the GRIDDATA block depend on the selected model; the arrays that do not apply to the chosen model are omitted.  Simulated water saturation and pressure head can be written to separate binary output files whenever heads are written to the binary head file, as controlled by the Output Control (OC) Package.
 
+With the Newton-Raphson formulation, the head change of an outer iteration is scaled back in cells where it would change the effective saturation by more than NEWTON\_DSAT\_MAX (0.2 by default).  This helps wetting fronts advance into dry soil, where full Newton steps tend to overshoot.  The scaling is proportional, so the limit is approximate; it changes the iteration path but not the converged solution, and a value of zero switches it off.
+
+For the Van Genuchten model with $n < 2$, the relative permeability has an infinite slope at saturation, which can make the Newton iteration oscillate in fine-grained soils close to saturation.  Two optional remedies are available.  KR\_SMOOTHING replaces the relative permeability between the specified pressure head below saturation and saturation by a smooth cubic curve; the retention curve is not changed.  The smoothing width is a length in model units (2~cm worked well for the soils tested), and smoothing is off by default because it slightly changes the solution.  HAEVGN specifies an air-entry pressure head per cell (Vogel and others, 2001): the soil is saturated for pressure heads above this value and the saturation and relative permeability curves are rescaled accordingly.  HAEVGN changes the soil description itself and is therefore a modeling choice rather than a numerical setting.
+
 \vspace{5mm}
 \subsubsection{Structure of Blocks}
 \lstinputlisting[style=blockdefinition]{./mf6ivar/tex/gwf-vsf-options.dat}

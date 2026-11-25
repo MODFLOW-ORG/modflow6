@@ -203,6 +203,7 @@ contains
     character(len=LENVARNAME), dimension(2) :: scheme_name = &
       &[character(len=LENVARNAME) :: 'CHORD-SLOPE', 'MODIFIED-PICARD']
     character(len=LINELENGTH) :: sat_fname, phead_fname
+    real(DP), pointer :: kr_smoothing
 
     write (this%iout, '(1x,a)') 'Setting VSF options'
 
@@ -262,6 +263,25 @@ contains
           'Newton saturation change limit switched off'
       end if
     end if
+
+    ! KR_SMOOTHING is applied by the Van Genuchten soil model, which reads
+    ! it again, so the input copy is kept
+    allocate (kr_smoothing)
+    kr_smoothing = DZERO
+    call mem_set_value(kr_smoothing, 'KR_SMOOTHING', this%input_mempath, &
+                       found%kr_smoothing, release=.false.)
+    if (found%kr_smoothing) then
+      if (this%soil_model_id /= VANGENUCHTEN .and. &
+          this%soil_model_kr_id /= VANGENUCHTEN) then
+        call store_error('KR_SMOOTHING only applies to the Van Genuchten &
+          &soil model.')
+      else
+        write (this%iout, '(4x,a,1pg12.5)') &
+          'Van Genuchten kr smoothed below saturation over a width of ', &
+          kr_smoothing
+      end if
+    end if
+    deallocate (kr_smoothing)
 
     ! set fileout for saturation
     call mem_set_value(sat_fname, 'SATURATIONFILE', this%input_mempath, &

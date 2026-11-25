@@ -550,26 +550,28 @@ the same formulate work, now 40–60% of the run.
 
 ## Open items
 
-- [ ] Decide whether `KR_SMOOTHING` should be on by default for Van Genuchten
-  soils with n < 2. Its default must then be tied to the model length units
-  (2 cm = 0.02 m).
-- [ ] Document `NEWTON_DSAT_MAX`, `KR_SMOOTHING` and `HAEVGN` in the mf6io guide
-  (now only in the `.dfn` descriptions), and echo `KR_SMOOTHING` in the listing
-  file.
+Settled:
+
+- [x] `KR_SMOOTHING` stays off by default. Its width is a length, so a fixed
+  default would depend on the model length units, and it changes heads slightly
+  (up to 0.4 cm here). The recommended 2 cm is documented in the mf6io guide.
+- [x] `NEWTON_DSAT_MAX`, `KR_SMOOTHING` and `HAEVGN` are described in the mf6io
+  guide (`doc/mf6io/gwf/vsf.tex`), and `KR_SMOOTHING` is echoed in the listing
+  file. It is an input error for a soil model other than Van Genuchten.
+- [x] Not pursued: reusing the storage saturation in the step limiter (~3%, within
+  the day-to-day timing noise), and a cheaper backtracking residual (backtracking
+  did not help VSF, see above).
+- [x] VSF_1D_ONLY is dropped: at most 1.06–1.2× and sometimes slower. The branch
+  `vsf-1d-only` is not merged; `vsf_big.py --one-d` needs that branch.
+
+Still open:
+
 - [ ] Make IMS report non-convergence instead of crashing when BiCGSTAB overflows
   on a near-singular matrix (`ddot` in `ImsLinearBase.f90`). Today a bad Newton
   matrix aborts the run (SIGFPE) instead of letting ATS retry with a smaller step.
   This is an existing IMS weakness, not caused by VSF.
 - [ ] Investigate Haverkamp `deep` (steep soil, dry profile): it diverges in the
   first step in every configuration.
-- [ ] Reuse the saturation already computed by the storage term in the step
-  limiter, to remove its ~3% cost.
-- [ ] Take the backtracking residual from the Newton system instead of an extra
-  `inewton=0` build, so backtracking becomes nearly free when it is wanted. In
-  MF6's Newton formulation A·x − b at the current heads should equal the Picard
-  residual; this has not been checked in detail.
-- [ ] Decide what happens to VSF_1D_ONLY (branch `vsf-1d-only`): keep it as a
-  development option or drop it.
 
 **On hold, by decision:** faster matrix assembly (both directions of a
 connection in one call, skipping the NPF default loops for VSF connections),
