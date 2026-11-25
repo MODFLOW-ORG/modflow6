@@ -108,7 +108,7 @@ contains
     allocate (this%pc_context)
     call this%pc_context%create(this%matrix, linear_settings)
 
-    if (linear_settings%ilinmeth == CG_METHOD) then
+    if (linear_settings%ilinmeth == LINACC_CG) then
       this%ksp_type = KSPCG
     else
       this%ksp_type = KSPBCGS
@@ -132,21 +132,21 @@ contains
     character(len=LINELENGTH) :: warnmsg, errmsg
 
     ! errors
-    if (linear_settings%ilinmeth /= CG_METHOD .and. &
-        linear_settings%ilinmeth /= BCGS_METHOD) then
+    if (linear_settings%ilinmeth /= LINACC_CG .and. &
+        linear_settings%ilinmeth /= LINACC_BICGSTAB) then
       write (errmsg, '(a,a)') 'PETSc: unknown linear solver method in ', &
         this%name
       call store_error(errmsg, terminate=.true.)
     end if
 
     ! warnings
-    if (linear_settings%iord > 0) then
-      linear_settings%iord = 0
+    if (linear_settings%iord /= ORDER_NONE) then
+      linear_settings%iord = ORDER_NONE
       write (warnmsg, '(a)') 'PETSc: IMS reordering not supported'
       call store_warning(warnmsg)
     end if
-    if (linear_settings%iscl > 0) then
-      linear_settings%iscl = 0
+    if (linear_settings%iscl /= SCALING_NONE) then
+      linear_settings%iscl = SCALING_NONE
       write (warnmsg, '(a)') 'PETSc: IMS matrix scaling not supported'
       call store_warning(warnmsg)
     end if
@@ -356,7 +356,7 @@ contains
     call KSPGetConvergedReason(this%ksp_petsc, cnvg_reason, ierr)
     CHKERRQ(ierr)
     if (cnvg_reason > 0) then
-      if (this%petsc_ctx%icnvg_ims == -1) then
+      if (this%petsc_ctx%icnvg_ims == INNER_FORCE_OUTER) then
         ! move to next Picard iteration (e.g. with 'STRICT' option)
         this%is_converged = 0
       else

@@ -7,8 +7,73 @@ module ImsLinearSettingsModule
   implicit none
   private
 
-  integer(I4B), public, parameter :: CG_METHOD = 1
-  integer(I4B), public, parameter :: BCGS_METHOD = 2
+  !> @brief IMS complexity options
+  !<
+  enum, bind(C)
+    enumerator :: COMPLEXITY_UNSET = 0 !< no complexity option
+    enumerator :: COMPLEXITY_SIMPLE = 1 !< SIMPLE
+    enumerator :: COMPLEXITY_MODERATE = 2 !< MODERATE
+    enumerator :: COMPLEXITY_COMPLEX = 3 !< COMPLEX
+  end enum
+  public :: COMPLEXITY_UNSET, COMPLEXITY_SIMPLE, COMPLEXITY_MODERATE, &
+            COMPLEXITY_COMPLEX
+
+  !> @brief IMS print options
+  !<
+  enum, bind(C)
+    enumerator :: PRINT_NONE = 0 !< no solver output
+    enumerator :: PRINT_SUMMARY = 1 !< summary of solver iterations
+    enumerator :: PRINT_ALL = 2 !< detailed solver output
+  end enum
+  public :: PRINT_NONE, PRINT_SUMMARY, PRINT_ALL
+
+  !> @brief IMS linear acceleration methods
+  !<
+  enum, bind(C)
+    enumerator :: LINACC_UNKNOWN = 0 !< acceleration method not set
+    enumerator :: LINACC_CG = 1 !< conjugate gradient
+    enumerator :: LINACC_BICGSTAB = 2 !< BiCGSTAB
+  end enum
+  public :: LINACC_UNKNOWN, LINACC_CG, LINACC_BICGSTAB
+
+  !> @brief IMS inner convergence options
+  !<
+  enum, bind(C)
+    enumerator :: CNVG_INF_NORM = 0 !< infinity norm
+    enumerator :: CNVG_INF_NORM_STRICT = 1 !< infinity norm, STRICT
+    enumerator :: CNVG_L2_NORM = 2 !< L2 norm, L2NORM_RCLOSE
+    enumerator :: CNVG_L2_NORM_RELATIVE = 3 !< relative L2 norm, RELATIVE_RCLOSE
+    enumerator :: CNVG_L2_NORM_REL_RCLOSE = 4 !< L2NORM_RELATIVE_RCLOSE
+  end enum
+  public :: CNVG_INF_NORM, CNVG_INF_NORM_STRICT, CNVG_L2_NORM, &
+            CNVG_L2_NORM_RELATIVE, CNVG_L2_NORM_REL_RCLOSE
+
+  !> @brief Inner (linear) convergence status
+  !<
+  enum, bind(C)
+    enumerator :: INNER_FORCE_OUTER = -1 !< stop, but force another outer iteration
+    enumerator :: INNER_NOT_CONVERGED = 0 !< not converged
+    enumerator :: INNER_CONVERGED = 1 !< converged
+  end enum
+  public :: INNER_FORCE_OUTER, INNER_NOT_CONVERGED, INNER_CONVERGED
+
+  !> @brief IMS matrix scaling methods
+  !<
+  enum, bind(C)
+    enumerator :: SCALING_NONE = 0 !< no scaling
+    enumerator :: SCALING_DIAGONAL = 1 !< symmetric diagonal scaling
+    enumerator :: SCALING_L2NORM = 2 !< L2 norm scaling
+  end enum
+  public :: SCALING_NONE, SCALING_DIAGONAL, SCALING_L2NORM
+
+  !> @brief IMS matrix reordering methods
+  !<
+  enum, bind(C)
+    enumerator :: ORDER_NONE = 0 !< original ordering
+    enumerator :: ORDER_RCM = 1 !< reverse Cuthill-McKee
+    enumerator :: ORDER_MD = 2 !< minimum degree
+  end enum
+  public :: ORDER_NONE, ORDER_RCM, ORDER_MD
 
   !> @brief IMS linear preconditioner types
   !<
@@ -21,6 +86,7 @@ module ImsLinearSettingsModule
   end enum
   public :: IPC_UNKNOWN, IPC_ILU0, IPC_MILU0, IPC_ILUT, IPC_MILUT
   public :: resolve_ipc
+  public :: uses_l2_norm
 
   type, public :: ImsLinearSettingsType
     character(len=LENMEMPATH) :: memory_path
@@ -69,16 +135,16 @@ contains
     ! defaults
     this%dvclose = DZERO
     this%rclose = DZERO
-    this%icnvgopt = 0
+    this%icnvgopt = CNVG_INF_NORM
     this%iter1 = 0
-    this%ilinmeth = 0
-    this%iscl = 0
-    this%iord = 0
+    this%ilinmeth = LINACC_UNKNOWN
+    this%iscl = SCALING_NONE
+    this%iord = ORDER_NONE
     this%north = 0
     this%relax = DZERO
     this%level = 0
     this%droptol = DZERO
-    this%ifdparam = 0
+    this%ifdparam = COMPLEXITY_UNSET
 
   end subroutine init
 
@@ -91,33 +157,33 @@ contains
     this%ifdparam = idfparam
 
     select case (idfparam)
-    case (1) ! Simple option
+    case (COMPLEXITY_SIMPLE)
       this%iter1 = 50
-      this%ilinmeth = 1
-      this%iscl = 0
-      this%iord = 0
+      this%ilinmeth = LINACC_CG
+      this%iscl = SCALING_NONE
+      this%iord = ORDER_NONE
       this%dvclose = DEM3
       this%rclose = DEM1
       this%relax = DZERO
       this%level = 0
       this%droptol = DZERO
       this%north = 0
-    case (2) ! Moderate
+    case (COMPLEXITY_MODERATE)
       this%iter1 = 100
-      this%ilinmeth = 2
-      this%iscl = 0
-      this%iord = 0
+      this%ilinmeth = LINACC_BICGSTAB
+      this%iscl = SCALING_NONE
+      this%iord = ORDER_NONE
       this%dvclose = DEM2
       this%rclose = DEM1
       this%relax = 0.97D0
       this%level = 0
       this%droptol = DZERO
       this%north = 0
-    case (3) ! Complex
+    case (COMPLEXITY_COMPLEX)
       this%iter1 = 500
-      this%ilinmeth = 2
-      this%iscl = 0
-      this%iord = 0
+      this%ilinmeth = LINACC_BICGSTAB
+      this%iscl = SCALING_NONE
+      this%iord = ORDER_NONE
       this%dvclose = DEM1
       this%rclose = DEM1
       this%relax = DZERO
@@ -159,24 +225,24 @@ contains
           ! -- look for additional key words
           call parser%GetStringCaps(keyword)
           if (keyword == 'STRICT') then
-            this%icnvgopt = 1
+            this%icnvgopt = CNVG_INF_NORM_STRICT
           else if (keyword == 'L2NORM_RCLOSE') then
-            this%icnvgopt = 2
+            this%icnvgopt = CNVG_L2_NORM
           else if (keyword == 'RELATIVE_RCLOSE') then
-            this%icnvgopt = 3
+            this%icnvgopt = CNVG_L2_NORM_RELATIVE
           else if (keyword == 'L2NORM_RELATIVE_RCLOSE') then
-            this%icnvgopt = 4
+            this%icnvgopt = CNVG_L2_NORM_REL_RCLOSE
           end if
         case ('INNER_MAXIMUM')
           this%iter1 = parser%GetInteger()
         case ('LINEAR_ACCELERATION')
           call parser%GetStringCaps(keyword)
           if (keyword .eq. 'CG') then
-            this%ilinmeth = 1
+            this%ilinmeth = LINACC_CG
           else if (keyword .eq. 'BICGSTAB') then
-            this%ilinmeth = 2
+            this%ilinmeth = LINACC_BICGSTAB
           else
-            this%ilinmeth = 0
+            this%ilinmeth = LINACC_UNKNOWN
             write (errmsg, '(3a)') &
               'Unknown IMSLINEAR LINEAR_ACCELERATION method (', &
               trim(keyword), ').'
@@ -184,13 +250,13 @@ contains
           end if
         case ('SCALING_METHOD')
           call parser%GetStringCaps(keyword)
-          iscaling = 0
+          iscaling = SCALING_NONE
           if (keyword .eq. 'NONE') then
-            iscaling = 0
+            iscaling = SCALING_NONE
           else if (keyword .eq. 'DIAGONAL') then
-            iscaling = 1
+            iscaling = SCALING_DIAGONAL
           else if (keyword .eq. 'L2NORM') then
-            iscaling = 2
+            iscaling = SCALING_L2NORM
           else
             write (errmsg, '(3a)') &
               'Unknown IMSLINEAR SCALING_METHOD (', trim(keyword), ').'
@@ -198,16 +264,16 @@ contains
           end if
           this%iscl = iscaling
         case ('RED_BLACK_ORDERING')
-          iordering = 0
+          iordering = ORDER_NONE
         case ('REORDERING_METHOD')
           call parser%GetStringCaps(keyword)
-          iordering = 0
+          iordering = ORDER_NONE
           if (keyword == 'NONE') then
-            iordering = 0
+            iordering = ORDER_NONE
           else if (keyword == 'RCM') then
-            iordering = 1
+            iordering = ORDER_RCM
           else if (keyword == 'MD') then
-            iordering = 2
+            iordering = ORDER_MD
           else
             write (errmsg, '(3a)') &
               'Unknown IMSLINEAR REORDERING_METHOD (', trim(keyword), ').'
@@ -244,7 +310,7 @@ contains
       end do
       write (iout, '(1x,a)') 'END OF LINEAR DATA'
     else
-      if (this%ifdparam == 0) THEN
+      if (this%ifdparam == COMPLEXITY_UNSET) THEN
         write (errmsg, '(a)') 'NO LINEAR block detected.'
         call store_error(errmsg)
       end if
@@ -316,5 +382,19 @@ contains
       end if
     end if
   end function resolve_ipc
+
+  !> @brief Return true if the convergence option tests the L2 norm
+  !<
+  pure function uses_l2_norm(icnvgopt) result(l2)
+    integer(I4B), intent(in) :: icnvgopt !< convergence option (CNVG_*)
+    logical(LGP) :: l2 !< true for the L2 norm options
+
+    select case (icnvgopt)
+    case (CNVG_L2_NORM, CNVG_L2_NORM_RELATIVE, CNVG_L2_NORM_REL_RCLOSE)
+      l2 = .true.
+    case default
+      l2 = .false.
+    end select
+  end function uses_l2_norm
 
 end module
