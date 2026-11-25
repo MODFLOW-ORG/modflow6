@@ -30,6 +30,8 @@ module GwfVsfInputModule
     logical :: ivarsat = .false.
     logical :: porosity = .false.
     logical :: satres = .false.
+    logical :: alphabc = .false.
+    logical :: lambdabc = .false.
     logical :: alphahvk = .false.
     logical :: nhvk = .false.
     logical :: betahvk = .false.
@@ -372,6 +374,44 @@ module GwfVsfInputModule
     )
 
   type(InputParamDefinitionType), parameter :: &
+    gwfvsf_alphabc = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'VSF', & ! subcomponent
+    'GRIDDATA', & ! block
+    'ALPHABC', & ! tag name
+    'ALPHABC', & ! fortran variable
+    'DOUBLE1D', & ! type
+    'NODES', & ! shape
+    'alpha', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .true., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    gwfvsf_lambdabc = InputParamDefinitionType &
+    ( &
+    'GWF', & ! component
+    'VSF', & ! subcomponent
+    'GRIDDATA', & ! block
+    'LAMBDABC', & ! tag name
+    'LAMBDABC', & ! fortran variable
+    'DOUBLE1D', & ! type
+    'NODES', & ! shape
+    'lambda', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .true., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
     gwfvsf_alphahvk = InputParamDefinitionType &
     ( &
     'GWF', & ! component
@@ -524,6 +564,8 @@ module GwfVsfInputModule
     gwfvsf_ivarsat, &
     gwfvsf_porosity, &
     gwfvsf_satres, &
+    gwfvsf_alphabc, &
+    gwfvsf_lambdabc, &
     gwfvsf_alphahvk, &
     gwfvsf_nhvk, &
     gwfvsf_betahvk, &

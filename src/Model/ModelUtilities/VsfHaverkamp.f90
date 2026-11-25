@@ -154,8 +154,6 @@ contains
 
   end subroutine kr_dkrdh_haverkamp
 
-  !> @brief Fused saturation and moisture capacity
-  !<
   !> @brief Pressure head for a given effective saturation
   !!
   !! Inverse of se = 1 / (1 + (-alpha psi)^n).
@@ -176,6 +174,8 @@ contains
 
   end function pressure_head_haverkamp
 
+  !> @brief Fused saturation and moisture capacity
+  !<
   subroutine sat_capacity_haverkamp(this, psi, i, s, cm)
     class(HaverkampModelType), intent(inout) :: this
     real(DP), intent(in) :: psi !< pressure head

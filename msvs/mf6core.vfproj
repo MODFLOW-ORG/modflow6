@@ -445,6 +445,7 @@
 					<File RelativePath="..\src\Model\ModelUtilities\submodules\uzf-et.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\UzfEtUtil.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VectorInterpolation.f90"/>
+					<File RelativePath="..\src\Model\ModelUtilities\VsfBrooksCorey.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfDevSoil.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfFlow.f90"/>
 					<File RelativePath="..\src\Model\ModelUtilities\VsfHaverkamp.f90"/>

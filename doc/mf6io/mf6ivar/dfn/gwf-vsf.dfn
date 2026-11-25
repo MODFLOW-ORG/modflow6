@@ -177,6 +177,28 @@ description is the residual (also irreducible) water saturation of the medium.
 default_value 0.1
 
 block griddata
+name alphabc
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname alpha
+description is the alpha parameter in the Brooks-Corey soil characteristic model, the inverse of the absolute value of the air-entry pressure head. The soil is saturated for pressure heads above $-1/\alpha$.
+
+block griddata
+name lambdabc
+type double precision
+shape (nodes)
+valid
+reader readarray
+layered true
+optional true
+longname lambda
+description is the pore-size distribution index $\lambda$ in the Brooks-Corey soil characteristic model. The relative permeability follows Burdine, $k_r = S_e^{3+2/\lambda}$.
+
+block griddata
 name alphahvk
 type double precision
 shape (nodes)

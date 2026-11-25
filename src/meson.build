@@ -312,6 +312,7 @@ modflow_sources = files(
     'Model' / 'ModelUtilities' / 'EtUptakeFeddes.f90',
     'Model' / 'ModelUtilities' / 'EtUptakeModelFactory.f90',
     'Model' / 'ModelUtilities' / 'VectorInterpolation.f90',
+    'Model' / 'ModelUtilities' / 'VsfBrooksCorey.f90',
     'Model' / 'ModelUtilities' / 'VsfDevSoil.f90',
     'Model' / 'ModelUtilities' / 'VsfFlow.f90',
     'Model' / 'ModelUtilities' / 'VsfHaverkamp.f90',

@@ -5,6 +5,7 @@ module VsfSoilModelFactoryModule
   use SimModule, only: ustop
   use STLVecIntModule
   use VsfSoilModelModule, only: SoilModelType
+  use VsfBrooksCoreyModule, only: BrooksCoreyModelType
   use VsfHaverkampModule, only: HaverkampModelType
   use VsfVanGenuchtenModule, only: VanGenuchtenModelType
   use VsfDevSoilModule, only: VsfDevSoilType
@@ -100,7 +101,8 @@ contains
     soil_model => null()
     select case (id)
     case (BROOKS_COREY)
-      !allocate (BrooksCoreyModelType :: soil_model)
+      allocate (BrooksCoreyModelType :: soil_model)
+      soil_model%id = BROOKS_COREY
     case (HAVERKAMP)
       allocate (HaverkampModelType :: soil_model)
       soil_model%id = HAVERKAMP
