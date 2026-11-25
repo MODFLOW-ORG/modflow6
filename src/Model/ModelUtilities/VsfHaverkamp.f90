@@ -1,6 +1,6 @@
 module VsfHaverkampModule
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: DZERO, DONE
+  use ConstantsModule, only: DZERO, DONE, DEP20
   use SimModule, only: store_error, count_errors, ustop
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryManagerExtModule, only: mem_set_value
@@ -24,6 +24,7 @@ module VsfHaverkampModule
     procedure :: krelative => krelative_haverkamp
     procedure :: kr_dkrdh => kr_dkrdh_haverkamp
     procedure :: sat_capacity => sat_capacity_haverkamp
+    procedure :: pressure_head => pressure_head_haverkamp
     procedure :: destroy => destroy_haverkamp
   end type HaverkampModelType
 
@@ -155,6 +156,26 @@ contains
 
   !> @brief Fused saturation and moisture capacity
   !<
+  !> @brief Pressure head for a given effective saturation
+  !!
+  !! Inverse of se = 1 / (1 + (-alpha psi)^n).
+  !<
+  function pressure_head_haverkamp(this, se, i) result(psi)
+    class(HaverkampModelType), intent(inout) :: this
+    real(DP), intent(in) :: se !< effective saturation
+    integer(I4B), intent(in) :: i !< node number
+    real(DP) :: psi !< pressure head
+
+    if (se >= DONE) then
+      psi = DZERO
+    else if (se <= DZERO) then
+      psi = -DEP20
+    else
+      psi = -(DONE / se - DONE)**(DONE / this%n(i)) / this%alpha(i)
+    end if
+
+  end function pressure_head_haverkamp
+
   subroutine sat_capacity_haverkamp(this, psi, i, s, cm)
     class(HaverkampModelType), intent(inout) :: this
     real(DP), intent(in) :: psi !< pressure head

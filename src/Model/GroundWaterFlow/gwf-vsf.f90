@@ -397,9 +397,10 @@ contains
   !!
   !! Applied after the solver under-relaxation: when the head change of
   !! this outer iteration changes the effective saturation of a cell by
-  !! more than newton_dsat_max, the change is scaled back proportionally.
-  !! On a curved retention curve this limits the saturation change
-  !! approximately, not exactly. Cells that stay saturated are not limited.
+  !! more than newton_dsat_max, the change is shortened to the pressure head
+  !! at which the effective saturation has changed by exactly
+  !! newton_dsat_max (inverse of the retention curve). Cells that stay
+  !! saturated are not limited.
   !!
   !! The limited cells are deliberately not reported to the solution
   !! (inewtonur, dxmax, locmax are left unchanged): the Newton
@@ -418,7 +419,7 @@ contains
     integer(I4B), intent(inout) :: locmax !< not set, see above
     ! local
     integer(I4B) :: n
-    real(DP) :: z, psi0, psi1, se0, se1, dse, step, steplim, sr
+    real(DP) :: z, psi0, psi1, se0, se1, dse, step, steplim, sr, setarget
 
     if (this%newton_dsat_max <= DZERO) return
 
@@ -438,7 +439,11 @@ contains
       se1 = (this%soil_model%saturation(psi1, n) - sr) / (DONE - sr)
       dse = abs(se1 - se0)
       if (dse > this%newton_dsat_max) then
-        steplim = step * this%newton_dsat_max / dse
+        ! stop where the effective saturation has changed by the limit
+        setarget = se0 + sign(this%newton_dsat_max, se1 - se0)
+        steplim = this%soil_model%pressure_head(setarget, n) - psi0
+        ! guard against round-off: never reverse or lengthen the step
+        if (steplim * step <= DZERO .or. abs(steplim) >= abs(step)) cycle
         x(n) = xtemp(n) + steplim
         dx(n) = steplim
       end if

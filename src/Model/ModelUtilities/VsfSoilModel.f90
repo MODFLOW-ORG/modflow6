@@ -1,6 +1,6 @@
 module VsfSoilModelModule
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: LENMEMPATH
+  use ConstantsModule, only: LENMEMPATH, DZERO, DONE, DEP20
   use SimModule, only: store_error, count_errors, ustop
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryManagerExtModule, only: mem_set_value
@@ -31,6 +31,7 @@ module VsfSoilModelModule
     procedure(krelative_if), deferred :: krelative
     procedure :: kr_dkrdh
     procedure :: sat_capacity
+    procedure :: pressure_head
   end type SoilModelType
 
   !> shift in pressure head for the numerical derivative of k_r
@@ -123,6 +124,47 @@ contains
     cm = this%capacity(psi, i)
 
   end subroutine sat_capacity
+
+  !> @brief Pressure head for a given effective saturation
+  !!
+  !! Inverse of the retention curve: returns psi such that the effective
+  !! saturation (s - sr) / (1 - sr) at psi equals se. Returns 0 for se >= 1
+  !! (soil models with an air-entry head return that head) and -1e20
+  !! for se <= 0. Default: bisection on log10(-psi) between -1e-10 and
+  !! -1e10. Soil models override this with the closed-form inverse.
+  !<
+  function pressure_head(this, se, i) result(psi)
+    class(SoilModelType), intent(inout) :: this
+    real(DP), intent(in) :: se !< effective saturation
+    integer(I4B), intent(in) :: i !< node number
+    real(DP) :: psi !< pressure head
+    ! local
+    real(DP) :: ulo, uhi, umid, sr, semid
+    integer(I4B) :: it
+
+    if (se >= DONE) then
+      psi = DZERO
+      return
+    else if (se <= DZERO) then
+      psi = -DEP20
+      return
+    end if
+    sr = this%sat_res(i)
+    ! effective saturation decreases with u = log10(-psi)
+    ulo = -10.0_DP
+    uhi = 10.0_DP
+    do it = 1, 100
+      umid = 0.5_DP * (ulo + uhi)
+      semid = (this%saturation(-10.0_DP**umid, i) - sr) / (DONE - sr)
+      if (semid > se) then
+        ulo = umid
+      else
+        uhi = umid
+      end if
+    end do
+    psi = -10.0_DP**(0.5_DP * (ulo + uhi))
+
+  end function pressure_head
 
   subroutine destroy_base(this)
     class(SoilModelType), intent(inout) :: this

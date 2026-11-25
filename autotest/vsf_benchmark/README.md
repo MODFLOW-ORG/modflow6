@@ -419,10 +419,16 @@ converges. VSF option `NEWTON_DSAT_MAX`, on by default at 0.2.**
 
 After each linear solve, VSF checks the proposed head change of every
 unsaturated cell. When the change in effective saturation would exceed
-`NEWTON_DSAT_MAX`, the step of that cell is scaled down proportionally. Because
-the retention curve is curved, the resulting saturation change is close to, but
-not exactly, the limit (for example 0.299 instead of 0.2 for a Haverkamp step
-from ψ = −30 to 0 cm); the option is a damping, not a hard bound. Cells that
+`NEWTON_DSAT_MAX`, the step of that cell is shortened to the pressure head at
+which Se has changed by exactly the limit, using the closed-form inverse of the
+retention curve (Van Genuchten, Haverkamp; bisection for other soil models).
+The first version scaled the step proportionally instead. With a curved
+retention curve that only limits approximately, and for very large overshoots
+hardly at all: a step from residual saturation far past saturation gives ΔSe =
+1, so it was cut by only a factor 5 and still ended saturated. The exact limit
+gave the same iteration counts on the benchmark set at 100k cells (sand
+`shallow` +3% outer iterations, the others within ±1%, heads within 3e-3 cm),
+and takes Haverkamp `deep` through its first steps without failures. Cells that
 stay saturated, and cells whose saturation hardly changes, are never touched,
 so normal cases keep full Newton steps. The limiter uses the Newton
 under-relaxation hook in IMS (the one NPF uses to keep heads above the cell

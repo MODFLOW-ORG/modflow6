@@ -51,7 +51,7 @@ type double precision
 reader urword
 optional true
 longname maximum saturation change per Newton iteration
-description real value that limits the change of effective saturation in a cell during one outer iteration when the Newton-Raphson formulation is used. A head change that exceeds the limit is scaled back proportionally, so the limit is approximate for a curved retention curve. The default is 0.2. A value of zero switches the limit off.
+description real value that limits the change of effective saturation in a cell during one outer iteration when the Newton-Raphson formulation is used. A larger head change is shortened to the pressure head at which the effective saturation has changed by this value. The default is 0.2. A value of zero switches the limit off.
 
 block options
 name kr_smoothing

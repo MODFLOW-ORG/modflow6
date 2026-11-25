@@ -1,6 +1,6 @@
 module VsfVanGenuchtenModule
   use KindModule, only: I4B, DP
-  use ConstantsModule, only: DZERO, DONE, DTWO, DHALF
+  use ConstantsModule, only: DZERO, DONE, DTWO, DHALF, DEP20
   use SimModule, only: store_error, count_errors, ustop
   use MemoryManagerModule, only: mem_allocate, mem_deallocate
   use MemoryManagerExtModule, only: mem_set_value
@@ -28,6 +28,7 @@ module VsfVanGenuchtenModule
     procedure :: krelative => krelative_vangenuchten
     procedure :: kr_dkrdh => kr_dkrdh_vangenuchten
     procedure :: sat_capacity => sat_capacity_vangenuchten
+    procedure :: pressure_head => pressure_head_vangenuchten
     procedure :: destroy => destroy_vangenuchten
     procedure, private :: kr_raw
     procedure, private :: kr_dkr_raw
@@ -296,6 +297,33 @@ contains
 
   !> @brief Fused saturation and moisture capacity
   !<
+  !> @brief Pressure head for a given effective saturation
+  !!
+  !! Inverse of se = (1 + (-alpha psi)^n)^(-m), with se rescaled by the
+  !! value at the air-entry head when one is given. For se >= 1 the
+  !! air-entry head (zero without air entry) is returned.
+  !<
+  function pressure_head_vangenuchten(this, se, i) result(psi)
+    class(VanGenuchtenModelType), intent(inout) :: this
+    real(DP), intent(in) :: se !< effective saturation
+    integer(I4B), intent(in) :: i !< node number
+    real(DP) :: psi !< pressure head
+    ! local
+    real(DP) :: set, m
+
+    if (se >= DONE) then
+      psi = min(this%hae(i), DZERO)
+    else if (se <= DZERO) then
+      psi = -DEP20
+    else
+      set = se
+      if (this%hae(i) < DZERO) set = se * this%sc(i)
+      m = DONE - DONE / this%n(i)
+      psi = -(set**(-DONE / m) - DONE)**(DONE / this%n(i)) / this%alpha(i)
+    end if
+
+  end function pressure_head_vangenuchten
+
   subroutine sat_capacity_vangenuchten(this, psi, i, s, cm)
     class(VanGenuchtenModelType), intent(inout) :: this
     real(DP), intent(in) :: psi !< pressure head
