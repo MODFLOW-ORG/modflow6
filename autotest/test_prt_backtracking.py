@@ -3,7 +3,9 @@ Test backward particle tracking with PRT-FMI's BACKWARD option.
 Use the Flopy README example, but start particles in the bottom
 right corner. They should terminate in the top left. Test cases
 include one- and multiple-period simulations, both steady state,
-as well as a simulation with multiple time steps per PRT period.
+as well as simulations with multiple time steps per PRT period.
+When the GWF model has several time steps in a period, PRT must
+have the same number of steps in that period, else the run fails.
 """
 
 import flopy
@@ -23,10 +25,26 @@ cases = [
     simname + "_1per",  # 1 period, 1 step
     simname + "_2per",  # 2 periods, 1 step each
     simname + "_2stp",  # 2 periods, GWF 1 step, PRT 2 steps
+    simname + "_2x2",  # 2 periods, GWF 2 steps, PRT 2 steps
+    simname + "_g2p3",  # 1 period, GWF 2 steps, PRT 3 steps (mismatch)
+    simname + "_g3p2",  # 1 period, GWF 3 steps, PRT 2 steps (mismatch)
 ]
 
+# (gwf nper, gwf nstp, prt nper, prt nstp) for cases built with build_gwf_sim
+case_tdis = {
+    1: (2, 1, 2, 1),
+    2: (2, 1, 2, 2),
+    3: (2, 2, 2, 2),
+    4: (1, 2, 1, 3),
+    5: (1, 3, 1, 2),
+}
 
-def build_gwf_sim(name, ws, mf6, nper=1):
+
+def is_mismatch(name):
+    return name.endswith(("_g2p3", "_g3p2"))
+
+
+def build_gwf_sim(name, ws, mf6, nper=1, nstp=FlopyReadmeCase.nstp):
     sim = flopy.mf6.MFSimulation(
         sim_name=name,
         exe_name=mf6,
@@ -39,10 +57,7 @@ def build_gwf_sim(name, ws, mf6, nper=1):
         pname="tdis",
         time_units="DAYS",
         nper=nper,
-        perioddata=[
-            (FlopyReadmeCase.perlen, FlopyReadmeCase.nstp, FlopyReadmeCase.tsmult)
-        ]
-        * nper,
+        perioddata=[(FlopyReadmeCase.perlen, nstp, FlopyReadmeCase.tsmult)] * nper,
     )
 
     gwfname = f"{name}_gwf"
@@ -102,12 +117,9 @@ def build_models(idx, test):
     if idx == 0:
         prt_nper, prt_nstp = 1, 1
         gwf_sim = FlopyReadmeCase.get_gwf_sim(name, gwf_ws, mf6)
-    elif idx == 1:
-        prt_nper, prt_nstp = 2, 1
-        gwf_sim = build_gwf_sim(name, gwf_ws, mf6, nper=2)
     else:
-        prt_nper, prt_nstp = 2, 2
-        gwf_sim = build_gwf_sim(name, gwf_ws, mf6, nper=2)
+        gwf_nper, gwf_nstp, prt_nper, prt_nstp = case_tdis[idx]
+        gwf_sim = build_gwf_sim(name, gwf_ws, mf6, nper=gwf_nper, nstp=gwf_nstp)
 
     head_file = gwf_ws / f"{gwf_name}.hds"
     budget_file = gwf_ws / f"{gwf_name}.bud"
@@ -217,6 +229,11 @@ def check_output(idx, test, snapshot):
     prt = prt_sim.get_model(prt_name)
     mg = prt.modelgrid
 
+    if is_mismatch(name):
+        lst = (prt_ws / "mfsim.lst").read_text()
+        assert "TIME DISCRETIZATION IN BUDGET FILE" in lst
+        return
+
     prt_track_csv_file = prt_ws / f"{prt_name}.prp.trk.csv"
     assert prt_track_csv_file.exists()
 
@@ -289,5 +306,6 @@ def test_mf6model(idx, name, function_tmpdir, targets, plot, snapshot):
         plot=lambda t: plot_output(idx, t) if plot else None,
         targets=targets,
         compare=None,
+        xfail=[False, is_mismatch(name)],
     )
     test.run()

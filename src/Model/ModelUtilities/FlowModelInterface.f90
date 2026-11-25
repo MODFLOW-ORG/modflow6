@@ -678,8 +678,8 @@ contains
           call store_error_unit(this%iubud)
         end if
         !
-        ! -- Forward mode: GWF period and step must match PRT exactly.
-        ! -- Backward mode: GWF period must decrease by one each new PRT period.
+        ! -- Forward mode: GWF period and step must match the model's.
+        ! -- Backward mode: see backward_record_matches.
         if (.not. this%bfr%backward) then
           if (kper /= this%bfr%header%kper) then
             write (errmsg, fmtbadtdis)
@@ -691,12 +691,12 @@ contains
             call store_error(errmsg)
             call store_error_unit(this%iubud)
           end if
-        else if (kper > 1) then
-          if (this%bfr%header%kper /= prev_gwf_kper - 1) then
-            write (errmsg, fmtbadtdis)
-            call store_error(errmsg)
-            call store_error_unit(this%iubud)
-          end if
+        else if (.not. backward_record_matches(this%bfr%header%kper, &
+                                               this%bfr%header%kstp, &
+                                               prev_gwf_kper)) then
+          write (errmsg, fmtbadtdis)
+          call store_error(errmsg)
+          call store_error_unit(this%iubud)
         end if
         !
         ! -- parse based on the type of data, and compress all user node
@@ -878,8 +878,8 @@ contains
           call store_error_unit(this%iuhds)
         end if
         !
-        ! -- Forward mode: GWF period and step must match PRT exactly.
-        ! -- Backward mode: GWF period must decrease by one each new PRT period.
+        ! -- Forward mode: GWF period and step must match the model's.
+        ! -- Backward mode: see backward_record_matches.
         if (.not. this%hfr%backward) then
           if (kper /= this%hfr%header%kper) then
             write (errmsg, fmtbadtdis)
@@ -891,12 +891,12 @@ contains
             call store_error(errmsg)
             call store_error_unit(this%iuhds)
           end if
-        else if (kper > 1) then
-          if (this%hfr%header%kper /= prev_gwf_kper - 1) then
-            write (errmsg, fmtbadtdis)
-            call store_error(errmsg)
-            call store_error_unit(this%iuhds)
-          end if
+        else if (.not. backward_record_matches(this%hfr%header%kper, &
+                                               this%hfr%header%kstp, &
+                                               prev_gwf_kper)) then
+          write (errmsg, fmtbadtdis)
+          call store_error(errmsg)
+          call store_error_unit(this%iuhds)
         end if
         !
         ! -- fill the head array for this layer and
@@ -933,6 +933,32 @@ contains
         this%hfr%header%kstp, this%hfr%header%kper
     end if
   end subroutine advance_hfr
+
+  !> @brief Check a record read in backward mode against the model time step.
+  !!
+  !! Model period kper, step kstp pairs with the GWF period one below the
+  !! previously read record's at kstp == 1, the same period at kstp > 1,
+  !! and, when the file has more than one step in the period, GWF step
+  !! nstp(kper) - kstp + 1.
+  !<
+  function backward_record_matches(hdr_kper, hdr_kstp, prev_kper) &
+    result(matches)
+    use TdisModule, only: kstp, kper, nstp
+    integer(I4B), intent(in) :: hdr_kper !< period of the record just read
+    integer(I4B), intent(in) :: hdr_kstp !< step of the record just read
+    integer(I4B), intent(in) :: prev_kper !< period of the previous record
+    logical(LGP) :: matches
+
+    matches = .true.
+    if (kstp == 1) then
+      if (kper > 1 .and. hdr_kper /= prev_kper - 1) matches = .false.
+    else
+      if (hdr_kper /= prev_kper) matches = .false.
+    end if
+    if (hdr_kstp > 1 .or. kstp > 1) then
+      if (hdr_kstp /= nstp(kper) - kstp + 1) matches = .false.
+    end if
+  end function backward_record_matches
 
   !> @brief Finalize the head file reader
   subroutine finalize_hfr(this)
