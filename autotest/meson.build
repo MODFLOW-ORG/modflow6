@@ -45,6 +45,7 @@ if test_drive.found()
     'SwfUtils',
     'TimeSelect',
     'TimeStepSelect',
+    'UltimateScheme',
     'UzfCellGroup',
     'UzfEtUtil'
   ]

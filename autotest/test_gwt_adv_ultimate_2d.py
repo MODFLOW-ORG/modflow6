@@ -16,13 +16,13 @@ the face-normal terms alone this problem reaches a concentration of 2.8 and
 minus 0.97 while still satisfying the Courant constraint, because the
 one-dimensional limiter bounds each face on the assumption that the face carries
 the only flux leaving the cell, and an obliquely flowing cell discharges through
-two faces at once.  With the full reconstruction the same run stays inside
-[0, 1.06] and its error halves.
+two faces at once.  The full reconstruction with the one-dimensional limiter
+alone still reaches 1.052.
 
-Some overshoot survives, as it does in MT3DMS, which overshoots slightly more
-than this on the same problem.  Multidimensional monotonicity is not guaranteed
-by a limiter derived in one dimension, so the test bounds the overshoot rather
-than forbidding it.
+The multidimensional limiter bounds each face by the range of the cells
+upstream of it and by the total inflow and outflow of the upstream cell, so the
+oblique case must stay inside [0, 1].  Its error is about twice that of the
+unbounded run, because the bound clips part of what the transverse terms add.
 """
 
 import os
@@ -169,18 +169,12 @@ def check_output(idx, name, test):
 
     # the solution must stay within the range of the data it was built from.
     # this is the assertion that fails without the multidimensional limiter:
-    # with the face-normal terms alone the oblique case reaches 2.8 and -0.97
+    # the one-dimensional limiter alone reaches 1.052 in the oblique case.  The
+    # tolerance is the flow closure, since a flow field that is not exactly
+    # free of divergence creates or removes mass in proportion to it
     cmin, cmax = interior.min(), interior.max()
-    if oblique(name):
-        # the one-dimensional limiter does not guarantee multidimensional
-        # monotonicity, so the bound documents the overshoot rather than
-        # forbidding it; measured 1.052 here, and MT3DMS overshoots more
-        assert cmax < 1.06, f"oblique overshoot, max = {cmax}"
-        assert cmin > -1.0e-5, f"oblique undershoot, min = {cmin}"
-    else:
-        # along the grid the transverse terms vanish and the limiter is exact
-        assert cmax < 1.0 + 1.0e-5, f"aligned overshoot, max = {cmax}"
-        assert cmin > -1.0e-5, f"aligned undershoot, min = {cmin}"
+    assert cmax < 1.0 + 1.0e-6, f"overshoot, max = {cmax}"
+    assert cmin > -1.0e-6, f"undershoot, min = {cmin}"
     print(f"{name}: min = {cmin:.6f}, max = {cmax:.6f}")
 
     # advection is explicit, so mass balance must be exact
@@ -195,9 +189,9 @@ def check_output(idx, name, test):
 
     error = np.abs(interior - exact[sel]).mean()
     if oblique(name):
-        # measured 0.0325; upstream weighting gives 0.086 and the face-normal
-        # terms on their own give 0.060
-        assert error < 0.040, f"oblique front too diffuse, L1 per cell = {error}"
+        # measured 0.0602, and 0.0325 without the multidimensional limiter;
+        # upstream weighting gives 0.086
+        assert error < 0.065, f"oblique front too diffuse, L1 per cell = {error}"
     else:
         # measured 0.0255 on this grid; upstream weighting gives 0.062
         assert error < 0.035, f"aligned front too diffuse, L1 per cell = {error}"
