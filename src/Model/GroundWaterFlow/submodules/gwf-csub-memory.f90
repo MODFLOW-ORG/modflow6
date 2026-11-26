@@ -215,6 +215,11 @@ contains
     call mem_allocate(this%idelay, iblen, 'IDELAY', trim(this%memoryPath))
     call mem_allocate(this%ielastic, iblen, 'IELASTIC', trim(this%memoryPath))
     call mem_allocate(this%iconvert, iblen, 'ICONVERT', trim(this%memoryPath))
+    call mem_allocate(this%iconvert_nr, iblen, 'ICONVERT_NR', &
+                      trim(this%memoryPath))
+    do n = 1, iblen
+      this%iconvert_nr(n) = -1
+    end do
     call mem_allocate(this%comp, iblen, 'COMP', trim(this%memoryPath))
     call mem_allocate(this%tcomp, iblen, 'TCOMP', trim(this%memoryPath))
     call mem_allocate(this%tcompi, iblen, 'TCOMPI', trim(this%memoryPath))
@@ -309,6 +314,7 @@ contains
       call mem_deallocate(this%idelay)
       call mem_deallocate(this%ielastic)
       call mem_deallocate(this%iconvert)
+      call mem_deallocate(this%iconvert_nr)
       !
       ! -- grid-based storage data
       call mem_deallocate(this%buff)
