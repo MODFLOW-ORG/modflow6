@@ -370,13 +370,14 @@ contains
     integer(I4B), dimension(NF*NF + 1), intent(out) :: ia, iapc
     integer(I4B), dimension(5*NF*NF - 4*NF), intent(out) :: ja, japc
     real(DP), dimension(5*NF*NF - 4*NF), intent(out) :: a
-    real(DP), dimension(NF*NF), parameter :: h = &
-            [0.0d0, 0.0d0, -1.0d0, -1.0d0, -1.0d0, -2.0d0, -2.0d0, -2.0d0, -3.0d0]
-    real(DP), dimension(NF*NF), parameter :: kr = &
-            [1.0d0, 1.0d0, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2]
-    real(DP), dimension(NF*NF), parameter :: dkr = &
-                   [1.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0]
+    real(DP), dimension(NF*NF) :: h, kr, dkr
     integer(I4B) :: n, m, k, idiag, nup
+
+    h = -real([0, 0, 1, 1, 1, 2, 2, 2, 3], DP)
+    kr = 1.0d-2
+    kr(1:2) = DONE
+    dkr = DZERO
+    dkr(1:2) = DONE
 
     k = 0
     do n = 1, NF * NF
