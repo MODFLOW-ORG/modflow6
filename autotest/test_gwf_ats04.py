@@ -1,20 +1,10 @@
 """
-A failed ATS time step that would end the period is retried with a step
-that either ends the period or leaves at least dtmin, so no time in the
-period is skipped. If no such retry is possible without a step shorter
-than dtmin, the simulation fails.
+A retried ATS step either ends the period or leaves at least dtmin.
 
-The model is the test_gwf_ats03 model with a single 1-day period. The first
-time step tries the whole period and fails to converge (steps longer than
-about 0.8 days fail for this model). Dividing by dtfailadj = 1.5 gives a
-retry of 2/3 day, which would leave 1/3 day, less than dtmin.
-
-With dtmin = 0.5, the retry is shortened to 0.5 days, leaving 0.5 for the
-final step. The simulated time, the period time and the simulation time at
-the end of the run are all the period length.
-
-With dtmin = 0.6, a retry would have to be both at least 0.6 and at most
-0.4 days long, so the simulation fails.
+One 1-day period whose single 1-day step fails, and dtfailadj = 1.5 gives a
+2/3-day retry that would leave less than dtmin. With dtmin = 0.5, the retry
+is shortened to 0.5 and the run reaches the period end. With dtmin = 0.6,
+no retry fits, so the simulation fails.
 """
 
 import os
