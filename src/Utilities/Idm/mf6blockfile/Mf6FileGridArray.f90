@@ -15,8 +15,9 @@ module GridArrayLoadModule
   use MemoryManagerModule, only: mem_allocate, mem_setptr
   use BlockParserModule, only: BlockParserType
   use ModflowInputModule, only: ModflowInputType
-  use LoadContextModule, only: LoadContextType, ReadStateVarType, RS_NONE, &
-                               RS_VALUES, RS_NETCDF
+  use LoadContextModule, only: LoadContextType
+  use IdmParamMetaModule, only: ReadStateVarType, RS_NONE, RS_VALUES, &
+                                RS_NETCDF
   use AsciiInputLoadTypeModule, only: AsciiDynamicPkgLoadBaseType
 
   implicit none

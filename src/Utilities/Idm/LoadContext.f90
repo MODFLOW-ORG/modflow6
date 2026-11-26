@@ -18,14 +18,11 @@ module LoadContextModule
   use InputDefinitionModule, only: InputParamDefinitionType
   use CharacterStringModule, only: CharacterStringType
   use IdmDfnSelectorModule, only: idm_is_advanced
+  use IdmParamMetaModule, only: RS_UNSET, rsv_name
 
   implicit none
   private
   public :: LoadContextType
-  public :: ReadStateVarType
-  public :: RS_UNSET, RS_NONE, RS_VALUES, RS_SERIES, RS_NETCDF
-  public :: rsv_name
-  public :: tslink_id
   public :: is_keystring_period
   public :: is_feature_keystring
   public :: is_advanced
@@ -37,24 +34,6 @@ module LoadContextModule
     enumerator :: GRIDARRAY = 3 !< readarraygrid load
     enumerator :: KEYSTRING = 4 !< keystring period block load
   end enum
-
-  !> @brief Read state of a period array (e.g. INRECHARGE)
-  !!
-  !! Set for each period block load.
-  !<
-  enum, bind(C)
-    enumerator :: RS_UNSET = -1 !< not in use
-    enumerator :: RS_NONE = 0 !< not given in the most recent period block
-    enumerator :: RS_VALUES = 1 !< values given in the most recent period block
-    enumerator :: RS_SERIES = 2 !< time-array series given in the most recent period block
-    enumerator :: RS_NETCDF = 3 !< values read from NetCDF in the most recent period block
-  end enum
-
-  !> @brief Pointer type for read state variable
-  !<
-  type ReadStateVarType
-    integer(I4B), pointer :: invar
-  end type ReadStateVarType
 
   interface setptr
     module procedure setptr_int, setptr_charstr1d, &
@@ -909,7 +888,7 @@ contains
   !> @brief allocate a read state variable
   !!
   !! Create a read state variable, e.g. 'INRECHARGE', set to RS_UNSET.
-  !! Loaders update it for each period block (see RS_*).
+  !! Loaders update it for each period block (see IdmParamMetaModule).
   !<
   function rsv_alloc(this, mf6varname) result(varname)
     use ConstantsModule, only: LENVARNAME
@@ -1210,41 +1189,6 @@ contains
       end if
     end do
   end subroutine check_developmode
-
-  !> @brief create read state variable name
-  !<
-  function rsv_name(mf6varname) result(varname)
-    use ConstantsModule, only: LENVARNAME
-    character(len=*), intent(in) :: mf6varname
-    character(len=LENVARNAME) :: varname
-    integer(I4B) :: ilen
-    character(len=2) :: prefix = 'IN'
-    ilen = len_trim(mf6varname)
-    if (ilen > (LENVARNAME - len(prefix))) then
-      varname = prefix//mf6varname(1:(LENVARNAME - len(prefix)))
-    else
-      varname = prefix//trim(mf6varname)
-    end if
-  end function rsv_name
-
-  !> @brief time series link identifier for a static block
-  !!
-  !! Return the identifier used to name a static block's time series link
-  !! variables (TSLINK_<id>, TSLINKVARS_<id>), or an empty string if the
-  !! block has none.
-  !<
-  function tslink_id(blockname) result(id)
-    character(len=*), intent(in) :: blockname
-    character(len=2) :: id
-    select case (blockname)
-    case ('PACKAGEDATA')
-      id = 'PD'
-    case ('OUTLETS')
-      id = 'OL'
-    case default
-      id = ''
-    end select
-  end function tslink_id
 
   !> @brief allocate int1d
   !<
