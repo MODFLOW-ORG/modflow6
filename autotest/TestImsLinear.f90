@@ -52,6 +52,8 @@ contains
                 new_unittest("bcgs_l2norm_rcm", test_bcgs_l2norm_rcm), &
                 new_unittest("pcilu0_bad_pivot", test_pcilu0_bad_pivot), &
                 new_unittest("pcu_bad_pivot", test_pcu_bad_pivot), &
+                new_unittest("pcu_milu0_wetting_front", &
+                             test_pcu_milu0_wetting_front), &
                 new_unittest("lusol_apply_exact", test_lusol_apply_exact), &
                 new_unittest("lusol_bit_identical", test_lusol_bit_identical), &
                 new_unittest("ilu0_apply_exact", test_ilu0_apply_exact), &
@@ -352,6 +354,101 @@ contains
       if (allocated(error)) return
     end do
   end subroutine test_pcu_bad_pivot
+
+  !> @brief Build a Newton matrix for a wetting front on a 3 by 3 grid
+  !!
+  !! A = -dR/dh with unit conductances, upstream relative permeability kr
+  !! and storage 1e-3. Cells 1 and 2 are wet (kr = 1, dkr/dh = 1), the
+  !! others dry (kr = 0.01, dkr/dh = 0); the head drops by one per cell
+  !! away from the wet cells. Every Newton term kr' |dh| is added to the
+  !! diagonal of the upstream row and subtracted in the same column of the
+  !! downstream row, so all column sums equal the storage and A is an
+  !! M-matrix. The rows just ahead of the front have negative row sums.
+  !<
+  subroutine setup_wetting_front(ia, ja, a, iapc, japc)
+    integer(I4B), parameter :: NF = 3
+    integer(I4B), dimension(NF*NF + 1), intent(out) :: ia, iapc
+    integer(I4B), dimension(5*NF*NF - 4*NF), intent(out) :: ja, japc
+    real(DP), dimension(5*NF*NF - 4*NF), intent(out) :: a
+    real(DP), dimension(NF*NF), parameter :: h = &
+            [0.0d0, 0.0d0, -1.0d0, -1.0d0, -1.0d0, -2.0d0, -2.0d0, -2.0d0, -3.0d0]
+    real(DP), dimension(NF*NF), parameter :: kr = &
+            [1.0d0, 1.0d0, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2, 1.0d-2]
+    real(DP), dimension(NF*NF), parameter :: dkr = &
+                   [1.0d0, 1.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0, 0.0d0]
+    integer(I4B) :: n, m, k, idiag, nup
+
+    k = 0
+    do n = 1, NF * NF
+      k = k + 1
+      ia(n) = k
+      idiag = k
+      ja(k) = n
+      a(k) = 1.0d-3
+      do m = 1, NF * NF
+        if (m == n) cycle
+        if (.not. ((abs(m - n) == NF) .or. &
+                   (abs(m - n) == 1 .and. (m - 1) / NF == (n - 1) / NF))) &
+          cycle
+        nup = m
+        if (h(n) > h(m)) nup = n
+        k = k + 1
+        ja(k) = m
+        a(k) = -kr(nup)
+        a(idiag) = a(idiag) + kr(nup)
+        if (nup == n) then
+          a(idiag) = a(idiag) + dkr(n) * abs(h(n) - h(m))
+        else
+          a(k) = a(k) - dkr(m) * abs(h(n) - h(m))
+        end if
+      end do
+    end do
+    ia(NF * NF + 1) = k + 1
+    call ims_base_pccrs(NF * NF, k, ia, ja, iapc, japc)
+  end subroutine setup_wetting_front
+
+  !> @brief A relaxed MILU0 factorization that breaks down on a wetting
+  !! front is redone as ILU0, which exists for the M-matrix, instead of
+  !! modifying the diagonal
+  !<
+  subroutine test_pcu_milu0_wetting_front(error)
+    type(error_type), allocatable, intent(out) :: error
+    integer(I4B), parameter :: NF = 9
+    integer(I4B), parameter :: NJF = 33
+    integer(I4B), dimension(NF + 1) :: ia, iapc
+    integer(I4B), dimension(NJF) :: ja, japc
+    integer(I4B), dimension(NF) :: iw
+    integer(I4B), dimension(1) :: jlu, jw
+    real(DP), dimension(NJF) :: a, apc, apc_ilu0
+    real(DP), dimension(NF) :: w
+    real(DP), dimension(1) :: wlu
+    integer(I4B) :: ipcflag, iout, n
+
+    call setup_wetting_front(ia, ja, a, iapc, japc)
+
+    ! the relaxed factorization breaks down, the unmodified one does not
+    ipcflag = 0
+    call ims_base_pcilu0(NJF, NF, a, ia, ja, apc, iapc, japc, iw, w, &
+                         0.97d0, ipcflag, DZERO)
+    call check(error, ipcflag == 1, 'MILU0 ipcflag '//to_string(ipcflag))
+    if (allocated(error)) return
+    ipcflag = 0
+    call ims_base_pcilu0(NJF, NF, a, ia, ja, apc_ilu0, iapc, japc, iw, w, &
+                         DZERO, ipcflag, DZERO)
+    call check(error, ipcflag == 0, 'ILU0 ipcflag '//to_string(ipcflag))
+    if (allocated(error)) return
+
+    ! MILU0 through ims_base_pcu gives the ILU0 factors
+    open (newunit=iout, status='scratch')
+    call ims_base_pcu(iout, NJF, NF, NF, NJF, IPC_MILU0, 0.97d0, a, ia, ja, &
+                      apc, iapc, japc, iw, w, 0, DZERO, 1, 1, 1, jlu, jw, wlu)
+    close (iout)
+    do n = 1, NJF
+      call check(error, apc(n) == apc_ilu0(n), &
+                 'apc differs from ILU0 at '//to_string(n))
+      if (allocated(error)) return
+    end do
+  end subroutine test_pcu_milu0_wetting_front
 
   !> @brief ILUT and MILUT factor a tridiagonal matrix exactly, so lusol
   !! returns the solution
