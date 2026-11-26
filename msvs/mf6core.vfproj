@@ -486,6 +486,7 @@
 					</Filter>
 					<File RelativePath="..\src\Model\TransportModel\tsp-adv.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-apt.f90"/>
+					<File RelativePath="..\src\Model\TransportModel\TspDispersionUtils.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-fmi.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-ic.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-mvt.f90"/>
