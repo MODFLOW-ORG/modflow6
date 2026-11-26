@@ -382,11 +382,13 @@ def run_transport_model(dir, exe, gwfgrid=False):
     answer = [
         "time",
         "STORAGE-AQUEOUS(MST)_IN",
+        "STORAGE-STRANDED(MST)_IN",
         "WEL(SSM_WEL-1)_IN",
         "DRN(SSM_DRN-1)_IN",
         "DRN-TO-MVR(SSM_DRN-1)_IN",
         "SFT(SFR-1)_IN",
         "STORAGE-AQUEOUS(MST)_OUT",
+        "STORAGE-STRANDED(MST)_OUT",
         "WEL(SSM_WEL-1)_OUT",
         "DRN(SSM_DRN-1)_OUT",
         "DRN-TO-MVR(SSM_DRN-1)_OUT",

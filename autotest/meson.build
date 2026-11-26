@@ -43,6 +43,7 @@ if test_drive.found()
     'PtrHashTable',
     'Sim',
     'Smoothing',
+    'StrandedMass',
     'SVD',
     'SwfUtils',
     'TimeSelect',
