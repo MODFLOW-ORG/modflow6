@@ -86,7 +86,7 @@ contains
     hbar = sQuadratic0sp(hcell, bot, this%satomega)
     !
     ! -- set iconvert
-    this%iconvert(ib) = 0
+    this%iconvert(ib) = STORAGE_ELASTIC
     !
     ! -- aquifer saturation
     call this%csub_calc_sat(node, hcell, hcellold, snnew, snold)
@@ -112,7 +112,7 @@ contains
     rho1 = this%rci(ib) * sto_fac0
     rho2 = this%rci(ib) * sto_fac
     if (this%cg_es(node) > this%pcs(ib)) then
-      this%iconvert(ib) = 1
+      this%iconvert(ib) = STORAGE_INELASTIC
       rho2 = this%ci(ib) * sto_fac
     end if
     !
@@ -120,7 +120,7 @@ contains
     rcorr = rho2 * (hcell - hbar)
     !
     ! -- fill right-hand side
-    if (this%ielastic(ib) /= 0) then
+    if (this%ielastic(ib) == INTERBED_ELASTIC) then
       rhs = rho1 * this%cg_es0(node) - &
             rho2 * (this%cg_gs(node) + bot) - &
             rcorr
@@ -166,7 +166,7 @@ contains
     call this%csub_nodelay_fc(ib, hcell, hcellold, rho1, rho2, rhs, argtled=tled)
     !
     ! -- calculate no-delay interbed compaction
-    if (this%ielastic(ib) /= 0) then
+    if (this%ielastic(ib) == INTERBED_ELASTIC) then
       comp = rho2 * es - rho1 * es0
     else
       comp = -pcs * (rho2 - rho1) - (rho1 * es0) + (rho2 * es)
@@ -314,7 +314,7 @@ contains
       !
       ! -- preconsolidation stress, which is zero for elastic interbeds
       pcs = DZERO
-      if (this%ielastic(ib) == 0) then
+      if (this%ielastic(ib) == INTERBED_ELASTIC_INELASTIC) then
         pcs = this%pcs(ib)
       end if
       !

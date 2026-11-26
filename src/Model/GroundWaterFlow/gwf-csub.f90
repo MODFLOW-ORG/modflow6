@@ -65,6 +65,28 @@ module GwfCsubModule
   ! -- local parameter
   real(DP), parameter :: dlog10es = 0.4342942_DP !< derivative of the log of effective stress
   real(DP), parameter :: stressfloor = DEM3 !< effective-stress regularization floor (fraction of geostatic stress)
+
+  !> @brief Interbed storage state
+  !<
+  enum, bind(C)
+    enumerator :: STORAGE_UNSET = -1 !< no state recorded
+    enumerator :: STORAGE_ELASTIC = 0 !< effective stress not above preconsolidation stress
+    enumerator :: STORAGE_INELASTIC = 1 !< effective stress above preconsolidation stress
+  end enum
+
+  !> @brief Interbed type
+  !<
+  enum, bind(C)
+    enumerator :: INTERBED_ELASTIC_INELASTIC = 0 !< elastic and inelastic storage
+    enumerator :: INTERBED_ELASTIC = 1 !< elastic storage only
+  end enum
+
+  !> @brief Interbed storage input
+  !<
+  enum, bind(C)
+    enumerator :: STORAGE_INPUT_COMPRESSION_INDEX = 0 !< compression indices
+    enumerator :: STORAGE_INPUT_SPECIFIC_STORAGE = 1 !< specific storage coefficients
+  end enum
   !
   ! CSUB type
   type, extends(NumericalPackageType) :: GwfCsubType
@@ -92,7 +114,7 @@ module GwfCsubModule
     integer(I4B), pointer :: ioutzdisp => null() !< unit number for z-displacement output
     integer(I4B), pointer :: ipakcsv => null() !< unit number for csv output
     integer(I4B), pointer :: iupdatematprop => null() !< flag indicating if material properties will be updated
-    integer(I4B), pointer :: istoragec => null() !< flag indicating specific storage coefficient will be specified
+    integer(I4B), pointer :: istoragec => null() !< interbed storage input (STORAGE_INPUT_*)
     integer(I4B), pointer :: icellf => null() !< flag indicating cell fractions will be specified
     integer(I4B), pointer :: ispecified_pcs => null() !< flag indicating preconsolidation state is specified (not relative)
     integer(I4B), pointer :: ispecified_dbh => null() !< flag indicating delay bed head is specified (not relative)
@@ -157,9 +179,9 @@ module GwfCsubModule
     !
     ! -- interbed variables
     integer(I4B), dimension(:), pointer, contiguous :: idelay => null() !< delay interbed flag - 0 = nodelay, > 0 = delay
-    integer(I4B), dimension(:), pointer, contiguous :: ielastic => null() !< elastic interbed equation - 0 = inelastic and elastic, > 0 = elastic
-    integer(I4B), dimension(:), pointer, contiguous :: iconvert => null() !< convertible cell flag - 0 = elastic, > 0 = inelastic
-    integer(I4B), dimension(:), pointer, contiguous :: iconvert_nr => null() !< iconvert at the last Newton-Raphson term (-1 = not yet set)
+    integer(I4B), dimension(:), pointer, contiguous :: ielastic => null() !< interbed type (INTERBED_*)
+    integer(I4B), dimension(:), pointer, contiguous :: iconvert => null() !< no-delay interbed storage state (STORAGE_*)
+    integer(I4B), dimension(:), pointer, contiguous :: iconvert_nr => null() !< iconvert at the last Newton-Raphson term (STORAGE_*)
     real(DP), dimension(:), pointer, contiguous :: ci => null() !< compression index
     real(DP), dimension(:), pointer, contiguous :: rci => null() !< recompression index
     real(DP), dimension(:), pointer, contiguous :: pcs => null() !< preconsolidation stress
@@ -184,7 +206,7 @@ module GwfCsubModule
     !
     ! -- delay interbed
     integer(I4B), dimension(:), pointer, contiguous :: idb_nconv_count => null() !< non-convertible count of interbeds with heads below delay cell top
-    integer(I4B), dimension(:, :), pointer, contiguous :: idbconvert => null() !0 = elastic, > 0 = inelastic
+    integer(I4B), dimension(:, :), pointer, contiguous :: idbconvert => null() !< delay cell storage state (STORAGE_*)
     real(DP), dimension(:), pointer, contiguous :: dbdhmax => null() !< delay bed maximum head change
     real(DP), dimension(:, :), pointer, contiguous :: dbz => null() !< delay bed cell z
     real(DP), dimension(:, :), pointer, contiguous :: dbrelz => null() !< delay bed cell z relative to znode
