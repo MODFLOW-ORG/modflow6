@@ -4,8 +4,8 @@ module PetscImsPreconditionerModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: LENMEMPATH, DZERO, IZERO
   use PetscMatrixModule, only: PetscMatrixType
-  use SparseMatrixModule, only: SparseMatrixType
-  use ImsLinearSettingsModule, only: ImsLinearSettingsType
+  use ImsLinearSettingsModule, only: ImsLinearSettingsType, IPC_ILU0, &
+                                     IPC_MILU0, IPC_ILUT, IPC_MILUT, resolve_ipc
   use SimVariablesModule, only: iout
 
   implicit none
@@ -70,11 +70,8 @@ contains
     this%memory_path = matrix%memory_path
     this%linear_settings => lin_settings
 
-    this%ipc = 1
-    if (this%linear_settings%level > 0) then
-      this%ipc = this%ipc + 2
-    end if
-    if (this%linear_settings%relax > 0.0_DP) this%ipc = this%ipc + 1
+    this%ipc = resolve_ipc(this%linear_settings%level, &
+                           this%linear_settings%relax)
     this%ims_pc_type = IMS_PC_TYPE(this%ipc)
 
     this%system_matrix => matrix
@@ -89,7 +86,7 @@ contains
     call mem_allocate(this%IAPC, niapc + 1, 'IAPC', this%memory_path)
     call mem_allocate(this%JAPC, njapc, 'JAPC', this%memory_path)
     call mem_allocate(this%APC, njapc, 'APC', this%memory_path)
-    if (this%ipc == 1 .or. this%ipc == 2) then
+    if (this%ipc == IPC_ILU0 .or. this%ipc == IPC_MILU0) then
       call ims_base_pccrs(niapc, njapc, ia, ja, this%IAPC, this%JAPC)
     end if
     do n = 1, njapc
@@ -168,10 +165,10 @@ contains
     neq = pc_ctx%system_matrix%nrow
     nja = pc_ctx%system_matrix%nnz_local
     select case (pc_ctx%ipc)
-    case (1, 2)
+    case (IPC_ILU0, IPC_MILU0)
       call ims_base_ilu0a(nja, neq, pc_ctx%APC, pc_ctx%IAPC, pc_ctx%JAPC, &
                           local_x, local_y)
-    case (3, 4)
+    case (IPC_ILUT, IPC_MILUT)
       call lusol(neq, local_x, local_y, pc_ctx%APC, pc_ctx%JLU, pc_ctx%IW)
     end select
 

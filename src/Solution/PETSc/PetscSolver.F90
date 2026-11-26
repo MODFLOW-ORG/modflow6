@@ -1,8 +1,8 @@
 module PetscSolverModule
 #include <petsc/finclude/petscksp.h>
   use petscksp
-  use KindModule, only: I4B, DP, LGP
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, DZERO
+  use KindModule, only: I4B, LGP
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME
   use ListsModule, only: basesolutionlist
   use LinearSolverBaseModule
   use MatrixBaseModule
@@ -13,7 +13,7 @@ module PetscSolverModule
   use PetscImsPreconditionerModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
-  use SimVariablesModule, only: iout, simulation_mode, nr_procs, proc_id
+  use SimVariablesModule, only: iout, simulation_mode
   use SimModule, only: store_error, store_warning
   use FeatureFlagsModule, only: developmode
 
@@ -89,6 +89,8 @@ contains
     class(MatrixBaseType), pointer :: matrix !< The solution matrix as KSP operator
     type(ImsLinearSettingsType), pointer :: linear_settings !< the settings for the linear solver from the .ims file
     type(ConvergenceSummaryType), pointer :: convergence_summary !< a convergence record for diagnostics
+    ! local
+    character(len=LINELENGTH) :: errmsg
 
     this%linear_settings => linear_settings
 
@@ -108,10 +110,15 @@ contains
     allocate (this%pc_context)
     call this%pc_context%create(this%matrix, linear_settings)
 
-    if (linear_settings%ilinmeth == CG_METHOD) then
+    if (linear_settings%ilinmeth == LINACC_CG) then
       this%ksp_type = KSPCG
-    else
+    else if (linear_settings%ilinmeth == LINACC_BICGSTAB) then
       this%ksp_type = KSPBCGS
+    else
+      write (errmsg, '(a,1x,i0,a)') &
+        'PETSc: unknown linear acceleration method (', &
+        linear_settings%ilinmeth, ').'
+      call store_error(errmsg, terminate=.true.)
     end if
 
     ! get MODFLOW options from PETSc database file
@@ -132,21 +139,21 @@ contains
     character(len=LINELENGTH) :: warnmsg, errmsg
 
     ! errors
-    if (linear_settings%ilinmeth /= CG_METHOD .and. &
-        linear_settings%ilinmeth /= BCGS_METHOD) then
+    if (linear_settings%ilinmeth /= LINACC_CG .and. &
+        linear_settings%ilinmeth /= LINACC_BICGSTAB) then
       write (errmsg, '(a,a)') 'PETSc: unknown linear solver method in ', &
         this%name
       call store_error(errmsg, terminate=.true.)
     end if
 
     ! warnings
-    if (linear_settings%iord > 0) then
-      linear_settings%iord = 0
+    if (linear_settings%iord /= ORDER_NONE) then
+      linear_settings%iord = ORDER_NONE
       write (warnmsg, '(a)') 'PETSc: IMS reordering not supported'
       call store_warning(warnmsg)
     end if
-    if (linear_settings%iscl > 0) then
-      linear_settings%iscl = 0
+    if (linear_settings%iscl /= SCALING_NONE) then
+      linear_settings%iscl = SCALING_NONE
       write (warnmsg, '(a)') 'PETSc: IMS matrix scaling not supported'
       call store_warning(warnmsg)
     end if
@@ -289,7 +296,6 @@ contains
   !> @brief Create and assign a custom convergence
   !< check for this solver
   subroutine create_convergence_check(this, convergence_summary)
-    use IMSLinearBaseModule, only: ims_base_epfact
     class(PetscSolverType) :: this !< This solver instance
     type(ConvergenceSummaryType), pointer :: convergence_summary
     ! local
@@ -339,7 +345,7 @@ contains
     end select
 
     this%iteration_number = 0
-    this%is_converged = 0
+    this%is_converged = INNER_NOT_CONVERGED
     if (kiter == 1) then
       this%petsc_ctx%cnvg_summary%iter_cnt = 0
     end if
@@ -356,12 +362,12 @@ contains
     call KSPGetConvergedReason(this%ksp_petsc, cnvg_reason, ierr)
     CHKERRQ(ierr)
     if (cnvg_reason > 0) then
-      if (this%petsc_ctx%icnvg_ims == -1) then
+      if (this%petsc_ctx%icnvg_ims == INNER_FORCE_OUTER) then
         ! move to next Picard iteration (e.g. with 'STRICT' option)
-        this%is_converged = 0
+        this%is_converged = INNER_NOT_CONVERGED
       else
         ! linear convergence reached
-        this%is_converged = 1
+        this%is_converged = INNER_CONVERGED
       end if
     end if
 
@@ -370,7 +376,7 @@ contains
           cnvg_reason == KSP_DIVERGED_ITS) then
         ! out of iterations, or rho/eta became zero,
         ! move to next Picard iteration and try again
-        this%is_converged = 0
+        this%is_converged = INNER_NOT_CONVERGED
       else
         ! this is an solver error, terminate
         write (errmsg, '(1x,3a,i0)') "PETSc convergence failure in ", &

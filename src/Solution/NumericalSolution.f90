@@ -5,13 +5,10 @@ module NumericalSolutionModule
   use ErrorUtilModule, only: pstop
   use TimerModule, only: code_timer
   use ProfilerModule
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENPAKLOC, &
-                             DPREC, DZERO, DEM20, DEM15, DEM6, &
-                             DEM4, DEM3, DEM2, DEM1, DHALF, DONETHIRD, &
-                             DONE, DTHREE, DEP3, DEP6, DEP20, DNODATA, &
-                             TABLEFT, TABRIGHT, &
-                             MNORMAL, MVALIDATE, &
-                             LENMEMPATH
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENPAKLOC, DPREC, &
+                             DZERO, DEM20, DEM15, DEM3, DEM2, DEM1, DHALF, &
+                             DONETHIRD, DONE, DTHREE, TABLEFT, TABRIGHT, &
+                             MNORMAL, MVALIDATE, LENMEMPATH
   use MemoryHelperModule, only: create_mem_path
   use TableModule, only: TableType, table_cr
   Use MessageModule, only: write_message
@@ -52,8 +49,29 @@ module NumericalSolutionModule
   public :: CastAsNumericalSolutionClass
   public :: create_numerical_solution
 
-  integer(I4B), parameter :: IMS_SOLVER = 1
-  integer(I4B), parameter :: PETSC_SOLVER = 2
+  !> @brief Linear solvers
+  !<
+  enum, bind(C)
+    enumerator :: IMS_SOLVER = 1 !< IMS linear solver
+    enumerator :: PETSC_SOLVER = 2 !< PETSc linear solver
+  end enum
+
+  !> @brief Under-relaxation methods
+  !<
+  enum, bind(C)
+    enumerator :: UR_NONE = 0 !< no under-relaxation
+    enumerator :: UR_SIMPLE = 1 !< simple under-relaxation
+    enumerator :: UR_COOLEY = 2 !< Cooley under-relaxation
+    enumerator :: UR_DBD = 3 !< delta-bar-delta under-relaxation
+  end enum
+
+  !> @brief Pseudo-transient continuation options
+  !<
+  enum, bind(C)
+    enumerator :: PTC_FIRST_OFF = -1 !< not used in the first stress period
+    enumerator :: PTC_OFF = 0 !< not used
+    enumerator :: PTC_ON = 1 !< used in every stress period
+  end enum
 
   type, extends(BaseSolutionType) :: NumericalSolutionType
     character(len=LENMEMPATH) :: memory_path !< the path for storing solution variables in the memory manager
@@ -352,8 +370,8 @@ contains
     this%itertot_sim = 0
     this%mxiter = 0
     this%linsolver = IMS_SOLVER
-    this%nonmeth = 0
-    this%iprims = 0
+    this%nonmeth = UR_NONE
+    this%iprims = PRINT_NONE
     this%theta = DONE
     this%akappa = DZERO
     this%gamma = DONE
@@ -367,7 +385,7 @@ contains
     this%icsvinnerout = 0
     this%nitermax = 0
     this%convnmod = 0
-    this%iallowptc = 1
+    this%iallowptc = PTC_ON
     this%iptcopt = 0
     this%iptcout = 0
     this%l2norm0 = DZERO
@@ -536,7 +554,7 @@ contains
     ! -- modules
     use MemoryManagerModule, only: mem_reallocate
     use SimVariablesModule, only: iout
-    use SimModule, only: store_error, count_errors, deprecation_warning
+    use SimModule, only: store_error, count_errors
     use InputOutputModule, only: getunit, openfile
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
@@ -569,7 +587,7 @@ contains
     !
     ! -- initialize
     i = 1
-    ifdparam = 1
+    ifdparam = COMPLEXITY_SIMPLE
     npp = 0
     mxvl = 0
     !
@@ -588,11 +606,11 @@ contains
         case ('PRINT_OPTION')
           call this%parser%GetStringCaps(keyword)
           if (keyword .eq. 'NONE') then
-            this%iprims = 0
+            this%iprims = PRINT_NONE
           else if (keyword .eq. 'SUMMARY') then
-            this%iprims = 1
+            this%iprims = PRINT_SUMMARY
           else if (keyword .eq. 'ALL') then
-            this%iprims = 2
+            this%iprims = PRINT_ALL
           else
             write (errmsg, '(3a)') &
               'Unknown IMS print option (', trim(keyword), ').'
@@ -601,13 +619,13 @@ contains
         case ('COMPLEXITY')
           call this%parser%GetStringCaps(keyword)
           if (keyword .eq. 'SIMPLE') then
-            ifdparam = 1
+            ifdparam = COMPLEXITY_SIMPLE
             WRITE (IOUT, 21)
           else if (keyword .eq. 'MODERATE') then
-            ifdparam = 2
+            ifdparam = COMPLEXITY_MODERATE
             WRITE (IOUT, 23)
           else if (keyword .eq. 'COMPLEX') then
-            ifdparam = 3
+            ifdparam = COMPLEXITY_COMPLEX
             WRITE (IOUT, 25)
           else
             write (errmsg, '(3a)') &
@@ -650,13 +668,13 @@ contains
           call this%parser%GetStringCaps(keyword)
           select case (keyword)
           case ('ALL')
-            ival = 0
+            ival = PTC_OFF
             msg = 'ALL'
           case ('FIRST')
-            ival = -1
+            ival = PTC_FIRST_OFF
             msg = 'THE FIRST'
           case default
-            ival = 0
+            ival = PTC_OFF
             msg = 'ALL'
           end select
           this%iallowptc = ival
@@ -680,11 +698,11 @@ contains
           !    constants module is set to 1
         case ('DEV_PTC')
           call this%parser%DevOpt()
-          this%iallowptc = 1
+          this%iallowptc = PTC_ON
           write (IOUT, '(1x,A)') 'PSEUDO-TRANSIENT CONTINUATION ENABLED'
         case ('DEV_PTC_OUTPUT')
           call this%parser%DevOpt()
-          this%iallowptc = 1
+          this%iallowptc = PTC_ON
           call this%parser%GetStringCaps(keyword)
           if (keyword == 'FILEOUT') then
             call this%parser%GetString(fname)
@@ -702,7 +720,7 @@ contains
           end if
         case ('DEV_PTC_OPTION')
           call this%parser%DevOpt()
-          this%iallowptc = 1
+          this%iallowptc = PTC_ON
           this%iptcopt = 1
           write (IOUT, '(1x,A)') &
             'PSEUDO-TRANSIENT CONTINUATION USES BNORM AND L2NORM TO '// &
@@ -714,7 +732,7 @@ contains
             write (errmsg, '(a)') 'PTC_EXPONENT must be > 0.'
             call store_error(errmsg)
           else
-            this%iallowptc = 1
+            this%iallowptc = PTC_ON
             this%ptcexp = rval
             write (IOUT, '(1x,A,1x,g15.7)') &
               'PSEUDO-TRANSIENT CONTINUATION EXPONENT', this%ptcexp
@@ -726,7 +744,7 @@ contains
             write (errmsg, '(a)') 'IMS sln_ar: PTC_DEL0 must be > 0.'
             call store_error(errmsg)
           else
-            this%iallowptc = 1
+            this%iallowptc = PTC_ON
             this%ptcdel0 = rval
             write (IOUT, '(1x,A,1x,g15.7)') &
               'PSEUDO-TRANSIENT CONTINUATION INITIAL TIMESTEP', this%ptcdel0
@@ -772,15 +790,15 @@ contains
           this%mxiter = this%parser%GetInteger()
         case ('UNDER_RELAXATION')
           call this%parser%GetStringCaps(keyword)
-          ival = 0
+          ival = UR_NONE
           if (keyword == 'NONE') then
-            ival = 0
+            ival = UR_NONE
           else if (keyword == 'SIMPLE') then
-            ival = 1
+            ival = UR_SIMPLE
           else if (keyword == 'COOLEY') then
-            ival = 2
+            ival = UR_COOLEY
           else if (keyword == 'DBD') then
-            ival = 3
+            ival = UR_DBD
           else
             write (errmsg, '(3a)') &
               'Unknown UNDER_RELAXATION specified (', trim(keyword), ').'
@@ -823,19 +841,14 @@ contains
         end select
       end do
       write (iout, '(1x,a)') 'END OF IMS NONLINEAR DATA'
-    else
-      if (IFDPARAM .EQ. 0) then
-        write (errmsg, '(a)') 'NO IMS NONLINEAR block detected.'
-        call store_error(errmsg)
-      end if
     end if
     !
     if (THIS%theta < DEM3) then
       this%theta = DEM3
     end if
     !
-    ! -- backtracking should only be used if this%nonmeth > 0
-    if (this%nonmeth < 1) then
+    ! -- backtracking is only used with under-relaxation
+    if (this%nonmeth == UR_NONE) then
       this%ibflag = 0
     end if
     !
@@ -846,20 +859,16 @@ contains
     END IF
     !
     ! -- write under-relaxation option
-    if (this%nonmeth > 0) then
+    if (this%nonmeth /= UR_NONE) then
       WRITE (IOUT, *) '**UNDER-RELAXATION WILL BE USED***'
       WRITE (IOUT, *)
-    elseif (this%nonmeth == 0) then
+    else
       WRITE (IOUT, *) '***UNDER-RELAXATION WILL NOT BE USED***'
       WRITE (IOUT, *)
-    else
-      WRITE (errmsg, '(a)') &
-        'Incorrect value for variable NONMETH was specified.'
-      call store_error(errmsg)
     end if
     !
     ! -- ensure gamma is > 0 for simple
-    if (this%nonmeth == 1) then
+    if (this%nonmeth == UR_SIMPLE) then
       if (this%gamma == 0) then
         WRITE (errmsg, '(a)') &
           'GAMMA must be greater than zero if SIMPLE under-relaxation is used.'
@@ -877,7 +886,7 @@ contains
     call this%linear_settings%read_from_file(this%parser, iout)
     call this%linear_settings%check_settings()
     !
-    if (this%linear_settings%ilinmeth == CG_METHOD) then
+    if (this%linear_settings%ilinmeth == LINACC_CG) then
       this%isymmetric = 1
     end if
     !
@@ -966,11 +975,11 @@ contains
            /1X, 'NONLINEAR ITERATION METHOD            (NONLINMETH) = ', I0, &
            /1X, 'LINEAR SOLUTION METHOD                   (LINMETH) = ', I0)
     !
-    if (this%nonmeth == 1) then ! simple
+    if (this%nonmeth == UR_SIMPLE) then
       write (iout, 9003) this%gamma
-    else if (this%nonmeth == 2) then ! cooley
+    else if (this%nonmeth == UR_COOLEY) then
       write (iout, 9004) this%gamma
-    else if (this%nonmeth == 3) then ! delta bar delta
+    else if (this%nonmeth == UR_DBD) then
       write (iout, 9005) this%theta, this%akappa, this%gamma, this%amomentum
     end if
     !
@@ -1010,7 +1019,7 @@ contains
     call mem_reallocate(this%lrch, 3, this%mxiter, 'LRCH', this%name)
 
     ! delta-bar-delta under-relaxation
-    if (this%nonmeth == 3) then
+    if (this%nonmeth == UR_DBD) then
       call mem_reallocate(this%wsave, this%neq, 'WSAVE', this%name)
       call mem_reallocate(this%hchold, this%neq, 'HCHOLD', this%name)
       call mem_reallocate(this%deold, this%neq, 'DEOLD', this%name)
@@ -1024,7 +1033,7 @@ contains
     this%lrch = 0
 
     ! allocate space for saving solver convergence history
-    if (this%iprims == 2 .or. this%icsvinnerout > 0) then
+    if (this%iprims == PRINT_ALL .or. this%icsvinnerout > 0) then
       this%nitermax = this%linear_settings%iter1 * this%mxiter
     else
       this%nitermax = 1
@@ -1054,7 +1063,7 @@ contains
   subroutine sln_dt(this)
     ! -- modules
     use TdisModule, only: kstp, kper, delt, ats
-    use ConstantsModule, only: DTWO, DTHREE
+    use ConstantsModule, only: DTHREE
     ! -- dummy variables
     class(NumericalSolutionType) :: this !< NumericalSolutionType instance
     ! -- local variables
@@ -1345,7 +1354,7 @@ contains
       if (this%linsolver == IMS_SOLVER) then
         write (this%icsvinnerout, '(*(G0,:,","))', advance='NO') &
           '', 'solution_inner_alpha'
-        if (this%imslinear%ilinmeth == 2) then
+        if (this%imslinear%ilinmeth == LINACC_BICGSTAB) then
           write (this%icsvinnerout, '(*(G0,:,","))', advance='NO') &
             '', 'solution_inner_omega'
         end if
@@ -1384,7 +1393,7 @@ contains
       !
       ! -- set iallowptc
       ! -- no_ptc_option is FIRST
-      if (this%iallowptc < 0) then
+      if (this%iallowptc == PTC_FIRST_OFF) then
         if (kper > 1) then
           iallowptc = 1
         else
@@ -1518,7 +1527,7 @@ contains
     kcsv0 = max(1, this%itertot_timestep + 1)
     !
     ! -- create header for outer iteration table
-    if (this%iprims > 0) then
+    if (this%iprims /= PRINT_NONE) then
       if (.not. associated(this%outertab)) then
         !
         ! -- create outer iteration table
@@ -1616,7 +1625,7 @@ contains
     !
     ! -- check convergence of solution
     call this%sln_get_dxmax(this%hncg(kiter), this%lrch(1, kiter))
-    if (this%icnvg /= 0) then
+    if (this%icnvg /= INNER_NOT_CONVERGED) then
       this%icnvg = 0
       if (this%sln_has_converged(this%hncg(kiter))) then
         this%icnvg = 1
@@ -1637,7 +1646,7 @@ contains
     end if
     !
     ! -- write maximum dependent-variable change from linear solver to list file
-    if (this%iprims > 0) then
+    if (this%iprims /= PRINT_NONE) then
       cval = 'Model'
       call this%sln_get_loc(this%lrch(1, kiter), strh)
       !
@@ -1687,7 +1696,7 @@ contains
       this%icnvg = this%sln_package_convergence(dpak, cpakout, iend)
       !
       ! -- write maximum change in package convergence check
-      if (this%iprims > 0) then
+      if (this%iprims /= PRINT_NONE) then
         cval = 'Package'
         if (this%icnvg /= 1) then
           cmsg = ' '
@@ -1715,7 +1724,7 @@ contains
     !
     ! -- under-relaxation - only done if convergence not achieved
     if (this%icnvg /= 1) then
-      if (this%nonmeth > 0) then
+      if (this%nonmeth /= UR_NONE) then
         call this%sln_underrelax(kiter, this%hncg(kiter), this%neq, &
                                  this%active, this%x, this%xtemp)
       else
@@ -1756,7 +1765,7 @@ contains
           !
           ! -- write revised dependent-variable change data after
           !    newton under-relaxation
-          if (this%iprims > 0) then
+          if (this%iprims /= PRINT_NONE) then
             cval = 'Newton under-relaxation'
             cmsg = '*'
             call this%sln_get_loc(this%lrch(1, kiter), strh)
@@ -1861,7 +1870,7 @@ contains
 
     !
     ! -- finalize the outer iteration table
-    if (this%iprims > 0) then
+    if (this%iprims /= PRINT_NONE) then
       call this%outertab%finalize_table()
     end if
     !
@@ -1869,7 +1878,7 @@ contains
     !
     ! -- convergence was achieved
     if (this%icnvg /= 0) then
-      if (this%iprims > 0) then
+      if (this%iprims /= PRINT_NONE) then
         write (iout, fmtcnvg) kiter, kstp, kper, this%itertot_timestep
       end if
       !
@@ -1879,7 +1888,7 @@ contains
     end if
     !
     ! -- write inner iteration convergence summary
-    if (this%iprims == 2) then
+    if (this%iprims == PRINT_ALL) then
       !
       ! -- write summary for each model
       do im = 1, this%modellist%Count()
@@ -2476,7 +2485,7 @@ contains
     !
     ! -- set iallowptc
     ! -- no_ptc_option is FIRST
-    if (this%iallowptc < 0) then
+    if (this%iallowptc == PTC_FIRST_OFF) then
       if (kper > 1) then
         iallowptc = 1
       else
@@ -2618,14 +2627,14 @@ contains
   subroutine sln_setouter(this, ifdparam)
     ! -- dummy variables
     class(NumericalSolutionType), intent(inout) :: this !< NumericalSolutionType instance
-    integer(I4B), intent(in) :: ifdparam !< complexity option (1) simple (2) moderate (3) complex
+    integer(I4B), intent(in) :: ifdparam !< complexity option (COMPLEXITY_*)
     !
     ! -- simple option
     select case (ifdparam)
-    case (1)
+    case (COMPLEXITY_SIMPLE)
       this%dvclose = dem3
       this%mxiter = 25
-      this%nonmeth = 0
+      this%nonmeth = UR_NONE
       this%theta = DONE
       this%akappa = DZERO
       this%gamma = DONE
@@ -2636,10 +2645,10 @@ contains
       this%res_lim = DZERO
       !
       ! -- moderate
-    case (2)
+    case (COMPLEXITY_MODERATE)
       this%dvclose = dem2
       this%mxiter = 50
-      this%nonmeth = 3
+      this%nonmeth = UR_DBD
       this%theta = 0.9d0
       this%akappa = 0.0001d0
       this%gamma = DZERO
@@ -2650,10 +2659,10 @@ contains
       this%res_lim = DZERO
       !
       ! -- complex
-    case (3)
+    case (COMPLEXITY_COMPLEX)
       this%dvclose = dem1
       this%mxiter = 100
-      this%nonmeth = 3
+      this%nonmeth = UR_DBD
       this%theta = 0.8d0
       this%akappa = 0.0001d0
       this%gamma = DZERO
@@ -2747,7 +2756,7 @@ contains
     end if
     !
     ! -- write back backtracking results
-    if (this%iprims > 0) then
+    if (this%iprims /= PRINT_NONE) then
       if (ibtcnt > 0) then
         cmsg = ' '
       else
@@ -3023,7 +3032,7 @@ contains
     real(DP) :: amom
     !
     ! -- option for using simple dampening (as done by MODFLOW-2005 PCG)
-    if (this%nonmeth == 1) then
+    if (this%nonmeth == UR_SIMPLE) then
       do n = 1, neq
         !
         ! -- skip inactive nodes
@@ -3038,7 +3047,7 @@ contains
       end do
       !
       ! -- option for using cooley underrelaxation
-    else if (this%nonmeth == 2) then
+    else if (this%nonmeth == UR_COOLEY) then
       !
       ! -- set bigch
       this%bigch = bigch
@@ -3080,7 +3089,7 @@ contains
       end if
       !
       ! -- option for using delta-bar-delta scheme to under-relax for all equations
-    else if (this%nonmeth == 3) then
+    else if (this%nonmeth == UR_DBD) then
       do n = 1, neq
         !
         ! -- skip inactive nodes

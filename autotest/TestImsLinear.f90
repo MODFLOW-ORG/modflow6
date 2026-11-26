@@ -1,15 +1,18 @@
 module TestImsLinear
   use KindModule, only: I4B, DP
   use ConstantsModule, only: DZERO, DONE
-  use testdrive, only: check, error_type, new_unittest, test_failed, &
-                       to_string, unittest_type
+  use testdrive, only: check, error_type, new_unittest, to_string, unittest_type
   use ConvergenceSummaryModule, only: ConvergenceSummaryType
-  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0
+  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, LINACC_CG, &
+                                     LINACC_BICGSTAB, SCALING_DIAGONAL, &
+                                     SCALING_L2NORM, ORDER_NONE, ORDER_RCM, &
+                                     CNVG_INF_NORM, INNER_NOT_CONVERGED
   use IMSLinearBaseModule, only: ims_base_cg, ims_base_bcgs, &
                                  ims_base_scale, ims_base_cnvg_scale, &
                                  ims_base_pccrs, ims_base_pcilu0, &
                                  ims_base_residual, ims_base_calc_order, &
-                                 ims_base_pcu, ims_base_ilu0a
+                                 ims_base_pcu, ims_base_ilu0a, &
+                                 PCFLAG_OK, PCFLAG_BADPIVOT
   implicit none
   private
   public :: collect_imslinear
@@ -146,7 +149,7 @@ contains
     do n = 1, NEQ
       x0(n) = x(n) * dscale2(n)
     end do
-    if (iord /= 0) then
+    if (iord /= ORDER_NONE) then
       call ims_base_calc_order(iord, NEQ, NJA, ia, ja, lorder, iorder)
       nmoved = 0
       do n = 1, NEQ
@@ -169,7 +172,7 @@ contains
     call ims_base_cnvg_scale(NEQ, iord, dscale, dscale2, lorder, rscale, &
                              hscale)
     call ims_base_pccrs(NEQ, NJA, iao, jao, iapc, japc)
-    ipcflag = 0
+    ipcflag = PCFLAG_OK
     call ims_base_pcilu0(NJA, NEQ, ao, iao, jao, apc, iapc, japc, iw, w, &
                          DZERO, ipcflag, DZERO)
     call ims_base_residual(NEQ, NJA, x, b, d, ao, iao, jao)
@@ -183,23 +186,24 @@ contains
                       to_string(iscl)//to_string(iord))
     convmodstart(1) = 1
     convmodstart(2) = NEQ + 1
-    icnvg = 0
+    icnvg = INNER_NOT_CONVERGED
     jlu(1) = 0
-    if (ilinmeth == 1) then
-      call ims_base_cg(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, 0, 0, &
-                       iscl, rscale, hscale, 1.0d-30, 1.0d-30, l2norm0, &
-                       DONE, iao, jao, ao, iapc, japc, apc, x, b, d, p, q, z, &
-                       1, iw, jlu, 1, 1, convmodstart, caccel, summary)
+    if (ilinmeth == LINACC_CG) then
+      call ims_base_cg(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, &
+                       CNVG_INF_NORM, 0, iscl, rscale, hscale, 1.0d-30, &
+                       1.0d-30, l2norm0, DONE, iao, jao, ao, iapc, japc, apc, &
+                       x, b, d, p, q, z, 1, iw, jlu, 1, 1, convmodstart, &
+                       caccel, summary)
     else
-      call ims_base_bcgs(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, 0, &
-                         0, iscl, rscale, hscale, 1.0d-30, 1.0d-30, l2norm0, &
-                         DONE, iao, jao, ao, iapc, japc, apc, x, b, d, p, q, &
-                         t, v, dhat, phat, qhat, 1, iw, jlu, 1, 1, &
-                         convmodstart, caccel, summary)
+      call ims_base_bcgs(icnvg, 1, innerit, NEQ, NJA, NEQ, NJA, IPC_ILU0, &
+                         CNVG_INF_NORM, 0, iscl, rscale, hscale, 1.0d-30, &
+                         1.0d-30, l2norm0, DONE, iao, jao, ao, iapc, japc, &
+                         apc, x, b, d, p, q, t, v, dhat, phat, qhat, 1, iw, &
+                         jlu, 1, 1, convmodstart, caccel, summary)
     end if
 
     ! head change and residual of the unscaled system in model order
-    if (iord /= 0) call dvperm(NEQ, x, iorder)
+    if (iord /= ORDER_NONE) call dvperm(NEQ, x, iorder)
     do n = 1, NEQ
       xm(n) = x(n) * dscale2(n)
       dx(n) = xm(n) - x0(n)
@@ -254,32 +258,34 @@ contains
 
   subroutine test_cg_diagonal(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 1, 1, 0)
+    call check_one_iteration(error, LINACC_CG, SCALING_DIAGONAL, ORDER_NONE)
   end subroutine test_cg_diagonal
 
   subroutine test_cg_l2norm(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 1, 2, 0)
+    call check_one_iteration(error, LINACC_CG, SCALING_L2NORM, ORDER_NONE)
   end subroutine test_cg_l2norm
 
   subroutine test_bcgs_diagonal(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 2, 1, 0)
+    call check_one_iteration(error, LINACC_BICGSTAB, SCALING_DIAGONAL, &
+                             ORDER_NONE)
   end subroutine test_bcgs_diagonal
 
   subroutine test_bcgs_l2norm(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 2, 2, 0)
+    call check_one_iteration(error, LINACC_BICGSTAB, SCALING_L2NORM, &
+                             ORDER_NONE)
   end subroutine test_bcgs_l2norm
 
   subroutine test_cg_diagonal_rcm(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 1, 1, 1)
+    call check_one_iteration(error, LINACC_CG, SCALING_DIAGONAL, ORDER_RCM)
   end subroutine test_cg_diagonal_rcm
 
   subroutine test_bcgs_l2norm_rcm(error)
     type(error_type), allocatable, intent(out) :: error
-    call check_one_iteration(error, 2, 2, 1)
+    call check_one_iteration(error, LINACC_BICGSTAB, SCALING_L2NORM, ORDER_RCM)
   end subroutine test_bcgs_l2norm_rcm
 
   !> @brief Build a 3 by 3 matrix whose MILU0 pivot changes sign
@@ -308,10 +314,10 @@ contains
     integer(I4B) :: ipcflag
 
     call setup_bad_pivot(ia, ja, a, iapc, japc)
-    ipcflag = 0
+    ipcflag = PCFLAG_OK
     call ims_base_pcilu0(7, 3, a, ia, ja, apc, iapc, japc, iw, w, &
                          0.97d0, ipcflag, DZERO)
-    call check(error, ipcflag == 1, 'ipcflag '//to_string(ipcflag))
+    call check(error, ipcflag == PCFLAG_BADPIVOT, 'ipcflag '//to_string(ipcflag))
   end subroutine test_pcilu0_bad_pivot
 
   !> @brief The retries end with a complete, finite factorization
@@ -511,10 +517,10 @@ contains
     do i = 0, 1
       relax = 0.97d0 * real(i, DP)
       do ifac = 1, 2
-        ipcflag = 0
+        ipcflag = PCFLAG_OK
         call ims_base_pcilu0(NNZ, NT, a, ia, ja, apc, iapc, japc, iw, w, &
                              relax, ipcflag, DZERO)
-        call check(error, ipcflag == 0, 'ipcflag '//to_string(ipcflag))
+        call check(error, ipcflag == PCFLAG_OK, 'ipcflag '//to_string(ipcflag))
         if (allocated(error)) return
       end do
       call ims_base_ilu0a(NNZ, NT, apc, iapc, japc, y, x)
@@ -553,10 +559,10 @@ contains
 
     do i = 0, 1
       relax = 0.97d0 * real(i, DP)
-      ipcflag = 0
+      ipcflag = PCFLAG_OK
       call ims_base_pcilu0(NJA, NEQ, a, ia, ja, apc, iapc, japc, iw, w, &
                            relax, ipcflag, DZERO)
-      call check(error, ipcflag == 0, 'ipcflag '//to_string(ipcflag))
+      call check(error, ipcflag == PCFLAG_OK, 'ipcflag '//to_string(ipcflag))
       if (allocated(error)) return
       call ims_base_ilu0a(NJA, NEQ, apc, iapc, japc, y, z)
 

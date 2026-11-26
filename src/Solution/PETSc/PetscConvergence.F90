@@ -3,8 +3,6 @@ module PetscConvergenceModule
   use petscksp
   use KindModule, only: I4B, DP
   use ConstantsModule, only: DPREC, DZERO
-  use SimModule, only: store_error
-  use SimVariablesModule, only: errmsg
   use ListModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
@@ -22,9 +20,8 @@ module PetscConvergenceModule
     Vec :: x_old !< x vector from the previous iteration
     Vec :: delta_x !< delta in x w.r.t. previous iteration
     Vec :: residual !< the unpreconditoned residual vector (a la IMS)
-    integer(I4B) :: icnvg_ims !< IMS convergence number: 1 => converged, -1 => forces next Picard iter
-    integer(I4B) :: icnvgopt !< convergence option:
-                             !! 0,1,2,3,4,.. for equivalent IMS settings
+    integer(I4B) :: icnvg_ims !< IMS inner convergence status (INNER_*)
+    integer(I4B) :: icnvgopt !< IMS convergence option (CNVG_*)
     real(DP) :: dvclose !< dep. variable closure criterion
     real(DP) :: rclose !< residual closure criterion
     integer(I4B) :: max_its !< maximum number of inner iterations
@@ -76,7 +73,7 @@ contains
     ! local
     PetscErrorCode :: ierr
 
-    this%icnvg_ims = 0
+    this%icnvg_ims = INNER_NOT_CONVERGED
     this%icnvgopt = settings%icnvgopt
     this%dvclose = settings%dvclose
     this%rclose = settings%rclose
@@ -119,9 +116,7 @@ contains
     CHKERRQ(ierr)
 
     rnorm0 = huge(rnorm0)
-    if (context%icnvgopt == 2 .or. &
-        context%icnvgopt == 3 .or. &
-        context%icnvgopt == 4) then
+    if (uses_l2_norm(context%icnvgopt)) then
       call VecNorm(res, NORM_2, rnorm_L2_ims, ierr)
       rnorm0 = rnorm_L2_ims
       CHKERRQ(ierr)
@@ -151,7 +146,8 @@ contains
     CHKERRQ(ierr)
 
     rnorm_inf_ims = huge(rnorm_inf_ims)
-    if (context%icnvgopt == 0 .or. context%icnvgopt == 1) then
+    if (context%icnvgopt == CNVG_INF_NORM .or. &
+        context%icnvgopt == CNVG_INF_NORM_STRICT) then
       call VecNorm(res, NORM_INFINITY, rnorm_inf_ims, ierr)
       CHKERRQ(ierr)
     end if
@@ -165,10 +161,10 @@ contains
     if (rnorm_L2 < RNORM_L2_TOL) then
       ! exact solution, set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
-      context%icnvg_ims = 1
+      context%icnvg_ims = INNER_CONVERGED
       ! check for strict option
-      if (n > 1 .and. context%icnvgopt == 1) then
-        context%icnvg_ims = -1
+      if (n > 1 .and. context%icnvgopt == CNVG_INF_NORM_STRICT) then
+        context%icnvg_ims = INNER_FORCE_OUTER
       end if
     else
       ! IMS check on convergence
@@ -204,13 +200,11 @@ contains
 
     ! Set to 'not converged'
     flag = KSP_CONVERGED_ITERATING
-    ctx%icnvg_ims = 0
+    ctx%icnvg_ims = INNER_NOT_CONVERGED
 
     epfact = ims_base_epfact(ctx%icnvgopt, kstp)
 
-    if (ctx%icnvgopt == 2 .or. &
-        ctx%icnvgopt == 3 .or. &
-        ctx%icnvgopt == 4) then
+    if (uses_l2_norm(ctx%icnvgopt)) then
       rcnvg = rnorm_L2
     else
       rcnvg = rnorm_inf
@@ -219,7 +213,7 @@ contains
                            dvmax, rcnvg, ctx%rnorm_L2_init, &
                            epfact, ctx%dvclose, ctx%rclose)
 
-    if (ctx%icnvg_ims /= 0) then
+    if (ctx%icnvg_ims /= INNER_NOT_CONVERGED) then
       ! Set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
     end if
@@ -256,7 +250,7 @@ contains
       if (rnorm_L2 < RNORM_L2_TOL) then
         ! exact solution found
         flag = KSP_CONVERGED_HAPPY_BREAKDOWN
-        context%icnvg_ims = 1
+        context%icnvg_ims = INNER_CONVERGED
       else
         call VecCopy(x, context%x_old, ierr)
         CHKERRQ(ierr)
@@ -278,20 +272,24 @@ contains
     ! fill the summary for reporting
     call fill_cnvg_summary_internal(summary, context%delta_x, n)
 
-    context%icnvg_ims = 0
+    context%icnvg_ims = INNER_NOT_CONVERGED
     if (rnorm_L2 < RNORM_L2_TOL) then
       ! exact solution, set to 'converged'
       flag = KSP_CONVERGED_HAPPY_BREAKDOWN
-      context%icnvg_ims = 1
+      context%icnvg_ims = INNER_CONVERGED
       ! apply 'strict'
-      if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
+      if (n > 1 .and. context%icnvgopt == CNVG_INF_NORM_STRICT) then
+        context%icnvg_ims = INNER_FORCE_OUTER
+      end if
     else
       ! L2norm
       if (xnorm_inf <= context%dvclose .and. rnorm_L2 <= context%rclose) then
         flag = KSP_CONVERGED_HAPPY_BREAKDOWN
-        context%icnvg_ims = 1
+        context%icnvg_ims = INNER_CONVERGED
         ! apply 'strict'
-        if (n > 1 .and. context%icnvgopt == 1) context%icnvg_ims = -1
+        if (n > 1 .and. context%icnvgopt == CNVG_INF_NORM_STRICT) then
+          context%icnvg_ims = INNER_FORCE_OUTER
+        end if
       end if
     end if
 

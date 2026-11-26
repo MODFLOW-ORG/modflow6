@@ -1,17 +1,13 @@
 MODULE IMSLinearModule
 
   use KindModule, only: DP, I4B
-  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENMEMPATH, &
-                             IZERO, DZERO, DPREC, DSAME, &
-                             DEM8, DEM6, DEM5, DEM4, DEM3, DEM2, DEM1, &
-                             DHALF, DONE, DTWO, &
-                             VDEBUG
+  use ConstantsModule, only: LINELENGTH, LENSOLUTIONNAME, LENMEMPATH, IZERO, &
+                             DZERO, DONE
   use IMSLinearBaseModule, only: ims_base_cg, ims_base_bcgs, &
                                  ims_base_pccrs, ims_base_calc_order, &
                                  ims_base_scale, ims_base_pcu, &
                                  ims_base_residual, ims_base_epfact, &
                                  ims_calc_pcdims, ims_base_cnvg_scale
-  use BlockParserModule, only: BlockParserType
   use MatrixBaseModule
   use ConvergenceSummaryModule
   use ImsLinearSettingsModule
@@ -100,8 +96,6 @@ MODULE IMSLinearModule
     PROCEDURE :: IMSLINEAR_APPLY => imslinear_ap
     procedure :: IMSLINEAR_DA => imslinear_da
     procedure, private :: allocate_scalars
-    ! -- PRIVATE PROCEDURES
-    PROCEDURE, PRIVATE :: SET_IMSLINEAR_INPUT => imslinear_set_input
   END TYPE ImsLinearDataType
 
 CONTAINS
@@ -116,8 +110,7 @@ CONTAINS
     ! -- modules
     use MemoryManagerModule, only: mem_allocate
     use MemoryHelperModule, only: create_mem_path
-    use SimModule, only: store_error, count_errors, &
-                         deprecation_warning
+    use SimModule, only: store_error
     ! -- dummy variables
     CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
     CHARACTER(LEN=LENSOLUTIONNAME), INTENT(IN) :: NAME !< solution name
@@ -181,22 +174,12 @@ CONTAINS
     this%IPC = resolve_ipc(this%LEVEL, this%RELAX)
     !
     ! -- ERROR CHECKING FOR OPTIONS
-    IF (this%ISCL < 0) this%ISCL = 0
-    IF (this%ISCL > 2) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR ISCL MUST BE <= 2'
-      call store_error(errmsg)
-    END IF
-    IF (this%IORD < 0) this%IORD = 0
-    IF (this%IORD > 2) THEN
-      WRITE (errmsg, '(A)') 'IMSLINEAR7AR IORD MUST BE <= 2'
-      call store_error(errmsg)
-    END IF
     IF (this%NORTH < 0) THEN
       WRITE (errmsg, '(A)') 'IMSLINEAR7AR NORTH MUST >= 0'
       call store_error(errmsg)
     END IF
     IF (this%RCLOSE == DZERO) THEN
-      IF (this%ICNVGOPT /= 3) THEN
+      IF (this%ICNVGOPT /= CNVG_L2_NORM_RELATIVE) THEN
         WRITE (errmsg, '(A)') 'IMSLINEAR7AR RCLOSE MUST > 0.0'
         call store_error(errmsg)
       END IF
@@ -215,7 +198,7 @@ CONTAINS
     !
     ! -- ALLOCATE AND INITIALIZE MEMORY FOR IMSLINEAR
     iscllen = 1
-    IF (this%ISCL .NE. 0) iscllen = NEQ
+    IF (this%ISCL /= SCALING_NONE) iscllen = NEQ
     CALL mem_allocate(this%DSCALE, iscllen, 'DSCALE', TRIM(this%memoryPath))
     CALL mem_allocate(this%DSCALE2, iscllen, 'DSCALE2', TRIM(this%memoryPath))
     CALL mem_allocate(this%RSCALE, iscllen, 'RSCALE', TRIM(this%memoryPath))
@@ -227,7 +210,7 @@ CONTAINS
     ! -- ALLOCATE SPACE FOR PERMUTATION VECTOR
     i0 = 1
     iolen = 1
-    IF (this%IORD .NE. 0) THEN
+    IF (this%IORD /= ORDER_NONE) THEN
       i0 = this%NEQ
       iolen = this%NJA
     END IF
@@ -246,7 +229,7 @@ CONTAINS
     !
     ! -- ALLOCATE MEMORY FOR BCGS WORKING ARRAYS
     this%NIABCGS = 1
-    IF (this%ILINMETH == 2) THEN
+    IF (this%ILINMETH == LINACC_BICGSTAB) THEN
       this%NIABCGS = this%NEQ
     END IF
     CALL mem_allocate(this%T, this%NIABCGS, 'T', TRIM(this%memoryPath))
@@ -306,7 +289,7 @@ CONTAINS
     END DO
     !
     ! -- REVERSE CUTHILL MCKEE AND MINIMUM DEGREE ORDERING
-    IF (this%IORD .NE. 0) THEN
+    IF (this%IORD /= ORDER_NONE) THEN
       CALL ims_base_calc_order(this%IORD, this%NEQ, this%NJA, this%IA, &
                                this%JA, this%LORDER, this%IORDER)
     END IF
@@ -405,10 +388,10 @@ CONTAINS
       write (this%iout, '(//)')
     END IF
 
-    if (this%iord /= 0) then
+    if (this%iord /= ORDER_NONE) then
       !
       ! -- WRITE SUMMARY OF REORDERING INFORMATION TO LIST FILE
-      if (this%iprims == 2) then
+      if (this%iprims == PRINT_ALL) then
         DO i = 1, this%neq, 6
           write (this%iout, 2030) 'ORIGINAL NODE      :', &
             (j, j=i, MIN(i + 5, this%neq))
@@ -450,7 +433,7 @@ CONTAINS
     !
     ! -- initialize scalars
     this%iout = 0
-    this%ipc = 0
+    this%ipc = IPC_UNKNOWN
     this%iacpc = 0
     this%niterc = 0
     this%niabcgs = 0
@@ -604,62 +587,6 @@ CONTAINS
     nullify (this%WLU)
   end subroutine precond_destroy
 
-  !> @brief Set default settings
-    !!
-    !!  Set default linear accelerator settings.
-    !!
-  !<
-  SUBROUTINE imslinear_set_input(this, IFDPARAM)
-    ! -- dummy variables
-    CLASS(ImsLinearDataType), INTENT(INOUT) :: this !< ImsLinearDataType instance
-    integer(I4B), INTENT(IN) :: IFDPARAM !< complexity option
-    ! -- code
-    SELECT CASE (IFDPARAM)
-      !
-      ! -- Simple option
-    CASE (1)
-      this%ITER1 = 50
-      this%ILINMETH = 1
-      this%IPC = IPC_ILU0
-      this%ISCL = 0
-      this%IORD = 0
-      this%DVCLOSE = DEM3
-      this%RCLOSE = DEM1
-      this%RELAX = DZERO
-      this%LEVEL = 0
-      this%DROPTOL = DZERO
-      this%NORTH = 0
-      !
-      ! -- Moderate
-    CASE (2)
-      this%ITER1 = 100
-      this%ILINMETH = 2
-      this%IPC = IPC_MILU0
-      this%ISCL = 0
-      this%IORD = 0
-      this%DVCLOSE = DEM2
-      this%RCLOSE = DEM1
-      this%RELAX = 0.97D0
-      this%LEVEL = 0
-      this%DROPTOL = DZERO
-      this%NORTH = 0
-      !
-      ! -- Complex
-    CASE (3)
-      this%ITER1 = 500
-      this%ILINMETH = 2
-      this%IPC = IPC_ILUT
-      this%ISCL = 0
-      this%IORD = 0
-      this%DVCLOSE = DEM1
-      this%RCLOSE = DEM1
-      this%RELAX = DZERO
-      this%LEVEL = 5
-      this%DROPTOL = DEM4
-      this%NORTH = 2
-    END SELECT
-  end SUBROUTINE imslinear_set_input
-
   !> @brief Base linear accelerator subroutine
     !!
     !!  Base linear accelerator subroutine that scales and reorders
@@ -685,6 +612,7 @@ CONTAINS
     character(len=31), DIMENSION(NCONV), INTENT(INOUT) :: CACCEL !<
     type(ConvergenceSummaryType), pointer, intent(in) :: summary !< Convergence summary report
     ! -- local variables
+    character(len=LINELENGTH) :: errmsg
     integer(I4B) :: n
     integer(I4B) :: innerit
     integer(I4B) :: irc
@@ -695,7 +623,7 @@ CONTAINS
     this%EPFACT = ims_base_epfact(this%ICNVGOPT, KSTP)
     !
     ! -- SCALE PROBLEM
-    IF (this%ISCL .NE. 0) THEN
+    IF (this%ISCL /= SCALING_NONE) THEN
       CALL ims_base_scale(0, this%ISCL, &
                           this%NEQ, this%NJA, this%IA, this%JA, &
                           this%AMAT, this%X, this%RHS, &
@@ -703,7 +631,7 @@ CONTAINS
     END IF
     !
     ! -- PERMUTE ROWS, COLUMNS, AND RHS
-    IF (this%IORD /= 0) THEN
+    IF (this%IORD /= ORDER_NONE) THEN
       CALL dperm(this%NEQ, this%AMAT, this%JA, this%IA, &
                  this%ARO, this%JARO, this%IARO, &
                  this%LORDER, this%ID, 1)
@@ -719,7 +647,7 @@ CONTAINS
     END IF
     !
     ! -- FACTORS RETURNING THE RESIDUAL AND HEAD CHANGE TO MODEL UNITS
-    IF (this%ISCL /= 0) THEN
+    IF (this%ISCL /= SCALING_NONE) THEN
       CALL ims_base_cnvg_scale(this%NEQ, this%IORD, this%DSCALE, &
                                this%DSCALE2, this%LORDER, &
                                this%RSCALE, this%HSCALE)
@@ -738,7 +666,7 @@ CONTAINS
       summary%iter_cnt = 0
     end if
     irc = 1
-    ICNVG = 0
+    ICNVG = INNER_NOT_CONVERGED
     DO n = 1, this%NEQ
       this%D(n) = DZERO
       this%P(n) = DZERO
@@ -749,7 +677,7 @@ CONTAINS
     ! -- CALCULATE INITIAL RESIDUAL
     call ims_base_residual(this%NEQ, this%NJA, this%X, this%RHS, this%D, &
                            this%A0, this%IA0, this%JA0)
-    IF (this%ISCL /= 0) THEN
+    IF (this%ISCL /= SCALING_NONE) THEN
       this%L2NORM0 = DZERO
       DO n = 1, this%NEQ
         this%L2NORM0 = this%L2NORM0 + (this%D(n) * this%RSCALE(n))**2
@@ -763,11 +691,11 @@ CONTAINS
     itmax = this%ITER1
     IF (this%L2NORM0 == DZERO) THEN
       itmax = 0
-      ICNVG = 1
+      ICNVG = INNER_CONVERGED
     END IF
     !
     ! -- SOLUTION BY THE CONJUGATE GRADIENT METHOD
-    IF (this%ILINMETH == 1) THEN
+    IF (this%ILINMETH == LINACC_CG) THEN
       CALL ims_base_cg(ICNVG, itmax, innerit, &
                        this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                        this%IPC, this%ICNVGOPT, this%NORTH, &
@@ -781,7 +709,7 @@ CONTAINS
                        CACCEL, summary)
       !
       ! -- SOLUTION BY THE BICONJUGATE GRADIENT STABILIZED METHOD
-    ELSE IF (this%ILINMETH == 2) THEN
+    ELSE IF (this%ILINMETH == LINACC_BICGSTAB) THEN
       CALL ims_base_bcgs(ICNVG, itmax, innerit, &
                          this%NEQ, this%NJA, this%NIAPC, this%NJAPC, &
                          this%IPC, this%ICNVGOPT, this%NORTH, &
@@ -794,10 +722,14 @@ CONTAINS
                          this%NJLU, this%IW, this%JLU, &
                          NCONV, CONVNMOD, CONVMODSTART, &
                          CACCEL, summary)
+    ELSE
+      WRITE (errmsg, '(a,1x,i0,a)') &
+        'IMSLINEAR unknown linear acceleration method (', this%ILINMETH, ').'
+      call store_error(errmsg, terminate=.TRUE.)
     END IF
     !
     ! -- BACK PERMUTE AMAT, SOLUTION, AND RHS
-    IF (this%IORD /= 0) THEN
+    IF (this%IORD /= ORDER_NONE) THEN
       CALL dperm(this%NEQ, this%A0, this%JA0, this%IA0, &
                  this%AMAT, this%JA, this%IA, &
                  this%IORDER, this%ID, 1)
@@ -806,7 +738,7 @@ CONTAINS
     END IF
     !
     ! -- UNSCALE PROBLEM
-    IF (this%ISCL .NE. 0) THEN
+    IF (this%ISCL /= SCALING_NONE) THEN
       CALL ims_base_scale(1, this%ISCL, &
                           this%NEQ, this%NJA, this%IA, this%JA, &
                           this%AMAT, this%X, this%RHS, &

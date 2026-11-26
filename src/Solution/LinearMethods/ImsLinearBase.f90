@@ -13,9 +13,25 @@ MODULE IMSLinearBaseModule
   use BlockParserModule, only: BlockParserType
   use IMSReorderingModule, only: ims_odrv
   use ConvergenceSummaryModule
-  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, IPC_ILUT, IPC_MILUT
+  use ImsLinearSettingsModule, only: IPC_ILU0, IPC_MILU0, IPC_ILUT, IPC_MILUT, &
+                                     SCALING_NONE, SCALING_DIAGONAL, &
+                                     SCALING_L2NORM, ORDER_NONE, ORDER_RCM, &
+                                     ORDER_MD, CNVG_INF_NORM, &
+                                     CNVG_INF_NORM_STRICT, CNVG_L2_NORM, &
+                                     CNVG_L2_NORM_RELATIVE, &
+                                     CNVG_L2_NORM_REL_RCLOSE, uses_l2_norm, &
+                                     INNER_FORCE_OUTER, INNER_NOT_CONVERGED, &
+                                     INNER_CONVERGED
 
   IMPLICIT NONE
+
+  !> @brief ILU pivot flags used by the preconditioner factorization
+  !<
+  enum, bind(C)
+    enumerator :: PCFLAG_OK = 0 !< no bad pivot
+    enumerator :: PCFLAG_BADPIVOT = 1 !< bad pivot found, retry with a larger shift
+    enumerator :: PCFLAG_REPLACE = 2 !< replace bad pivots with a small value
+  end enum
 
   type(BlockParserType), private :: parser
 
@@ -163,7 +179,7 @@ contains
         ! -- identify deltax and rmax
         tv = alpha * P(n)
         X(n) = X(n) + tv
-        IF (ISCL /= 0) tv = tv * HSCALE(n)
+        IF (ISCL /= SCALING_NONE) tv = tv * HSCALE(n)
         IF (ABS(tv) > ABS(deltax)) THEN
           deltax = tv
           xloc = n
@@ -175,7 +191,7 @@ contains
         tv = D(n)
         tv = tv - alpha * Q(n)
         D(n) = tv
-        IF (ISCL /= 0) tv = tv * RSCALE(n)
+        IF (ISCL /= SCALING_NONE) tv = tv * RSCALE(n)
         IF (ABS(tv) > ABS(rmax)) THEN
           rmax = tv
           rloc = n
@@ -203,7 +219,7 @@ contains
       END IF
       !
       ! -- TEST FOR SOLVER CONVERGENCE
-      IF (ICNVGOPT == 2 .OR. ICNVGOPT == 3 .OR. ICNVGOPT == 4) THEN
+      IF (uses_l2_norm(ICNVGOPT)) THEN
         rcnvg = l2norm
       ELSE
         rcnvg = rmax
@@ -213,10 +229,10 @@ contains
                              L2NORM0, EPFACT, DVCLOSE, RCLOSE)
       !
       ! -- CHECK FOR EXACT SOLUTION
-      IF (rcnvg == DZERO) ICNVG = 1
+      IF (rcnvg == DZERO) ICNVG = INNER_CONVERGED
       !
       ! -- CHECK FOR STANDARD CONVERGENCE
-      IF (ICNVG .NE. 0) EXIT INNER
+      IF (ICNVG /= INNER_NOT_CONVERGED) EXIT INNER
       !
       ! -- CHECK THAT CURRENT AND PREVIOUS rho ARE DIFFERENT
       lsame = is_close(rho, rho0)
@@ -242,7 +258,7 @@ contains
     END DO INNER
     !
     ! -- RESET ICNVG
-    IF (ICNVG < 0) ICNVG = 0
+    IF (ICNVG == INNER_FORCE_OUTER) ICNVG = INNER_NOT_CONVERGED
   end SUBROUTINE ims_base_cg
 
   !> @brief Preconditioned BiConjugate Gradient Stabilized linear accelerator
@@ -456,7 +472,7 @@ contains
         ! -- X AND DX
         tv = alpha * PHAT(n) + omega * QHAT(n)
         X(n) = X(n) + tv
-        IF (ISCL .NE. 0) THEN
+        IF (ISCL /= SCALING_NONE) THEN
           tv = tv * HSCALE(n)
         END IF
         IF (ABS(tv) > ABS(deltax)) THEN
@@ -471,7 +487,7 @@ contains
         ! -- RESIDUAL
         tv = Q(n) - omega * T(n)
         D(n) = tv
-        IF (ISCL .NE. 0) THEN
+        IF (ISCL /= SCALING_NONE) THEN
           tv = tv * RSCALE(n)
         END IF
         IF (ABS(tv) > ABS(rmax)) THEN
@@ -502,7 +518,7 @@ contains
       END IF
       !
       ! -- TEST FOR SOLVER CONVERGENCE
-      IF (ICNVGOPT == 2 .OR. ICNVGOPT == 3 .OR. ICNVGOPT == 4) THEN
+      IF (uses_l2_norm(ICNVGOPT)) THEN
         rcnvg = l2norm
       ELSE
         rcnvg = rmax
@@ -512,10 +528,10 @@ contains
                              L2NORM0, EPFACT, DVCLOSE, RCLOSE)
       !
       ! -- CHECK FOR EXACT SOLUTION
-      IF (rcnvg == DZERO) ICNVG = 1
+      IF (rcnvg == DZERO) ICNVG = INNER_CONVERGED
       !
       ! -- CHECK FOR STANDARD CONVERGENCE
-      IF (ICNVG .NE. 0) EXIT INNER
+      IF (ICNVG /= INNER_NOT_CONVERGED) EXIT INNER
       !
       ! -- CHECK THAT CURRENT AND PREVIOUS rho, alpha, AND omega ARE
       !    DIFFERENT
@@ -552,7 +568,7 @@ contains
     END DO INNER
     !
     ! -- RESET ICNVG
-    IF (ICNVG < 0) ICNVG = 0
+    IF (ICNVG == INNER_FORCE_OUTER) ICNVG = INNER_NOT_CONVERGED
   end SUBROUTINE ims_base_bcgs
 
   !> @brief Calculate LORDER AND IORDER
@@ -586,9 +602,9 @@ contains
     END DO
     ! ALLOCATE (iwork0(NEQ))
     SELECT CASE (IORD)
-    CASE (1)
+    CASE (ORDER_RCM)
       CALL genrcm(NEQ, NJA, IA, JA, LORDER)
-    CASE (2)
+    CASE (ORDER_MD)
       nsp = 3 * NEQ + 4 * NJA
       allocate (iwork0(NEQ))
       allocate (iwork1(nsp))
@@ -648,7 +664,7 @@ contains
       !
       ! -- SYMMETRIC SCALING
       SELECT CASE (ISCL)
-      CASE (1)
+      CASE (SCALING_DIAGONAL)
         DO n = 1, NEQ
           id = IA(n)
           v = AMAT(id)
@@ -670,7 +686,7 @@ contains
         END DO
         !
         ! -- L-2 NORM SCALING
-      CASE (2)
+      CASE (SCALING_L2NORM)
         !
         ! -- SCALE EACH ROW SO THAT THE L-2 NORM IS 1
         DO n = 1, NEQ
@@ -780,7 +796,7 @@ contains
       RSCALE(n) = DONE / DSCALE(n)
       HSCALE(n) = DSCALE2(n)
     END DO
-    IF (IORD /= 0) THEN
+    IF (IORD /= ORDER_NONE) THEN
       CALL dvperm(NEQ, RSCALE, LORDER)
       CALL dvperm(NEQ, HSCALE, LORDER)
     END IF
@@ -839,7 +855,7 @@ contains
             ' IMSLINEARSUB_PCU.')
     !
     ! -- initialize local variables
-    ipcflag = 0
+    ipcflag = PCFLAG_OK
     icount = 0
     delta = DZERO
     PCSCALE: DO
@@ -870,22 +886,22 @@ contains
         !
         ! -- ADDITIONAL PRECONDITIONERS
       CASE DEFAULT
-        ipcflag = 0
+        ipcflag = PCFLAG_OK
       END SELECT
-      IF (ipcflag < 1) THEN
+      IF (ipcflag < PCFLAG_BADPIVOT) THEN
         EXIT PCSCALE
       END IF
       delta = 1.5d0 * delta + DEM3
-      ipcflag = 0
+      ipcflag = PCFLAG_OK
       IF (delta > DHALF) THEN
         delta = DHALF
-        ipcflag = 2
+        ipcflag = PCFLAG_REPLACE
       END IF
       icount = icount + 1
       !
       ! -- replace bad pivots on the last attempt so it completes
       if (icount == 10) then
-        ipcflag = 2
+        ipcflag = PCFLAG_REPLACE
       end if
       !
       ! -- terminate pcscale loop if not making progress
@@ -1040,12 +1056,12 @@ contains
         !
         ! -- USE SMALL VALUE IF DIAGONAL SCALING IS NOT EFFECTIVE FOR
         !    PIVOTS THAT CHANGE THE SIGN OF THE DIAGONAL
-        IF (IPCFLAG > 1) THEN
+        IF (IPCFLAG == PCFLAG_REPLACE) THEN
           tl = SIGN(DEM6, d)
           !
           ! -- DIAGONAL SCALING CONTINUES TO BE EFFECTIVE
         ELSE
-          IPCFLAG = 1
+          IPCFLAG = PCFLAG_BADPIVOT
           EXIT MAIN
         END IF
       END IF
@@ -1053,12 +1069,12 @@ contains
         !
         ! -- USE SMALL VALUE IF DIAGONAL SCALING IS NOT EFFECTIVE FOR
         !    ZERO PIVOTS
-        IF (IPCFLAG > 1) THEN
+        IF (IPCFLAG == PCFLAG_REPLACE) THEN
           tl = SIGN(DEM6, d)
           !
           ! -- DIAGONAL SCALING CONTINUES TO BE EFFECTIVE FOR ELIMINATING
         ELSE
-          IPCFLAG = 1
+          IPCFLAG = PCFLAG_BADPIVOT
           EXIT MAIN
         END IF
       END IF
@@ -1084,7 +1100,7 @@ contains
           APC(j) = APC(j) * APC(n)
         END DO
       END DO
-      IPCFLAG = 0
+      IPCFLAG = PCFLAG_OK
     END IF
   end SUBROUTINE ims_base_pcilu0
 
@@ -1157,37 +1173,38 @@ contains
     real(DP), INTENT(IN) :: Dvclose !< Maximum depenendent-variable change allowed
     real(DP), INTENT(IN) :: Rclose !< Maximum flow change allowed
     ! -- code
-    IF (Icnvgopt == 0) THEN
+    SELECT CASE (Icnvgopt)
+    CASE (CNVG_INF_NORM)
       IF (ABS(Dvmax) <= Dvclose .AND. ABS(Rmax) <= Rclose) THEN
-        Icnvg = 1
+        Icnvg = INNER_CONVERGED
       END IF
-    ELSE IF (Icnvgopt == 1) THEN
+    CASE (CNVG_INF_NORM_STRICT)
       IF (ABS(Dvmax) <= Dvclose .AND. ABS(Rmax) <= Rclose) THEN
         IF (iiter == 1) THEN
-          Icnvg = 1
+          Icnvg = INNER_CONVERGED
         ELSE
-          Icnvg = -1
+          Icnvg = INNER_FORCE_OUTER
         END IF
       END IF
-    ELSE IF (Icnvgopt == 2) THEN
+    CASE (CNVG_L2_NORM)
       IF (ABS(Dvmax) <= Dvclose .OR. Rmax <= Rclose) THEN
-        Icnvg = 1
+        Icnvg = INNER_CONVERGED
       ELSE IF (Rmax <= Rmax0 * Epfact) THEN
-        Icnvg = -1
+        Icnvg = INNER_FORCE_OUTER
       END IF
-    ELSE IF (Icnvgopt == 3) THEN
+    CASE (CNVG_L2_NORM_RELATIVE)
       IF (ABS(Dvmax) <= Dvclose) THEN
-        Icnvg = 1
+        Icnvg = INNER_CONVERGED
       ELSE IF (Rmax <= Rmax0 * Rclose) THEN
-        Icnvg = -1
+        Icnvg = INNER_FORCE_OUTER
       END IF
-    ELSE IF (Icnvgopt == 4) THEN
+    CASE (CNVG_L2_NORM_REL_RCLOSE)
       IF (ABS(Dvmax) <= Dvclose .AND. Rmax <= Rclose) THEN
-        Icnvg = 1
+        Icnvg = INNER_CONVERGED
       ELSE IF (Rmax <= Rmax0 * Epfact) THEN
-        Icnvg = -1
+        Icnvg = INNER_FORCE_OUTER
       END IF
-    END IF
+    END SELECT
   end SUBROUTINE ims_base_testcnvg
 
   subroutine ims_calc_pcdims(neq, nja, ia, level, ipc, &
@@ -1215,7 +1232,7 @@ contains
     njapc = nja
 
     ! ILUT and MILUT
-    if (ipc == 3 .or. ipc == 4) then
+    if (ipc == IPC_ILUT .or. ipc == IPC_MILUT) then
       niapc = neq
       if (level > 0) then
         iwk = neq * (level * 2 + 1)
@@ -1363,13 +1380,13 @@ contains
     integer(I4B) :: kstp !< time step number
     real(DP) :: epfact !< factor for decreasing convergence criteria in subsequent Picard iterations
 
-    if (icnvgopt == 2) then
+    if (icnvgopt == CNVG_L2_NORM) then
       if (kstp == 1) then
         epfact = 0.01
       else
         epfact = 0.10
       end if
-    else if (icnvgopt == 4) then
+    else if (icnvgopt == CNVG_L2_NORM_REL_RCLOSE) then
       epfact = DEM4
     else
       epfact = DONE
