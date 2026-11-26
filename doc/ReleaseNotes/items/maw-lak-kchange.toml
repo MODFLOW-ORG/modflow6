@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "advanced"
+description = "The Multi-Aquifer Well (MAW) and Lake (LAK) Packages calculated the conductance of their connections to the aquifer from the hydraulic conductivity at the start of the simulation, so hydraulic conductivity changes made by the Time-Varying Hydraulic Conductivity (TVK) Package at connected cells had no effect on well or lake flows. The conductance of those connections is now recalculated when hydraulic conductivity changes."
