@@ -11,13 +11,14 @@ from framework import TestFramework
 cases = ["sfr-gwfout", "sfr-gwf-trnsprt"]
 
 length_units = "m"
-time_units = "sec"
+time_units = "seconds"
 
 nrow = 1
 ncol = 1
 nlay = 1
 delr = delc = 1.0
 
+nstp = 6
 nouter, ninner = 100, 300
 dvclose, rclose, relax = 1e-10, 1e-10, 1.0
 
@@ -111,11 +112,16 @@ def build_models(idx, test):
     sim = flopy.mf6.MFSimulation(
         sim_name=name, sim_ws=ws, exe_name="mf6", version="mf6"
     )
-    flopy.mf6.ModflowTdis(sim, time_units=time_units)
+    # Use several 1 s steps. Since #2618 (SFT storage fix) SFT starts the reach
+    # at zero volume on step 1 even when GWF is steady, so the first step gives
+    # C = Q / (Q + V / dt) = 0.92 rather than 1.0. The reach flushes toward 1.0
+    # (error shrinks by about 12.6x per step), so check the last step.
+    flopy.mf6.ModflowTdis(
+        sim, time_units=time_units, nper=1, perioddata=[(float(nstp), nstp, 1.0)]
+    )
     flopy.mf6.ModflowIms(
         sim,
         inner_dvclose=1e-5,
-        inner_hclose=1e-6,
     )
 
     gwf = flopy.mf6.ModflowGwf(
@@ -240,8 +246,8 @@ def check_output(idx, test):
             "channel. Thus, the gw and sft water should have the same "
             "concentration, but don't"
         )
-        assert np.allclose(sft_ans, sim_conc_sft), msg0
-        assert np.allclose(conc_gw, sim_conc_sft), msg1
+        assert np.allclose(sft_ans, sim_conc_sft[-1]), msg0
+        assert np.allclose(conc_gw[-1], sim_conc_sft[-1]), msg1
 
 
 @pytest.mark.parametrize("idx, name", enumerate(cases))

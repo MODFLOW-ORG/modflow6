@@ -110,13 +110,11 @@ contains
     ! -- dummy
     class(BudgetTermType) :: this
     !
-    if (size(this%id1) > 0) then
-      deallocate (this%id1)
-      deallocate (this%id2)
-      deallocate (this%flow)
-      deallocate (this%auxvar)
-      deallocate (this%auxtxt)
-    end if
+    if (associated(this%id1)) deallocate (this%id1)
+    if (associated(this%id2)) deallocate (this%id2)
+    if (associated(this%flow)) deallocate (this%flow)
+    if (associated(this%auxvar)) deallocate (this%auxvar)
+    if (associated(this%auxtxt)) deallocate (this%auxtxt)
   end subroutine deallocate_arrays
 
   !> @brief reset the budget term and counter so terms can be updated
@@ -205,26 +203,24 @@ contains
     end do
     !
     ! -- Write the header
-    if (nlist > 0) then
-      call ubdsv06(kstp, kper, this%flowtype, &
-                   this%text1id1, this%text2id1, &
-                   this%text1id2, this%text2id2, &
-                   ibinun, this%naux, this%auxtxt, &
-                   nlist, 1, 1, nlist, &
-                   iout, delt, pertim, totim)
-      !
-      ! -- Write each entry
-      do i = 1, this%nlist
-        q = this%flow(i)
-        n1 = this%id1(i)
-        n2 = this%id2(i)
-        if (n1 <= 0 .or. n2 <= 0) cycle
-        call dis%record_mf6_list_entry(ibinun, n1, n2, q, &
-                                       this%naux, this%auxvar(:, i), &
-                                       olconv=this%olconv1, &
-                                       olconv2=this%olconv2)
-      end do
-    end if
+    call ubdsv06(kstp, kper, this%flowtype, &
+                 this%text1id1, this%text2id1, &
+                 this%text1id2, this%text2id2, &
+                 ibinun, this%naux, this%auxtxt, &
+                 nlist, 1, 1, nlist, &
+                 iout, delt, pertim, totim)
+    !
+    ! -- Write each entry
+    do i = 1, this%nlist
+      q = this%flow(i)
+      n1 = this%id1(i)
+      n2 = this%id2(i)
+      if (n1 <= 0 .or. n2 <= 0) cycle
+      call dis%record_mf6_list_entry(ibinun, n1, n2, q, &
+                                     this%naux, this%auxvar(:, i), &
+                                     olconv=this%olconv1, &
+                                     olconv2=this%olconv2)
+    end do
     !
   end subroutine save_flows
 

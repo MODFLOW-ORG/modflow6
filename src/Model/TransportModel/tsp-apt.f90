@@ -1802,7 +1802,6 @@ contains
     class(TspAptType) :: this
     ! -- local
     integer(I4B) :: nbudterm
-    integer(I4B) :: nlen
     integer(I4B) :: n, n1, n2
     integer(I4B) :: maxlist, naux
     integer(I4B) :: idx
@@ -1814,12 +1813,6 @@ contains
     !
     ! -- initialize nbudterm
     nbudterm = 0
-    !
-    ! -- Determine if there are flow-ja-face terms
-    nlen = 0
-    if (this%idxbudfjf /= 0) then
-      nlen = this%flowbudptr%budterm(this%idxbudfjf)%maxlist
-    end if
     !
     ! -- Determine the number of budget terms associated with apt.
     !    These are fixed for the simulation and cannot change
@@ -1846,8 +1839,10 @@ contains
                                      bddim_opt=bddim_opt, ibudcsv=this%ibudcsv)
     idx = 0
     !
-    ! -- Go through and set up each budget term
-    if (nlen > 0) then
+    ! -- Go through and set up each budget term.  Flow-ja-face is set up
+    !    even if there are no connections (e.g., a single reach) so that
+    !    the header is written to the budget file with zero entries.
+    if (this%idxbudfjf /= 0) then
       text = '    FLOW-JA-FACE'
       idx = idx + 1
       maxlist = this%flowbudptr%budterm(this%idxbudfjf)%maxlist
@@ -2009,7 +2004,6 @@ contains
     real(DP), dimension(:), allocatable :: auxvartmp
     integer(I4B) :: i, j, n1, n2
     integer(I4B) :: idx
-    integer(I4B) :: nlen
     integer(I4B) :: nlist
     integer(I4B) :: igwfnode
     real(DP) :: q
@@ -2029,11 +2023,7 @@ contains
     end do
     !
     ! -- FLOW JA FACE
-    nlen = 0
     if (this%idxbudfjf /= 0) then
-      nlen = this%flowbudptr%budterm(this%idxbudfjf)%maxlist
-    end if
-    if (nlen > 0) then
       idx = idx + 1
       nlist = this%flowbudptr%budterm(this%idxbudfjf)%maxlist
       call this%budobj%budterm(idx)%reset(nlist)
