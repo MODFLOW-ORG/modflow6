@@ -581,6 +581,7 @@ contains
     real(DP) :: &
       s0mag, s2x, s2y, s2mag, sinang, cosang, dotprod
     logical(LGP) last180
+    logical(LGP) offmid
 
     ic = defn%icell
     npolyverts = defn%npolyverts
@@ -595,6 +596,7 @@ contains
     num90 = 0
     num180 = 0
     last180 = .false.
+    offmid = .false.
 
     ! assumes non-self-intersecting polygon
     do m = 1, npolyverts
@@ -629,6 +631,8 @@ contains
           num180 = num180 + 1
           last180 = .true.
           defn%ispv180(m) = .true.
+          if (dabs(s0mag - s2mag) > epsang * (s0mag + s2mag)) &
+            offmid = .true.
         end if
       else
         if (dabs(cosang) .lt. epsang) num90 = num90 + 1
@@ -639,11 +643,14 @@ contains
     ! List of 180-degree indicators wraps around for convenience
     defn%ispv180(npolyverts + 1) = defn%ispv180(1)
 
-    ! Set rect/quad flags
+    ! Set rect/quad flags. A quad cell's sides are each whole
+    ! or divided once at the midpoint.
     if (num90 .eq. 4) then
       if (num180 .eq. 0) then
         defn%can_be_rect = .true.
-      else
+      else if (.not. offmid .and. &
+               .not. any(defn%ispv180(1:npolyverts) .and. &
+                         defn%ispv180(2:npolyverts + 1))) then
         defn%can_be_quad = .true.
       end if
     end if
