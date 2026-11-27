@@ -14,8 +14,8 @@ jobs:
     if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     permissions:
-      issues: write
-      pull-requests: read
+      issues: read
+      pull-requests: write
     steps:
       - uses: actions/github-script@v9
         with:
@@ -135,7 +135,7 @@ jobs:
     if: github.event.pull_request.user.type != 'Bot'
     runs-on: ubuntu-latest
     permissions:
-      issues: write
+      pull-requests: write
     steps:
       - uses: actions/github-script@v9
         with:
