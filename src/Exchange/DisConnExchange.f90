@@ -15,6 +15,7 @@ module DisConnExchangeModule
   public :: DisConnExchangeType
   public :: CastAsDisConnExchangeClass, AddDisConnExchangeToList, &
             GetDisConnExchangeFromList
+  public :: same_exchange_cells
 
   !> Exchange based on connection between discretizations of DisBaseType.
   !! The data specifies the connections, similar to the information stored
@@ -89,6 +90,47 @@ module DisConnExchangeModule
   end type DisConnExchangeFoundType
 
 contains
+
+  !> @brief Determine whether two exchanges connect the same cells
+  !!
+  !! Cells are compared as user node numbers so that the match succeeds when the
+  !! two pairs of models reduce the same grid differently.  A side is compared
+  !! only where both models are local, because the node numbers of a model on
+  !! another process are in that process' numbering and there is no
+  !! discretization here to convert them with.  That side is compared on the
+  !! process that owns it, so both sides are still checked.
+  !<
+  function same_exchange_cells(exg1, exg2) result(match)
+    ! -- dummy
+    class(DisConnExchangeType), intent(in) :: exg1 !< first exchange
+    class(DisConnExchangeType), intent(in) :: exg2 !< second exchange
+    ! -- return
+    logical(LGP) :: match
+    ! -- local
+    integer(I4B) :: i
+    logical(LGP) :: check1, check2
+    !
+    match = .false.
+    if (exg1%nexg /= exg2%nexg) return
+    !
+    check1 = associated(exg1%model1) .and. associated(exg2%model1)
+    check2 = associated(exg1%model2) .and. associated(exg2%model2)
+    !
+    do i = 1, exg1%nexg
+      if (check1) then
+        ! -- a cell outside the active domain is already an input error
+        if (exg1%nodem1(i) <= 0 .or. exg2%nodem1(i) <= 0) return
+        if (exg1%model1%dis%get_nodeuser(exg1%nodem1(i)) /= &
+            exg2%model1%dis%get_nodeuser(exg2%nodem1(i))) return
+      end if
+      if (check2) then
+        if (exg1%nodem2(i) <= 0 .or. exg2%nodem2(i) <= 0) return
+        if (exg1%model2%dis%get_nodeuser(exg1%nodem2(i)) /= &
+            exg2%model2%dis%get_nodeuser(exg2%nodem2(i))) return
+      end if
+    end do
+    match = .true.
+  end function same_exchange_cells
 
   !> @brief Source options from input context
   !<
