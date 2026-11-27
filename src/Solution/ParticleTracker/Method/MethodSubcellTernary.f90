@@ -517,6 +517,10 @@ contains
     ! making dt slightly positive or negative and
     ! deciding whether coincident events (e.g. a tracking time) are
     ! reported before or after the exit. Never return a negative dt.
+    ! The face test needs xL exactly 0 or 1, which a fast FP model
+    ! can also break by computing x / dx as x * (1 / dx). Then dt
+    ! comes out zero or slightly positive, so a tracking time at the
+    ! exit time is still reported before the exit.
     if ((xL <= DZERO .and. v < DZERO) .or. (xL >= DONE .and. v > DZERO)) then
       dt = DZERO
     else
