@@ -140,7 +140,7 @@ The IREASON field indicates the reason the particle track record was saved:
 
 By default, the PRT Model reports all particle events. The user can optionally select which events are reported, as explained in the Output Control (OC) subsection. Because multiple tracking events may coincide (e.g. exiting a cell and exiting a weak sink cell), particle track records may be duplicates except for the ISTATUS and/or IREASON codes.
 
-Each user-specified tracking time is reported once per particle, at the earliest opportunity. A tracking time equal to a cell exit time or to the end of a time step is reported in the cell the particle is leaving, or in the time step that is ending, before the record for that event. A tracking time equal to the particle's release time is reported after the release record.
+Each user-specified tracking time is reported once per particle, at the earliest opportunity. A tracking time equal to a cell exit time is reported in the cell the particle is leaving, before the cell exit record. A tracking time equal to the end of a time step is reported in the time step that is ending, before the time step record. A tracking time equal to the particle's release time is reported after the release record.
 
 The binary particle track file contains the same particle track data in a record-based binary format explained in the Particle Track File subsection of the Description of Binary Output Files section.
 
