@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "When a cell in the DIS or DISV Package has zero or negative thickness, the error now names the cell directly above, whose bottom elevation is the top of the failing cell. If that cell is excluded (IDOMAIN 0 or -1), the error also explains that an excluded cell still defines the top of the cell beneath it."
