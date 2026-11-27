@@ -2,7 +2,7 @@ module ParallelSolutionModule
   use KindModule, only: DP, LGP, I4B
   use ConstantsModule, only: LENPAKLOC, DONE, DZERO
   use ProfilerModule
-  use NumericalSolutionModule, only: NumericalSolutionType
+  use NumericalSolutionModule, only: NumericalSolutionType, idvscale_flag
   use mpi
   use MpiWorldModule
   implicit none
@@ -247,26 +247,32 @@ contains
 
   end subroutine par_backtracking_xupdate
 
-  !> @brief synchronize idvscale flag over processes
+  !> @brief Get the dependent variable scaling flag over all processes
+  !!
+  !! Sum the number of models that scale and the number of models over all
+  !! processes, so models on different processes must agree.
   !<
   function par_get_idvscale(this) result(idv_scale_global)
     ! -- dummy variables
     class(ParallelSolutionType) :: this !< ParallelSolutionType instance
-    integer(I4B) :: idv_scale_global !< global idv_scale flag (1) dv_scaling performed (0) dv_scaling not performed (-1) error
+    integer(I4B) :: idv_scale_global !< global flag (1) all scale (0) none scale (-1) error
     ! -- local variables
-    integer(I4B) :: idv_scale_local
+    integer(I4B), dimension(2) :: counts_local
+    integer(I4B), dimension(2) :: counts_global
     type(MpiWorldType), pointer :: mpi_world
     integer :: ierr
 
     mpi_world => get_mpi_world()
 
-    ! get local idvscale flag
-    idv_scale_local = this%NumericalSolutionType%sln_get_idvscale()
+    ! count local models that scale and local models
+    call this%sln_count_idvscale(counts_local(1), counts_local(2))
 
-    ! reduce into global decision (if any, then all)
-    call MPI_Allreduce(idv_scale_local, idv_scale_global, 1, MPI_INTEGER, &
-                       MPI_MIN, mpi_world%comm, ierr)
+    ! sum the counts over all processes
+    call MPI_Allreduce(counts_local, counts_global, 2, MPI_INTEGER, &
+                       MPI_SUM, mpi_world%comm, ierr)
     call CHECK_MPI(ierr)
+
+    idv_scale_global = idvscale_flag(counts_global(1), counts_global(2))
 
   end function par_get_idvscale
 
