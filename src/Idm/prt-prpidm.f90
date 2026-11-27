@@ -18,6 +18,8 @@ module PrtPrpInputModule
     logical :: iexmeth = .false.
     logical :: extol = .false.
     logical :: localz = .false.
+    logical :: localxy = .false.
+    logical :: localxyoff = .false.
     logical :: extend = .false.
     logical :: track_filerecord = .false.
     logical :: track = .false.
@@ -156,6 +158,44 @@ module PrtPrpInputModule
     'KEYWORD', & ! type
     '', & ! shape
     'whether to use local z coordinates', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    prtprp_localxy = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'PRP', & ! subcomponent
+    'OPTIONS', & ! block
+    'LOCAL_XY', & ! tag name
+    'LOCALXY', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'whether to use local x and y coordinates', & ! longname
+    .false., & ! required
+    .false., & ! developmode
+    .false., & ! multi-record
+    .false., & ! preserve case
+    .false., & ! layered
+    .false. & ! timeseries
+    )
+
+  type(InputParamDefinitionType), parameter :: &
+    prtprp_localxyoff = InputParamDefinitionType &
+    ( &
+    'PRT', & ! component
+    'PRP', & ! subcomponent
+    'OPTIONS', & ! block
+    'LOCAL_XY_OFFSET', & ! tag name
+    'LOCALXYOFF', & ! fortran variable
+    'KEYWORD', & ! type
+    '', & ! shape
+    'whether to use local x and y offsets', & ! longname
     .false., & ! required
     .false., & ! developmode
     .false., & ! multi-record
@@ -932,6 +972,8 @@ module PrtPrpInputModule
     prtprp_iexmeth, &
     prtprp_extol, &
     prtprp_localz, &
+    prtprp_localxy, &
+    prtprp_localxyoff, &
     prtprp_extend, &
     prtprp_track_filerecord, &
     prtprp_track, &

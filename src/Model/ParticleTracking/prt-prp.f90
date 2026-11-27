@@ -2,7 +2,7 @@ module PrtPrpModule
   use KindModule, only: DP, I4B, LGP
   use ConstantsModule, only: DZERO, DEM1, DEM5, DONE, LENFTYPE, LINELENGTH, &
                              LENBOUNDNAME, LENPAKLOC, TABLEFT, TABCENTER, &
-                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM7
+                             MNORMAL, DSAME, DEP3, DEP9, DEM2, DEM7, DTHREE
   use BndModule, only: BndType
   use BndExtModule, only: BndExtType
   use ObsModule, only: DefaultObsIdProcessor
@@ -46,6 +46,8 @@ module PrtPrpModule
     logical(LGP), pointer :: frctrn => null() !< force ternary solution for quad grids
     logical(LGP), pointer :: drape => null() !< whether to drape particle to topmost active cell
     logical(LGP), pointer :: localz => null() !< compute z coordinates local to the release cell
+    logical(LGP), pointer :: localxy => null() !< compute x and y coordinates local to the release cell
+    logical(LGP), pointer :: localxyoff => null() !< x and y coordinates are offsets from the release cell center
     integer(I4B), pointer :: istopweaksink => null() !< weak sink option: 0 = no stop, 1 = stop
     integer(I4B), pointer :: istopzone => null() !< optional stop zone number: 0 = no stop zone
     integer(I4B), pointer :: idrymeth => null() !< dry tracking method: 0 = drop, 1 = stop, 2 = stay
@@ -205,6 +207,8 @@ contains
 
     ! Deallocate scalars
     call mem_deallocate(this%localz)
+    call mem_deallocate(this%localxy)
+    call mem_deallocate(this%localxyoff)
     call mem_deallocate(this%extend)
     call mem_deallocate(this%offset)
     call mem_deallocate(this%stoptime)
@@ -303,6 +307,8 @@ contains
 
     ! Allocate scalars for this type
     call mem_allocate(this%localz, 'LOCALZ', this%memoryPath)
+    call mem_allocate(this%localxy, 'LOCALXY', this%memoryPath)
+    call mem_allocate(this%localxyoff, 'LOCALXYOFF', this%memoryPath)
     call mem_allocate(this%extend, 'EXTEND', this%memoryPath)
     call mem_allocate(this%offset, 'OFFSET', this%memoryPath)
     call mem_allocate(this%stoptime, 'STOPTIME', this%memoryPath)
@@ -328,6 +334,8 @@ contains
 
     ! Set values
     this%localz = .false.
+    this%localxy = .false.
+    this%localxyoff = .false.
     this%extend = .false.
     this%offset = DZERO
     this%stoptime = huge(1d0)
@@ -635,7 +643,8 @@ contains
     logical(LGP) :: draped
     integer(I4B) :: irow, icol, ilay, icpl
     integer(I4B) :: ic, icu, ic_old
-    real(DP) :: x, y, z
+    real(DP) :: x, y, z, xmin, ymin
+    real(DP), allocatable :: polyverts(:, :)
     ! formats
     character(len=*), parameter :: fmticterr = &
       "('Error in ',a,': Flow model interface does not contain ICELLTYPE. &
@@ -708,6 +717,28 @@ contains
 
     x = this%rptx(ip)
     y = this%rpty(ip)
+    if (this%localxy) then
+      call this%dis%get_polyverts(ic, polyverts)
+      select type (dis => this%dis)
+      type is (DisType)
+        xmin = minval(polyverts(1, :))
+        ymin = minval(polyverts(2, :))
+        x = xmin + x * (maxval(polyverts(1, :)) - xmin)
+        y = ymin + y * (maxval(polyverts(2, :)) - ymin)
+      type is (DisvType)
+        call local_xy_fan(polyverts, x, y)
+      end select
+      deallocate (polyverts)
+    else if (this%localxyoff) then
+      select type (dis => this%dis)
+      type is (DisType)
+        x = dis%cellx(icol) + x
+        y = dis%celly(irow) + y
+      type is (DisvType)
+        x = dis%cellxy(1, icpl) + x
+        y = dis%cellxy(2, icpl) + y
+      end select
+    end if
 
     if (this%ichkmeth > 0) &
       call this%validate_release_point(ic, x, y, z)
@@ -739,6 +770,39 @@ contains
     particle%icycwin = this%icycwin
     particle%extol = this%extol
   end subroutine initialize_particle
+
+  !> @brief Convert local x and y coordinates to model coordinates.
+  !!
+  !! The cell is divided into triangles, each joining the cell's area
+  !! centroid to one face. The integer part of x selects the face from
+  !! vertex i to vertex i + 1, wrapping to vertex 1 for the last face,
+  !! and the fractional part is the fraction of the distance along it.
+  !! y is the fraction of the distance from the centroid to the face.
+  !<
+  subroutine local_xy_fan(polyverts, x, y)
+    real(DP), intent(in) :: polyverts(:, :) !< cell polygon vertices
+    real(DP), intent(inout) :: x, y !< local in, model out
+    ! local
+    integer(I4B) :: i, inext, nvert
+    real(DP) :: t, xc, yc, xf, yf
+    real(DP), allocatable :: wk(:)
+
+    nvert = size(polyverts, 2)
+    wk = polyverts(1, :) * cshift(polyverts(2, :), 1) - &
+         cshift(polyverts(1, :), 1) * polyverts(2, :)
+    xc = sum((polyverts(1, :) + cshift(polyverts(1, :), 1)) * wk) / &
+         (DTHREE * sum(wk))
+    yc = sum((polyverts(2, :) + cshift(polyverts(2, :), 1)) * wk) / &
+         (DTHREE * sum(wk))
+
+    i = int(x)
+    t = x - i
+    inext = mod(i, nvert) + 1
+    xf = (DONE - t) * polyverts(1, i) + t * polyverts(1, inext)
+    yf = (DONE - t) * polyverts(2, i) + t * polyverts(2, inext)
+    x = xc + y * (xf - xc)
+    y = yc + y * (yf - yc)
+  end subroutine local_xy_fan
 
   !> @brief Read and prepare period data for particle input
   subroutine prp_rp(this)
@@ -883,6 +947,10 @@ contains
                        found%trackcsvfile)
     call mem_set_value(this%localz, 'LOCALZ', this%input_mempath, &
                        found%localz)
+    call mem_set_value(this%localxy, 'LOCALXY', this%input_mempath, &
+                       found%localxy)
+    call mem_set_value(this%localxyoff, 'LOCALXYOFF', this%input_mempath, &
+                       found%localxyoff)
     call mem_set_value(this%extend, 'EXTEND', this%input_mempath, &
                        found%extend)
     call mem_set_value(this%extol, 'EXTOL', this%input_mempath, &
@@ -948,6 +1016,19 @@ contains
         ! adjust for method zero based indexing
         this%ichkmeth = this%ichkmeth - 1
       end if
+    end if
+
+    if (this%localxy .and. this%localxyoff) &
+      call store_error('LOCAL_XY and LOCAL_XY_OFFSET may not both be specified')
+
+    if (this%localxy .or. this%localxyoff) then
+      select type (dis => this%dis)
+      type is (DisType)
+      type is (DisvType)
+      class default
+        call store_error('LOCAL_XY and LOCAL_XY_OFFSET require a DIS or &
+          &DISV grid')
+      end select
     end if
 
     if (found%icycwin) then
@@ -1126,7 +1207,7 @@ contains
     character(len=20) :: cellidstr
     integer(I4B), dimension(:), allocatable :: nboundchk
     integer(I4B), dimension(:), pointer :: cellid
-    integer(I4B) :: n, noder, nodeu, rptno
+    integer(I4B) :: n, noder, nodeu, rptno, nvert
 
     ! set input context pointers
     call mem_setptr(irptno, 'IRPTNO', this%input_mempath)
@@ -1194,6 +1275,30 @@ contains
       if (this%localz .and. (zrpts(n) < 0 .or. zrpts(n) > 1)) then
         call store_error('Local z coordinate must fall in the interval [0, 1]')
         cycle
+      end if
+
+      if (this%localxy) then
+        select type (dis => this%dis)
+        type is (DisvType)
+          nvert = dis%get_npolyverts(noder)
+          if (xrpts(n) < DONE .or. xrpts(n) >= nvert + DONE) then
+            write (errmsg, '(a,i0,a)') &
+              'Local x coordinate must fall in the interval [1, ', &
+              nvert + 1, ') for a cell with that many vertices'
+            call store_error(errmsg)
+            cycle
+          end if
+        class default
+          if (xrpts(n) < DZERO .or. xrpts(n) > DONE) then
+            call store_error('Local x coordinate must fall in the &
+              &interval [0, 1]')
+            cycle
+          end if
+        end select
+        if (yrpts(n) < DZERO .or. yrpts(n) > DONE) then
+          call store_error('Local y coordinate must fall in the interval [0, 1]')
+          cycle
+        end if
       end if
 
       ! set coordinates

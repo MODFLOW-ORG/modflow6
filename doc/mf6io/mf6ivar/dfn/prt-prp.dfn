@@ -48,6 +48,24 @@ description indicates that ``zrpt'' defines the local z coordinate of the releas
 mf6internal localz
 
 block options
+name local_xy
+type keyword
+reader urword
+optional true
+longname whether to use local x and y coordinates
+description indicates that ``xrpt'' and ``yrpt'' define the local x and y coordinates of the release point within the cell. For DIS grids, coordinates are scaled to the unit interval, with value of 0 at the west and south faces and 1 at the east and north faces of the cell. For DISV grids, the cell is divided into triangles joining the cell centroid to each face. The integer part of ``xrpt'', from 1 to the number of cell vertices, selects the face from the vertex with that index to the next vertex, and the fractional part is the fraction of the distance along the face. ``yrpt'' is the fraction of the distance from the centroid (0) to the face (1). May not be combined with LOCAL\_XY\_OFFSET. Not supported for DISU grids.
+mf6internal localxy
+
+block options
+name local_xy_offset
+type keyword
+reader urword
+optional true
+longname whether to use local x and y offsets
+description indicates that ``xrpt'' and ``yrpt'' define the x and y offsets of the release point from the cell center, in model length units. May not be combined with LOCAL\_XY. Not supported for DISU grids.
+mf6internal localxyoff
+
+block options
 name extend_tracking
 type keyword
 reader urword
