@@ -223,16 +223,31 @@ class FlopyReadmeCase:
 
     @staticmethod
     def get_prt_sim(
-        name, ws, mf6, nstp, releasetimes, extend_tracking=False, perioddata=None
+        name,
+        ws,
+        mf6,
+        nstp,
+        releasetimes,
+        extend_tracking=False,
+        perioddata=None,
+        perlens=None,
+        releasepts=None,
+        **prp_kwargs,
     ) -> flopy.mf6.MFSimulation:
         """
         GWF simulation with an exchange-coupled PRT model releasing
         particles at the given times, and with the given PRP period
-        data if any, with a CSV track file.
+        data if any, with a CSV track file. Optionally, give a list
+        of stress period lengths (default one period of length
+        `perlen`), a subset of release points (default all), and
+        additional PRP options.
         """
 
         sim = FlopyReadmeCase.get_gwf_sim(name, ws, mf6)
-        sim.tdis.perioddata = [(FlopyReadmeCase.perlen, nstp, FlopyReadmeCase.tsmult)]
+        perlens = perlens or [FlopyReadmeCase.perlen]
+        sim.tdis.nper = len(perlens)
+        sim.tdis.perioddata = [(p, nstp, FlopyReadmeCase.tsmult) for p in perlens]
+        releasepts = releasepts or FlopyReadmeCase.releasepts_prt
 
         # create prt model
         prt_name = get_model_name(name, "prt")
@@ -247,12 +262,13 @@ class FlopyReadmeCase:
         flopy.mf6.ModflowPrtprp(
             prt,
             pname="prp1",
-            nreleasepts=len(FlopyReadmeCase.releasepts_prt),
-            packagedata=FlopyReadmeCase.releasepts_prt,
+            nreleasepts=len(releasepts),
+            packagedata=releasepts,
             nreleasetimes=len(releasetimes),
             releasetimes=[[t] for t in releasetimes] if releasetimes else None,
             extend_tracking=extend_tracking,
             perioddata=perioddata,
+            **prp_kwargs,
         )
         flopy.mf6.ModflowPrtoc(prt, trackcsv_filerecord=[f"{prt_name}.trk.csv"])
 

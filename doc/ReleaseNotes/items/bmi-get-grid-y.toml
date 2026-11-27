@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "For a DIS grid, the get\\_grid\\_y function of the MODFLOW 6 shared library returned NCOL + 1 values instead of NROW + 1 values. When NCOL was greater than NROW, it wrote past the end of the array allocated by the calling program. It now returns NROW + 1 values."

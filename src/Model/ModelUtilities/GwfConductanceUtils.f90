@@ -11,7 +11,7 @@ module GwfConductanceUtilsModule
   use KindModule, only: DP, I4B
   use ConstantsModule, only: DZERO, DHALF, DONE, &
                              DLNLOW, DLNHIGH, &
-                             C3D_STAGGERED
+                             C3D_VERTICAL, C3D_STAGGERED
 
   implicit none
   private
@@ -20,6 +20,7 @@ module GwfConductanceUtilsModule
   public :: condmean
   public :: thksatnm
   public :: staggered_thkfrac
+  public :: flow_area
   public :: CCOND_HMEAN
 
   !> @brief enumerator that defines the conductance options
@@ -102,8 +103,12 @@ contains
 
     if (hn > hm) then
       sat_up = satn
-    else
+    else if (hm > hn) then
       sat_up = satm
+    else
+      ! equal heads have no upstream cell; use the larger saturation so the
+      ! result does not depend on cell order
+      sat_up = max(satn, satm)
     end if
     condnm = sat_up * condsat
   end function convertible_upstream
@@ -363,8 +368,10 @@ contains
     elseif (iupstream == 1) then
       if (hn > hm) then
         res = satn * (topn - botn)
-      else
+      else if (hm > hn) then
         res = satm * (topm - botm)
+      else
+        res = max(satn * (topn - botn), satm * (topm - botm))
       end if
       !
       ! At least one of the cells is convertible and not upstream weighted
@@ -401,5 +408,38 @@ contains
     tp = bot + sat * (top - bot)
     res = max(min(tp, sill_top) - sill_bot, DZERO)
   end function staggered_thkfrac
+
+  !> @brief Calculate the saturated flow area of a cell for a connection
+  !!
+  !! Vertical connections use the connection area. Horizontal connections
+  !! use the connection width times the cell's saturated thickness, limited
+  !! to the overlap with the connected cell for vertically staggered
+  !! connections.
+  !<
+  function flow_area(ihc, hwva, top, bot, sat, topc, botc) result(res)
+    ! return variable
+    real(DP) :: res !< saturated flow area for cell
+    ! dummy
+    integer(I4B), intent(in) :: ihc !< connection type
+    real(DP), intent(in) :: hwva !< connection area or width
+    real(DP), intent(in) :: top !< top of cell
+    real(DP), intent(in) :: bot !< bottom of cell
+    real(DP), intent(in) :: sat !< cell saturation
+    real(DP), intent(in) :: topc !< top of connected cell
+    real(DP), intent(in) :: botc !< bottom of connected cell
+    ! local
+    real(DP) :: thksat
+
+    if (ihc == C3D_VERTICAL) then
+      res = hwva
+    else
+      if (ihc == C3D_STAGGERED) then
+        thksat = staggered_thkfrac(top, bot, sat, topc, botc)
+      else
+        thksat = (top - bot) * sat
+      end if
+      res = thksat * hwva
+    end if
+  end function flow_area
 
 end module GwfConductanceUtilsModule

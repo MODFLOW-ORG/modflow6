@@ -93,7 +93,15 @@ GNU Fortran or Intel Fortran compilers can be used to build MODFLOW 6. It may be
 
 #### GNU Fortran
 
-The Pixi and Conda environments in this repository include [GNU Fortran from conda-forge](https://anaconda.org/conda-forge/gfortran) on all platforms. This is the recommended way to obtain GNU Fortran, and is what CI and release builds use. GNU Fortran can also be installed from system package managers.
+The `gcc` Pixi environment provides [GNU Fortran from conda-forge](https://anaconda.org/conda-forge/gfortran) on all platforms. This is the recommended way to obtain GNU Fortran, and is what CI and release builds use. Select it with `-e gcc` when configuring, building and testing:
+
+```shell
+pixi run -e gcc setup builddir
+pixi run -e gcc build builddir
+pixi run -e gcc test builddir
+```
+
+The default Pixi environment and the Conda environment do not include a compiler, and use whichever is found on the system. GNU Fortran can also be installed from system package managers.
 
 To build macOS binaries without dynamic dependencies on the gcc/gfortran runtime libraries, link them statically:
 
@@ -334,6 +342,8 @@ or using pixi to setup the build directory:
 ```shell
 pixi run setup builddir
 ```
+
+To use GNU Fortran from the `gcc` Pixi environment, add `-e gcc` to each pixi command (_e.g._ `pixi run -e gcc setup builddir`). See [GNU Fortran](#gnu-fortran).
 
 Debug versions can be built using pixi by adding `-Ddebug=true` at the end of the pixi command. Other meson commands (for example, `-Dextended=true`, `--wipe`, _etc._) added to the pixi command are passed through to Meson.
 

@@ -353,6 +353,15 @@
 				</Filter>
 				<Filter Name="GroundWaterFlow">
 					<Filter Name="submodules">
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-budget.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-coarse.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-delay.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-input.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-memory.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-nodelay.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-obs.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-output.f90"/>
+						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-csub-stress.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-lak-implicit.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-constant.f90"/>
 						<File RelativePath="..\src\Model\GroundWaterFlow\submodules\gwf-sfr-steady.f90"/>
@@ -497,6 +506,7 @@
 					</Filter>
 					<File RelativePath="..\src\Model\TransportModel\tsp-adv.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-apt.f90"/>
+					<File RelativePath="..\src\Model\TransportModel\TspDispersionUtils.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-fmi.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-ic.f90"/>
 					<File RelativePath="..\src\Model\TransportModel\tsp-mvt.f90"/>
@@ -897,6 +907,7 @@
 				<File RelativePath="..\src\Utilities\BudgetTerm.f90"/>
 				<File RelativePath="..\src\Utilities\CharString.f90"/>
 				<File RelativePath="..\src\Utilities\comarg.f90"/>
+				<File RelativePath="..\src\Utilities\CompactionUtil.f90"/>
 				<File RelativePath="..\src\Utilities\compilerversion.F90">
 					<FileConfiguration Name="Debug|Win32">
 						<Tool Name="VFFortranCompilerTool" Preprocess="preprocessYes"/>

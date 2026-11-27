@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "The Timing Module (TDIS) now checks every stress period in the PERIODDATA block. Previously, checking stopped at the first period with PERLEN equal to zero, so an invalid PERLEN, NSTP or TSMULT in a later period was accepted. Such a model could run with time steps of negative length, or crash without an error message. All invalid stress periods are now reported."

@@ -186,22 +186,10 @@ contains
     totim = totimsav + delt
     pertim = pertimsav + delt
     !
-    ! -- Set end of period indicator
-    endofperiod = .false.
-    if (adaptivePeriod) then
-      call ats%ats_set_endofperiod(kper, pertim, perlen(kper), endofperiod)
-    else
-      if (kstp == nstp(kper)) then
-        endofperiod = .true.
-      end if
-    end if
+    ! -- Set end of period and simulation indicators
+    call tdis_set_end_flags(adaptivePeriod)
     if (endofperiod) then
       pertim = perlen(kper)
-    end if
-    !
-    ! -- Set end of simulation indicator
-    if (endofperiod .and. kper == nper) then
-      endofsimulation = .true.
     end if
   end subroutine tdis_set_timestep
 
@@ -224,6 +212,24 @@ contains
     totim = totimsav + delt
     pertim = pertimsav + delt
     !
+    ! -- Reevaluate end of period and simulation indicators, since
+    !    the failed step may have set them
+    call tdis_set_end_flags(adaptivePeriod)
+    if (endofsimulation) then
+      totim = totalsimtime
+    end if
+  end subroutine tdis_delt_reset
+
+  !> @brief Set end of period and end of simulation indicators
+  !!
+  !! Evaluate the indicators for the current time step. Called when a time
+  !! step is set and when a failed time step is retried, so both evaluate
+  !! the indicators the same way.
+  !<
+  subroutine tdis_set_end_flags(adaptivePeriod)
+    ! -- dummy
+    logical(LGP), intent(in) :: adaptivePeriod
+    !
     ! -- Set end of period indicator
     endofperiod = .false.
     if (adaptivePeriod) then
@@ -235,11 +241,8 @@ contains
     end if
     !
     ! -- Set end of simulation indicator
-    if (endofperiod .and. kper == nper) then
-      endofsimulation = .true.
-      totim = totalsimtime
-    end if
-  end subroutine tdis_delt_reset
+    endofsimulation = endofperiod .and. kper == nper
+  end subroutine tdis_set_end_flags
 
   !> @brief Set time step length
   !<
@@ -594,9 +597,10 @@ contains
 
   !> @brief Check the tdis timing information
   !!
-  !! Return back to tdis_read_timing if an error condition is found and let the
-  !! ustop routine be called there instead so the StoreErrorUnit routine can be
-  !! called to assign the correct file name.
+  !! Check every stress period and store an error for each invalid one. The
+  !! caller checks the error count afterward so the StoreErrorUnit routine can
+  !! be called to assign the correct file name. Time step lengths are only
+  !! checked for periods that pass the other checks and are not zero length.
   !<
   subroutine check_tdis_timing(nper, perlen, nstp, tsmult)
     ! -- modules
@@ -610,6 +614,7 @@ contains
     ! -- local
     integer(I4B) :: kper, kstp
     real(DP) :: tstart, tend, dt
+    logical(LGP) :: valid
     character(len=LINELENGTH) :: errmsg
     ! -- formats
     character(len=*), parameter :: fmtpwarn = &
@@ -626,32 +631,36 @@ contains
     !
     ! -- Go through and check each stress period
     do kper = 1, nper
+      valid = .true.
       !
       ! -- Error if nstp less than or equal to zero
       if (nstp(kper) <= 0) then
         write (errmsg, fmtsperror) 'Number of time steps less than one ', kper
         call store_error(errmsg)
-        return
-      end if
-      !
-      ! -- Warn if perlen is zero
-      if (perlen(kper) == DZERO) then
-        write (iout, fmtpwarn) kper
-        return
+        valid = .false.
       end if
       !
       ! -- Error if tsmult is less than zero
       if (tsmult(kper) <= DZERO) then
         write (errmsg, fmtsperror) 'TSMULT must be greater than 0.0 ', kper
         call store_error(errmsg)
-        return
+        valid = .false.
       end if
       !
       ! -- Error if negative period length
       if (perlen(kper) < DZERO) then
         write (errmsg, fmtsperror) 'PERLEN cannot be less than 0.0 ', kper
         call store_error(errmsg)
-        return
+        valid = .false.
+      end if
+      !
+      ! -- Skip the time step checks for an invalid period
+      if (.not. valid) cycle
+      !
+      ! -- Warn if perlen is zero, and skip the time step checks
+      if (perlen(kper) == DZERO) then
+        write (iout, fmtpwarn) kper
+        cycle
       end if
       !
       ! -- Go through all time step lengths and make sure they are valid
@@ -670,7 +679,7 @@ contains
         if (tstart == tend) then
           write (errmsg, fmtdterror) dt, kper, kstp
           call store_error(errmsg)
-          return
+          exit
         end if
       end do
       !

@@ -34,7 +34,9 @@ the raw Meson/Pytest equivalents, and the Conda workflow.
 
 - **Set up the dev environment:** `pixi run install`
 - **Configure the build directory:** `pixi run setup builddir`
-  (add `-Ddebug=true` for a debug build)
+  (add `-Ddebug=true` for a debug build). The default environment uses the system
+  compiler; for conda-forge gfortran use `pixi run -e gcc` for `setup`, `build`
+  and `test`.
 - **Build MODFLOW 6 + ZONEBUDGET** (installs to `bin/`): `pixi run build builddir`
 - **Run all unit tests:** `pixi run test builddir`
 - **Run a single unit-test module** (name from `autotest/tester.f90`):

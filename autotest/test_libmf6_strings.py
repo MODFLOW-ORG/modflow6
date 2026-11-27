@@ -1,14 +1,17 @@
 """
-Test the BMI routines that return a C character string with a basic 1x1x5 model:
+Test the BMI string and grid routines with a basic 1x1x5 model:
 
   [ BC | 1 | 2 | 3 | BC ]
 
-Each routine fills a caller-allocated buffer sized by the matching BMI length
-constant, and must write no more than the string and its null terminator.
+Each string routine fills a caller-allocated buffer sized by the matching BMI
+length constant, and must write no more than the string and its null terminator.
+The grid routines must write no more than the values implied by the grid shape.
 
 Cases:
   - libmf6_strings : get_component_name, get_version, and get_grid_type return
-                     the expected strings and leave the rest of the buffer alone.
+                     the expected strings and leave the rest of the buffer alone;
+                     get_grid_shape, get_grid_x, and get_grid_y return the
+                     expected values for a grid with nrow != ncol.
 """
 
 import os
@@ -16,6 +19,7 @@ import re
 from ctypes import byref, c_int, create_string_buffer
 
 import flopy
+import numpy as np
 import pytest
 from framework import TestFramework
 from modflow_devtools.markers import requires_pkg
@@ -178,6 +182,14 @@ def api_func(exe, idx, model_ws=None):
         )
         == "rectilinear"
     )
+
+    # grid shape and coordinates, with arrays one value longer than needed
+    shape = mf6.get_grid_shape(grid_id, np.zeros(2, dtype=np.int32))
+    np.testing.assert_array_equal(shape, [1, 5])
+    x = mf6.get_grid_x(grid_id, np.full(7, -999.0))
+    np.testing.assert_array_equal(x, [0, 1, 2, 3, 4, 5, -999])
+    y = mf6.get_grid_y(grid_id, np.full(3, -999.0))
+    np.testing.assert_array_equal(y, [1, 0, -999])
 
     # time loop
     current_time = mf6.get_current_time()

@@ -12,6 +12,10 @@ Input to the Node Property Flow (NPF) Package is read from the file that has typ
 \end{description}
 
 \vspace{5mm}
+\subsubsection{Comparison with MODFLOW-NWT}
+The default harmonic-mean method and the LOGARITHMIC and AMT-LMK options of ALTERNATIVE\_CELL\_AVERAGING correspond to LAYAVG values of 0, 1, and 2 in the MODFLOW-NWT Upstream Weighting (UPW) Package \citep{modflownwt}. They calculate the same horizontal conductance as MODFLOW-NWT for confined cells and, when the Newton-Raphson formulation is used, for a convertible cell connected to a cell of the same thickness, apart from differences in how the saturation is smoothed. Where the thickness of connected cells differs, the conductance of a convertible cell differs, because MODFLOW-NWT calculates it from the saturated thickness of the upstream cell, while \mf multiplies a conductance calculated from the full thickness of both cells by the saturated fraction of the upstream cell.
+
+\vspace{5mm}
 \subsubsection{Example Input File}
 \lstinputlisting[style=inputfile]{./mf6ivar/examples/gwf-npf-example.dat}
 

@@ -4,7 +4,7 @@ module PrtFmiModule
   use ErrorUtilModule, only: pstop
   use ConstantsModule, only: DZERO, LENAUXNAME, LENPACKAGENAME, LENVARNAME
   use SimModule, only: store_error
-  use SimVariablesModule, only: errmsg
+  use SimVariablesModule, only: errmsg, iFailedStepRetry
   use FlowModelInterfaceModule, only: FlowModelInterfaceType
   use BaseDisModule, only: DisBaseType
   use BudgetObjectModule, only: BudgetObjectType
@@ -97,20 +97,25 @@ contains
     character(len=*), parameter :: fmtrewet = &
      &"(/1X,'DRY CELL REACTIVATED AT ', a)"
 
-    ! Set flag to indicated that flows are being updated.  For the case where
-    ! flows may be reused (only when flows are read from a file) then set
-    ! the flag to zero to indicated that flows were not updated
-    this%iflowsupdated = 1
+    ! Read flows and heads for this time step, unless this is a retry of
+    ! a failed time step. A retry is for the same time step and stress
+    ! period, so the records read on the first attempt still apply.
+    if (iFailedStepRetry == 0) then
+      ! Set flag to indicated that flows are being updated.  For the case where
+      ! flows may be reused (only when flows are read from a file) then set
+      ! the flag to zero to indicated that flows were not updated
+      this%iflowsupdated = 1
 
-    ! If reading flows from a budget file, read the next set of records
-    if (this%iubud /= 0) call this%advance_bfr()
+      ! If reading flows from a budget file, read the next set of records
+      if (this%iubud /= 0) call this%advance_bfr()
 
-    ! If reading heads from a head file, read the next set of records
-    if (this%iuhds /= 0) call this%advance_hfr()
+      ! If reading heads from a head file, read the next set of records
+      if (this%iuhds /= 0) call this%advance_hfr()
 
-    ! If mover flows are being read from file, read the next set of records
-    if (this%iumvr /= 0) &
-      call this%mvrbudobj%bfr_advance(this%dis, this%iout)
+      ! If mover flows are being read from file, read the next set of records
+      if (this%iumvr /= 0) &
+        call this%mvrbudobj%bfr_advance(this%dis, this%iout)
+    end if
 
     ! Accumulate flows
     call this%accumulate_flows()

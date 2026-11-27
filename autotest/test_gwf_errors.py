@@ -402,6 +402,51 @@ def test_fail_continue_success(function_tmpdir, targets):
     assert final_message in buff[0], failure_message
 
 
+@pytest.mark.parametrize(
+    "perioddata, err_strs",
+    [
+        # invalid period after a zero-length period
+        (
+            [(0.0, 1, 1.0), (-10.0, 1, 1.0)],
+            ["PERLEN cannot be less than 0.0  for stress period 2"],
+        ),
+        (
+            [(0.0, 1, 1.0), (10.0, 1, -2.0)],
+            ["TSMULT must be greater than 0.0  for stress period 2"],
+        ),
+        (
+            [(0.0, 1, 1.0), (10.0, 0, 1.0)],
+            ["Number of time steps less than one  for stress period 2"],
+        ),
+        # zero-length period with an invalid tsmult
+        (
+            [(0.0, 2, -1.0)],
+            ["TSMULT must be greater than 0.0  for stress period 1"],
+        ),
+        # all invalid periods are reported
+        (
+            [(10.0, 0, 1.0), (0.0, 1, 1.0), (-10.0, 1, 1.0)],
+            [
+                "Number of time steps less than one  for stress period 1",
+                "PERLEN cannot be less than 0.0  for stress period 3",
+            ],
+        ),
+    ],
+)
+def test_tdis_perioddata_errors(function_tmpdir, targets, perioddata, err_strs):
+    mf6 = targets["mf6"]
+    tdiskwargs = {"nper": len(perioddata), "perioddata": perioddata}
+    sim = get_minimal_gwf_simulation(
+        str(function_tmpdir), exe=mf6, tdiskwargs=tdiskwargs
+    )
+    sim.write_simulation()
+    returncode, buff = run_mf6([mf6], str(function_tmpdir))
+    assert returncode != 0, "mf6 did not fail for invalid TDIS period data."
+    out = "\n".join(buff)
+    for err_str in err_strs:
+        assert err_str in out, f'mf6 did not report "{err_str}"'
+
+
 def test_hfb_duplicate_connection_error(function_tmpdir, targets):
     """Two HFBs on one cell connection must be rejected, in either cell order.
 

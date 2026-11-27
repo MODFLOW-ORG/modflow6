@@ -34,6 +34,10 @@ module PrtPrpModule
   character(len=LENFTYPE) :: ftype = 'PRP'
   character(len=16) :: text = '             PRP'
   real(DP), parameter :: DEFAULT_EXIT_SOLVE_TOLERANCE = DEM5
+  !> Default release time tolerance, per unit of simulation length
+  real(DP), parameter :: DEFAULT_RELEASE_TIME_TOLERANCE = DSAME * 1.0e5_DP
+  !> Fallback release time tolerance, if the simulation has zero length
+  real(DP), parameter :: FALLBACK_RELEASE_TIME_TOLERANCE = DSAME * DEP9
 
   !> @brief Particle release point (PRP) package
   type, extends(BndExtType) :: PrtPrpType
@@ -344,7 +348,7 @@ contains
     this%ichkmeth = 1
     this%icycwin = 0
     this%extol = DEFAULT_EXIT_SOLVE_TOLERANCE
-    this%rttol = DSAME * DEP9
+    this%rttol = FALLBACK_RELEASE_TIME_TOLERANCE ! set in options
     this%rtfreq = DZERO
     this%applied_kper = 0
 
@@ -919,6 +923,8 @@ contains
     if (found%rttol) then
       if (this%rttol <= DZERO) &
         call store_error('RELEASE_TIME_TOLERANCE MUST BE POSITIVE')
+    else
+      this%rttol = get_default_rttol()
     end if
 
     if (found%rtfreq) then
@@ -986,6 +992,7 @@ contains
   !! Just creates an empty release schedule.
   subroutine exg_prp_options(this)
     class(ExgPrtPrpType), intent(inout) :: this
+    this%rttol = get_default_rttol()
     this%schedule => create_release_schedule(tolerance=this%rttol)
   end subroutine exg_prp_options
 
@@ -1006,8 +1013,11 @@ contains
     character(len=*), parameter :: fmttrkcsv = &
       "(4x, 'PARTICLE TRACKS WILL BE SAVED TO CSV FILE: ', a, /4x, &
     &'OPENED ON UNIT: ', I0)"
+    character(len=*), parameter :: fmtrttol = &
+      "(4x, 'RELEASE TIME TOLERANCE = ', G0, &
+    &' (', a, ')')"
 
-    write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT DIMENSIONS'
+    write (this%iout, '(1x,a)') 'PROCESSING PARTICLE INPUT OPTIONS'
 
     if (found%frctrn) then
       write (this%iout, '(4x,a)') &
@@ -1022,8 +1032,34 @@ contains
       write (this%iout, fmttrkcsv) trim(adjustl(trackcsvfile)), this%itrkcsv
     end if
 
-    write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT DIMENSIONS'
+    if (found%rttol) then
+      write (this%iout, fmtrttol) this%rttol, 'SPECIFIED'
+    else
+      write (this%iout, fmtrttol) this%rttol, 'DEFAULT'
+    end if
+
+    write (this%iout, '(1x,a)') 'END OF PARTICLE INPUT OPTIONS'
   end subroutine prp_log_options
+
+  !> @brief Default release time coincidence tolerance.
+  !!
+  !! Scales with the simulation length, so it is independent of time
+  !! units and constant for the run (including with ATS). Releases in
+  !! extended tracking can occur after the simulation's end, but the
+  !! release schedule also applies a relative floor (~100 ulps of the
+  !! release time), which only exceeds this default for times beyond
+  !! ~1e5 times the simulation length, so no special handling needed.
+  !! If the simulation has zero length, fall back to a fixed value.
+  !<
+  function get_default_rttol() result(tol)
+    use TdisModule, only: totalsimtime
+    real(DP) :: tol
+    if (totalsimtime > DZERO) then
+      tol = DEFAULT_RELEASE_TIME_TOLERANCE * totalsimtime
+    else
+      tol = FALLBACK_RELEASE_TIME_TOLERANCE
+    end if
+  end function get_default_rttol
 
   !> @brief Set dimensions specific to PrtPrpType
   subroutine prp_dimensions(this)

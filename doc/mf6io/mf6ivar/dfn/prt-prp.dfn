@@ -273,7 +273,7 @@ reader urword
 optional true
 mf6internal rttol
 longname release time coincidence tolerance
-description real number indicating the tolerance within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{11}$, where $\epsilon$ is machine precision.
+description real number indicating the tolerance, in model time units, within which to consider consecutive release times coincident. Coincident release times will be merged into a single release time. The default is $\epsilon \times 10^{7}$ times the simulation length (about $2 \times 10^{-9}$ times the sum of all stress period lengths), where $\epsilon$ is machine precision. Release times indistinguishable at floating-point precision are always merged.
 
 block options
 name release_time_frequency

@@ -356,7 +356,7 @@ contains
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       hhcof = -volfracm * rhobm * sat_new * this%isotherm%derivative(cnew, n) &
@@ -658,7 +658,7 @@ contains
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
       sat_new = this%fmi%gwfsat(n)
-      sat_old = this%fmi%gwfsatold(n, delt)
+      sat_old = this%fmi%gwfsatold(n, delt, this%thetam(n))
 
       ! -- Matrix contribution for sorption term
       contribution = -volfracm * rhobm * sat_new &

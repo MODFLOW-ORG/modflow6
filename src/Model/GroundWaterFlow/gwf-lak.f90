@@ -118,6 +118,7 @@ module LakModule
     integer(I4B), pointer :: iimplicit => NULL() !< flag: solve lake stage in the gwf matrix
     integer(I4B), pointer :: iforceleg => NULL() !< flag (dev): force every active lake onto the legacy solver
     integer(I4B), pointer :: iforceleglak => NULL() !< lake (dev) forced onto the legacy solver, 0 if none
+    integer(I4B), pointer :: moffset => NULL() !< solution matrix offset of the model
     ! -- for budgets
     integer(I4B), pointer :: bditems => NULL()
     ! -- vectors
@@ -190,6 +191,7 @@ module LakModule
     integer(I4B), dimension(:), pointer, contiguous :: idxoffdglo => null() !< position of lake-row -> gwf column (per connection)
     integer(I4B), dimension(:), pointer, contiguous :: idxsymdglo => null() !< position of gwf-row diagonal (per connection)
     integer(I4B), dimension(:), pointer, contiguous :: idxsymoffdglo => null() !< position of gwf-row -> lake column (per connection)
+    integer(I4B), dimension(:), pointer, contiguous :: idxcellid => null() !< cell the matrix positions were found for (per connection)
     !
     ! -- lake connection data
     integer(I4B), dimension(:), pointer, contiguous :: imap => null()
@@ -535,6 +537,7 @@ contains
     call mem_allocate(this%iimplicit, 'IIMPLICIT', this%memoryPath)
     call mem_allocate(this%iforceleg, 'IFORCELEG', this%memoryPath)
     call mem_allocate(this%iforceleglak, 'IFORCELEGLAK', this%memoryPath)
+    call mem_allocate(this%moffset, 'MOFFSET', this%memoryPath)
     call mem_allocate(this%bditems, 'BDITEMS', this%memoryPath)
     call mem_allocate(this%cbcauxitems, 'CBCAUXITEMS', this%memoryPath)
     call mem_allocate(this%idense, 'IDENSE', this%memoryPath)
@@ -560,6 +563,7 @@ contains
     this%iimplicit = 0
     this%iforceleg = 0
     this%iforceleglak = 0
+    this%moffset = 0
     this%bditems = 11
     this%cbcauxitems = 1
     this%idense = 0
@@ -4551,6 +4555,7 @@ contains
     call mem_deallocate(this%iimplicit)
     call mem_deallocate(this%iforceleg)
     call mem_deallocate(this%iforceleglak)
+    call mem_deallocate(this%moffset)
     call mem_deallocate(this%bditems)
     call mem_deallocate(this%cbcauxitems)
     call mem_deallocate(this%idense)
@@ -4605,6 +4610,7 @@ contains
     call mem_deallocate(this%idxoffdglo)
     call mem_deallocate(this%idxsymdglo)
     call mem_deallocate(this%idxsymoffdglo)
+    call mem_deallocate(this%idxcellid)
     !
     ! -- lake iteration variables
     call mem_deallocate(this%iseepc)
@@ -4766,6 +4772,7 @@ contains
       call mem_allocate(this%idxoffdglo, 0, 'IDXOFFDGLO', this%memoryPath)
       call mem_allocate(this%idxsymdglo, 0, 'IDXSYMDGLO', this%memoryPath)
       call mem_allocate(this%idxsymoffdglo, 0, 'IDXSYMOFFDGLO', this%memoryPath)
+      call mem_allocate(this%idxcellid, 0, 'IDXCELLID', this%memoryPath)
       return
     end if
     call mem_allocate(this%idxlocnode, this%nlakes, 'IDXLOCNODE', &
@@ -4777,6 +4784,9 @@ contains
                       this%memoryPath)
     call mem_allocate(this%idxsymoffdglo, this%maxbound, 'IDXSYMOFFDGLO', &
                       this%memoryPath)
+    call mem_allocate(this%idxcellid, this%maxbound, 'IDXCELLID', &
+                      this%memoryPath)
+    this%moffset = moffset
     !
     ! -- lake rows: a per-lake diagonal position and the per-connection
     !    lake->cell off-diagonals.
@@ -4787,6 +4797,7 @@ contains
       this%idxdiag(n) = matrix_sln%get_position_diag(iglo)
       do j = this%idxlakeconn(n), this%idxlakeconn(n + 1) - 1
         jglo = this%gwfconn(j) + moffset
+        this%idxcellid(ipos) = this%gwfconn(j)
         this%idxoffdglo(ipos) = matrix_sln%get_position(iglo, jglo)
         ipos = ipos + 1
       end do
