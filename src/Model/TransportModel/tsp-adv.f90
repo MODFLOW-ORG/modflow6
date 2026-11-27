@@ -200,7 +200,7 @@ contains
       end do
       flowmax = max(flowsumneg, flowsumpos)
       if (flowmax < DPREC) cycle
-      cell_volume = this%dis%get_cell_volume(n, this%dis%top(n))
+      cell_volume = this%dis%get_cell_volume(n)
       dt = cell_volume * this%fmi%gwfsat(n) * thetam(n) / flowmax
       dt = dt * this%ats_percel
       if (dt < dtmax) then

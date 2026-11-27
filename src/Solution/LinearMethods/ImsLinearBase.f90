@@ -833,6 +833,7 @@ contains
     integer(I4B) :: icount
     integer(I4B) :: ierr
     real(DP) :: delta
+    real(DP) :: relax_used
     ! -- formats
 2000 FORMAT(/, ' MATRIX IS SEVERELY NON-DIAGONALLY DOMINANT.', &
             /, ' ADDED SMALL VALUE TO PIVOT ', i0, ' TIMES IN', &
@@ -842,6 +843,7 @@ contains
     ipcflag = 0
     icount = 0
     delta = DZERO
+    relax_used = RELAX
     PCSCALE: DO
       SELECT CASE (IPC)
         !
@@ -849,14 +851,14 @@ contains
       CASE (IPC_ILU0, IPC_MILU0)
         CALL ims_base_pcilu0(NJA, NEQ, AMAT, IA, JA, &
                              APC, IAPC, JAPC, IW, W, &
-                             RELAX, ipcflag, delta)
+                             relax_used, ipcflag, delta)
         !
         ! -- ILUT AND MILUT
       CASE (IPC_ILUT, IPC_MILUT)
         ierr = 0
         CALL ilut(NEQ, AMAT, JA, IA, LEVEL, DROPTOL, &
                   APC, JLU, IW, NJAPC, WLU, JW, ierr, &
-                  relax, ipcflag, delta)
+                  relax_used, ipcflag, delta)
         if (ierr /= 0) then
           if (ierr > 0) then
             write (errmsg, '(a,1x,i0,1x,a)') &
@@ -875,6 +877,14 @@ contains
       IF (ipcflag < 1) THEN
         EXIT PCSCALE
       END IF
+      !
+      ! -- a modified factorization can break down where the unmodified
+      !    one does not: first retry without relaxation
+      if (relax_used > DZERO) then
+        relax_used = DZERO
+        ipcflag = 0
+        cycle PCSCALE
+      end if
       delta = 1.5d0 * delta + DEM3
       ipcflag = 0
       IF (delta > DHALF) THEN

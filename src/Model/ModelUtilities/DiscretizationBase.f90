@@ -655,25 +655,32 @@ contains
                      terminate=.true.)
   end function get_ncpl
 
-  !> @brief Return volume of cell n based on x value passed.
+  !> @brief Return volume of cell n.
+  !!
+  !! If x is present, return the saturated volume for head x,
+  !! otherwise the full cell volume.
+  !<
   function get_cell_volume(this, n, x)
     ! -- return
     real(DP) :: get_cell_volume
     ! -- dummy
     class(DisBaseType) :: this
     integer(I4B), intent(in) :: n
-    real(DP), intent(in) :: x
+    real(DP), intent(in), optional :: x
     ! -- local
     real(DP) :: tp
     real(DP) :: bt
     real(DP) :: sat
     real(DP) :: thick
 
-    get_cell_volume = DZERO
     tp = this%top(n)
     bt = this%bot(n)
-    sat = sQuadraticSaturation(tp, bt, x)
-    thick = (tp - bt) * sat
+    if (present(x)) then
+      sat = sQuadraticSaturation(tp, bt, x)
+      thick = (tp - bt) * sat
+    else
+      thick = tp - bt
+    end if
     get_cell_volume = this%area(n) * thick
   end function get_cell_volume
 

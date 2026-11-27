@@ -70,10 +70,13 @@ jobs:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
+      # the benchmarks run in the gcc env, which needs its own flopy etc.
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
-  
+        run: |
+          pixi run install
+          pixi run -e gcc install
+
       - name: Print python package versions
         working-directory: modflow6
         run: pixi run pip list
@@ -98,8 +101,8 @@ jobs:
       - name: Build MF6
         working-directory: modflow6
         run: |
-          pixi run setup builddir
-          pixi run build builddir
+          pixi run -e gcc setup builddir
+          pixi run -e gcc build builddir
 
       - name: Cache modflow6 examples
         if: env.BENCHMARK == 'true'
@@ -133,7 +136,7 @@ jobs:
       - name: Run benchmarks
         if: env.BENCHMARK == 'true'
         working-directory: modflow6
-        run: pixi run benchmark
+        run: pixi run -e gcc benchmark
         env:
           GITHUB_TOKEN: ${{ github.token }}
       

@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "In the Skeletal Storage, Compaction, and Subsidence (CSUB) Package, the Newton-Raphson formulation did not include the no-delay interbed storage terms. The terms are now included, which reduces the number of outer iterations for convertible cells with no-delay interbeds. Heads and budgets can change within the solver tolerance."
