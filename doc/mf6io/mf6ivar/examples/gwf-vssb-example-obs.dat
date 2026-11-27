@@ -1,0 +1,13 @@
+BEGIN CONTINUOUS FILEOUT  my_model.obs.vssb.csv
+  id1_pond   pond-depth     1
+  id1_inf    infiltration   1
+  id1_ro     runoff         1
+END CONTINUOUS
+
+BEGIN CONTINUOUS FILEOUT  my_model.vssb.budget.csv
+  precip     precipitation  surfcells
+  infil      infiltration   surfcells
+  runoff     runoff         surfcells
+  runoff-mvr runoff-to-mvr  surfcells
+  storage    pond-storage   surfcells
+END CONTINUOUS

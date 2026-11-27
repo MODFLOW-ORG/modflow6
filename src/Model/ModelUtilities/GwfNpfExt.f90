@@ -5,7 +5,7 @@ module GwfNpfFormulationModule
   private
 
   integer(I4B), public, parameter :: DEFAULT_FLOW = 0
-  integer(I4B), public, parameter :: UZR_FLOW = 1
+  integer(I4B), public, parameter :: VSF_FLOW = 1
   integer(I4B), public, parameter :: SWI_FLOW = 2
   integer(I4B), public, parameter :: MAX_EXT_FLOW_FORMS = 2
 

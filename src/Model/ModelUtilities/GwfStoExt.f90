@@ -6,7 +6,7 @@ module GwfStoExtModule
   private
 
   integer(I4B), public, parameter :: DEFAULT_STORAGE = 0
-  integer(I4B), public, parameter :: UZR_STORAGE = 1
+  integer(I4B), public, parameter :: VSF_STORAGE = 1
   integer(I4B), public, parameter :: SWI_STORAGE = 2
   integer(I4B), public, parameter :: MAX_EXT_STO_FORMS = 2 !< 'cause default is not part of the (external) storage formulations
 

@@ -103,7 +103,8 @@ contains
     character(len=10) :: cend
     ! -- formats
     character(len=*), parameter :: fmtspts = &
-      &"(a, 'Solving:  Stress period: ',i5,4x, 'Time step: ',i5,4x, a)"
+      &"(a, 'Solving:  Stress period: ',i5,4x, 'Time step: ',i5,4x,&
+      &'Time: ',G15.7, a)"
     character(len=*), parameter :: fmtvspts = &
       &"(' Validating:  Stress period: ',i5,4x,'Time step: ',i5,4x)"
     character(len=*), parameter :: fmtspi = &
@@ -133,7 +134,7 @@ contains
     case (MVALIDATE)
       write (line, fmtvspts) kper, kstp
     case (MNORMAL)
-      write (line, fmtspts) cpref, kper, kstp, trim(cend)
+      write (line, fmtspts) cpref, kper, kstp, totim, trim(cend)
     end select
     if (isim_level >= VALL) &
       call write_message(line)
