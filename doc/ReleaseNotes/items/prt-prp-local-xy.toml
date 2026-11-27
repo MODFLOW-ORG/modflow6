@@ -1,0 +1,3 @@
+section = "features"
+subsection = "basic"
+description = "Added LOCAL\\_XY and LOCAL\\_XY\\_OFFSET options to the Particle Release Point (PRP) Package of the Particle Tracking (PRT) Model, for specifying release point x and y coordinates relative to the release cell, as LOCAL\\_Z does for z. With LOCAL\\_XY on a DIS grid, x and y range from 0 to 1 across the cell. On a DISV grid, the integer part of x selects a cell face and the fractional part a position along it, and y runs from the cell centroid (0) to that face (1). With LOCAL\\_XY\\_OFFSET, x and y are offsets from the cell center. The options may not be combined, and are not supported on DISU grids. Out of range local coordinates are an error."
