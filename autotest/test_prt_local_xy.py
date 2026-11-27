@@ -7,6 +7,8 @@ north faces. On a DISV grid the cell is divided into triangles joining
 the cell's area centroid to each face. The integer part of x selects
 the face from vertex i to vertex i + 1 and the fractional part is the
 fraction along it. y is the fraction from the centroid (0) to the face (1).
+A vertex partway along a side counts as a vertex, so on a quad-refined
+grid each part of a split side is its own face.
 
 With LOCAL_XY_OFFSET, x and y are offsets from the cell center, which
 for DISV is the user-specified cell center.
@@ -29,6 +31,7 @@ cases = [
     "prtlxy_disoff",
     "prtlxy_disv",
     "prtlxy_disvoff",
+    "prtlxy_disvq",
     "prtlxy_both",
     "prtlxy_disrng",
     "prtlxy_disvrng",
@@ -48,21 +51,43 @@ georef = {"xorigin": 100.0, "yorigin": 200.0, "angrot": 30.0}
 # DIS, non-uniform spacing. Rows run north to south.
 delr = [1.0, 2.0, 4.0]
 delc = [3.0, 5.0]
-ymax = sum(delc)
 
-# DISV, a 10x10 square cut into a pentagon and a triangle.
-vertices = [
-    (0, 0.0, 0.0),
-    (1, 0.0, 10.0),
-    (2, 6.0, 10.0),
-    (3, 10.0, 4.0),
-    (4, 10.0, 0.0),
-    (5, 10.0, 10.0),
-]
-cells = [[0, 1, 2, 3, 4], [2, 5, 3]]  # clockwise
+# DISV grids, cells clockwise. A 10x10 square cut into a pentagon and a
+# triangle, and a quad-refined grid: a 10x10 square with two 5x5 squares
+# on its east side, which add a vertex partway along the square's east side.
+grids = {
+    "pent": (
+        [
+            (0, 0.0, 0.0),
+            (1, 0.0, 10.0),
+            (2, 6.0, 10.0),
+            (3, 10.0, 4.0),
+            (4, 10.0, 0.0),
+            (5, 10.0, 10.0),
+        ],
+        [[0, 1, 2, 3, 4], [2, 5, 3]],
+    ),
+    "quad": (
+        [
+            (0, 0.0, 0.0),
+            (1, 0.0, 10.0),
+            (2, 10.0, 10.0),
+            (3, 10.0, 5.0),
+            (4, 10.0, 0.0),
+            (5, 15.0, 10.0),
+            (6, 15.0, 5.0),
+            (7, 15.0, 0.0),
+        ],
+        [[0, 1, 2, 3, 4], [2, 5, 6, 3], [3, 6, 7, 4]],
+    ),
+}
 
 
-def cell_center(iverts):
+def get_grid(name):
+    return grids["quad" if name.endswith("q") else "pent"]
+
+
+def cell_center(vertices, iverts):
     """Vertex average, deliberately not the area centroid."""
     return np.mean([vertices[i][1:] for i in iverts], axis=0)
 
@@ -76,6 +101,7 @@ def centroid(xy):
 
 
 def fan(icell, x, y):
+    vertices, cells = grids["pent"]
     xy = np.array([vertices[i][1:] for i in cells[icell]])
     i = int(x)
     t = x - i
@@ -113,10 +139,24 @@ def releases(name):
             (1, 3.75, 0.3),
         ]
         return [((0, ic), x, y, tuple(fan(ic, x, y))) for ic, x, y in pts]
+    if name == "prtlxy_disvq":
+        # square cell centroid (5, 5), 5 faces, east side split at (10, 5)
+        return [
+            ((0, 0), 1.0, 1.0, (0.0, 0.0)),
+            ((0, 0), 2.5, 0.5, (5.0, 7.5)),
+            ((0, 0), 4.0, 1.0, (10.0, 5.0)),
+            ((0, 0), 3.5, 1.0, (10.0, 7.5)),
+            ((0, 0), 4.5, 1.0, (10.0, 2.5)),
+            ((0, 0), 5.5, 0.5, (5.0, 2.5)),
+            ((0, 1), 2.5, 1.0, (15.0, 7.5)),
+            ((0, 2), 1.0, 0.0, (12.5, 2.5)),
+        ]
     if name == "prtlxy_disvoff":
+        vertices, cells = get_grid(name)
         pts = [(0, 1.0, -2.0), (1, 0.0, 0.0)]
         return [
-            ((0, ic), x, y, tuple(cell_center(cells[ic]) + (x, y))) for ic, x, y in pts
+            ((0, ic), x, y, tuple(cell_center(vertices, cells[ic]) + (x, y)))
+            for ic, x, y in pts
         ]
     if name == "prtlxy_disvrng":
         return [((0, 0), 6.0, 0.5, None)]
@@ -134,8 +174,10 @@ def build_models(test):
 
     def add_dis(model):
         if disv:
+            vertices, cells = get_grid(name)
             cell2d = [
-                [ic, *cell_center(iv), len(iv), *iv] for ic, iv in enumerate(cells)
+                [ic, *cell_center(vertices, iv), len(iv), *iv]
+                for ic, iv in enumerate(cells)
             ]
             flopy.mf6.ModflowGwfdisv(
                 model,
