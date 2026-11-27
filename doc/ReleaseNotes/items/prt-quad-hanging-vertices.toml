@@ -1,3 +1,3 @@
 section = "fixes"
 subsection = "model"
-description = "On a DISV grid, the PRT Model used the wrong tracking method for a rectangular cell with a side shared by more than two neighbors, or by two neighbors of unequal size. Particles could enter the wrong cell, skip a cell entirely, or travel at the wrong speed. Such cells are now tracked with the ternary method. Quadtree grids with at most 2:1 refinement between neighbors are not affected."
+description = "On a DISV grid, the PRT Model used the wrong tracking method for a rectangular cell connected through one face to more than two neighbors, or to two neighbors of unequal size. Particles could enter the wrong cell, skip a cell entirely, or travel at the wrong speed. Such cells are now tracked with the ternary method. Quadtree grids with at most 2:1 refinement between neighbors are not affected."
