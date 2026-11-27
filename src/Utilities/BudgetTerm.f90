@@ -110,11 +110,11 @@ contains
     ! -- dummy
     class(BudgetTermType) :: this
     !
-    deallocate (this%id1)
-    deallocate (this%id2)
-    deallocate (this%flow)
-    deallocate (this%auxvar)
-    deallocate (this%auxtxt)
+    if (associated(this%id1)) deallocate (this%id1)
+    if (associated(this%id2)) deallocate (this%id2)
+    if (associated(this%flow)) deallocate (this%flow)
+    if (associated(this%auxvar)) deallocate (this%auxvar)
+    if (associated(this%auxtxt)) deallocate (this%auxtxt)
   end subroutine deallocate_arrays
 
   !> @brief reset the budget term and counter so terms can be updated
