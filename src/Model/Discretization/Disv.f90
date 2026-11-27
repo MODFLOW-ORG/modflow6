@@ -408,9 +408,7 @@ contains
     character(len=*), parameter :: msgdzi = &
       ' That cell is excluded (IDOMAIN <= 0), but an excluded cell still &
       &defines the top of the cell below it. Raise the BOTM of that cell &
-      &or lower the BOTM of this cell. For a vertical pass-through cell &
-      &(IDOMAIN -1), set its BOTM equal to the bottom elevation of the &
-      &cell above it, giving it zero thickness.'
+      &or lower the BOTM of this cell.'
     character(len=*), parameter :: fmtnr = &
       "(/1x, 'The specified IDOMAIN results in a reduced number of cells.',&
       &/1x, 'Number of user nodes: ',I0,&

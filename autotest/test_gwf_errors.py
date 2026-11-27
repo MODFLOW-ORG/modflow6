@@ -312,9 +312,9 @@ def test_dis_passthrough_thickness_error(function_tmpdir, targets, dis_type):
     assert f"ERROR OCCURRED WHILE READING FILE 'test.{dis_type}'" in output
 
 
-def test_dis_thickness_error_without_passthrough_note(function_tmpdir, targets):
+def test_dis_thickness_error_below_active_cell(function_tmpdir, targets):
     """An ordinary nonpositive thickness between two active cells names the
-    overlying cell but does not mention pass-through cells."""
+    overlying cell without the excluded-cell note."""
     mf6 = targets["mf6"]
 
     diskwargs = {
@@ -338,7 +338,7 @@ def test_dis_thickness_error_without_passthrough_note(function_tmpdir, targets):
         "The top of this cell is the bottom elevation specified for the "
         "cell directly above it, cell (2,1,1)." in output
     )
-    assert "pass-through" not in output
+    assert "excluded" not in output
 
 
 def test_drn_options_error_file(function_tmpdir, targets):
