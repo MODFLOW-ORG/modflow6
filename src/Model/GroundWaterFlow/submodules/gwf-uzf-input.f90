@@ -1,6 +1,9 @@
 !> @brief Source and check the static UZF cell properties
 !<
 submodule(UzfModule) UzfModuleInput
+
+  use SparseModule, only: sparsematrix
+
 contains
 
   !> @brief Source PACKAGEDATA block from input context
