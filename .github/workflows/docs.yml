@@ -70,10 +70,13 @@ jobs:
           pixi-version: v0.82.1
           manifest-path: "modflow6/pixi.toml"
 
+      # the benchmarks run in the gcc env, which needs its own flopy etc.
       - name: Custom pixi install
         working-directory: modflow6
-        run: pixi run install
-  
+        run: |
+          pixi run install
+          pixi run -e gcc install
+
       - name: Print python package versions
         working-directory: modflow6
         run: pixi run pip list
