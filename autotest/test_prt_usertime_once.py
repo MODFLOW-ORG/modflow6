@@ -19,9 +19,11 @@ Pollock's method and with the ternary method:
     tstep:    tracking times equal to time step ends. Each is reported once,
               in the time step that ends.
 
-Another case, `stay`, reuses the dry cell model from test_prt_dry.py with
-the STAY dry tracking method, so particles sit in a dry cell. A tracking
-time on a time step boundary is reported once there too.
+Two cases use the STAY dry tracking method. In `stay`, particles sit in a
+dry cell, reusing the model from test_prt_dry.py, and a tracking time on a
+time step boundary is reported once. In `arrival`, a particle moves into a
+dry cell partway through the time step and stays there. A tracking time
+reported before the arrival is not reported again.
 """
 
 from pathlib import Path
@@ -318,3 +320,93 @@ def test_stay_tstep(function_tmpdir, targets, monkeypatch):
     assert (ut.t == dry.user_time).all()
     assert ut.groupby("irpt").size().eq(1).all()
     assert ((ut.kper == 1) & (ut.kstp == 1)).all()
+
+
+def test_stay_arrival(function_tmpdir, targets):
+    """
+    STAY method: a tracking time reported before the particle enters a dry
+    cell, partway through a time step, is not reported again.
+    """
+    mf6 = targets["mf6"]
+    name = "tiesarr"
+    gwfname, prtname = get_model_name(name, "gwf"), get_model_name(name, "prt")
+    gwf_ws, prt_ws = function_tmpdir / "gwf", function_tmpdir / "prt"
+    ncol, delr, perlen = 10, 10.0, 1000.0
+    dis = dict(nlay=2, nrow=1, ncol=ncol, delr=delr, delc=1.0, top=20.0)
+    dis["botm"] = [10.0, 0.0]
+
+    # one row, two layers. water enters the top layer at the left and
+    # leaves the bottom layer at the right, so with newton the top layer
+    # dries toward the right but still takes inflow from its wet neighbor.
+    sim = flopy.mf6.MFSimulation(sim_name=name, exe_name=mf6, sim_ws=gwf_ws)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[(perlen, 1, 1.0)])
+    gwf = flopy.mf6.ModflowGwf(
+        sim, modelname=gwfname, newtonoptions="NEWTON", save_flows=True
+    )
+    flopy.mf6.ModflowGwfdis(gwf, **dis)
+    flopy.mf6.ModflowGwfnpf(
+        gwf, icelltype=1, k33=0.1, save_specific_discharge=True, save_saturation=True
+    )
+    flopy.mf6.ModflowGwfic(gwf, strt=15.0)
+    flopy.mf6.ModflowGwfchd(
+        gwf, stress_period_data=[[(0, 0, 0), 15.0], [(1, 0, ncol - 1), 2.0]]
+    )
+    flopy.mf6.ModflowGwfoc(
+        gwf,
+        budget_filerecord=f"{gwfname}.bud",
+        head_filerecord=f"{gwfname}.hds",
+        saverecord=[("HEAD", "ALL"), ("BUDGET", "ALL")],
+    )
+    flopy.mf6.ModflowIms(
+        sim,
+        linear_acceleration="BICGSTAB",
+        outer_maximum=200,
+        under_relaxation="DBD",
+    )
+    sim.write_simulation(silent=True)
+    assert sim.run_simulation(silent=True)[0]
+
+    tracktimes = [1e-3]
+    sim = flopy.mf6.MFSimulation(sim_name=name, exe_name=mf6, sim_ws=prt_ws)
+    flopy.mf6.ModflowTdis(sim, time_units="DAYS", perioddata=[(perlen, 1, 1.0)])
+    prt = flopy.mf6.ModflowPrt(sim, modelname=prtname)
+    flopy.mf6.ModflowPrtdis(prt, **dis)
+    flopy.mf6.ModflowPrtmip(prt, porosity=0.1)
+    flopy.mf6.ModflowPrtprp(
+        prt,
+        pname="prp1",
+        filename=f"{prtname}_1.prp",
+        nreleasepts=1,
+        packagedata=[[0, (0, 0, 4), 4.5 * delr, 0.5, 10.37]],
+        perioddata={0: [("FIRST",)]},
+        dry_tracking_method="stay",
+    )
+    flopy.mf6.ModflowPrtoc(
+        prt,
+        pname="oc",
+        track_filerecord=[f"{prtname}.trk"],
+        trackcsv_filerecord=[f"{prtname}.trk.csv"],
+        ntracktimes=len(tracktimes),
+        tracktimes=[(t,) for t in tracktimes],
+    )
+    flopy.mf6.ModflowPrtfmi(
+        prt,
+        packagedata=[
+            ("GWFHEAD", gwf_ws / f"{gwfname}.hds"),
+            ("GWFBUDGET", gwf_ws / f"{gwfname}.bud"),
+        ],
+    )
+    ems = flopy.mf6.ModflowEms(sim, pname="ems", filename=f"{prtname}.ems")
+    sim.register_solution_package(ems, [prt.name])
+    sim.write_simulation(silent=True)
+    assert sim.run_simulation(silent=True)[0]
+
+    # release just under the water table in the last wet cell of the top
+    # layer. the particle leaves it partway through the step, after the
+    # tracking time, into the dry cell next door, and stays there.
+    trk = read_track(prt_ws, name)
+    ex = trk[trk.ireason == EXIT]
+    assert len(ex) == 1
+    assert tracktimes[0] < ex.iloc[0].t < perlen
+    assert (trk.loc[ex.index[0] + 1 :].icell == ex.iloc[0].icell + 1).all()
+    check_usertimes_once(trk, tracktimes)
