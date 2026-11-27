@@ -91,6 +91,7 @@ module ParticleModule
     real(DP), public :: trelease !< release time
     real(DP), public :: tstop !< stop time
     real(DP), public :: ttrack !< time tracked so far
+    real(DP), public :: tusertime !< last user tracking time reported
     real(DP), public :: xorigin !< x origin for coordinate transformation from model to local
     real(DP), public :: yorigin !< y origin for coordinate transformation from model to local
     real(DP), public :: zorigin !< z origin for coordinate transformation from model to local
@@ -150,6 +151,7 @@ module ParticleModule
     real(DP), dimension(:), pointer, public, contiguous :: trelease !< particle release time
     real(DP), dimension(:), pointer, public, contiguous :: tstop !< particle stop time
     real(DP), dimension(:), pointer, public, contiguous :: ttrack !< current tracking time
+    real(DP), dimension(:), pointer, public, contiguous :: tusertime !< last user tracking time reported
   contains
     procedure, public :: destroy
     procedure, public :: num_stored
@@ -189,6 +191,7 @@ contains
     call mem_allocate(store%trelease, np, 'PLTRELEASE', mempath)
     call mem_allocate(store%tstop, np, 'PLTSTOP', mempath)
     call mem_allocate(store%ttrack, np, 'PLTTRACK', mempath)
+    call mem_allocate(store%tusertime, np, 'PLTUSERTIME', mempath)
     call mem_allocate(store%istopweaksink, np, 'PLISTOPWEAKSINK', mempath)
     call mem_allocate(store%istopzone, np, 'PLISTOPZONE', mempath)
     call mem_allocate(store%idrymeth, np, 'PLIDRYMETH', mempath)
@@ -220,6 +223,7 @@ contains
     call mem_deallocate(this%trelease, 'PLTRELEASE', mempath)
     call mem_deallocate(this%tstop, 'PLTSTOP', mempath)
     call mem_deallocate(this%ttrack, 'PLTTRACK', mempath)
+    call mem_deallocate(this%tusertime, 'PLTUSERTIME', mempath)
     call mem_deallocate(this%istopweaksink, 'PLISTOPWEAKSINK', mempath)
     call mem_deallocate(this%istopzone, 'PLISTOPZONE', mempath)
     call mem_deallocate(this%idrymeth, 'PLIDRYMETH', mempath)
@@ -263,6 +267,7 @@ contains
     call mem_reallocate(this%trelease, np, 'PLTRELEASE', mempath)
     call mem_reallocate(this%tstop, np, 'PLTSTOP', mempath)
     call mem_reallocate(this%ttrack, np, 'PLTTRACK', mempath)
+    call mem_reallocate(this%tusertime, np, 'PLTUSERTIME', mempath)
     call mem_reallocate(this%istopweaksink, np, 'PLISTOPWEAKSINK', mempath)
     call mem_reallocate(this%istopzone, np, 'PLISTOPZONE', mempath)
     call mem_reallocate(this%idrymeth, np, 'PLIDRYMETH', mempath)
@@ -307,6 +312,7 @@ contains
     particle%trelease = this%trelease(ip)
     particle%tstop = this%tstop(ip)
     particle%ttrack = this%ttrack(ip)
+    particle%tusertime = this%tusertime(ip)
     particle%advancing = .true.
     particle%itrdomain(1:MAX_LEVEL) = &
       this%itrdomain(ip, 1:MAX_LEVEL)
@@ -343,6 +349,7 @@ contains
     this%trelease(ip) = particle%trelease
     this%tstop(ip) = particle%tstop
     this%ttrack(ip) = particle%ttrack
+    this%tusertime(ip) = particle%tusertime
     this%itrdomain( &
       ip, &
       1:MAX_LEVEL) = &
@@ -404,6 +411,7 @@ contains
     this%trelease(1:np) = source%trelease(:)
     this%tstop(1:np) = source%tstop(:)
     this%ttrack(1:np) = source%ttrack(:)
+    this%tusertime(1:np) = source%tusertime(:)
   end subroutine copy_from
 
   !> @brief Transform particle coordinates.

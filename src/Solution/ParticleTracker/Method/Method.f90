@@ -252,10 +252,17 @@ contains
   end subroutine weaksink
 
   !> @brief A user-defined tracking time occurs.
+  !!
+  !! The caller sets particle%ttrack to the tracking time. It's remembered
+  !! as particle%tusertime, so callers can skip any time not strictly after
+  !! it. A tracking time can then be reported only once per particle, even
+  !! when it coincides with a boundary between cells, subcells or time
+  !! steps that adjacent selection loops both include.
   subroutine usertime(this, particle)
     class(MethodType), intent(inout) :: this
     type(ParticleType), pointer, intent(inout) :: particle
     class(ParticleEventType), pointer :: event
+    particle%tusertime = particle%ttrack
     allocate (UserTimeEventType :: event)
     call this%events%broadcast(particle, event)
     deallocate (event)

@@ -144,6 +144,7 @@ contains
     if (this%tracktimes%any()) then
       do i = this%tracktimes%selection(1), this%tracktimes%selection(2)
         t = this%tracktimes%times(i)
+        if (t <= particle%tusertime) cycle ! already reported
         if (t < t0) cycle
         if (t > texit .or. t > tmax) exit
         dt = t - t0
