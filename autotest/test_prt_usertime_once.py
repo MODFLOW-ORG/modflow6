@@ -5,8 +5,7 @@ The same instant can be a particle's release time, a cell or subcell exit
 time, a time step boundary and a user tracking time all at once. PRT should
 report each event at the earliest opportunity, and each tracking time at
 most once per particle, whatever the compiler or floating point model.
-Events of different kinds at the same time are all reported, in causal
-order (e.g. release, then tracking time, then exit).
+Events of different kinds at the same time are all reported.
 
 Cases, each on a DIS grid with Pollock's method and on a DISV grid with
 Pollock's method and with the ternary method:
@@ -14,9 +13,9 @@ Pollock's method and with the ternary method:
     face:     release on a cell face, with a tracking time equal to the
               release time. The particle exits immediately.
     corner:   the same, released on a cell corner.
-    exit:     tracking times equal to (computed) cell exit times, found by
-              a preliminary run. Each is reported once, in the cell being
-              left, just before the exit.
+    exit:     tracking times equal to cell exit times, taken from a run
+              without tracking times. Each is reported once, in the cell
+              being left, just before the exit.
     tstep:    tracking times equal to time step ends. Each is reported once,
               in the time step that ends.
 
@@ -226,7 +225,7 @@ def build_models(test, grid, case):
 
 
 def check_usertimes_once(trk, tracktimes):
-    """Each tracking time is reported once, in causal order."""
+    """Each tracking time is reported once."""
     ut = trk[trk.ireason == USERTIME]
     assert sorted(ut.t.tolist()) == sorted(tracktimes), (
         f"expected each of {tracktimes} once, got {ut.t.tolist()}"
