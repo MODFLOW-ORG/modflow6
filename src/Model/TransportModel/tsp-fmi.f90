@@ -526,7 +526,7 @@ contains
     else
       satold = this%gwfsat(n)
       if (this%igwfstrgsy /= 0 .and. thetam > DZERO) then
-        vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+        vcell = this%dis%get_cell_volume(n)
         satold = satold + this%gwfstrgsy(n) * delt / (vcell * thetam)
         satold = min(max(satold, DZERO), DONE)
       end if

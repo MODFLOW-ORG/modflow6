@@ -241,8 +241,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
+      vnew = this%dis%get_cell_volume(n) * this%fmi%gwfsat(n) * this%thetam(n)
       vold = vnew
       if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
       if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
@@ -288,7 +287,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swtpdt = this%fmi%gwfsat(n)
       !
       ! -- add decay rate terms to accumulators
@@ -352,7 +351,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- assign variables
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       volfracm = this%get_volfracm(n)
       rhobm = this%bulk_density(n)
       sat_new = this%fmi%gwfsat(n)
@@ -422,7 +421,7 @@ contains
       ! -- set variables
       hhcof = DZERO
       rrhs = DZERO
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swnew = this%fmi%gwfsat(n)
       distcoef = this%distcoef(n)
       idiag = this%dis%con%ia(n)
@@ -543,8 +542,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vnew = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n)) * &
-             this%fmi%gwfsat(n) * this%thetam(n)
+      vnew = this%dis%get_cell_volume(n) * this%fmi%gwfsat(n) * this%thetam(n)
       vold = vnew
       if (this%fmi%igwfstrgss /= 0) vold = vold + this%fmi%gwfstrgss(n) * delt
       if (this%fmi%igwfstrgsy /= 0) vold = vold + this%fmi%gwfstrgsy(n) * delt
@@ -591,7 +589,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- calculate new and old water volumes
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swtpdt = this%fmi%gwfsat(n)
       !
       ! -- calculate decay gains and losses
@@ -653,7 +651,7 @@ contains
       if (this%ibound(n) <= 0) cycle
       !
       ! -- assign variables
-      Vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      Vcell = this%dis%get_cell_volume(n)
 
       rhobm = this%bulk_density(n)
       volfracm = this%get_volfracm(n)
@@ -729,7 +727,7 @@ contains
       ! -- set variables
       hhcof = DZERO
       rrhs = DZERO
-      vcell = this%dis%area(n) * (this%dis%top(n) - this%dis%bot(n))
+      vcell = this%dis%get_cell_volume(n)
       swnew = this%fmi%gwfsat(n)
       distcoef = this%distcoef(n)
       volfracm = this%get_volfracm(n)

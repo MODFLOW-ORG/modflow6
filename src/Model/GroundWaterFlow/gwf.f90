@@ -671,8 +671,8 @@ contains
       do n = 1, this%dis%nodes
         if (this%npf%ibound(n) < 1) cycle
         !
-        ! -- get the maximum volume of the cell (head at top of cell)
-        v = this%dis%get_cell_volume(n, this%dis%top(n))
+        ! -- get the volume of the cell
+        v = this%dis%get_cell_volume(n)
         !
         ! -- set the residual
         resid = vec_residual%get_value_local(n + ioffset)
