@@ -4,26 +4,23 @@ User tracking times coinciding with other particle tracking events.
 The same instant can be a particle's release time, a cell or subcell exit
 time, a time step boundary and a user tracking time all at once. PRT should
 report each event at the earliest opportunity, and each tracking time at
-most once per particle, whatever the compiler or floating point model.
-Events of different kinds at the same time are all reported.
+most once per particle. Events of different kinds at the same time are all
+reported.
 
-Cases, each on a DIS grid with Pollock's method and on a DISV grid with
-Pollock's method and with the ternary method:
+The grid is rectilinear, so it can be built as both DIS and DISV. Cases,
+each on DIS with Pollock's method and on DISV with Pollock's method and
+with the ternary method:
 
     face:     release on a cell face, with a tracking time equal to the
-              release time. The particle exits immediately.
+              release time.
     corner:   the same, released on a cell corner.
     exit:     tracking times equal to cell exit times, taken from a run
-              without tracking times. Each is reported once, in the cell
-              being left, just before the exit.
-    tstep:    tracking times equal to time step ends. Each is reported once,
-              in the time step that ends.
+              without tracking times.
+    tstep:    tracking times equal to time step ends.
 
 Two cases use the STAY dry tracking method. In `stay`, particles sit in a
-dry cell, reusing the model from test_prt_dry.py, and a tracking time on a
-time step boundary is reported once. In `arrival`, a particle moves into a
-dry cell partway through the time step and stays there. A tracking time
-reported before the arrival is not reported again.
+dry cell. In `arrival`, a particle moves into a dry cell partway through
+the time step.
 """
 
 from pathlib import Path
