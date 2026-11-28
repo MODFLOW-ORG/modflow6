@@ -1,28 +1,15 @@
 """
-Particles released on a cell face they exit through immediately.
+Particles released on the face they exit through should exit at exactly
+the release time. The travel time to the exit face, log(v_exit / v) / (dv/dx),
+is zero there only if v equals the face velocity exactly, which value-unsafe
+floating point optimizations (e.g. ifx defaults, gfortran -ffast-math) can
+break, giving a tiny or negative travel time. Under standard IEEE arithmetic
+the test passes regardless.
 
-A particle released on the face it's moving toward exits at once, so its
-travel time to that face is zero. Pollock's method computes the travel
-time as log(v_exit / v) / (dv/dx), where v is interpolated from the face
-velocities at the particle's position. On the face, v should equal the
-face velocity, and the log of their ratio be exactly zero. But a compiler
-may reassociate the interpolation (e.g. ifx's default floating point model,
-or gfortran -ffast-math), so v differs from the face velocity in the last
-bit, giving a tiny positive or negative travel time. A negative one moves
-the particle back in time, and could reorder or drop events reported at
-the release time (e.g. a tracking time).
-
-Particles are released at the midpoints of the faces of interior cells in
-a heterogeneous flow field (lognormal K), so face velocities vary. There
-is a tracking time at the release time. Checks:
-
-    - no event is reported at a negative time,
-    - every particle reports the tracking time at the release time,
-    - an exit at (or within roundoff of) the release time is at exactly 0.
-
-With standard IEEE arithmetic (e.g. gfortran without -ffast-math) the
-interpolation is exact on the face, so this passes with or without the
-fix. It guards builds with value-unsafe floating point optimizations.
+Particles are released at the face midpoints of interior cells in a
+heterogeneous flow field, with a tracking time at the release time. Check
+that no event is at a negative time, every particle reports the tracking
+time, and exits within roundoff of release are at exactly 0.
 """
 
 from pathlib import Path

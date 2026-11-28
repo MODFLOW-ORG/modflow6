@@ -511,16 +511,6 @@ contains
 
     ! Compute travel time to exit face. Return with status = 0
     ! A particle on the face it's moving towards exits immediately.
-    ! Set dt to exactly zero rather than rely on log(vr) = log(1).
-    ! vr = v2 / v2 may not be exactly 1: under a fast FP model the
-    ! compiler may compute it as v2 * (1 / v2), which rounds twice,
-    ! making dt slightly positive or negative and
-    ! deciding whether coincident events (e.g. a tracking time) are
-    ! reported before or after the exit. Never return a negative dt.
-    ! The face test needs xL exactly 0 or 1, which a fast FP model
-    ! can also break by computing x / dx as x * (1 / dx). Then dt
-    ! comes out zero or slightly positive, so a tracking time at the
-    ! exit time is still reported before the exit.
     if ((xL <= DZERO .and. v < DZERO) .or. (xL >= DONE .and. v > DZERO)) then
       dt = DZERO
     else
