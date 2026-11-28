@@ -45,6 +45,7 @@ module AdaptiveTimeStepModule
     procedure, private :: ats_process_input
     procedure, private :: ats_input_table
     procedure, private :: ats_check_timing
+    procedure, private :: max_step_end
   end type AtsType
 
 contains
@@ -628,7 +629,7 @@ contains
     end if
     !
     ! -- Cut timestep down to meet end of period
-    if (tstart + delt > perlencurrent - this%dtmin(n)) then
+    if (tstart + delt > this%max_step_end(n, perlencurrent)) then
       delt = perlencurrent - tstart
     end if
     !
@@ -642,14 +643,16 @@ contains
   !!  did not converge.
   !!
   !<
-  subroutine ats_reset_delt(this, kstp, kper, lastStepFailed, &
-                            delt, finishedTrying)
+  subroutine ats_reset_delt(this, kstp, kper, lastStepFailed, tstart, &
+                            perlencurrent, delt, finishedTrying)
     ! -- modules
     ! -- dummy
     class(AtsType) :: this
     integer(I4B), intent(in) :: kstp
     integer(I4B), intent(in) :: kper
     integer(I4B), intent(in) :: lastStepFailed
+    real(DP), intent(in) :: tstart !< period time at the start of the step
+    real(DP), intent(in) :: perlencurrent !< length of the period
     real(DP), intent(inout) :: delt
     logical, intent(inout) :: finishedTrying
     ! -- local
@@ -667,6 +670,10 @@ contains
         tsfact = this%dtfailadj(n)
         if (tsfact > DONE) then
           delt_temp = delt / tsfact
+          ! -- Shorten the retry so it leaves at least dtmin in the period
+          if (tstart + delt_temp > this%max_step_end(n, perlencurrent)) then
+            delt_temp = this%max_step_end(n, perlencurrent) - tstart
+          end if
           if (delt_temp >= this%dtmin(n)) then
             finishedTrying = .false.
             delt = delt_temp
@@ -677,6 +684,19 @@ contains
       end if
     end if
   end subroutine ats_reset_delt
+
+  !> @brief Latest time a step may end without ending the period
+  !!
+  !! A step ending later than this leaves less than dtmin in the period.
+  !!
+  !<
+  function max_step_end(this, n, perlencurrent) result(tmax)
+    class(AtsType) :: this
+    integer(I4B), intent(in) :: n !< ATS record for the period
+    real(DP), intent(in) :: perlencurrent !< length of the period
+    real(DP) :: tmax
+    tmax = perlencurrent - this%dtmin(n)
+  end function max_step_end
 
   !> @brief Set end of period indicator
   !!

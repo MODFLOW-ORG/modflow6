@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "basic"
+description = "With adaptive time stepping (ATS), if a time step that would have ended a stress period failed to converge and the retried step ended less than the minimum time step length (DTMIN) before the end of the period, the period ended after the retried step and the remaining time was not simulated. Later periods started early by the same amount. The retried step is now shortened so it leaves at least DTMIN in the period. If that would make it shorter than DTMIN, the step is not retried and the simulation fails to converge."
