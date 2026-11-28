@@ -30,9 +30,10 @@ contains
   !!
   !! Allocate and assign members of a new TimeArrayType object. Allocate space
   !! for the array so that this subroutine can be called repeatedly with the
-  !! same array (but with different contents).
+  !! same array (but with different contents). The array is sized for one
+  !! layer (NCPL), or for all user nodes if fullgrid is true.
   !<
-  subroutine ConstructTimeArray(newTa, modelname)
+  subroutine ConstructTimeArray(newTa, modelname, fullgrid)
     ! -- modules
     use ConstantsModule, only: LENMEMPATH
     use MemoryManagerModule, only: mem_setptr
@@ -41,11 +42,13 @@ contains
     ! -- dummy
     type(TimeArrayType), pointer, intent(out) :: newTa
     character(len=*), intent(in) :: modelname
+    logical, optional, intent(in) :: fullgrid !< size array for all user nodes
     ! -- local
     integer(I4B), dimension(:), contiguous, &
       pointer :: mshape
     character(len=LENMEMPATH) :: mempath
     integer(I4B) :: isize
+    logical :: lfullgrid
     !
     ! -- initialize
     nullify (mshape)
@@ -58,7 +61,11 @@ contains
     call mem_setptr(mshape, 'MODEL_SHAPE', mempath)
     !
     ! Get dimensions for supported discretization type
-    if (size(mshape) == 2) then
+    lfullgrid = .false.
+    if (present(fullgrid)) lfullgrid = fullgrid
+    if (lfullgrid) then
+      isize = product(mshape)
+    else if (size(mshape) == 2) then
       isize = mshape(2)
     else if (size(mshape) == 3) then
       isize = mshape(2) * mshape(3)

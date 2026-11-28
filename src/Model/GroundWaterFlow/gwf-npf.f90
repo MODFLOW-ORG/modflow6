@@ -17,6 +17,7 @@ module GwfNpfModule
   use Xt3dModule, only: Xt3dType
   use SpdisWorkArrayModule, only: SpdisWorkArrayType
   use TvkModule, only: TvkType, tvk_cr
+  use TvkgModule, only: TvkgType, tvkg_cr
   use MemoryManagerModule, only: mem_allocate, mem_reallocate, &
                                  mem_deallocate, mem_setptr, &
                                  mem_reassignptr
@@ -106,6 +107,7 @@ module GwfNpfModule
     integer(I4B), pointer :: intvk => null() !< TVK (time-varying K) unit number (0 if unused)
     integer(I4B), pointer :: invsc => null() !< VSC (viscosity) unit number (0 if unused); viscosity leads to time-varying K's
     type(TvkType), pointer :: tvk => null() !< TVK object
+    type(TvkgType), pointer :: tvkg => null() !< TVKG object
     integer(I4B), pointer :: kchangeper => null() !< last stress period in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), pointer :: kchangestp => null() !< last time step in which any node K (or K22, or K33) values were changed (0 if unchanged from start of simulation)
     integer(I4B), dimension(:), pointer, contiguous :: nodekchange => null() ! grid array of flags indicating for each node whether its K (or K22, or K33) value changed (1) at (kchangeper, kchangestp) or not (0)
@@ -408,6 +410,11 @@ contains
     if (this%intvk /= 0) then
       call this%tvk%ar(this%dis)
     end if
+    !
+    ! -- TVKG
+    if (associated(this%tvkg)) then
+      call this%tvkg%ar(this%dis)
+    end if
   end subroutine npf_ar
 
   !> @brief Read and prepare method for package
@@ -422,6 +429,11 @@ contains
     ! -- TVK
     if (this%intvk /= 0) then
       call this%tvk%rp()
+    end if
+    !
+    ! -- TVKG
+    if (associated(this%tvkg)) then
+      call this%tvkg%rp()
     end if
   end subroutine npf_rp
 
@@ -462,6 +474,11 @@ contains
     ! -- TVK
     if (this%intvk /= 0) then
       call this%tvk%ad()
+    end if
+    !
+    ! -- TVKG
+    if (associated(this%tvkg)) then
+      call this%tvkg%ad()
     end if
     !
     ! -- VSC
@@ -1263,6 +1280,12 @@ contains
       deallocate (this%tvk)
     end if
     !
+    ! -- TVKG
+    if (associated(this%tvkg)) then
+      call this%tvkg%da()
+      deallocate (this%tvkg)
+    end if
+    !
     ! -- VSC
     if (this%invsc /= 0) then
       nullify (this%vsc)
@@ -1693,6 +1716,20 @@ contains
       tvk6_mempath = tvk6_mempaths(1)
       this%intvk = 1 ! tvk active
       call tvk_cr(this%tvk, this%name_model, tvk6_mempath, this%intvk, this%iout)
+    end if
+    !
+    ! -- TVKG6 subpackage (grid array input to TVK)
+    if (filein_fname(tvk6_filename, 'TVKG6_FILENAME', &
+                     this%input_mempath, this%input_fname)) then
+      if (this%intvk /= 0) then
+        errmsg = 'TVK6 and TVKG6 cannot both be specified.'
+        call store_error(errmsg)
+        call store_error_filename(this%input_fname)
+      end if
+      call mem_setptr(tvk6_mempaths, 'TVKG6_MEMPATH', this%input_mempath)
+      tvk6_mempath = tvk6_mempaths(1)
+      call tvkg_cr(this%tvkg, this%name_model, tvk6_mempath, tvk6_filename, &
+                   this%iout)
     end if
     !
     ! -- verify ALTERNATIVE_CELL_AVERAGING input value is supported

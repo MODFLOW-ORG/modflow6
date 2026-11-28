@@ -1,5 +1,6 @@
 # --------------------- gwf npf options ---------------------
 # mf6 subpackage utl-tvk
+# mf6 subpackage utl-tvkg
 
 block options
 name save_flows
@@ -237,6 +238,38 @@ optional false
 tagged false
 longname file name of TVK information
 description defines a time-varying hydraulic conductivity (TVK) input file.  Records in the TVK file can be used to change hydraulic conductivity properties at specified times or stress periods.
+
+block options
+name tvkg_filerecord
+type record tvkg6 filein tvkg6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name tvkg6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname tvkg keyword
+description keyword to specify that record corresponds to a time-varying hydraulic conductivity file with grid array input (TVKG).  TVKG and TVK cannot both be specified.
+
+block options
+name tvkg6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of TVKG information
+description defines a time-varying hydraulic conductivity input file with grid array input (TVKG).  Arrays in the TVKG file can be used to change hydraulic conductivity properties at specified times or stress periods.
 
 block options
 name export_array_ascii

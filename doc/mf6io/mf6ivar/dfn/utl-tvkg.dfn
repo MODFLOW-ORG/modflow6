@@ -1,0 +1,127 @@
+# --------------------- gwf tvkg options ---------------------
+# flopy subpackage tvkg_filerecord tvkg k tvkg_k
+# flopy parent_name_type parent_package MFPackage
+
+block options
+name readarraygrid
+type keyword
+reader urword
+optional false
+longname use array-based grid input
+description indicates that array-based grid input will be used for the time-varying hydraulic conductivity (TVKG) package.  This keyword must be specified to use array-based grid input.
+default_value true
+
+block options
+name print_input
+type keyword
+reader urword
+optional true
+longname print input to listing file
+description keyword to indicate that information for each change to the hydraulic conductivity in a cell will be written to the model listing file.
+
+block options
+name tas_filerecord
+type record tas6 filein tas6_filename
+shape
+reader urword
+tagged true
+optional true
+longname
+description
+
+block options
+name tas6
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname time-array series keyword
+description keyword to specify that record corresponds to a time-array-series file.
+
+block options
+name filein
+type keyword
+shape
+in_record true
+reader urword
+tagged true
+optional false
+longname file keyword
+description keyword to specify that an input filename is expected next.
+
+block options
+name tas6_filename
+type string
+preserve_case true
+in_record true
+reader urword
+optional false
+tagged false
+longname file name of time series information
+description defines a time-array-series file defining a time-array series that can be used to assign time-varying values. See the ``Time-Variable Input'' section for instructions on using the time-array series capability.
+
+block options
+name export_array_netcdf
+type keyword
+reader urword
+optional true
+mf6internal export_nc
+longname export array variables to netcdf output files.
+description keyword that specifies input gridded arrays should be written to the model output NetCDF file with attributes that support using the generated file as a MODFLOW 6 simulation input.  This option only has an effect when an output model NetCDF file is configured and the simulation is run in VALIDATE mode, otherwise it is ignored.
+extended true
+
+# --------------------- gwf tvkg period ---------------------
+
+block period
+name iper
+type integer
+block_variable true
+in_record true
+tagged false
+shape
+valid
+reader urword
+optional false
+longname stress period number
+description REPLACE iper {}
+
+block period
+name k
+type double precision
+shape (nodes)
+reader readarray
+time_series true
+layered true
+netcdf true
+optional true
+longname hydraulic conductivity (L/T)
+description is the new hydraulic conductivity, as per K in the NPF package, for each cell from the start of the specified stress period.  A cell with the DNODATA value (3.0E+30) is unchanged.  The k array may be defined by a time-array series (see the ``Using Time-Array Series in a Package'' section).
+default_value 3.e30
+
+block period
+name k22
+type double precision
+shape (nodes)
+reader readarray
+time_series true
+layered true
+netcdf true
+optional true
+longname hydraulic conductivity of second ellipsoid axis (L/T)
+description is the new hydraulic conductivity of the second ellipsoid axis (or the ratio of K22/K if the K22OVERK NPF package option is specified), as per K22 in the NPF package, for each cell from the start of the specified stress period.  A cell with the DNODATA value (3.0E+30) is unchanged.  The k22 array may be defined by a time-array series.  A ratio is applied to the cell's K when it is given or, for a time-array series, at each time step.  A ratio cannot be read from NetCDF input.
+default_value 3.e30
+
+block period
+name k33
+type double precision
+shape (nodes)
+reader readarray
+time_series true
+layered true
+netcdf true
+optional true
+longname hydraulic conductivity of third ellipsoid axis (L/T)
+description is the new hydraulic conductivity of the third ellipsoid axis (or the ratio of K33/K if the K33OVERK NPF package option is specified), as per K33 in the NPF package, for each cell from the start of the specified stress period.  A cell with the DNODATA value (3.0E+30) is unchanged.  The k33 array may be defined by a time-array series.  A ratio is applied to the cell's K when it is given or, for a time-array series, at each time step.  A ratio cannot be read from NetCDF input.
+default_value 3.e30

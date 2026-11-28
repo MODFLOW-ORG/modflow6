@@ -195,7 +195,7 @@ contains
                                  rp_loader%param_names, rp_loader%nparam)
             obj => export_pkg
             call pkglist%add(obj)
-          type is (GridArrayLoadType)
+          class is (GridArrayLoadType)
             ! create the export object
             mshape => rp_loader%ctx%mshape
             allocate (export_pkg)

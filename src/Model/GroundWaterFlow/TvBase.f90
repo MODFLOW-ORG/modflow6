@@ -7,15 +7,17 @@
 !<
 module TvBaseModule
   use BaseDisModule, only: DisBaseType
-  use ConstantsModule, only: MAXCHARLEN, DZERO
+  use ConstantsModule, only: LENVARNAME
+  use IdmParamMetaViewModule, only: IdmParamMetaViewType
+  use IdmParamMetaModule, only: RS_VALUES, RS_SERIES
   use GeomUtilModule, only: get_node
-  use KindModule, only: I4B, DP, LGP
+  use KindModule, only: I4B, LGP
   use NumericalPackageModule, only: NumericalPackageType
   use SimModule, only: count_errors, store_error, store_error_filename
   use SimVariablesModule, only: errmsg
   use STLVecIntModule, only: STLVecInt
-  use TdisModule, only: kper, nper, kstp
-  use MemoryManagerModule, only: mem_setptr, get_isize
+  use TdisModule, only: kper, kstp
+  use MemoryManagerModule, only: mem_setptr
 
   implicit none
 
@@ -25,9 +27,12 @@ module TvBaseModule
   public :: tvbase_da
 
   type, abstract, extends(NumericalPackageType) :: TvBaseType
-    logical(LGP) :: ts_active = .false. !< is timeseries active in package
     integer(I4B), dimension(:, :), pointer, contiguous :: cellid => null() !< input cellids of time varying value
-    type(STLVecInt) :: tracked_nodeu !< unreduced node numbers ever set, in first-set order, no duplicates
+    type(STLVecInt) :: tracked_nodeu !< user nodes given in any PERIOD block
+    character(len=LENVARNAME), dimension(:), allocatable :: fieldnames !< input fields, in the order they are applied
+    type(IdmParamMetaViewType) :: input_meta !< input loading information of the fields
+    integer(I4B) :: changed_kper = -1 !< stress period of the last change
+    integer(I4B) :: changed_kstp = -1 !< time step of the last change
   contains
     procedure :: init
     procedure :: ar
@@ -35,8 +40,8 @@ module TvBaseModule
     procedure :: ad
     procedure :: da => tvbase_da
     procedure, private :: tvbase_allocate_scalars
-    procedure, private :: sync_node_changes
     procedure, private :: cellid_to_nodeu
+    procedure, private :: apply_written
     procedure(ar_set_pointers), deferred :: ar_set_pointers
     procedure :: source_options => tvbase_source_options
     procedure :: source_package_options => tvbase_source_package_options
@@ -61,22 +66,19 @@ module TvBaseModule
       class(TvBaseType) :: this
     end subroutine
 
-    !> @brief Apply this node's current input value(s) to the model
-    !! property array(s).
+    !> @brief Apply the selected input values at a node
     !!
-    !! Called for every tracked node; each field's own DNODATA check
-    !! determines whether there is anything to do. node may be invalid
-    !! even when a field has a value at nodeu, so each live-field branch
-    !! must validate node itself before using it.
+    !! node may be invalid; each selected field checks it.
     !<
-    subroutine apply_row_changes(this, nodeu, node)
+    subroutine apply_row_changes(this, nodeu, node, fields)
       ! -- modules
-      use KindModule, only: I4B
+      use KindModule, only: I4B, LGP
       import TvBaseType
       ! -- dummy
       class(TvBaseType) :: this
       integer(I4B), intent(in) :: nodeu !< unreduced node number, indexes the permanent input arrays
-      integer(I4B), intent(in) :: node !< reduced node number; may be invalid, see above
+      integer(I4B), intent(in) :: node !< reduced node number
+      logical(LGP), dimension(:), intent(in) :: fields !< fields to apply, in fieldnames order
     end subroutine
 
     !> @brief Mark property changes as having occurred at (kper, kstp)
@@ -96,9 +98,7 @@ module TvBaseModule
 
     !> @brief Clear all per-node change flags
     !!
-    !! Deferred procedure called by the TvBaseType code when a new time step
-    !! commences, indicating that any previously set per-node property value
-    !! change flags should be reset.
+    !! Called at the first input value change in a time step.
     !<
     subroutine reset_change_flags(this)
       ! -- modules
@@ -172,7 +172,6 @@ contains
     ! -- dummy
     class(TvBaseType) :: this
     ! -- locals
-    integer(I4B) :: isize
     logical(LGP) :: found_print_input
     !
     write (this%iout, '(1x,a)') &
@@ -184,9 +183,6 @@ contains
     if (found_print_input) then
       write (this%iout, '(4x,a)') 'TIME-VARYING INPUT WILL BE PRINTED.'
     end if
-    !
-    call get_isize('TS6_FILENAME', this%input_mempath, isize)
-    if (isize > 0) this%ts_active = .true.
     !
     ! -- source package-specific options
     call this%source_package_options()
@@ -222,13 +218,21 @@ contains
     ! -- set input mempath pointers
     call mem_setptr(this%cellid, 'CELLID', this%input_mempath)
     call this%tracked_nodeu%init()
+    if (allocated(this%fieldnames)) then
+      call this%input_meta%init(this%fieldnames, this%input_mempath)
+    else
+      call store_error('Input fields not set for '// &
+                       trim(adjustl(this%packName))//'.')
+    end if
     !
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
   end subroutine ar
 
-  !> @brief Read and prepare stress period data for the package.
+  !> @brief Apply the values given in this period's PERIOD block
+  !!
+  !! Records the cells given, so ad does not scan the full grid.
   !<
   subroutine rp(this)
     ! -- dummy
@@ -241,9 +245,7 @@ contains
     call mem_setptr(iper, 'IPER', this%input_mempath)
     if (iper /= kper) return
     !
-    ! -- record every node newly addressed by this period's own rows in
-    ! -- tracked_nodeu, so sync_node_changes never has to scan the full
-    ! -- node space to find which nodes have a live tracked value
+    ! -- track the given cells
     call mem_setptr(nbound, 'NBOUND', this%input_mempath)
     if (nbound > 0) then
       nodeu_count = product(this%dis%mshape)
@@ -259,48 +261,58 @@ contains
       end do
     end if
     !
-    ! -- When timeseries are active, ad applies values at every time step
-    if (this%ts_active) return
+    if (count_errors() > 0) then
+      call store_error_filename(this%input_fname)
+    end if
     !
-    call this%sync_node_changes()
+    call this%apply_written(RS_VALUES)
   end subroutine rp
 
-  !> @brief Apply advanced values at each time step.
+  !> @brief Apply the values written by time series in this time step
   !<
   subroutine ad(this)
     ! -- dummy
     class(TvBaseType) :: this
     !
-    ! -- no-op when timeseries aren't active.
-    if (.not. this%ts_active) return
-    !
-    call this%sync_node_changes()
+    call this%apply_written(RS_SERIES)
   end subroutine ad
 
-  !> @brief Sync every tracked node's current input value into the model
-  !! property array(s) it belongs to (e.g. NPF's K11).
+  !> @brief Apply the values written in this time step in the given way
+  !!
+  !! rs is RS_VALUES (given in a PERIOD block) or RS_SERIES (written by a
+  !! time series). Other values keep their last setting. Change flags are
+  !! reset at the first change in a time step, so they hold the changes
+  !! from both rp and ad, and an ATS retry of the time step keeps them.
   !<
-  subroutine sync_node_changes(this)
+  subroutine apply_written(this, rs)
     ! -- dummy
     class(TvBaseType) :: this
+    integer(I4B), intent(in) :: rs !< read state of the writes to apply
     ! -- local variables
-    integer(I4B) :: i, nodeu, node
+    logical(LGP), dimension(size(this%fieldnames)) :: fields
+    integer(I4B) :: i, j, nodeu, node
     !
-    if (this%tracked_nodeu%size <= 0) return
-    !
-    call this%set_changed_at(kper, kstp)
-    call this%reset_change_flags()
-    !
+    call this%input_meta%update()
     do i = 1, this%tracked_nodeu%size
       nodeu = this%tracked_nodeu%at(i)
+      do j = 1, size(this%fieldnames)
+        fields(j) = this%input_meta%is_written(j, nodeu, rs)
+      end do
+      if (.not. any(fields)) cycle
+      if (this%changed_kper /= kper .or. this%changed_kstp /= kstp) then
+        call this%set_changed_at(kper, kstp)
+        call this%reset_change_flags()
+        this%changed_kper = kper
+        this%changed_kstp = kstp
+      end if
       node = this%dis%get_nodenumber(nodeu, 1)
-      call this%apply_row_changes(nodeu, node)
+      call this%apply_row_changes(nodeu, node, fields)
     end do
     !
     if (count_errors() > 0) then
       call store_error_filename(this%input_fname)
     end if
-  end subroutine sync_node_changes
+  end subroutine apply_written
 
   !> @brief Return the unreduced node number for CELLID row n.
   !<
@@ -337,6 +349,8 @@ contains
     class(TvBaseType) :: this
     !
     nullify (this%cellid)
+    call this%input_meta%destroy()
+    if (allocated(this%fieldnames)) deallocate (this%fieldnames)
     call this%tracked_nodeu%destroy()
     call this%NumericalPackageType%da()
   end subroutine tvbase_da
