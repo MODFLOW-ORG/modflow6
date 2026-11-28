@@ -1,0 +1,3 @@
+section = "fixes"
+subsection = "model"
+description = "A particle tracked with the ternary method exactly along an internal edge between triangular subcells, for instance one released on a line of symmetry in the flow field, could be terminated with status 9 (no exit from the subcell). The particle reaches a subcell face only at a corner, and roundoff could place the exit just past it, so no face found an exit. Such a particle now exits at the corner."
