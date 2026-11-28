@@ -91,7 +91,53 @@ contains
       betexit = betexit2
       itrifaceexit = 3
     end if
-    if (texit .eq. huge(1d0)) itrifaceexit = 0
+    if (texit .eq. huge(1d0)) then
+      itrifaceexit = 0
+      call exit_at_vertex(beti, texit, alpexit, betexit, itrifaceexit)
+    end if
+
+  end subroutine
+
+  !> @brief Exit at a vertex when no face finds an exit
+  !!
+  !! A trajectory that leaves the triangle crosses a face. When none
+  !! reports a crossing, roundoff has put the crossing just past a vertex,
+  !! where two faces meet. Beta is monotone along the trajectory, so if it
+  !! reaches 0 the particle exits through face 0 (beta = 0) at that time,
+  !! at the nearer end of it, and if it reaches 1 it exits at vertex 2
+  !! (beta = 1). If beta reaches neither, the particle approaches a
+  !! stagnation point and no exit is set.
+  !<
+  subroutine exit_at_vertex(beti, texit, alpexit, betexit, itrifaceexit)
+    ! dummy
+    real(DP), intent(in) :: beti
+    real(DP), intent(inout) :: texit
+    real(DP), intent(inout) :: alpexit
+    real(DP), intent(inout) :: betexit
+    integer(I4B), intent(inout) :: itrifaceexit
+    ! local
+    real(DP) :: betsollo
+    real(DP) :: betsolhi
+    real(DP) :: t
+    real(DP) :: alpt
+    integer(I4B) :: ibettrend
+
+    call get_bet_soln_limits(beti, betsollo, betsolhi, ibettrend)
+    if (ibettrend .lt. 0 .and. betsollo .lt. DZERO) then
+      call get_t_alpt(DZERO, t, alpt)
+      if (t .le. DZERO) return
+      texit = t
+      alpexit = min(max(alpt, DZERO), DONE)
+      betexit = DZERO
+      itrifaceexit = 1
+    else if (ibettrend .gt. 0 .and. betsolhi .gt. DONE) then
+      call get_t_alpt(DONE, t, alpt)
+      if (t .le. DZERO) return
+      texit = t
+      alpexit = DZERO
+      betexit = DONE
+      itrifaceexit = 2
+    end if
 
   end subroutine
 
