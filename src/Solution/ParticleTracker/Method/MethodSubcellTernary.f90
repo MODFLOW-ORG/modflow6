@@ -443,6 +443,7 @@ contains
         dt = -x / v1
         itopbotexit = -1
       end if
+      if (dt < DZERO) dt = DZERO
       dvdx = DZERO
       status = OK_EXIT_CONSTANT
       return
@@ -450,8 +451,16 @@ contains
 
     ! Velocity has a linear variation.
     ! Compute velocity corresponding to particle position
+    ! Take the face velocity exactly if the particle is on a face,
+    ! rather than rely on the interpolation reproducing it.
     dvdx = dv / dx
-    v = (DONE - xL) * v1 + xL * v2
+    if (xL <= DZERO) then
+      v = v1
+    else if (xL >= DONE) then
+      v = v2
+    else
+      v = (DONE - xL) * v1 + xL * v2
+    end if
 
     ! If flow is into the cell from both sides there is no outflow.
     ! In that case, set status = 3 and return
@@ -502,7 +511,12 @@ contains
     end if
 
     ! Compute travel time to exit face. Return with status = 0
-    dt = log(abs(vr)) / dvdx
+    ! A particle on the face it's moving towards exits immediately.
+    if ((xL <= DZERO .and. v < DZERO) .or. (xL >= DONE .and. v > DZERO)) then
+      dt = DZERO
+    else
+      dt = max(log(abs(vr)) / dvdx, DZERO)
+    end if
     status = OK_EXIT
   end subroutine calculate_dt
 
