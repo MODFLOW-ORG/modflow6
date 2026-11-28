@@ -1,15 +1,6 @@
 """
 Particles released on the face they exit through should exit at exactly
-the release time. The travel time to the exit face, log(v_exit / v) / (dv/dx),
-is zero there only if v equals the face velocity exactly, which value-unsafe
-floating point optimizations (e.g. ifx defaults, gfortran -ffast-math) can
-break, giving a tiny or negative travel time. Under standard IEEE arithmetic
-the test passes regardless.
-
-Particles are released at the face midpoints of interior cells in a
-heterogeneous flow field, with a tracking time at the release time. Check
-that no event is at a negative time, every particle reports the tracking
-time, and exits within roundoff of release are at exactly 0.
+the release time.
 """
 
 from pathlib import Path
