@@ -1,22 +1,12 @@
 """
 Particles tracked with the ternary method along internal subcell edges.
 
-The ternary method splits each cell into triangular subcells sharing the
-cell center. On a uniform grid with a CHD in opposite corners, flow runs
-along the grid's diagonal (x + y = 10), so a particle released on it, e.g.
-at a cell center, travels exactly along the internal edge between two
-subcells, from the cell center to the cell corner.
-
-The exit point at the corner could land just beyond the end of the cell
-face due to roundoff, and the adjacent (internal) subcell face, along
-which the normal velocity is zero, reports no exit either. The particle
-was then terminated with status 9 (no exit from the subcell), typically
-when restarting at the beginning of a later time step.
-
-Particles are released at each interior cell center along the diagonal
-and at points along the internal edges, with several time steps, so the
-solution restarts at varying positions along each edge. Each particle
-should travel to the CHD cell in the bottom right corner.
+On a uniform grid with a CHD in opposite corners, flow runs along the
+diagonal, so particles released on it travel exactly along the internal
+edges between triangular subcells, reaching subcell faces only at corners.
+Particles start at cell centers and along the edges, over several time
+steps, and each should travel to the CHD cell in the bottom right corner
+without being terminated in a subcell with no exit face.
 """
 
 from pathlib import Path
